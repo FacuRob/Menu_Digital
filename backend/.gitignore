@@ -1,0 +1,78 @@
+# Archivos de entorno - INFORMACIÓN SENSIBLE
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*.local
+
+# Dependencias de Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Archivos de logs
+logs/
+*.log
+
+# Archivos de sistema operativo
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Archivos de IDE y editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Archivos de cobertura de pruebas
+coverage/
+*.lcov
+.nyc_output/
+
+# Archivos de build y distribución
+dist/
+build/
+*.tgz
+
+# Archivos temporales
+tmp/
+temp/
+*.tmp
+
+# Archivos de base de datos locales
+*.sqlite
+*.sqlite3
+*.db
+
+# Archivos de backup
+*.bak
+*.backup
+*.old
+
+# Certificados y claves
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+
+# Otros archivos sensibles
+secrets/
+credentials/
+.secrets

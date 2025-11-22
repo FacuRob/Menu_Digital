@@ -1,0 +1,31 @@
+databases:
+  - name: menu-digital-db
+    databaseName: menu_digital
+    user: menu_user
+
+services:
+  # Backend API
+  - type: web
+    name: menu-digital-backend
+    env: node
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: menu-digital-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: NODE_ENV
+        value: production
+
+  # Frontend
+  - type: web
+    name: menu-digital-frontend
+    env: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://menu-digital-backend.onrender.com
