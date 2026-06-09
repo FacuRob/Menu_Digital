@@ -1,189 +1,395 @@
-import { useState, useEffect } from 'react';
-import { productosService, categoriasService, type Producto, type Categoria } from '../services/api';
+import { useState, useEffect, useRef } from "react";
+import {
+  productosService,
+  categoriasService,
+  type Producto,
+  type Categoria,
+} from "../services/api";
 
 const Menu = () => {
-    const [productos, setProductos] = useState<Producto[]>([]);
-    const [categorias, setCategorias] = useState<Categoria[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [selectedCategoria, setSelectedCategoria] = useState<number | null>(null);
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<number | null>(null);
+  const filterRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        fetchData();
-    }, []);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-            const [productosData, categoriasData] = await Promise.all([
-                productosService.getDisponibles(),
-                categoriasService.getActivas(),
-            ]);
-            setProductos(productosData);
-            setCategorias(categoriasData);
-        } catch (error) {
-            console.error('Error al cargar el menú:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const formatPrice = (price: number) => {
-        return new Intl.NumberFormat('es-AR', {
-            style: 'currency',
-            currency: 'ARS',
-        }).format(price);
-    };
-
-    // Agrupar productos por categoría
-    const productosPorCategoria = categorias.map((categoria) => ({
-        categoria,
-        productos: productos.filter((p) => p.categoria_id === categoria.id),
-    }));
-
-    // Filtrar por categoría seleccionada
-    const categoriasFiltradas = selectedCategoria
-        ? productosPorCategoria.filter((pc) => pc.categoria.id === selectedCategoria)
-        : productosPorCategoria;
-
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-red-50">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-orange-500 mx-auto mb-4"></div>
-                    <p className="text-gray-600 text-lg">Cargando menú...</p>
-                </div>
-            </div>
-        );
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [p, c] = await Promise.all([
+        productosService.getDisponibles(),
+        categoriasService.getActivas(),
+      ]);
+      setProductos(p);
+      setCategorias(c);
+    } catch (e) {
+      console.error("Error al cargar el menú:", e);
+    } finally {
+      setLoading(false);
     }
+  };
 
+  const fmt = (n: number) =>
+    new Intl.NumberFormat("es-AR", {
+      style: "currency",
+      currency: "ARS",
+      maximumFractionDigits: 0,
+    }).format(n);
+
+  const porCategoria = categorias.map((cat) => ({
+    cat,
+    prods: productos.filter((p) => p.categoria_id === cat.id),
+  }));
+
+  const visible = selected
+    ? porCategoria.filter((pc) => pc.cat.id === selected)
+    : porCategoria;
+
+  const scrollTo = (id: number | null) => {
+    setSelected(id);
+    // scroll the active filter chip into view horizontally
+    if (filterRef.current) {
+      const btn = filterRef.current.querySelector(
+        `[data-id="${id ?? "all"}"]`,
+      ) as HTMLElement;
+      btn?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    }
+  };
+
+  if (loading) {
     return (
-        <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50">
-            {/* Header */}
-            <header className="bg-white shadow-md sticky top-0 z-10">
-                <div className="max-w-4xl mx-auto px-4 py-6">
-                    <div className="text-center">
-                        <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                            🍽️ Nuestro Menú
-                        </h1>
-                        <p className="text-gray-600">Descubre estos platos culinarios</p>
-                    </div>
-                </div>
-
-                {/* Filtros de Categorías */}
-                {categorias.length > 0 && (
-                    <div className="border-t border-gray-200 bg-white">
-                        <div className="max-w-4xl mx-auto px-4 py-4">
-                            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                                <button
-                                    onClick={() => setSelectedCategoria(null)}
-                                    className={`px-4 py-2 rounded-full font-medium whitespace-nowrap transition-all ${selectedCategoria === null
-                                        ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                        }`}
-                                >
-                                    Todas
-                                </button>
-                                {categorias.map((categoria) => (
-                                    <button
-                                        key={categoria.id}
-                                        onClick={() => setSelectedCategoria(categoria.id)}
-                                        className={`px-4 py-2 rounded-full font-medium whitespace-nowrap transition-all ${selectedCategoria === categoria.id
-                                            ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                            }`}
-                                    >
-                                        {categoria.nombre}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </header>
-
-            {/* Contenido Principal */}
-            <main className="max-w-4xl mx-auto px-4 py-8">
-                {categoriasFiltradas.length === 0 ? (
-                    <div className="text-center py-16">
-                        <p className="text-gray-600 text-lg">No hay productos disponibles en este momento</p>
-                    </div>
-                ) : (
-                    <div className="space-y-12">
-                        {categoriasFiltradas.map(({ categoria, productos: prods }) => {
-                            if (prods.length === 0) return null;
-
-                            return (
-                                <section key={categoria.id} className="space-y-6">
-                                    {/* Título de Categoría */}
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex-1 h-px bg-gradient-to-r from-orange-200 to-red-200"></div>
-                                        <h2 className="text-3xl font-bold text-gray-800 px-4">
-                                            {categoria.nombre}
-                                        </h2>
-                                        <div className="flex-1 h-px bg-gradient-to-l from-orange-200 to-red-200"></div>
-                                    </div>
-
-                                    {/* Grid de Productos */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {prods.map((producto) => (
-                                            <div
-                                                key={producto.id}
-                                                className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
-                                            >
-                                                {/* Imagen del producto (si existe) */}
-                                                {producto.imagen_url && (
-                                                    <div className="h-48 bg-gray-200 overflow-hidden">
-                                                        <img
-                                                            src={producto.imagen_url}
-                                                            alt={producto.nombre}
-                                                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                                                            onError={(e) => {
-                                                                (e.target as HTMLImageElement).style.display = 'none';
-                                                            }}
-                                                        />
-                                                    </div>
-                                                )}
-
-                                                {/* Contenido */}
-                                                <div className="p-6">
-                                                    <div className="flex justify-between items-start mb-3">
-                                                        <h3 className="text-xl font-bold text-gray-900 flex-1">
-                                                            {producto.nombre}
-                                                        </h3>
-                                                        <span className="text-2xl font-bold text-orange-600 ml-3">
-                                                            {formatPrice(producto.precio)}
-                                                        </span>
-                                                    </div>
-
-                                                    {producto.descripcion && (
-                                                        <p className="text-gray-600 text-sm leading-relaxed">
-                                                            {producto.descripcion}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </section>
-                            );
-                        })}
-                    </div>
-                )}
-            </main>
-
-            {/* Footer */}
-            <footer className="bg-white border-t border-gray-200 mt-16">
-                <div className="max-w-4xl mx-auto px-4 py-8 text-center">
-                    <p className="text-gray-600">
-                        ¿Alguna duda? Consultá con nuestro personal
-                    </p>
-                    <p className="text-sm text-gray-400 mt-2">
-                        Menú Digital - Todos los precios incluyen IVA
-                    </p>
-                </div>
-            </footer>
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#fef9f5",
+          fontFamily: "'Inter',system-ui,sans-serif",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 48,
+            marginBottom: 16,
+            animation: "pulse 1.4s ease-in-out infinite",
+          }}
+        >
+          🍽️
         </div>
+        <p style={{ color: "#9ca3af", fontSize: 15 }}>Cargando el menú...</p>
+        <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
+      </div>
     );
+  }
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#fef9f5",
+        fontFamily: "'Inter',system-ui,sans-serif",
+      }}
+    >
+      {/* ── Header ── */}
+      <header
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 30,
+          background: "rgba(255,249,245,0.92)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          borderBottom: "1px solid rgba(0,0,0,0.06)",
+        }}
+      >
+        {/* Brand */}
+        <div
+          style={{
+            maxWidth: 680,
+            margin: "0 auto",
+            padding: "16px 16px 12px",
+            textAlign: "center",
+          }}
+        >
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 26 }}>🍽️</span>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 22,
+                fontWeight: 700,
+                color: "#1c1917",
+                letterSpacing: "-0.5px",
+              }}
+            >
+              Nuestro Menú
+            </h1>
+          </div>
+          <p style={{ margin: "2px 0 0", fontSize: 13, color: "#9ca3af" }}>
+            Descubrí nuestros platos del día
+          </p>
+        </div>
+
+        {/* Filtros */}
+        {categorias.length > 0 && (
+          <div
+            ref={filterRef}
+            style={{
+              display: "flex",
+              gap: 8,
+              padding: "0 16px 12px",
+              overflowX: "auto",
+              scrollbarWidth: "none",
+              maxWidth: 680,
+              margin: "0 auto",
+            }}
+          >
+            <style>{`::-webkit-scrollbar{display:none}`}</style>
+
+            {[
+              { id: null, nombre: "Todos" },
+              ...categorias.map((c) => ({ id: c.id, nombre: c.nombre })),
+            ].map((item) => {
+              const active = selected === item.id;
+              return (
+                <button
+                  key={item.id ?? "all"}
+                  data-id={item.id ?? "all"}
+                  onClick={() => scrollTo(item.id)}
+                  style={{
+                    flexShrink: 0,
+                    padding: "7px 16px",
+                    borderRadius: 999,
+                    border: active ? "none" : "1.5px solid #e5e7eb",
+                    background: active ? "#f97316" : "#fff",
+                    color: active ? "#fff" : "#6b7280",
+                    fontSize: 13,
+                    fontWeight: active ? 600 : 400,
+                    cursor: "pointer",
+                    transition: "all 0.18s",
+                    boxShadow: active
+                      ? "0 2px 12px rgba(249,115,22,0.3)"
+                      : "none",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {item.nombre}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </header>
+
+      {/* ── Contenido ── */}
+      <main
+        style={{ maxWidth: 680, margin: "0 auto", padding: "20px 16px 60px" }}
+      >
+        {visible.every((pc) => pc.prods.length === 0) ? (
+          <div
+            style={{ textAlign: "center", padding: "80px 0", color: "#9ca3af" }}
+          >
+            <div style={{ fontSize: 48, marginBottom: 12 }}>😔</div>
+            <p style={{ fontSize: 16 }}>
+              No hay productos disponibles en este momento
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
+            {visible.map(({ cat, prods }) => {
+              if (prods.length === 0) return null;
+              return (
+                <section key={cat.id}>
+                  {/* Título categoría */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      marginBottom: 16,
+                    }}
+                  >
+                    <div
+                      style={{
+                        flex: 1,
+                        height: 1,
+                        background:
+                          "linear-gradient(to right,#fed7aa,transparent)",
+                      }}
+                    />
+                    <h2
+                      style={{
+                        margin: 0,
+                        fontSize: 17,
+                        fontWeight: 700,
+                        color: "#1c1917",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {cat.nombre}
+                    </h2>
+                    <div
+                      style={{
+                        flex: 1,
+                        height: 1,
+                        background:
+                          "linear-gradient(to left,#fed7aa,transparent)",
+                      }}
+                    />
+                  </div>
+
+                  {/* Grid */}
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(auto-fill,minmax(min(100%,280px),1fr))",
+                      gap: 14,
+                    }}
+                  >
+                    {prods.map((prod) => (
+                      <ProductCard key={prod.id} prod={prod} fmt={fmt} />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        )}
+      </main>
+
+      {/* ── Footer ── */}
+      <footer
+        style={{
+          borderTop: "1px solid #f3f4f6",
+          background: "#fff",
+          padding: "20px 16px",
+          textAlign: "center",
+        }}
+      >
+        <p style={{ margin: 0, fontSize: 13, color: "#9ca3af" }}>
+          ¿Alguna duda? Consultá con nuestro personal
+        </p>
+        <p style={{ margin: "4px 0 0", fontSize: 12, color: "#d1d5db" }}>
+          Todos los precios incluyen IVA
+        </p>
+      </footer>
+    </div>
+  );
+};
+
+// Componente de card de producto separado para hover limpio
+const ProductCard = ({
+  prod,
+  fmt,
+}: {
+  prod: Producto;
+  fmt: (n: number) => string;
+}) => {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: "#fff",
+        borderRadius: 16,
+        border: "1px solid #f3f4f6",
+        overflow: "hidden",
+        transition: "box-shadow 0.2s, transform 0.2s",
+        boxShadow: hovered
+          ? "0 8px 32px rgba(0,0,0,0.10)"
+          : "0 1px 4px rgba(0,0,0,0.05)",
+        transform: hovered ? "translateY(-2px)" : "none",
+        cursor: "default",
+      }}
+    >
+      {/* Imagen */}
+      {prod.imagen_url && (
+        <div style={{ height: 170, overflow: "hidden", background: "#f9fafb" }}>
+          <img
+            src={prod.imagen_url}
+            alt={prod.nombre}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              transition: "transform 0.35s",
+              transform: hovered ? "scale(1.04)" : "scale(1)",
+            }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).parentElement!.style.display =
+                "none";
+            }}
+          />
+        </div>
+      )}
+
+      {/* Contenido */}
+      <div style={{ padding: "14px 16px 16px" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 8,
+            marginBottom: 6,
+          }}
+        >
+          <h3
+            style={{
+              margin: 0,
+              fontSize: 15,
+              fontWeight: 700,
+              color: "#1c1917",
+              lineHeight: 1.3,
+              flex: 1,
+            }}
+          >
+            {prod.nombre}
+          </h3>
+          <span
+            style={{
+              flexShrink: 0,
+              fontSize: 15,
+              fontWeight: 700,
+              color: "#f97316",
+              background: "#fff7ed",
+              padding: "3px 9px",
+              borderRadius: 999,
+              border: "1px solid #fed7aa",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {fmt(prod.precio)}
+          </span>
+        </div>
+        {prod.descripcion && (
+          <p
+            style={{
+              margin: 0,
+              fontSize: 13,
+              color: "#6b7280",
+              lineHeight: 1.55,
+            }}
+          >
+            {prod.descripcion}
+          </p>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default Menu;

@@ -1,393 +1,776 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { productosService, categoriasService, type Producto, type Categoria } from '../../services/api';
-import { useAuth } from '../../context/AuthContext';
+import { useState, useEffect, useRef } from "react";
+import {
+  productosService,
+  categoriasService,
+  uploadService,
+  type Producto,
+  type Categoria,
+} from "../../services/api";
+import AdminLayout from "../../components/AdminLayout";
+import { S } from "../../components/sharedStyles";
 
-const Productos = () => {
-    const [productos, setProductos] = useState<Producto[]>([]);
-    const [categorias, setCategorias] = useState<Categoria[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [showModal, setShowModal] = useState(false);
-    const [editingProducto, setEditingProducto] = useState<Producto | null>(null);
-    const [formData, setFormData] = useState({
-        nombre: '',
-        descripcion: '',
-        precio: 0,
-        imagen_url: '',
-        categoria_id: 0,
-        disponible: true,
-        orden: 0,
-    });
+const PlusIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2.2}
+    style={{ width: 14, height: 14 }}
+  >
+    <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+  </svg>
+);
+const CloseIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    style={{ width: 16, height: 16 }}
+  >
+    <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" />
+  </svg>
+);
 
-    const navigate = useNavigate();
-    const { logout } = useAuth();
+export default function Productos() {
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState<Producto | null>(null);
+  const [form, setForm] = useState({
+    nombre: "",
+    descripcion: "",
+    precio: 0,
+    imagen_url: "",
+    categoria_id: 0,
+    disponible: true,
+    orden: 0,
+  });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [filter, setFilter] = useState<number | "all">("all");
+  const fileRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-            const [productosData, categoriasData] = await Promise.all([
-                productosService.getAll(),
-                categoriasService.getAll(),
-            ]);
-            setProductos(productosData);
-            setCategorias(categoriasData);
-        } catch (error) {
-            console.error('Error al cargar datos:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleOpenModal = (producto?: Producto) => {
-        if (producto) {
-            setEditingProducto(producto);
-            setFormData({
-                nombre: producto.nombre,
-                descripcion: producto.descripcion,
-                precio: producto.precio,
-                imagen_url: producto.imagen_url || '',
-                categoria_id: producto.categoria_id,
-                disponible: producto.disponible,
-                orden: producto.orden,
-            });
-        } else {
-            setEditingProducto(null);
-            setFormData({
-                nombre: '',
-                descripcion: '',
-                precio: 0,
-                imagen_url: '',
-                categoria_id: categorias.length > 0 ? categorias[0].id : 0,
-                disponible: true,
-                orden: productos.length + 1,
-            });
-        }
-        setShowModal(true);
-    };
-
-    const handleCloseModal = () => {
-        setShowModal(false);
-        setEditingProducto(null);
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        try {
-            const dataToSend = {
-                ...formData,
-                imagen_url: formData.imagen_url || null,
-            };
-
-            if (editingProducto) {
-                await productosService.update(editingProducto.id, dataToSend);
-            } else {
-                await productosService.create(dataToSend);
-            }
-            fetchData();
-            handleCloseModal();
-        } catch (error) {
-            console.error('Error al guardar producto:', error);
-            alert('Error al guardar el producto');
-        }
-    };
-
-    const handleDelete = async (id: number) => {
-        if (window.confirm('¿Estás seguro de eliminar este producto?')) {
-            try {
-                await productosService.delete(id);
-                fetchData();
-            } catch (error) {
-                console.error('Error al eliminar producto:', error);
-                alert('Error al eliminar el producto');
-            }
-        }
-    };
-
-    const handleLogout = () => {
-        logout();
-        navigate('/admin/login');
-    };
-
-    const formatPrice = (price: number) => {
-        return new Intl.NumberFormat('es-AR', {
-            style: 'currency',
-            currency: 'ARS',
-        }).format(price);
-    };
-
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-100">
-                <p className="text-xl text-gray-600">Cargando...</p>
-            </div>
-        );
+  useEffect(() => {
+    fetch_();
+  }, []);
+  const fetch_ = async () => {
+    try {
+      setLoading(true);
+      const [p, c] = await Promise.all([
+        productosService.getAll(),
+        categoriasService.getAll(),
+      ]);
+      setProductos(p);
+      setCategorias(c);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    return (
-        <div className="min-h-screen bg-gray-100">
-            {/* Header */}
-            <header className="bg-white shadow">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-                    <h1 className="text-2xl font-bold text-gray-900">🍕 Gestión de Productos</h1>
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => navigate('/admin/dashboard')}
-                            className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors"
-                        >
-                            ← Volver
-                        </button>
-                        <button
-                            onClick={handleLogout}
-                            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors"
-                        >
-                            Cerrar Sesión
-                        </button>
-                    </div>
-                </div>
-            </header>
-
-            {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {/* Botón Agregar */}
-                <div className="mb-6">
-                    <button
-                        onClick={() => handleOpenModal()}
-                        className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all font-semibold shadow-md"
-                    >
-                        ➕ Nuevo Producto
-                    </button>
-                </div>
-
-                {/* Tabla */}
-                {productos.length === 0 ? (
-                    <div className="bg-white rounded-lg shadow p-12 text-center">
-                        <p className="text-gray-600 text-lg">No hay productos creados</p>
-                        <p className="text-gray-400 mt-2">Crea tu primer producto para comenzar</p>
-                    </div>
-                ) : (
-                    <div className="bg-white rounded-lg shadow overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Producto
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Categoría
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Precio
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Estado
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Orden
-                                        </th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Acciones
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {productos.map((producto) => (
-                                        <tr key={producto.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center">
-                                                    <div>
-                                                        <div className="text-sm font-medium text-gray-900">{producto.nombre}</div>
-                                                        <div className="text-sm text-gray-500 line-clamp-1">{producto.descripcion}</div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm text-gray-900">{producto.categoria_nombre}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm font-semibold text-gray-900">{formatPrice(producto.precio)}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span
-                                                    className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${producto.disponible
-                                                        ? 'bg-green-100 text-green-800'
-                                                        : 'bg-red-100 text-red-800'
-                                                        }`}
-                                                >
-                                                    {producto.disponible ? 'Disponible' : 'No disponible'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm text-gray-500">{producto.orden}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <button
-                                                    onClick={() => handleOpenModal(producto)}
-                                                    className="text-indigo-600 hover:text-indigo-900 mr-4"
-                                                >
-                                                    ✏️ Editar
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(producto.id)}
-                                                    className="text-red-600 hover:text-red-900"
-                                                >
-                                                    🗑️ Eliminar
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-            </main>
-
-            {/* Modal */}
-            {showModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-                    <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 my-8">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-2xl font-bold text-gray-800">
-                                {editingProducto ? '✏️ Editar Producto' : '➕ Nuevo Producto'}
-                            </h2>
-                            <button
-                                onClick={handleCloseModal}
-                                className="text-gray-500 hover:text-gray-700 text-2xl"
-                            >
-                                ✕
-                            </button>
-                        </div>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Nombre del Producto
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.nombre}
-                                        onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                                        required
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
-                                        placeholder="Ej: Milanesa Napolitana"
-                                    />
-                                </div>
-
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Descripción
-                                    </label>
-                                    <textarea
-                                        value={formData.descripcion}
-                                        onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                                        rows={3}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
-                                        placeholder="Describe el producto..."
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Precio
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        value={formData.precio}
-                                        onChange={(e) => setFormData({ ...formData, precio: parseFloat(e.target.value) || 0 })}
-                                        required
-                                        min="0"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Categoría
-                                    </label>
-                                    <select
-                                        value={formData.categoria_id}
-                                        onChange={(e) => setFormData({ ...formData, categoria_id: parseInt(e.target.value) })}
-                                        required
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
-                                    >
-                                        {categorias.map((categoria) => (
-                                            <option key={categoria.id} value={categoria.id}>
-                                                {categoria.nombre}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        URL de Imagen (opcional)
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.imagen_url}
-                                        onChange={(e) => setFormData({ ...formData, imagen_url: e.target.value })}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
-                                        placeholder="https://ejemplo.com/imagen.jpg"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Orden
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={formData.orden}
-                                        onChange={(e) => setFormData({ ...formData, orden: parseInt(e.target.value) || 0 })}
-                                        required
-                                        min="1"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
-                                    />
-                                </div>
-
-                                <div className="md:col-span-2">
-                                    <div className="flex items-center">
-                                        <input
-                                            type="checkbox"
-                                            id="disponible"
-                                            checked={formData.disponible}
-                                            onChange={(e) => setFormData({ ...formData, disponible: e.target.checked })}
-                                            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                                        />
-                                        <label htmlFor="disponible" className="ml-2 block text-sm text-gray-900">
-                                            Producto disponible (visible en el menú)
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex gap-3 mt-6 pt-4 border-t">
-                                <button
-                                    type="button"
-                                    onClick={handleCloseModal}
-                                    className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition-colors"
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all"
-                                >
-                                    {editingProducto ? 'Actualizar' : 'Crear'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-        </div>
+  const openModal = (p?: Producto) => {
+    setEditing(p || null);
+    setForm(
+      p
+        ? {
+            nombre: p.nombre,
+            descripcion: p.descripcion,
+            precio: p.precio,
+            imagen_url: p.imagen_url || "",
+            categoria_id: p.categoria_id,
+            disponible: p.disponible,
+            orden: p.orden,
+          }
+        : {
+            nombre: "",
+            descripcion: "",
+            precio: 0,
+            imagen_url: "",
+            categoria_id: categorias[0]?.id || 0,
+            disponible: true,
+            orden: productos.length + 1,
+          },
     );
-};
+    setImagePreview(p?.imagen_url || "");
+    setImageFile(null);
+    setUploadError("");
+    setShowModal(true);
+  };
+  const closeModal = () => {
+    setShowModal(false);
+    setEditing(null);
+    setImageFile(null);
+    setImagePreview("");
+    setUploadError("");
+  };
 
-export default Productos;
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadError("");
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setImagePreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const removeImage = () => {
+    setImageFile(null);
+    setImagePreview("");
+    setForm((p) => ({ ...p, imagen_url: "" }));
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setUploadError("");
+    try {
+      let url = form.imagen_url;
+      if (imageFile) {
+        setUploading(true);
+        try {
+          url = (await uploadService.uploadImagen(imageFile)).url;
+        } catch {
+          setUploadError("Error al subir la imagen. Intentá de nuevo.");
+          setSaving(false);
+          setUploading(false);
+          return;
+        } finally {
+          setUploading(false);
+        }
+      }
+      const data = { ...form, imagen_url: url || null };
+      editing
+        ? await productosService.update(editing.id, data)
+        : await productosService.create(data);
+      await fetch_();
+      closeModal();
+    } catch {
+      alert("Error al guardar");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const del = async (id: number) => {
+    if (!confirm("¿Eliminar este producto?")) return;
+    try {
+      await productosService.delete(id);
+      fetch_();
+    } catch {
+      alert("Error al eliminar");
+    }
+  };
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat("es-AR", {
+      style: "currency",
+      currency: "ARS",
+    }).format(n);
+  const filtered =
+    filter === "all"
+      ? productos
+      : productos.filter((p) => p.categoria_id === filter);
+
+  const inputFocus = (
+    e: React.FocusEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
+  ) => (e.target.style.borderColor = "#3b82f6");
+  const inputBlur = (
+    e: React.FocusEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
+  ) => (e.target.style.borderColor = "rgba(255,255,255,0.08)");
+
+  return (
+    <AdminLayout title="Productos">
+      {/* Toolbar */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+          flexWrap: "wrap",
+          marginBottom: 14,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ color: "#475569", fontSize: 12 }}>
+            {filtered.length} productos
+          </span>
+          <select
+            value={filter}
+            onChange={(e) =>
+              setFilter(
+                e.target.value === "all" ? "all" : Number(e.target.value),
+              )
+            }
+            style={{
+              ...S.input,
+              width: "auto",
+              padding: "6px 10px",
+              fontSize: 12,
+              cursor: "pointer",
+            }}
+            onFocus={inputFocus}
+            onBlur={inputBlur}
+          >
+            <option value="all">Todas las categorías</option>
+            {categorias.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          style={S.btnPrimary}
+          onClick={() => openModal()}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#2563eb")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "#3b82f6")}
+        >
+          <PlusIcon /> Nuevo producto
+        </button>
+      </div>
+
+      {/* Table */}
+      <div style={S.card}>
+        {loading ? (
+          <div
+            style={{ display: "flex", justifyContent: "center", padding: 48 }}
+          >
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                border: "2px solid #3b82f6",
+                borderTopColor: "transparent",
+                borderRadius: "50%",
+                animation: "spin 0.7s linear infinite",
+              }}
+            />
+          </div>
+        ) : filtered.length === 0 ? (
+          <div
+            style={{ textAlign: "center", padding: "48px 0", color: "#334155" }}
+          >
+            <div style={{ fontSize: 32, marginBottom: 8 }}>🍕</div>
+            <div style={{ fontSize: 14 }}>No hay productos todavía</div>
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead style={S.thead}>
+                <tr>
+                  {[
+                    "",
+                    "Producto",
+                    "Categoría",
+                    "Precio",
+                    "Estado",
+                    "Ord.",
+                    "Acciones",
+                  ].map((h) => (
+                    <th key={h} style={S.th}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((p) => (
+                  <tr
+                    key={p.id}
+                    style={S.tr}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background =
+                        "rgba(255,255,255,0.02)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
+                  >
+                    <td style={{ ...S.td, width: 44 }}>
+                      {p.imagen_url ? (
+                        <img
+                          src={p.imagen_url}
+                          alt={p.nombre}
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 8,
+                            objectFit: "cover",
+                            border: "1px solid rgba(255,255,255,0.06)",
+                          }}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display =
+                              "none";
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 8,
+                            background: "rgba(255,255,255,0.04)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 16,
+                          }}
+                        >
+                          🍽️
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ ...S.td, maxWidth: 200 }}>
+                      <div
+                        style={{
+                          color: "#e2e8f0",
+                          fontWeight: 500,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {p.nombre}
+                      </div>
+                      {p.descripcion && (
+                        <div
+                          style={{
+                            color: "#334155",
+                            fontSize: 11,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            marginTop: 2,
+                          }}
+                        >
+                          {p.descripcion}
+                        </div>
+                      )}
+                    </td>
+                    <td style={S.td}>
+                      <span
+                        style={{
+                          ...S.badgeBlue,
+                          background: "rgba(59,130,246,0.08)",
+                        }}
+                      >
+                        {p.categoria_nombre}
+                      </span>
+                    </td>
+                    <td
+                      style={{
+                        ...S.td,
+                        color: "#e2e8f0",
+                        fontWeight: 600,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {fmt(p.precio)}
+                    </td>
+                    <td style={S.td}>
+                      <span style={p.disponible ? S.badgeGreen : S.badgeRed}>
+                        <span
+                          style={{
+                            width: 5,
+                            height: 5,
+                            borderRadius: "50%",
+                            background: p.disponible ? "#10b981" : "#ef4444",
+                          }}
+                        />
+                        {p.disponible ? "Disponible" : "No disp."}
+                      </span>
+                    </td>
+                    <td style={S.tdMuted}>{p.orden}</td>
+                    <td style={S.td}>
+                      <div style={{ display: "flex", gap: 14 }}>
+                        <button
+                          onClick={() => openModal(p)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#60a5fa",
+                            fontSize: 13,
+                            cursor: "pointer",
+                            padding: 0,
+                          }}
+                        >
+                          Editar
+                        </button>
+                        <button onClick={() => del(p.id)} style={S.btnDanger}>
+                          Eliminar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Modal */}
+      {showModal && (
+        <div
+          style={{
+            ...S.overlay,
+            alignItems: "flex-start",
+            paddingTop: 20,
+            overflowY: "auto",
+          }}
+        >
+          <div style={{ ...S.modal, maxWidth: 560, marginBottom: 20 }}>
+            <div style={S.modalHeader}>
+              <span style={{ color: "#f1f5f9", fontWeight: 600, fontSize: 15 }}>
+                {editing ? "Editar producto" : "Nuevo producto"}
+              </span>
+              <button
+                onClick={closeModal}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#475569",
+                  display: "flex",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "#94a3b8")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "#475569")}
+              >
+                <CloseIcon />
+              </button>
+            </div>
+            <form onSubmit={submit}>
+              <div
+                style={{
+                  ...S.modalBody,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 14,
+                }}
+              >
+                {/* Nombre */}
+                <div>
+                  <label style={S.label}>Nombre *</label>
+                  <input
+                    style={S.input}
+                    required
+                    value={form.nombre}
+                    placeholder="Ej: Milanesa napolitana"
+                    onChange={(e) =>
+                      setForm({ ...form, nombre: e.target.value })
+                    }
+                    onFocus={inputFocus}
+                    onBlur={inputBlur}
+                  />
+                </div>
+
+                {/* Desc */}
+                <div>
+                  <label style={S.label}>Descripción</label>
+                  <textarea
+                    style={
+                      {
+                        ...S.input,
+                        resize: "none",
+                        height: 70,
+                        fontFamily: "inherit",
+                      } as React.CSSProperties
+                    }
+                    value={form.descripcion}
+                    placeholder="Descripción del producto..."
+                    onChange={(e) =>
+                      setForm({ ...form, descripcion: e.target.value })
+                    }
+                    onFocus={inputFocus as any}
+                    onBlur={inputBlur as any}
+                  />
+                </div>
+
+                {/* Precio + Categoría */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 12,
+                  }}
+                >
+                  <div>
+                    <label style={S.label}>Precio *</label>
+                    <input
+                      style={S.input}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      required
+                      value={form.precio}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          precio: parseFloat(e.target.value) || 0,
+                        })
+                      }
+                      onFocus={inputFocus}
+                      onBlur={inputBlur}
+                    />
+                  </div>
+                  <div>
+                    <label style={S.label}>Categoría *</label>
+                    <select
+                      style={{ ...S.input, cursor: "pointer" }}
+                      required
+                      value={form.categoria_id}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          categoria_id: parseInt(e.target.value),
+                        })
+                      }
+                      onFocus={inputFocus as any}
+                      onBlur={inputBlur as any}
+                    >
+                      {categorias.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Orden + Disponible */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 12,
+                    alignItems: "end",
+                  }}
+                >
+                  <div>
+                    <label style={S.label}>Orden</label>
+                    <input
+                      style={S.input}
+                      type="number"
+                      min="1"
+                      value={form.orden}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          orden: parseInt(e.target.value) || 0,
+                        })
+                      }
+                      onFocus={inputFocus}
+                      onBlur={inputBlur}
+                    />
+                  </div>
+                  <div style={{ paddingBottom: 2 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        cursor: "pointer",
+                      }}
+                      onClick={() =>
+                        setForm({ ...form, disponible: !form.disponible })
+                      }
+                    >
+                      <div
+                        style={{
+                          width: 38,
+                          height: 22,
+                          borderRadius: 11,
+                          background: form.disponible
+                            ? "#3b82f6"
+                            : "rgba(255,255,255,0.1)",
+                          position: "relative",
+                          transition: "background 0.2s",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: 3,
+                            left: form.disponible ? 18 : 3,
+                            width: 16,
+                            height: 16,
+                            borderRadius: "50%",
+                            background: "#fff",
+                            transition: "left 0.2s",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                          }}
+                        />
+                      </div>
+                      <span style={{ color: "#94a3b8", fontSize: 13 }}>
+                        Disponible
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Imagen */}
+                <div>
+                  <label style={S.label}>Imagen</label>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    {imagePreview && (
+                      <div style={{ position: "relative", flexShrink: 0 }}>
+                        <img
+                          src={imagePreview}
+                          alt="preview"
+                          style={{
+                            width: 72,
+                            height: 72,
+                            objectFit: "cover",
+                            borderRadius: 10,
+                            border: "1px solid rgba(255,255,255,0.08)",
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={removeImage}
+                          style={{
+                            position: "absolute",
+                            top: -6,
+                            right: -6,
+                            width: 18,
+                            height: 18,
+                            borderRadius: "50%",
+                            background: "#ef4444",
+                            border: "none",
+                            color: "#fff",
+                            fontSize: 10,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                    <div
+                      onClick={() => fileRef.current?.click()}
+                      style={{
+                        flex: 1,
+                        border: "2px dashed rgba(255,255,255,0.08)",
+                        borderRadius: 10,
+                        padding: "14px",
+                        textAlign: "center",
+                        cursor: "pointer",
+                        transition: "border-color 0.15s",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.borderColor =
+                          "rgba(59,130,246,0.4)")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.borderColor =
+                          "rgba(255,255,255,0.08)")
+                      }
+                    >
+                      <input
+                        ref={fileRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        onChange={handleFile}
+                        style={{ display: "none" }}
+                      />
+                      <div style={{ color: "#475569", fontSize: 12 }}>
+                        {imagePreview ? "Cambiar imagen" : "Seleccionar imagen"}
+                      </div>
+                      <div
+                        style={{ color: "#334155", fontSize: 11, marginTop: 3 }}
+                      >
+                        JPG, PNG, WebP — máx. 5MB
+                      </div>
+                    </div>
+                  </div>
+                  {uploadError && (
+                    <div
+                      style={{ fontSize: 11, color: "#f87171", marginTop: 6 }}
+                    >
+                      ⚠️ {uploadError}
+                    </div>
+                  )}
+                  {imageFile && !uploadError && (
+                    <div
+                      style={{ fontSize: 11, color: "#60a5fa", marginTop: 6 }}
+                    >
+                      📎 {imageFile.name} — se subirá al guardar
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div style={S.modalFooter}>
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  style={{ ...S.btnGhost, flex: 1, justifyContent: "center" }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background =
+                      "rgba(255,255,255,0.08)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background =
+                      "rgba(255,255,255,0.05)")
+                  }
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  style={{
+                    ...S.btnPrimary,
+                    flex: 1,
+                    justifyContent: "center",
+                    opacity: saving ? 0.6 : 1,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!saving)
+                      (e.currentTarget as HTMLButtonElement).style.background =
+                        "#2563eb";
+                  }}
+                  onMouseLeave={(e) =>
+                    ((e.currentTarget as HTMLButtonElement).style.background =
+                      "#3b82f6")
+                  }
+                >
+                  {saving
+                    ? uploading
+                      ? "Subiendo imagen..."
+                      : "Guardando..."
+                    : editing
+                      ? "Actualizar"
+                      : "Crear producto"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </AdminLayout>
+  );
+}

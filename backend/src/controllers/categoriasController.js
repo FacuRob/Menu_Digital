@@ -1,110 +1,136 @@
-const pool = require('../config/database');
+const supabase = require("../config/database");
 
 // Obtener todas las categorías
 const getCategorias = async (req, res) => {
-    try {
-        const result = await pool.query(
-            'SELECT * FROM categorias ORDER BY orden ASC'
-        );
-        res.json(result.rows);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+  try {
+    const { data, error } = await supabase
+      .from("categorias")
+      .select("*")
+      .order("orden", { ascending: true });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
 // Obtener categorías activas (para el menú del cliente)
 const getCategoriasActivas = async (req, res) => {
-    try {
-        const result = await pool.query(
-            'SELECT * FROM categorias WHERE activo = true ORDER BY orden ASC'
-        );
-        res.json(result.rows);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+  try {
+    const { data, error } = await supabase
+      .from("categorias")
+      .select("*")
+      .eq("activo", true)
+      .order("orden", { ascending: true });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
 // Obtener una categoría por ID
 const getCategoriaById = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const result = await pool.query(
-            'SELECT * FROM categorias WHERE id = $1',
-            [id]
-        );
+  try {
+    const { id } = req.params;
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Categoría no encontrada' });
-        }
+    const { data, error } = await supabase
+      .from("categorias")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-        res.json(result.rows[0]);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+    if (error || !data) {
+      return res.status(404).json({ message: "Categoría no encontrada" });
     }
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
 // Crear una nueva categoría
 const createCategoria = async (req, res) => {
-    try {
-        const { nombre, orden, activo } = req.body;
+  try {
+    const { nombre, orden, activo } = req.body;
 
-        const result = await pool.query(
-            'INSERT INTO categorias (nombre, orden, activo) VALUES ($1, $2, $3) RETURNING *',
-            [nombre, orden || 0, activo !== undefined ? activo : true]
-        );
+    const { data, error } = await supabase
+      .from("categorias")
+      .insert([
+        {
+          nombre,
+          orden: orden || 0,
+          activo: activo !== undefined ? activo : true,
+        },
+      ])
+      .select()
+      .single();
 
-        res.status(201).json(result.rows[0]);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
 // Actualizar una categoría
 const updateCategoria = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { nombre, orden, activo } = req.body;
+  try {
+    const { id } = req.params;
+    const { nombre, orden, activo } = req.body;
 
-        const result = await pool.query(
-            'UPDATE categorias SET nombre = $1, orden = $2, activo = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING *',
-            [nombre, orden, activo, id]
-        );
+    const { data, error } = await supabase
+      .from("categorias")
+      .update({
+        nombre,
+        orden,
+        activo,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select()
+      .single();
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Categoría no encontrada' });
-        }
-
-        res.json(result.rows[0]);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+    if (error || !data) {
+      return res.status(404).json({ message: "Categoría no encontrada" });
     }
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
 // Eliminar una categoría
 const deleteCategoria = async (req, res) => {
-    try {
-        const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-        const result = await pool.query(
-            'DELETE FROM categorias WHERE id = $1 RETURNING *',
-            [id]
-        );
+    const { data, error } = await supabase
+      .from("categorias")
+      .delete()
+      .eq("id", id)
+      .select()
+      .single();
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Categoría no encontrada' });
-        }
-
-        res.json({ message: 'Categoría eliminada exitosamente' });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+    if (error || !data) {
+      return res.status(404).json({ message: "Categoría no encontrada" });
     }
+
+    res.json({ message: "Categoría eliminada exitosamente" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
 module.exports = {
-    getCategorias,
-    getCategoriasActivas,
-    getCategoriaById,
-    createCategoria,
-    updateCategoria,
-    deleteCategoria
+  getCategorias,
+  getCategoriasActivas,
+  getCategoriaById,
+  createCategoria,
+  updateCategoria,
+  deleteCategoria,
 };

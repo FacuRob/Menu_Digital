@@ -1,106 +1,263 @@
-import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import AdminLayout from "../../components/AdminLayout";
 
-const Dashboard = () => {
-    const { user, logout } = useAuth();
-    const navigate = useNavigate();
+const CARDS = [
+  {
+    permiso: "categorias",
+    ruta: "/admin/categorias",
+    label: "Categorías",
+    desc: "Organizá las secciones del menú",
+    accent: "#3b82f6",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        style={{ width: 22, height: 22 }}
+      >
+        <path d="M4 6h16M4 12h16M4 18h10" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    permiso: "productos",
+    ruta: "/admin/productos",
+    label: "Productos",
+    desc: "Administrá los ítems del menú",
+    accent: "#8b5cf6",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        style={{ width: 22, height: 22 }}
+      >
+        <path d="M20 7H4a1 1 0 00-1 1v10a1 1 0 001 1h16a1 1 0 001-1V8a1 1 0 00-1-1z" />
+        <path
+          d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"
+          strokeLinecap="round"
+        />
+      </svg>
+    ),
+  },
+  {
+    permiso: "qr",
+    ruta: "/admin/qr",
+    label: "Código QR",
+    desc: "Generá el QR para tus mesas",
+    accent: "#06b6d4",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        style={{ width: 22, height: 22 }}
+      >
+        <rect x="3" y="3" width="6" height="6" rx="1" />
+        <rect x="15" y="3" width="6" height="6" rx="1" />
+        <rect x="3" y="15" width="6" height="6" rx="1" />
+        <path
+          d="M15 15h.01M15 18h3M18 15v3M21 15h.01M21 21h.01"
+          strokeLinecap="round"
+        />
+      </svg>
+    ),
+  },
+  {
+    permiso: "*",
+    ruta: "/admin/usuarios",
+    label: "Usuarios",
+    desc: "Roles y permisos del sistema",
+    accent: "#f59e0b",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        style={{ width: 22, height: 22 }}
+      >
+        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path
+          d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"
+          strokeLinecap="round"
+        />
+      </svg>
+    ),
+  },
+];
 
-    const handleLogout = () => {
-        logout();
-        navigate('/admin/login');
-    };
+const arrowIcon = (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.8}
+    style={{ width: 14, height: 14 }}
+  >
+    <path
+      d="M5 12h14M12 5l7 7-7 7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
 
-    return (
-        <div className="min-h-screen bg-gray-100">
-            {/* Header */}
-            <header className="bg-white shadow">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-                    <h1 className="text-2xl font-bold text-gray-900">
-                        🍽️ Panel de Administración
-                    </h1>
-                    <div className="flex items-center gap-4">
-                        <span className="text-gray-600">Hola, <strong>{user?.username}</strong></span>
-                        <button
-                            onClick={handleLogout}
-                            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors"
-                        >
-                            Cerrar Sesión
-                        </button>
-                    </div>
-                </div>
-            </header>
+export default function Dashboard() {
+  const { hasPermiso, user } = useAuth();
+  const navigate = useNavigate();
+  const visible = CARDS.filter((c) => hasPermiso(c.permiso));
 
-            {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Card Categorías */}
-                    <div
-                        onClick={() => navigate('/admin/categorias')}
-                        className="bg-white rounded-xl shadow-md p-8 hover:shadow-xl transition-shadow cursor-pointer border-2 border-transparent hover:border-purple-500"
-                    >
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-2xl font-bold text-gray-800">📁 Categorías</h2>
-                            <div className="bg-purple-100 text-purple-600 rounded-full p-3">
-                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                                </svg>
-                            </div>
-                        </div>
-                        <p className="text-gray-600">Gestionar categorías del menú</p>
-                    </div>
-
-                    {/* Card Productos */}
-                    <div
-                        onClick={() => navigate('/admin/productos')}
-                        className="bg-white rounded-xl shadow-md p-8 hover:shadow-xl transition-shadow cursor-pointer border-2 border-transparent hover:border-indigo-500"
-                    >
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-2xl font-bold text-gray-800">🍕 Productos</h2>
-                            <div className="bg-indigo-100 text-indigo-600 rounded-full p-3">
-                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                </svg>
-                            </div>
-                        </div>
-                        <p className="text-gray-600">Gestionar productos del menú</p>
-                    </div>
-
-                    {/* Card Ver Menú */}
-                    <div
-                        onClick={() => navigate('/menu')}
-                        className="bg-white rounded-xl shadow-md p-8 hover:shadow-xl transition-shadow cursor-pointer border-2 border-transparent hover:border-green-500"
-                    >
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-2xl font-bold text-gray-800">👁️ Ver Menú</h2>
-                            <div className="bg-green-100 text-green-600 rounded-full p-3">
-                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                </svg>
-                            </div>
-                        </div>
-                        <p className="text-gray-600">Vista previa del menú del cliente</p>
-                    </div>
-
-                    {/* Card QR Code */}
-                    <div
-                        onClick={() => navigate('/admin/qr')}
-                        className="bg-white rounded-xl shadow-md p-8 hover:shadow-xl transition-shadow cursor-pointer border-2 border-transparent hover:border-yellow-500"
-                    >
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-2xl font-bold text-gray-800">📱 Código QR</h2>
-                            <div className="bg-yellow-100 text-yellow-600 rounded-full p-3">
-                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                                </svg>
-                            </div>
-                        </div>
-                        <p className="text-gray-600">Generar código QR del menú</p>
-                    </div>
-                </div>
-            </main>
+  return (
+    <AdminLayout title="Dashboard">
+      {/* Greeting */}
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ color: "#94a3b8", fontSize: 13, marginBottom: 4 }}>
+          {new Date().toLocaleDateString("es-AR", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+          })}
         </div>
-    );
-};
+        <h2
+          style={{ color: "#f1f5f9", fontSize: 22, fontWeight: 600, margin: 0 }}
+        >
+          Hola, {user?.nombre || user?.username} 👋
+        </h2>
+        <p style={{ color: "#475569", fontSize: 13, margin: "4px 0 0" }}>
+          Bienvenido al panel de administración
+        </p>
+      </div>
 
-export default Dashboard;
+      {/* Cards grid */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+          gap: 14,
+        }}
+      >
+        {visible.map((card) => (
+          <button
+            key={card.ruta}
+            onClick={() => navigate(card.ruta)}
+            style={{
+              background: "#1a1d27",
+              border: `1px solid rgba(255,255,255,0.07)`,
+              borderRadius: 14,
+              padding: "20px",
+              cursor: "pointer",
+              textAlign: "left",
+              transition: "all 0.2s cubic-bezier(.4,0,.2,1)",
+              position: "relative",
+              overflow: "hidden",
+            }}
+            onMouseEnter={(e) => {
+              const b = e.currentTarget as HTMLButtonElement;
+              b.style.borderColor = `${card.accent}55`;
+              b.style.transform = "translateY(-2px)";
+              b.style.boxShadow = `0 8px 30px ${card.accent}18`;
+            }}
+            onMouseLeave={(e) => {
+              const b = e.currentTarget as HTMLButtonElement;
+              b.style.borderColor = "rgba(255,255,255,0.07)";
+              b.style.transform = "translateY(0)";
+              b.style.boxShadow = "none";
+            }}
+          >
+            {/* Accent dot top right */}
+            <div
+              style={{
+                position: "absolute",
+                top: -20,
+                right: -20,
+                width: 70,
+                height: 70,
+                borderRadius: "50%",
+                background: `${card.accent}15`,
+                pointerEvents: "none",
+              }}
+            />
+
+            {/* Icon */}
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                background: `${card.accent}18`,
+                border: `1px solid ${card.accent}30`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: card.accent,
+                marginBottom: 14,
+              }}
+            >
+              {card.icon}
+            </div>
+
+            <div
+              style={{
+                color: "#f1f5f9",
+                fontWeight: 600,
+                fontSize: 15,
+                marginBottom: 4,
+              }}
+            >
+              {card.label}
+            </div>
+            <div
+              style={{
+                color: "#475569",
+                fontSize: 12,
+                lineHeight: 1.5,
+                marginBottom: 16,
+              }}
+            >
+              {card.desc}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                color: card.accent,
+                fontSize: 12,
+                fontWeight: 500,
+              }}
+            >
+              Ir a {card.label} {arrowIcon}
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* Quick tip */}
+      <div
+        style={{
+          marginTop: 24,
+          padding: "14px 16px",
+          borderRadius: 10,
+          background: "rgba(59,130,246,0.07)",
+          border: "1px solid rgba(59,130,246,0.15)",
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+        }}
+      >
+        <div style={{ color: "#3b82f6", fontSize: 18 }}>💡</div>
+        <div style={{ color: "#64748b", fontSize: 12 }}>
+          Usá el sidebar para navegar entre secciones. Podés colapsarlo con el
+          botón ☰ del topbar.
+        </div>
+      </div>
+    </AdminLayout>
+  );
+}

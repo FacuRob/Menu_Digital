@@ -1,143 +1,279 @@
-const pool = require('../config/database');
+const supabase = require("../config/database");
+const cloudinary = require("../config/cloudinary");
 
-// Obtener todos los productos
+// Extrae el public_id de una URL de Cloudinary
+const extractPublicId = (url) => {
+  try {
+    const matches = url.match(/\/upload\/(?:v\d+\/)?(.+)\.[a-z]+$/i);
+    return matches ? matches[1] : null;
+  } catch {
+    return null;
+  }
+};
+
+// Obtener todos los productos (con nombre de categoría)
 const getProductos = async (req, res) => {
-    try {
-        const result = await pool.query(
-            `SELECT p.*, c.nombre as categoria_nombre 
-       FROM productos p 
-       LEFT JOIN categorias c ON p.categoria_id = c.id 
-       ORDER BY p.orden ASC`
-        );
-        res.json(result.rows);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+  try {
+    const { data, error } = await supabase
+      .from("productos")
+      .select(
+        `
+                *,
+                categorias ( nombre )
+            `,
+      )
+      .order("orden", { ascending: true });
+
+    if (error) throw error;
+
+    // Aplanar categoria_nombre para mantener compatibilidad con el frontend
+    const result = data.map((p) => ({
+      ...p,
+      categoria_nombre: p.categorias?.nombre ?? null,
+      categorias: undefined,
+    }));
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
 // Obtener productos disponibles (para el menú del cliente)
 const getProductosDisponibles = async (req, res) => {
-    try {
-        const result = await pool.query(
-            `SELECT p.*, c.nombre as categoria_nombre 
-       FROM productos p 
-       LEFT JOIN categorias c ON p.categoria_id = c.id 
-       WHERE p.disponible = true AND c.activo = true
-       ORDER BY c.orden ASC, p.orden ASC`
-        );
-        res.json(result.rows);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+  try {
+    const { data, error } = await supabase
+      .from("productos")
+      .select(
+        `
+                *,
+                categorias!inner ( nombre, orden, activo )
+            `,
+      )
+      .eq("disponible", true)
+      .eq("categorias.activo", true)
+      .order("orden", { ascending: true });
+
+    if (error) throw error;
+
+    const result = data.map((p) => ({
+      ...p,
+      categoria_nombre: p.categorias?.nombre ?? null,
+      categorias: undefined,
+    }));
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
 // Obtener productos por categoría
 const getProductosByCategoria = async (req, res) => {
-    try {
-        const { categoriaId } = req.params;
-        const result = await pool.query(
-            `SELECT p.*, c.nombre as categoria_nombre 
-       FROM productos p 
-       LEFT JOIN categorias c ON p.categoria_id = c.id 
-       WHERE p.categoria_id = $1 
-       ORDER BY p.orden ASC`,
-            [categoriaId]
-        );
-        res.json(result.rows);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+  try {
+    const { categoriaId } = req.params;
+
+    const { data, error } = await supabase
+      .from("productos")
+      .select(
+        `
+                *,
+                categorias ( nombre )
+            `,
+      )
+      .eq("categoria_id", categoriaId)
+      .order("orden", { ascending: true });
+
+    if (error) throw error;
+
+    const result = data.map((p) => ({
+      ...p,
+      categoria_nombre: p.categorias?.nombre ?? null,
+      categorias: undefined,
+    }));
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
 // Obtener un producto por ID
 const getProductoById = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const result = await pool.query(
-            `SELECT p.*, c.nombre as categoria_nombre 
-       FROM productos p 
-       LEFT JOIN categorias c ON p.categoria_id = c.id 
-       WHERE p.id = $1`,
-            [id]
-        );
+  try {
+    const { id } = req.params;
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Producto no encontrado' });
-        }
+    const { data, error } = await supabase
+      .from("productos")
+      .select(
+        `
+                *,
+                categorias ( nombre )
+            `,
+      )
+      .eq("id", id)
+      .single();
 
-        res.json(result.rows[0]);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+    if (error || !data) {
+      return res.status(404).json({ message: "Producto no encontrado" });
     }
+
+    res.json({
+      ...data,
+      categoria_nombre: data.categorias?.nombre ?? null,
+      categorias: undefined,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
 // Crear un nuevo producto
 const createProducto = async (req, res) => {
-    try {
-        const { nombre, descripcion, precio, imagen_url, categoria_id, disponible, orden } = req.body;
+  try {
+    const {
+      nombre,
+      descripcion,
+      precio,
+      imagen_url,
+      categoria_id,
+      disponible,
+      orden,
+    } = req.body;
 
-        const result = await pool.query(
-            `INSERT INTO productos (nombre, descripcion, precio, imagen_url, categoria_id, disponible, orden) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-            [nombre, descripcion, precio, imagen_url, categoria_id, disponible !== undefined ? disponible : true, orden || 0]
-        );
+    const { data, error } = await supabase
+      .from("productos")
+      .insert([
+        {
+          nombre,
+          descripcion,
+          precio,
+          imagen_url: imagen_url || null,
+          categoria_id,
+          disponible: disponible !== undefined ? disponible : true,
+          orden: orden || 0,
+        },
+      ])
+      .select()
+      .single();
 
-        res.status(201).json(result.rows[0]);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
 // Actualizar un producto
+// Si la imagen cambió y la anterior era de Cloudinary, elimina la vieja
 const updateProducto = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { nombre, descripcion, precio, imagen_url, categoria_id, disponible, orden } = req.body;
+  try {
+    const { id } = req.params;
+    const {
+      nombre,
+      descripcion,
+      precio,
+      imagen_url,
+      categoria_id,
+      disponible,
+      orden,
+    } = req.body;
 
-        const result = await pool.query(
-            `UPDATE productos 
-       SET nombre = $1, descripcion = $2, precio = $3, imagen_url = $4, 
-           categoria_id = $5, disponible = $6, orden = $7, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $8 RETURNING *`,
-            [nombre, descripcion, precio, imagen_url, categoria_id, disponible, orden, id]
-        );
+    // Obtener imagen actual para borrarla de Cloudinary si cambió
+    const { data: current } = await supabase
+      .from("productos")
+      .select("imagen_url")
+      .eq("id", id)
+      .single();
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Producto no encontrado' });
-        }
-
-        res.json(result.rows[0]);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+    if (!current) {
+      return res.status(404).json({ message: "Producto no encontrado" });
     }
+
+    const oldUrl = current.imagen_url;
+    const newUrl = imagen_url || null;
+
+    // Si la imagen cambió y la anterior era de Cloudinary, la eliminamos
+    if (oldUrl && oldUrl !== newUrl && oldUrl.includes("cloudinary.com")) {
+      const publicId = extractPublicId(oldUrl);
+      if (publicId) {
+        cloudinary.uploader
+          .destroy(publicId)
+          .catch((err) =>
+            console.error(
+              "No se pudo eliminar imagen anterior de Cloudinary:",
+              err,
+            ),
+          );
+      }
+    }
+
+    const { data, error } = await supabase
+      .from("productos")
+      .update({
+        nombre,
+        descripcion,
+        precio,
+        imagen_url: newUrl,
+        categoria_id,
+        disponible,
+        orden,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ message: "Producto no encontrado" });
+    }
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
-// Eliminar un producto
+// Eliminar un producto y su imagen de Cloudinary si tiene
 const deleteProducto = async (req, res) => {
-    try {
-        const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-        const result = await pool.query(
-            'DELETE FROM productos WHERE id = $1 RETURNING *',
-            [id]
-        );
+    const { data, error } = await supabase
+      .from("productos")
+      .delete()
+      .eq("id", id)
+      .select()
+      .single();
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Producto no encontrado' });
-        }
-
-        res.json({ message: 'Producto eliminado exitosamente' });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+    if (error || !data) {
+      return res.status(404).json({ message: "Producto no encontrado" });
     }
+
+    // Eliminar imagen de Cloudinary si existe
+    if (data.imagen_url && data.imagen_url.includes("cloudinary.com")) {
+      const publicId = extractPublicId(data.imagen_url);
+      if (publicId) {
+        cloudinary.uploader
+          .destroy(publicId)
+          .catch((err) =>
+            console.error("No se pudo eliminar imagen de Cloudinary:", err),
+          );
+      }
+    }
+
+    res.json({ message: "Producto eliminado exitosamente" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
 module.exports = {
-    getProductos,
-    getProductosDisponibles,
-    getProductosByCategoria,
-    getProductoById,
-    createProducto,
-    updateProducto,
-    deleteProducto
+  getProductos,
+  getProductosDisponibles,
+  getProductosByCategoria,
+  getProductoById,
+  createProducto,
+  updateProducto,
+  deleteProducto,
 };

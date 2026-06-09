@@ -1,100 +1,152 @@
-const pool = require('../config/database');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const supabase = require("../config/database");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
-// Registrar un nuevo usuario (solo para crear el primer admin)
+// Registrar un nuevo usuario
+// Solo superadmin puede llamar a este endpoint (se protege en la ruta)
 const register = async (req, res) => {
-    try {
-        const { username, password } = req.body;
+  try {
+    const { username, password, nombre, rol = "editor" } = req.body;
 
-        // Verificar si el usuario ya existe
-        const userExists = await pool.query(
-            'SELECT * FROM usuarios WHERE username = $1',
-            [username]
-        );
-
-        if (userExists.rows.length > 0) {
-            return res.status(400).json({ message: 'El usuario ya existe' });
-        }
-
-        // Hashear la contraseña
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-
-        // Crear el usuario
-        const result = await pool.query(
-            'INSERT INTO usuarios (username, password, rol) VALUES ($1, $2, $3) RETURNING id, username, rol',
-            [username, hashedPassword, 'admin']
-        );
-
-        res.status(201).json({
-            message: 'Usuario creado exitosamente',
-            user: result.rows[0]
+    // Validar rol permitido
+    const rolesValidos = ["superadmin", "editor", "visor"];
+    if (!rolesValidos.includes(rol)) {
+      return res
+        .status(400)
+        .json({
+          message: "Rol inválido. Debe ser: superadmin, editor o visor",
         });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
     }
+
+    // Verificar si el usuario ya existe
+    const { data: existing } = await supabase
+      .from("usuarios")
+      .select("id")
+      .eq("username", username)
+      .single();
+
+    if (existing) {
+      return res.status(400).json({ message: "El usuario ya existe" });
+    }
+
+    // Hashear la contraseña
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Crear el usuario
+    const { data, error } = await supabase
+      .from("usuarios")
+      .insert([
+        {
+          username,
+          password: hashedPassword,
+          nombre: nombre || null,
+          rol,
+          activo: true,
+        },
+      ])
+      .select("id, username, nombre, rol, activo")
+      .single();
+
+    if (error) throw error;
+
+    res.status(201).json({
+      message: "Usuario creado exitosamente",
+      user: data,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
-// Login
+// Login — devuelve token + permisos del rol
 const login = async (req, res) => {
-    try {
-        const { username, password } = req.body;
+  try {
+    const { username, password } = req.body;
 
-        // Buscar el usuario
-        const result = await pool.query(
-            'SELECT * FROM usuarios WHERE username = $1',
-            [username]
-        );
+    // Buscar el usuario
+    const { data: user, error } = await supabase
+      .from("usuarios")
+      .select("*")
+      .eq("username", username)
+      .eq("activo", true)
+      .single();
 
-        if (result.rows.length === 0) {
-            return res.status(401).json({ message: 'Credenciales inválidas' });
-        }
-
-        const user = result.rows[0];
-
-        // Verificar la contraseña
-        const isValidPassword = await bcrypt.compare(password, user.password);
-
-        if (!isValidPassword) {
-            return res.status(401).json({ message: 'Credenciales inválidas' });
-        }
-
-        // Crear el token JWT
-        const token = jwt.sign(
-            { id: user.id, username: user.username, rol: user.rol },
-            process.env.JWT_SECRET,
-            { expiresIn: '24h' }
-        );
-
-        res.json({
-            message: 'Login exitoso',
-            token,
-            user: {
-                id: user.id,
-                username: user.username,
-                rol: user.rol
-            }
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+    if (error || !user) {
+      return res
+        .status(401)
+        .json({ message: "Credenciales inválidas o usuario inactivo" });
     }
+
+    // Verificar la contraseña
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ message: "Credenciales inválidas" });
+    }
+
+    // Obtener permisos del rol
+    const { data: rolData } = await supabase
+      .from("roles_permisos")
+      .select("permisos, descripcion")
+      .eq("rol", user.rol)
+      .single();
+
+    const permisos = rolData?.permisos || [];
+
+    // Crear el token JWT (incluye rol en el payload)
+    const token = jwt.sign(
+      { id: user.id, username: user.username, rol: user.rol },
+      process.env.JWT_SECRET,
+      { expiresIn: "24h" },
+    );
+
+    res.json({
+      message: "Login exitoso",
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        nombre: user.nombre,
+        rol: user.rol,
+        permisos,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
-// Verificar token
+// Verificar token — también refresca los permisos
 const verifyToken = async (req, res) => {
-    try {
-        res.json({
-            message: 'Token válido',
-            user: req.user
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+  try {
+    const { data: rolData } = await supabase
+      .from("roles_permisos")
+      .select("permisos")
+      .eq("rol", req.user.rol)
+      .single();
+
+    const permisos = rolData?.permisos || [];
+
+    // Obtener datos actualizados del usuario
+    const { data: user } = await supabase
+      .from("usuarios")
+      .select("id, username, nombre, rol, activo")
+      .eq("id", req.user.id)
+      .single();
+
+    if (!user || !user.activo) {
+      return res
+        .status(401)
+        .json({ message: "Usuario inactivo o no encontrado" });
     }
+
+    res.json({
+      message: "Token válido",
+      user: { ...user, permisos },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
-module.exports = {
-    register,
-    login,
-    verifyToken
-};
+module.exports = { register, login, verifyToken };

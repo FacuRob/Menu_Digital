@@ -1,20 +1,10 @@
-const { Pool } = require('pg');
-require('dotenv').config();
+const { createClient } = require("@supabase/supabase-js");
 
-const pool = new Pool({
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-});
+// NO llamar dotenv acá — ya lo hace server.js antes de requerir este módulo
 
-pool.on('connect', () => {
-    console.log('✅ Conectado a PostgreSQL');
-});
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+);
 
-pool.on('error', (err) => {
-    console.error('❌ Error en la conexión a PostgreSQL:', err);
-});
-
-module.exports = pool;
+module.exports = supabase;
