@@ -12,6 +12,8 @@ interface AuthContextType {
   isLoading: boolean;
   hasPermiso: (permiso: string) => boolean;
   isSuperAdmin: boolean;
+  mustChangePassword: boolean;
+  setMustChangePassword: (v: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,6 +25,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
   const [permisos, setPermisos] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
 
   useEffect(() => {
     const verifyToken = async () => {
@@ -33,17 +36,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(response.user);
           setPermisos(response.user.permisos || []);
           setToken(savedToken);
-        } catch (error) {
-          console.error("Token inválido:", error);
+          setMustChangePassword(response.user.must_change_password || false);
+        } catch {
           localStorage.removeItem("token");
           setToken(null);
           setUser(null);
           setPermisos([]);
+          setMustChangePassword(false);
         }
       }
       setIsLoading(false);
     };
-
     verifyToken();
   }, []);
 
@@ -52,6 +55,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(response.user);
     setToken(response.token);
     setPermisos(response.user.permisos || []);
+    setMustChangePassword(response.user.must_change_password || false);
     localStorage.setItem("token", response.token);
   };
 
@@ -59,17 +63,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     setToken(null);
     setPermisos([]);
+    setMustChangePassword(false);
     localStorage.removeItem("token");
   };
 
-  // Verifica si el usuario tiene un permiso específico
-  // El superadmin con "*" siempre retorna true
   const hasPermiso = (permiso: string): boolean => {
     if (permisos.includes("*")) return true;
     return permisos.includes(permiso);
   };
-
-  const isSuperAdmin = permisos.includes("*");
 
   return (
     <AuthContext.Provider
@@ -82,7 +83,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isAuthenticated: !!token && !!user,
         isLoading,
         hasPermiso,
-        isSuperAdmin,
+        isSuperAdmin: permisos.includes("*"),
+        mustChangePassword,
+        setMustChangePassword,
       }}
     >
       {children}
@@ -92,8 +95,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth debe ser usado dentro de un AuthProvider");
-  }
+  if (!context) throw new Error("useAuth debe usarse dentro de AuthProvider");
   return context;
 };

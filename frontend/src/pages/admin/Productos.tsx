@@ -32,10 +32,13 @@ const CloseIcon = () => (
   </svg>
 );
 
+type Vista = "disponibles" | "no_disponibles";
+
 export default function Productos() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loading, setLoading] = useState(true);
+  const [vista, setVista] = useState<Vista>("disponibles");
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Producto | null>(null);
   const [form, setForm] = useState({
@@ -52,12 +55,13 @@ export default function Productos() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [filter, setFilter] = useState<number | "all">("all");
+  const [filterCategoria, setFilterCategoria] = useState<number | "all">("all");
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch_();
   }, []);
+
   const fetch_ = async () => {
     try {
       setLoading(true);
@@ -71,6 +75,34 @@ export default function Productos() {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Filtrar por vista activos/inactivos + categoría
+  const filtrados = productos
+    .filter((p) => (vista === "disponibles" ? p.disponible : !p.disponible))
+    .filter((p) =>
+      filterCategoria === "all" ? true : p.categoria_id === filterCategoria,
+    );
+
+  const totalDisponibles = productos.filter((p) => p.disponible).length;
+  const totalNoDisponibles = productos.filter((p) => !p.disponible).length;
+
+  // Toggle disponible directamente desde la tabla
+  const toggleDisponible = async (p: Producto) => {
+    try {
+      await productosService.update(p.id, {
+        nombre: p.nombre,
+        descripcion: p.descripcion,
+        precio: p.precio,
+        imagen_url: p.imagen_url,
+        categoria_id: p.categoria_id,
+        disponible: !p.disponible,
+        orden: p.orden,
+      });
+      fetch_();
+    } catch {
+      alert("Error al cambiar estado");
     }
   };
 
@@ -102,6 +134,7 @@ export default function Productos() {
     setUploadError("");
     setShowModal(true);
   };
+
   const closeModal = () => {
     setShowModal(false);
     setEditing(null);
@@ -123,7 +156,7 @@ export default function Productos() {
   const removeImage = () => {
     setImageFile(null);
     setImagePreview("");
-    setForm((p) => ({ ...p, imagen_url: "" }));
+    setForm((prev) => ({ ...prev, imagen_url: "" }));
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -138,7 +171,7 @@ export default function Productos() {
         try {
           url = (await uploadService.uploadImagen(imageFile)).url;
         } catch {
-          setUploadError("Error al subir la imagen. Intentá de nuevo.");
+          setUploadError("Error al subir la imagen.");
           setSaving(false);
           setUploading(false);
           return;
@@ -159,81 +192,151 @@ export default function Productos() {
     }
   };
 
-  const del = async (id: number) => {
-    if (!confirm("¿Eliminar este producto?")) return;
-    try {
-      await productosService.delete(id);
-      fetch_();
-    } catch {
-      alert("Error al eliminar");
-    }
-  };
-
   const fmt = (n: number) =>
     new Intl.NumberFormat("es-AR", {
       style: "currency",
       currency: "ARS",
+      maximumFractionDigits: 0,
     }).format(n);
-  const filtered =
-    filter === "all"
-      ? productos
-      : productos.filter((p) => p.categoria_id === filter);
-
-  const inputFocus = (
-    e: React.FocusEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >,
-  ) => (e.target.style.borderColor = "#3b82f6");
-  const inputBlur = (
-    e: React.FocusEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >,
-  ) => (e.target.style.borderColor = "rgba(255,255,255,0.08)");
+  const inputFocus = (e: React.FocusEvent<any>) =>
+    (e.target.style.borderColor = "#3b82f6");
+  const inputBlur = (e: React.FocusEvent<any>) =>
+    (e.target.style.borderColor = "rgba(255,255,255,0.08)");
 
   return (
     <AdminLayout title="Productos">
-      {/* Toolbar */}
+      {/* ── Toggle Disponibles / No disponibles ── */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-          flexWrap: "wrap",
-          marginBottom: 14,
+          gap: 8,
+          marginBottom: 16,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ color: "#475569", fontSize: 12 }}>
-            {filtered.length} productos
-          </span>
-          <select
-            value={filter}
-            onChange={(e) =>
-              setFilter(
-                e.target.value === "all" ? "all" : Number(e.target.value),
-              )
-            }
+        <div
+          style={{
+            display: "flex",
+            background: "#13151c",
+            borderRadius: 10,
+            padding: 3,
+            border: "1px solid rgba(255,255,255,0.07)",
+          }}
+        >
+          <button
+            onClick={() => setVista("disponibles")}
             style={{
-              ...S.input,
-              width: "auto",
-              padding: "6px 10px",
-              fontSize: 12,
+              padding: "7px 16px",
+              borderRadius: 8,
+              border: "none",
               cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 500,
+              transition: "all 0.15s",
+              background: vista === "disponibles" ? "#1a1d27" : "transparent",
+              color: vista === "disponibles" ? "#34d399" : "#475569",
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
             }}
-            onFocus={inputFocus}
-            onBlur={inputBlur}
           >
-            <option value="all">Todas las categorías</option>
-            {categorias.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombre}
-              </option>
-            ))}
-          </select>
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: "50%",
+                background: "#10b981",
+                display: "inline-block",
+              }}
+            />
+            Disponibles
+            <span
+              style={{
+                fontSize: 11,
+                background: "rgba(16,185,129,0.15)",
+                color: "#34d399",
+                padding: "1px 7px",
+                borderRadius: 99,
+              }}
+            >
+              {totalDisponibles}
+            </span>
+          </button>
+          <button
+            onClick={() => setVista("no_disponibles")}
+            style={{
+              padding: "7px 16px",
+              borderRadius: 8,
+              border: "none",
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 500,
+              transition: "all 0.15s",
+              background:
+                vista === "no_disponibles" ? "#1a1d27" : "transparent",
+              color: vista === "no_disponibles" ? "#f87171" : "#475569",
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+            }}
+          >
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: "50%",
+                background: "#ef4444",
+                display: "inline-block",
+              }}
+            />
+            No disponibles
+            <span
+              style={{
+                fontSize: 11,
+                background: "rgba(239,68,68,0.12)",
+                color: "#f87171",
+                padding: "1px 7px",
+                borderRadius: 99,
+              }}
+            >
+              {totalNoDisponibles}
+            </span>
+          </button>
         </div>
+
+        {/* Filtro por categoría */}
+        <select
+          value={filterCategoria}
+          onChange={(e) =>
+            setFilterCategoria(
+              e.target.value === "all" ? "all" : Number(e.target.value),
+            )
+          }
+          style={{
+            ...S.input,
+            width: "auto",
+            padding: "7px 12px",
+            fontSize: 12,
+            cursor: "pointer",
+          }}
+          onFocus={inputFocus}
+          onBlur={inputBlur}
+        >
+          <option value="all">Todas las categorías</option>
+          {categorias.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nombre}
+            </option>
+          ))}
+        </select>
+
+        <span style={{ color: "#334155", fontSize: 12, marginLeft: 4 }}>
+          {filtrados.length} productos
+        </span>
+
+        {/* Botón nuevo — a la derecha */}
         <button
-          style={S.btnPrimary}
+          style={{ ...S.btnPrimary, marginLeft: "auto" }}
           onClick={() => openModal()}
           onMouseEnter={(e) => (e.currentTarget.style.background = "#2563eb")}
           onMouseLeave={(e) => (e.currentTarget.style.background = "#3b82f6")}
@@ -259,12 +362,17 @@ export default function Productos() {
               }}
             />
           </div>
-        ) : filtered.length === 0 ? (
+        ) : filtrados.length === 0 ? (
           <div
             style={{ textAlign: "center", padding: "48px 0", color: "#334155" }}
           >
-            <div style={{ fontSize: 32, marginBottom: 8 }}>🍕</div>
-            <div style={{ fontSize: 14 }}>No hay productos todavía</div>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>
+              {vista === "disponibles" ? "✅" : "🚫"}
+            </div>
+            <div style={{ fontSize: 14 }}>
+              No hay productos{" "}
+              {vista === "disponibles" ? "disponibles" : "no disponibles"}
+            </div>
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -287,7 +395,7 @@ export default function Productos() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p) => (
+                {filtrados.map((p) => (
                   <tr
                     key={p.id}
                     style={S.tr}
@@ -381,7 +489,27 @@ export default function Productos() {
                       {fmt(p.precio)}
                     </td>
                     <td style={S.td}>
-                      <span style={p.disponible ? S.badgeGreen : S.badgeRed}>
+                      {/* Toggle disponible directamente */}
+                      <button
+                        onClick={() => toggleDisponible(p)}
+                        title={
+                          p.disponible
+                            ? "Click para desactivar"
+                            : "Click para activar"
+                        }
+                        style={{
+                          ...(p.disponible ? S.badgeGreen : S.badgeRed),
+                          cursor: "pointer",
+                          border: "none",
+                          transition: "all 0.15s",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.opacity = "0.75")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.opacity = "1")
+                        }
+                      >
                         <span
                           style={{
                             width: 5,
@@ -391,7 +519,7 @@ export default function Productos() {
                           }}
                         />
                         {p.disponible ? "Disponible" : "No disp."}
-                      </span>
+                      </button>
                     </td>
                     <td style={S.tdMuted}>{p.orden}</td>
                     <td style={S.td}>
@@ -409,9 +537,9 @@ export default function Productos() {
                         >
                           Editar
                         </button>
-                        <button onClick={() => del(p.id)} style={S.btnDanger}>
-                          Eliminar
-                        </button>
+
+                        {/* BOTON ELIMINAR, COMENTADO */}
+                        {/* <button onClick={() => del(p.id)} style={S.btnDanger}>Eliminar</button> */}
                       </div>
                     </td>
                   </tr>
@@ -461,7 +589,6 @@ export default function Productos() {
                   gap: 14,
                 }}
               >
-                {/* Nombre */}
                 <div>
                   <label style={S.label}>Nombre *</label>
                   <input
@@ -476,8 +603,6 @@ export default function Productos() {
                     onBlur={inputBlur}
                   />
                 </div>
-
-                {/* Desc */}
                 <div>
                   <label style={S.label}>Descripción</label>
                   <textarea
@@ -498,8 +623,6 @@ export default function Productos() {
                     onBlur={inputBlur as any}
                   />
                 </div>
-
-                {/* Precio + Categoría */}
                 <div
                   style={{
                     display: "grid",
@@ -549,8 +672,6 @@ export default function Productos() {
                     </select>
                   </div>
                 </div>
-
-                {/* Orden + Disponible */}
                 <div
                   style={{
                     display: "grid",
@@ -621,8 +742,6 @@ export default function Productos() {
                     </div>
                   </div>
                 </div>
-
-                {/* Imagen */}
                 <div>
                   <label style={S.label}>Imagen</label>
                   <div
@@ -675,7 +794,7 @@ export default function Productos() {
                         flex: 1,
                         border: "2px dashed rgba(255,255,255,0.08)",
                         borderRadius: 10,
-                        padding: "14px",
+                        padding: 14,
                         textAlign: "center",
                         cursor: "pointer",
                         transition: "border-color 0.15s",

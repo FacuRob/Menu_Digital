@@ -1,7 +1,6 @@
 const supabase = require("../config/database");
 const cloudinary = require("../config/cloudinary");
 
-// Extrae el public_id de una URL de Cloudinary
 const extractPublicId = (url) => {
   try {
     const matches = url.match(/\/upload\/(?:v\d+\/)?(.+)\.[a-z]+$/i);
@@ -11,22 +10,15 @@ const extractPublicId = (url) => {
   }
 };
 
-// Obtener todos los productos (con nombre de categoría)
 const getProductos = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("productos")
-      .select(
-        `
-                *,
-                categorias ( nombre )
-            `,
-      )
+      .select(`*, categorias ( nombre )`)
       .order("orden", { ascending: true });
 
     if (error) throw error;
 
-    // Aplanar categoria_nombre para mantener compatibilidad con el frontend
     const result = data.map((p) => ({
       ...p,
       categoria_nombre: p.categorias?.nombre ?? null,
@@ -39,48 +31,26 @@ const getProductos = async (req, res) => {
   }
 };
 
-// Obtener productos disponibles (para el menú del cliente)
+// ─── FIX: usar RPC con SQL directo para filtrar correctamente ───────────────
 const getProductosDisponibles = async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from("productos")
-      .select(
-        `
-                *,
-                categorias!inner ( nombre, orden, activo )
-            `,
-      )
-      .eq("disponible", true)
-      .eq("categorias.activo", true)
-      .order("orden", { ascending: true });
+    const { data, error } = await supabase.rpc("get_productos_disponibles");
 
     if (error) throw error;
 
-    const result = data.map((p) => ({
-      ...p,
-      categoria_nombre: p.categorias?.nombre ?? null,
-      categorias: undefined,
-    }));
-
-    res.json(result);
+    res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-// Obtener productos por categoría
 const getProductosByCategoria = async (req, res) => {
   try {
     const { categoriaId } = req.params;
 
     const { data, error } = await supabase
       .from("productos")
-      .select(
-        `
-                *,
-                categorias ( nombre )
-            `,
-      )
+      .select(`*, categorias ( nombre )`)
       .eq("categoria_id", categoriaId)
       .order("orden", { ascending: true });
 
@@ -98,19 +68,13 @@ const getProductosByCategoria = async (req, res) => {
   }
 };
 
-// Obtener un producto por ID
 const getProductoById = async (req, res) => {
   try {
     const { id } = req.params;
 
     const { data, error } = await supabase
       .from("productos")
-      .select(
-        `
-                *,
-                categorias ( nombre )
-            `,
-      )
+      .select(`*, categorias ( nombre )`)
       .eq("id", id)
       .single();
 
@@ -128,7 +92,6 @@ const getProductoById = async (req, res) => {
   }
 };
 
-// Crear un nuevo producto
 const createProducto = async (req, res) => {
   try {
     const {
@@ -164,8 +127,6 @@ const createProducto = async (req, res) => {
   }
 };
 
-// Actualizar un producto
-// Si la imagen cambió y la anterior era de Cloudinary, elimina la vieja
 const updateProducto = async (req, res) => {
   try {
     const { id } = req.params;
@@ -179,7 +140,6 @@ const updateProducto = async (req, res) => {
       orden,
     } = req.body;
 
-    // Obtener imagen actual para borrarla de Cloudinary si cambió
     const { data: current } = await supabase
       .from("productos")
       .select("imagen_url")
@@ -193,7 +153,6 @@ const updateProducto = async (req, res) => {
     const oldUrl = current.imagen_url;
     const newUrl = imagen_url || null;
 
-    // Si la imagen cambió y la anterior era de Cloudinary, la eliminamos
     if (oldUrl && oldUrl !== newUrl && oldUrl.includes("cloudinary.com")) {
       const publicId = extractPublicId(oldUrl);
       if (publicId) {
@@ -234,7 +193,6 @@ const updateProducto = async (req, res) => {
   }
 };
 
-// Eliminar un producto y su imagen de Cloudinary si tiene
 const deleteProducto = async (req, res) => {
   try {
     const { id } = req.params;
@@ -250,7 +208,6 @@ const deleteProducto = async (req, res) => {
       return res.status(404).json({ message: "Producto no encontrado" });
     }
 
-    // Eliminar imagen de Cloudinary si existe
     if (data.imagen_url && data.imagen_url.includes("cloudinary.com")) {
       const publicId = extractPublicId(data.imagen_url);
       if (publicId) {

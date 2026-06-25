@@ -80,13 +80,17 @@ export default function Categorias() {
     }
   };
 
-  const del = async (id: number) => {
-    if (!confirm("¿Eliminar esta categoría y todos sus productos?")) return;
+  // Toggle activo/inactivo directo desde la tabla
+  const toggleActivo = async (c: Categoria) => {
     try {
-      await categoriasService.delete(id);
+      await categoriasService.update(c.id, {
+        nombre: c.nombre,
+        orden: c.orden,
+        activo: !c.activo,
+      });
       fetch_();
     } catch {
-      alert("Error al eliminar");
+      alert("Error al cambiar estado");
     }
   };
 
@@ -167,7 +171,27 @@ export default function Categorias() {
                   </td>
                   <td style={S.tdMuted}>{c.orden}</td>
                   <td style={S.td}>
-                    <span style={c.activo ? S.badgeGreen : S.badgeRed}>
+                    {/* Toggle activo/inactivo */}
+                    <button
+                      onClick={() => toggleActivo(c)}
+                      title={
+                        c.activo
+                          ? "Click para desactivar"
+                          : "Click para activar"
+                      }
+                      style={{
+                        ...(c.activo ? S.badgeGreen : S.badgeRed),
+                        cursor: "pointer",
+                        border: "none",
+                        transition: "all 0.15s",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.opacity = "0.75")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.opacity = "1")
+                      }
+                    >
                       <span
                         style={{
                           width: 5,
@@ -177,7 +201,7 @@ export default function Categorias() {
                         }}
                       />
                       {c.activo ? "Activo" : "Inactivo"}
-                    </span>
+                    </button>
                   </td>
                   <td style={S.td}>
                     <div style={{ display: "flex", gap: 16 }}>
@@ -194,9 +218,9 @@ export default function Categorias() {
                       >
                         Editar
                       </button>
-                      <button onClick={() => del(c.id)} style={S.btnDanger}>
-                        Eliminar
-                      </button>
+
+                      {/* BOTON ELIMINAR, COMENTADO */}
+                      {/* <button onClick={() => del(c.id)} style={S.btnDanger}>Eliminar</button> */}
                     </div>
                   </td>
                 </tr>
@@ -230,80 +254,80 @@ export default function Categorias() {
               </button>
             </div>
             <form onSubmit={submit}>
-              <div style={S.modalBody}>
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 16 }}
-                >
-                  <div>
-                    <label style={S.label}>Nombre</label>
-                    <input
-                      style={S.input}
-                      required
-                      value={form.nombre}
-                      placeholder="Ej: Entradas, Bebidas..."
-                      onChange={(e) =>
-                        setForm({ ...form, nombre: e.target.value })
-                      }
-                      onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
-                      onBlur={(e) =>
-                        (e.target.style.borderColor = "rgba(255,255,255,0.08)")
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label style={S.label}>Orden de aparición</label>
-                    <input
-                      style={S.input}
-                      type="number"
-                      min="1"
-                      required
-                      value={form.orden}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          orden: parseInt(e.target.value) || 0,
-                        })
-                      }
-                      onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
-                      onBlur={(e) =>
-                        (e.target.style.borderColor = "rgba(255,255,255,0.08)")
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label style={S.label}>Estado</label>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      {[true, false].map((val) => (
-                        <button
-                          key={String(val)}
-                          type="button"
-                          onClick={() => setForm({ ...form, activo: val })}
-                          style={{
-                            flex: 1,
-                            padding: "8px 0",
-                            borderRadius: 8,
-                            border: `1px solid ${form.activo === val ? (val ? "#10b981" : "#ef4444") : "rgba(255,255,255,0.08)"}`,
-                            background:
-                              form.activo === val
-                                ? val
-                                  ? "rgba(16,185,129,0.1)"
-                                  : "rgba(239,68,68,0.1)"
-                                : "transparent",
-                            color:
-                              form.activo === val
-                                ? val
-                                  ? "#34d399"
-                                  : "#f87171"
-                                : "#475569",
-                            fontSize: 13,
-                            cursor: "pointer",
-                            transition: "all 0.15s",
-                          }}
-                        >
-                          {val ? "Activo" : "Inactivo"}
-                        </button>
-                      ))}
-                    </div>
+              <div
+                style={{
+                  ...S.modalBody,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 16,
+                }}
+              >
+                <div>
+                  <label style={S.label}>Nombre</label>
+                  <input
+                    style={S.input}
+                    required
+                    value={form.nombre}
+                    placeholder="Ej: Entradas, Bebidas..."
+                    onChange={(e) =>
+                      setForm({ ...form, nombre: e.target.value })
+                    }
+                    onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
+                    onBlur={(e) =>
+                      (e.target.style.borderColor = "rgba(255,255,255,0.08)")
+                    }
+                  />
+                </div>
+                <div>
+                  <label style={S.label}>Orden de aparición</label>
+                  <input
+                    style={S.input}
+                    type="number"
+                    min="1"
+                    required
+                    value={form.orden}
+                    onChange={(e) =>
+                      setForm({ ...form, orden: parseInt(e.target.value) || 0 })
+                    }
+                    onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
+                    onBlur={(e) =>
+                      (e.target.style.borderColor = "rgba(255,255,255,0.08)")
+                    }
+                  />
+                </div>
+                <div>
+                  <label style={S.label}>Estado inicial</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {[true, false].map((val) => (
+                      <button
+                        key={String(val)}
+                        type="button"
+                        onClick={() => setForm({ ...form, activo: val })}
+                        style={{
+                          flex: 1,
+                          padding: "8px 0",
+                          borderRadius: 8,
+                          border: `1px solid ${form.activo === val ? (val ? "#10b981" : "#ef4444") : "rgba(255,255,255,0.08)"}`,
+                          background:
+                            form.activo === val
+                              ? val
+                                ? "rgba(16,185,129,0.1)"
+                                : "rgba(239,68,68,0.1)"
+                              : "transparent",
+                          color:
+                            form.activo === val
+                              ? val
+                                ? "#34d399"
+                                : "#f87171"
+                              : "#475569",
+                          fontSize: 13,
+                          cursor: "pointer",
+                          transition: "all 0.15s",
+                        }}
+                      >
+                        {val ? "Activo" : "Inactivo"}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>

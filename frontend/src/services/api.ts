@@ -16,7 +16,6 @@ api.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-// Tipos
 export interface Categoria {
   id: number;
   nombre: string;
@@ -47,6 +46,7 @@ export interface Usuario {
   rol: string;
   activo: boolean;
   permisos: string[];
+  must_change_password?: boolean;
   created_at?: string;
 }
 
@@ -67,7 +67,6 @@ export interface UploadResponse {
   public_id: string;
 }
 
-// Auth
 export const authService = {
   login: async (username: string, password: string) => {
     const response = await api.post<LoginResponse>("/auth/login", {
@@ -80,9 +79,16 @@ export const authService = {
     const response = await api.get("/auth/verify");
     return response.data;
   },
+  forgotPassword: async (username: string) => {
+    const response = await api.post("/auth/forgot-password", { username });
+    return response.data;
+  },
+  changePassword: async (newPassword: string) => {
+    const response = await api.post("/auth/change-password", { newPassword });
+    return response.data;
+  },
 };
 
-// Categorías
 export const categoriasService = {
   getAll: async () => (await api.get<Categoria[]>("/categorias")).data,
   getActivas: async () =>
@@ -98,7 +104,6 @@ export const categoriasService = {
   delete: async (id: number) => (await api.delete(`/categorias/${id}`)).data,
 };
 
-// Productos
 export const productosService = {
   getAll: async () => (await api.get<Producto[]>("/productos")).data,
   getDisponibles: async () =>
@@ -117,7 +122,6 @@ export const productosService = {
   delete: async (id: number) => (await api.delete(`/productos/${id}`)).data,
 };
 
-// Upload
 export const uploadService = {
   uploadImagen: async (file: File): Promise<UploadResponse> => {
     const formData = new FormData();
@@ -133,7 +137,6 @@ export const uploadService = {
   },
 };
 
-// Usuarios (solo superadmin)
 export const usuariosService = {
   getAll: async () => (await api.get<Usuario[]>("/usuarios")).data,
   getById: async (id: number) =>

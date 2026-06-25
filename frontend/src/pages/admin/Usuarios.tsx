@@ -9,6 +9,7 @@ import AdminLayout from "../../components/AdminLayout";
 import { S } from "../../components/sharedStyles";
 
 type Mode = "crear" | "editar" | "password" | null;
+
 const CloseIcon = () => (
   <svg
     viewBox="0 0 24 24"
@@ -51,6 +52,11 @@ const ROL_COLOR: Record<string, { bg: string; text: string; border: string }> =
     },
   };
 
+const inputFocus = (e: React.FocusEvent<any>) =>
+  (e.target.style.borderColor = "#3b82f6");
+const inputBlur = (e: React.FocusEvent<any>) =>
+  (e.target.style.borderColor = "rgba(255,255,255,0.08)");
+
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [roles, setRoles] = useState<RolPermiso[]>([]);
@@ -62,6 +68,7 @@ export default function Usuarios() {
   const [form, setForm] = useState({
     username: "",
     nombre: "",
+    email: "",
     password: "",
     rol: "editor",
     activo: true,
@@ -73,6 +80,7 @@ export default function Usuarios() {
   useEffect(() => {
     fetch_();
   }, []);
+
   const fetch_ = async () => {
     try {
       setLoading(true);
@@ -96,6 +104,7 @@ export default function Usuarios() {
       setForm({
         username: "",
         nombre: "",
+        email: "",
         password: "",
         rol: "editor",
         activo: true,
@@ -104,6 +113,7 @@ export default function Usuarios() {
       setForm({
         username: u.username,
         nombre: u.nombre || "",
+        email: (u as any).email || "",
         password: "",
         rol: u.rol,
         activo: u.activo,
@@ -125,21 +135,26 @@ export default function Usuarios() {
     setSaving(true);
     setError("");
     try {
-      if (mode === "crear")
+      if (mode === "crear") {
         await usuariosService.create({
           username: form.username,
           password: form.password,
           nombre: form.nombre || undefined,
+          email: form.email || undefined,
           rol: form.rol,
-        });
-      if (mode === "editar" && selected)
+        } as any);
+      }
+      if (mode === "editar" && selected) {
         await usuariosService.update(selected.id, {
           nombre: form.nombre || undefined,
+          email: form.email || undefined,
           rol: form.rol,
           activo: form.activo,
-        });
-      if (mode === "password" && selected)
+        } as any);
+      }
+      if (mode === "password" && selected) {
         await usuariosService.cambiarPassword(selected.id, newPwd);
+      }
       await fetch_();
       close();
     } catch (err: any) {
@@ -155,7 +170,7 @@ export default function Usuarios() {
       await usuariosService.delete(u.id);
       await fetch_();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Error");
+      alert(err.response?.data?.message || "Error al eliminar");
     }
   };
 
@@ -278,162 +293,190 @@ export default function Usuarios() {
             />
           </div>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead style={S.thead}>
-              <tr>
-                {[
-                  "Usuario",
-                  "Nombre",
-                  "Rol",
-                  "Estado",
-                  "Creado",
-                  "Acciones",
-                ].map((h) => (
-                  <th key={h} style={S.th}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {usuarios.map((u) => (
-                <tr
-                  key={u.id}
-                  style={S.tr}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background =
-                      "rgba(255,255,255,0.02)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "transparent")
-                  }
-                >
-                  <td style={S.td}>
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 9 }}
-                    >
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead style={S.thead}>
+                <tr>
+                  {[
+                    "Usuario",
+                    "Nombre",
+                    "Email",
+                    "Rol",
+                    "Estado",
+                    "Creado",
+                    "Acciones",
+                  ].map((h) => (
+                    <th key={h} style={S.th}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {usuarios.map((u) => (
+                  <tr
+                    key={u.id}
+                    style={S.tr}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background =
+                        "rgba(255,255,255,0.02)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
+                  >
+                    <td style={S.td}>
                       <div
                         style={{
-                          width: 30,
-                          height: 30,
-                          borderRadius: "50%",
-                          background: `${ROL_COLOR[u.rol]?.bg || "rgba(59,130,246,0.12)"}`,
-                          border: `1.5px solid ${ROL_COLOR[u.rol]?.border || "rgba(59,130,246,0.3)"}`,
                           display: "flex",
                           alignItems: "center",
-                          justifyContent: "center",
-                          color: ROL_COLOR[u.rol]?.text || "#60a5fa",
-                          fontWeight: 700,
-                          fontSize: 12,
-                          flexShrink: 0,
+                          gap: 9,
                         }}
                       >
-                        {u.username[0].toUpperCase()}
-                      </div>
-                      <span style={{ color: "#e2e8f0", fontWeight: 500 }}>
-                        {u.username}
-                      </span>
-                      {u.id === me?.id && (
-                        <span
+                        <div
                           style={{
-                            fontSize: 10,
-                            background: "rgba(16,185,129,0.12)",
-                            color: "#34d399",
-                            border: "1px solid rgba(16,185,129,0.25)",
-                            padding: "1px 7px",
-                            borderRadius: 10,
+                            width: 30,
+                            height: 30,
+                            borderRadius: "50%",
+                            background:
+                              ROL_COLOR[u.rol]?.bg || "rgba(59,130,246,0.12)",
+                            border: `1.5px solid ${ROL_COLOR[u.rol]?.border || "rgba(59,130,246,0.3)"}`,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: ROL_COLOR[u.rol]?.text || "#60a5fa",
+                            fontWeight: 700,
+                            fontSize: 12,
+                            flexShrink: 0,
                           }}
                         >
-                          vos
+                          {u.username[0].toUpperCase()}
+                        </div>
+                        <span style={{ color: "#e2e8f0", fontWeight: 500 }}>
+                          {u.username}
+                        </span>
+                        {u.id === me?.id && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              background: "rgba(16,185,129,0.12)",
+                              color: "#34d399",
+                              border: "1px solid rgba(16,185,129,0.25)",
+                              padding: "1px 7px",
+                              borderRadius: 10,
+                            }}
+                          >
+                            vos
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td style={S.tdMuted}>
+                      {u.nombre || (
+                        <span style={{ fontStyle: "italic", color: "#1e293b" }}>
+                          —
                         </span>
                       )}
-                    </div>
-                  </td>
-                  <td style={S.tdMuted}>
-                    {u.nombre || (
-                      <span style={{ fontStyle: "italic", color: "#1e293b" }}>
-                        —
-                      </span>
-                    )}
-                  </td>
-                  <td style={S.td}>
-                    <RolBadge rol={u.rol} />
-                  </td>
-                  <td style={S.td}>
-                    <button
-                      onClick={() => toggle(u)}
-                      disabled={u.id === me?.id}
-                      style={{
-                        ...(u.activo ? S.badgeGreen : S.badgeRed),
-                        cursor: u.id === me?.id ? "not-allowed" : "pointer",
-                        border: "none",
-                        background: u.activo
-                          ? "rgba(16,185,129,0.1)"
-                          : "rgba(239,68,68,0.1)",
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: 5,
-                          height: 5,
-                          borderRadius: "50%",
-                          background: u.activo ? "#10b981" : "#ef4444",
-                        }}
-                      />
-                      {u.activo ? "Activo" : "Inactivo"}
-                    </button>
-                  </td>
-                  <td style={S.tdMuted}>
-                    {u.created_at
-                      ? new Date(u.created_at).toLocaleDateString("es-AR")
-                      : "—"}
-                  </td>
-                  <td style={S.td}>
-                    <div style={{ display: "flex", gap: 14 }}>
-                      <button
-                        onClick={() => open("editar", u)}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "#60a5fa",
-                          fontSize: 13,
-                          cursor: "pointer",
-                          padding: 0,
-                        }}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => open("password", u)}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "#a78bfa",
-                          fontSize: 13,
-                          cursor: "pointer",
-                          padding: 0,
-                        }}
-                      >
-                        Password
-                      </button>
-                      {u.id !== me?.id && (
-                        <button onClick={() => del(u)} style={S.btnDanger}>
-                          Eliminar
-                        </button>
+                    </td>
+                    <td style={S.tdMuted}>
+                      {(u as any).email ? (
+                        <span style={{ color: "#60a5fa", fontSize: 12 }}>
+                          {(u as any).email}
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            fontStyle: "italic",
+                            color: "#1e293b",
+                            fontSize: 12,
+                          }}
+                        >
+                          sin email
+                        </span>
                       )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    </td>
+                    <td style={S.td}>
+                      <RolBadge rol={u.rol} />
+                    </td>
+                    <td style={S.td}>
+                      <button
+                        onClick={() => toggle(u)}
+                        disabled={u.id === me?.id}
+                        style={{
+                          ...(u.activo ? S.badgeGreen : S.badgeRed),
+                          cursor: u.id === me?.id ? "not-allowed" : "pointer",
+                          border: "none",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.opacity = "0.75")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.opacity = "1")
+                        }
+                      >
+                        <span
+                          style={{
+                            width: 5,
+                            height: 5,
+                            borderRadius: "50%",
+                            background: u.activo ? "#10b981" : "#ef4444",
+                          }}
+                        />
+                        {u.activo ? "Activo" : "Inactivo"}
+                      </button>
+                    </td>
+                    <td style={S.tdMuted}>
+                      {u.created_at
+                        ? new Date(u.created_at).toLocaleDateString("es-AR")
+                        : "—"}
+                    </td>
+                    <td style={S.td}>
+                      <div style={{ display: "flex", gap: 14 }}>
+                        <button
+                          onClick={() => open("editar", u)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#60a5fa",
+                            fontSize: 13,
+                            cursor: "pointer",
+                            padding: 0,
+                          }}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => open("password", u)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#a78bfa",
+                            fontSize: 13,
+                            cursor: "pointer",
+                            padding: 0,
+                          }}
+                        >
+                          Password
+                        </button>
+                        {u.id !== me?.id && (
+                          <button onClick={() => del(u)} style={S.btnDanger}>
+                            Eliminar
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
       {/* Modal */}
       {mode && (
         <div style={S.overlay}>
-          <div style={S.modal}>
+          <div style={{ ...S.modal, maxWidth: 500 }}>
             <div style={S.modalHeader}>
               <span style={{ color: "#f1f5f9", fontWeight: 600, fontSize: 15 }}>
                 {mode === "crear"
@@ -478,52 +521,73 @@ export default function Usuarios() {
                         onChange={(e) =>
                           setForm({ ...form, username: e.target.value })
                         }
-                        onFocus={(e) =>
-                          (e.target.style.borderColor = "#3b82f6")
-                        }
-                        onBlur={(e) =>
-                          (e.target.style.borderColor =
-                            "rgba(255,255,255,0.08)")
-                        }
+                        onFocus={inputFocus}
+                        onBlur={inputBlur}
                       />
                     </div>
-                    <div>
-                      <label style={S.label}>Nombre completo</label>
-                      <input
-                        style={S.input}
-                        value={form.nombre}
-                        placeholder="ej: María García"
-                        onChange={(e) =>
-                          setForm({ ...form, nombre: e.target.value })
-                        }
-                        onFocus={(e) =>
-                          (e.target.style.borderColor = "#3b82f6")
-                        }
-                        onBlur={(e) =>
-                          (e.target.style.borderColor =
-                            "rgba(255,255,255,0.08)")
-                        }
-                      />
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: 12,
+                      }}
+                    >
+                      <div>
+                        <label style={S.label}>Nombre</label>
+                        <input
+                          style={S.input}
+                          value={form.nombre}
+                          placeholder="ej: María García"
+                          onChange={(e) =>
+                            setForm({ ...form, nombre: e.target.value })
+                          }
+                          onFocus={inputFocus}
+                          onBlur={inputBlur}
+                        />
+                      </div>
+                      <div>
+                        <label style={S.label}>Contraseña *</label>
+                        <input
+                          style={S.input}
+                          type="password"
+                          required
+                          minLength={6}
+                          value={form.password}
+                          placeholder="Mín. 6 caracteres"
+                          onChange={(e) =>
+                            setForm({ ...form, password: e.target.value })
+                          }
+                          onFocus={inputFocus}
+                          onBlur={inputBlur}
+                        />
+                      </div>
                     </div>
                     <div>
-                      <label style={S.label}>Contraseña *</label>
+                      <label style={S.label}>
+                        Email
+                        <span
+                          style={{
+                            color: "#334155",
+                            fontWeight: 400,
+                            textTransform: "none",
+                            letterSpacing: 0,
+                            marginLeft: 6,
+                            fontSize: 10,
+                          }}
+                        >
+                          — usado para recuperar contraseña
+                        </span>
+                      </label>
                       <input
                         style={S.input}
-                        type="password"
-                        required
-                        minLength={6}
-                        value={form.password}
-                        placeholder="Mínimo 6 caracteres"
+                        type="email"
+                        value={form.email}
+                        placeholder="ej: maria@empresa.com"
                         onChange={(e) =>
-                          setForm({ ...form, password: e.target.value })
+                          setForm({ ...form, email: e.target.value })
                         }
-                        onFocus={(e) =>
-                          (e.target.style.borderColor = "#3b82f6")
-                        }
-                        onBlur={(e) =>
-                          (e.target.style.borderColor =
-                            "rgba(255,255,255,0.08)")
-                        }
+                        onFocus={inputFocus}
+                        onBlur={inputBlur}
                       />
                     </div>
                     <div>
@@ -534,13 +598,8 @@ export default function Usuarios() {
                         onChange={(e) =>
                           setForm({ ...form, rol: e.target.value })
                         }
-                        onFocus={(e) =>
-                          (e.target.style.borderColor = "#3b82f6")
-                        }
-                        onBlur={(e) =>
-                          (e.target.style.borderColor =
-                            "rgba(255,255,255,0.08)")
-                        }
+                        onFocus={inputFocus as any}
+                        onBlur={inputBlur as any}
                       >
                         {roles.map((r) => (
                           <option key={r.rol} value={r.rol}>
@@ -551,64 +610,80 @@ export default function Usuarios() {
                     </div>
                   </>
                 )}
+
                 {mode === "editar" && (
                   <>
-                    <div>
-                      <label style={S.label}>Nombre completo</label>
-                      <input
-                        style={S.input}
-                        value={form.nombre}
-                        placeholder="ej: María García"
-                        onChange={(e) =>
-                          setForm({ ...form, nombre: e.target.value })
-                        }
-                        onFocus={(e) =>
-                          (e.target.style.borderColor = "#3b82f6")
-                        }
-                        onBlur={(e) =>
-                          (e.target.style.borderColor =
-                            "rgba(255,255,255,0.08)")
-                        }
-                      />
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: 12,
+                      }}
+                    >
+                      <div>
+                        <label style={S.label}>Nombre</label>
+                        <input
+                          style={S.input}
+                          value={form.nombre}
+                          placeholder="ej: María García"
+                          onChange={(e) =>
+                            setForm({ ...form, nombre: e.target.value })
+                          }
+                          onFocus={inputFocus}
+                          onBlur={inputBlur}
+                        />
+                      </div>
+                      <div>
+                        <label style={S.label}>Rol</label>
+                        <select
+                          style={{
+                            ...S.input,
+                            cursor: "pointer",
+                            opacity: selected?.id === me?.id ? 0.5 : 1,
+                          }}
+                          disabled={selected?.id === me?.id}
+                          value={form.rol}
+                          onChange={(e) =>
+                            setForm({ ...form, rol: e.target.value })
+                          }
+                          onFocus={inputFocus as any}
+                          onBlur={inputBlur as any}
+                        >
+                          {roles.map((r) => (
+                            <option key={r.rol} value={r.rol}>
+                              {r.rol} — {r.descripcion}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                     <div>
-                      <label style={S.label}>Rol</label>
-                      <select
-                        style={{
-                          ...S.input,
-                          cursor: "pointer",
-                          opacity: selected?.id === me?.id ? 0.5 : 1,
-                        }}
-                        disabled={selected?.id === me?.id}
-                        value={form.rol}
-                        onChange={(e) =>
-                          setForm({ ...form, rol: e.target.value })
-                        }
-                        onFocus={(e) =>
-                          (e.target.style.borderColor = "#3b82f6")
-                        }
-                        onBlur={(e) =>
-                          (e.target.style.borderColor =
-                            "rgba(255,255,255,0.08)")
-                        }
-                      >
-                        {roles.map((r) => (
-                          <option key={r.rol} value={r.rol}>
-                            {r.rol} — {r.descripcion}
-                          </option>
-                        ))}
-                      </select>
-                      {selected?.id === me?.id && (
-                        <div
+                      <label style={S.label}>
+                        Email
+                        <span
                           style={{
-                            fontSize: 11,
                             color: "#334155",
-                            marginTop: 5,
+                            fontWeight: 400,
+                            textTransform: "none",
+                            letterSpacing: 0,
+                            marginLeft: 6,
+                            fontSize: 10,
                           }}
                         >
-                          No podés cambiar tu propio rol.
-                        </div>
-                      )}
+                          — usado para recuperar contraseña
+                        </span>
+                      </label>
+                      <input
+                        style={S.input}
+                        type="email"
+                        value={form.email}
+                        placeholder="ej: maria@empresa.com"
+                        onChange={(e) =>
+                          setForm({ ...form, email: e.target.value })
+                        }
+                        onFocus={inputFocus}
+                        onBlur={inputBlur}
+                      />
                     </div>
                     <div
                       style={{ display: "flex", alignItems: "center", gap: 10 }}
@@ -652,6 +727,7 @@ export default function Usuarios() {
                     </div>
                   </>
                 )}
+
                 {mode === "password" && (
                   <div>
                     <label style={S.label}>Nueva contraseña</label>
@@ -664,13 +740,8 @@ export default function Usuarios() {
                         value={newPwd}
                         placeholder="Mínimo 6 caracteres"
                         onChange={(e) => setNewPwd(e.target.value)}
-                        onFocus={(e) =>
-                          (e.target.style.borderColor = "#3b82f6")
-                        }
-                        onBlur={(e) =>
-                          (e.target.style.borderColor =
-                            "rgba(255,255,255,0.08)")
-                        }
+                        onFocus={inputFocus}
+                        onBlur={inputBlur}
                       />
                       <button
                         type="button"
@@ -692,6 +763,7 @@ export default function Usuarios() {
                     </div>
                   </div>
                 )}
+
                 {error && (
                   <div
                     style={{

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/admin/Login";
+import CambiarPassword from "./pages/admin/CambiarPassword";
 import Dashboard from "./pages/admin/Dashboard";
 import Categorias from "./pages/admin/Categorias";
 import Productos from "./pages/admin/Productos";
@@ -17,6 +18,16 @@ function App() {
           <Route path="/" element={<Navigate to="/menu" replace />} />
           <Route path="/menu" element={<Menu />} />
           <Route path="/admin/login" element={<Login />} />
+
+          {/* Ruta especial — accesible estando autenticado pero con must_change_password */}
+          <Route
+            path="/admin/cambiar-password"
+            element={
+              <ProtectedRoute>
+                <CambiarPassword />
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path="/admin/dashboard"
@@ -62,8 +73,21 @@ function App() {
           <Route
             path="*"
             element={
-              <div className="flex items-center justify-center h-screen">
-                <h1 className="text-2xl">404 - Página no encontrada</h1>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: "100vh",
+                  background: "#0f1117",
+                  color: "#475569",
+                  fontFamily: "system-ui",
+                }}
+              >
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 48, marginBottom: 12 }}>404</div>
+                  <p>Página no encontrada</p>
+                </div>
               </div>
             }
           />
