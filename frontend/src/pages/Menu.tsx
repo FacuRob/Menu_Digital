@@ -90,8 +90,8 @@ const Menu = () => {
           categoriasService.getActivas(),
           configuracionService.get().catch(() => null),
         ]);
-        setProductos(p);
-        setCategorias(c);
+        setProductos(Array.isArray(p) ? p : []);
+        setCategorias(Array.isArray(c) ? c : []);
         setConfig(cfg);
         setMonedaMenu(cfg?.moneda); // moneda del negocio para el formato de precios
       } catch (e) {

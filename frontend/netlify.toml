@@ -4,6 +4,11 @@
   command = "npm run build"
   publish = "dist"
 
+# URL del backend en Render (Vite la inyecta en build; el código le agrega /api).
+# El .env local está en .gitignore, así que Netlify necesita esta variable acá.
+[build.environment]
+  VITE_API_URL = "https://backend-menu-digital.onrender.com"
+
 # SPA: cualquier ruta cae en index.html (evita 404 al recargar /menu, etc.)
 [[redirects]]
   from = "/*"
