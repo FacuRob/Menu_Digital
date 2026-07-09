@@ -1,0 +1,11 @@
+# Netlify — Frontend menú público (Vite)
+# En Netlify: "Base directory" = frontend
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# SPA: cualquier ruta cae en index.html (evita 404 al recargar /menu, etc.)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
