@@ -20,12 +20,33 @@ services:
       - key: NODE_ENV
         value: production
 
-  # Frontend
+  # Frontend - Menú (público)
   - type: web
     name: menu-digital-frontend
     env: static
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       - key: VITE_API_URL
         value: https://menu-digital-backend.onrender.com
+
+  # Frontend - Admin (panel de gestión)
+  - type: web
+    name: menu-digital-admin
+    env: static
+    buildCommand: cd frontend-admin && npm install && npm run build
+    staticPublishPath: frontend-admin/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        value: https://menu-digital-backend.onrender.com
+      # URL del menú público (botón "Ver Menú" del panel admin).
+      - key: VITE_MENU_URL
+        value: https://menu-digital-frontend.onrender.com

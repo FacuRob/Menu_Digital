@@ -1,5 +1,6 @@
 const supabase = require("../config/database");
 const cloudinary = require("../config/cloudinary");
+const { getNegocioId } = require("../utils/negocio");
 
 const extractPublicId = (url) => {
   try {
@@ -12,9 +13,11 @@ const extractPublicId = (url) => {
 
 const getProductos = async (req, res) => {
   try {
+    const negocioId = getNegocioId(req);
     const { data, error } = await supabase
       .from("productos")
       .select(`*, categorias ( nombre )`)
+      .eq("negocio_id", negocioId)
       .order("orden", { ascending: true });
 
     if (error) throw error;
@@ -31,14 +34,35 @@ const getProductos = async (req, res) => {
   }
 };
 
-// ─── FIX: usar RPC con SQL directo para filtrar correctamente ───────────────
+// Público: productos disponibles del negocio (oculta sin stock si controlar_stock).
 const getProductosDisponibles = async (req, res) => {
   try {
-    const { data, error } = await supabase.rpc("get_productos_disponibles");
+    const negocioId = getNegocioId(req);
+    const { data, error } = await supabase.rpc("get_productos_disponibles", {
+      p_negocio_id: negocioId,
+    });
 
     if (error) throw error;
-
     res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Productos con stock bajo/agotado (controlan stock y stock <= umbral).
+const getStockBajo = async (req, res) => {
+  try {
+    const negocioId = getNegocioId(req);
+    const { data, error } = await supabase
+      .from("productos")
+      .select("id, nombre, stock, controlar_stock")
+      .eq("negocio_id", negocioId)
+      .eq("controlar_stock", true)
+      .lte("stock", 5)
+      .order("stock", { ascending: true });
+
+    if (error) throw error;
+    res.json(data || []);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -47,11 +71,13 @@ const getProductosDisponibles = async (req, res) => {
 const getProductosByCategoria = async (req, res) => {
   try {
     const { categoriaId } = req.params;
+    const negocioId = getNegocioId(req);
 
     const { data, error } = await supabase
       .from("productos")
       .select(`*, categorias ( nombre )`)
       .eq("categoria_id", categoriaId)
+      .eq("negocio_id", negocioId)
       .order("orden", { ascending: true });
 
     if (error) throw error;
@@ -71,11 +97,13 @@ const getProductosByCategoria = async (req, res) => {
 const getProductoById = async (req, res) => {
   try {
     const { id } = req.params;
+    const negocioId = getNegocioId(req);
 
     const { data, error } = await supabase
       .from("productos")
       .select(`*, categorias ( nombre )`)
       .eq("id", id)
+      .eq("negocio_id", negocioId)
       .single();
 
     if (error || !data) {
@@ -94,14 +122,18 @@ const getProductoById = async (req, res) => {
 
 const createProducto = async (req, res) => {
   try {
+    const negocioId = getNegocioId(req);
     const {
       nombre,
       descripcion,
       precio,
+      costo,
       imagen_url,
       categoria_id,
       disponible,
       orden,
+      stock,
+      controlar_stock,
     } = req.body;
 
     const { data, error } = await supabase
@@ -111,10 +143,14 @@ const createProducto = async (req, res) => {
           nombre,
           descripcion,
           precio,
+          costo: costo || 0,
           imagen_url: imagen_url || null,
           categoria_id,
           disponible: disponible !== undefined ? disponible : true,
           orden: orden || 0,
+          stock: stock || 0,
+          controlar_stock: !!controlar_stock,
+          negocio_id: negocioId,
         },
       ])
       .select()
@@ -130,20 +166,25 @@ const createProducto = async (req, res) => {
 const updateProducto = async (req, res) => {
   try {
     const { id } = req.params;
+    const negocioId = getNegocioId(req);
     const {
       nombre,
       descripcion,
       precio,
+      costo,
       imagen_url,
       categoria_id,
       disponible,
       orden,
+      stock,
+      controlar_stock,
     } = req.body;
 
     const { data: current } = await supabase
       .from("productos")
       .select("imagen_url")
       .eq("id", id)
+      .eq("negocio_id", negocioId)
       .single();
 
     if (!current) {
@@ -173,13 +214,17 @@ const updateProducto = async (req, res) => {
         nombre,
         descripcion,
         precio,
+        costo: costo ?? 0,
         imagen_url: newUrl,
         categoria_id,
         disponible,
         orden,
+        stock: stock ?? 0,
+        controlar_stock: !!controlar_stock,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
+      .eq("negocio_id", negocioId)
       .select()
       .single();
 
@@ -196,11 +241,13 @@ const updateProducto = async (req, res) => {
 const deleteProducto = async (req, res) => {
   try {
     const { id } = req.params;
+    const negocioId = getNegocioId(req);
 
     const { data, error } = await supabase
       .from("productos")
       .delete()
       .eq("id", id)
+      .eq("negocio_id", negocioId)
       .select()
       .single();
 
@@ -228,6 +275,7 @@ const deleteProducto = async (req, res) => {
 module.exports = {
   getProductos,
   getProductosDisponibles,
+  getStockBajo,
   getProductosByCategoria,
   getProductoById,
   createProducto,

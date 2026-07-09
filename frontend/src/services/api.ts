@@ -1,16 +1,27 @@
 import axios from "axios";
 
-const API_URL = "/api";
+// En dev usamos "/api" (proxy de Vite → localhost:5000).
+// En producción se define VITE_API_URL con la URL del backend.
+const API_URL = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : "/api";
 
 const api = axios.create({
   baseURL: API_URL,
   headers: { "Content-Type": "application/json" },
 });
 
+// Negocio del menú público, tomado de la URL (?negocio=<id>). Default: 1.
+const negocioParam =
+  new URLSearchParams(window.location.search).get("negocio") || "";
+
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
     if (token) config.headers.Authorization = `Bearer ${token}`;
+    if (negocioParam) {
+      config.params = { ...(config.params || {}), negocio: negocioParam };
+    }
     return config;
   },
   (error) => Promise.reject(error),
@@ -35,6 +46,10 @@ export interface Producto {
   categoria_nombre?: string;
   disponible: boolean;
   orden: number;
+  costo?: number;
+  stock?: number;
+  controlar_stock?: boolean;
+  negocio_id?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -155,6 +170,93 @@ export const usuariosService = {
   cambiarPassword: async (id: number, password: string) =>
     (await api.put(`/usuarios/${id}/password`, { password })).data,
   delete: async (id: number) => (await api.delete(`/usuarios/${id}`)).data,
+};
+
+export interface FranjaHoraria {
+  desde: string;
+  hasta: string;
+}
+export interface DiaHorario {
+  cerrado: boolean;
+  franjas: FranjaHoraria[];
+}
+export type HorariosConfig = DiaHorario[]; // 0=Lunes … 6=Domingo
+
+export interface Configuracion {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+  direccion: string | null;
+  telefono: string | null;
+  whatsapp: string | null;
+  email: string | null;
+  horarios: string | null;
+  logo_url: string | null;
+  portada_url: string | null;
+  mesas_activo: boolean;
+  mesas_cantidad: number;
+  delivery_activo: boolean;
+  retiro_activo: boolean;
+  color_primario?: string | null;
+  horarios_config?: HorariosConfig | null;
+  moneda?: string | null;
+}
+
+export type TipoEntrega = "mesa" | "retiro" | "delivery";
+
+export interface PedidoItem {
+  id?: number;
+  producto_id: number | null;
+  nombre: string;
+  precio_unit: number;
+  cantidad: number;
+  subtotal: number;
+}
+
+export interface Pedido {
+  id: number;
+  mesa: string | null;
+  cliente: string | null;
+  nota: string | null;
+  total: number;
+  estado: "pendiente" | "preparando" | "entregado" | "cancelado";
+  tipo_entrega?: TipoEntrega | null;
+  direccion_entrega?: string | null;
+  telefono_cliente?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  items?: PedidoItem[];
+}
+
+export interface NuevoPedidoItem {
+  producto_id: number | null;
+  nombre: string;
+  precio: number;
+  cantidad: number;
+}
+
+export const configuracionService = {
+  get: async () => (await api.get<Configuracion>("/configuracion")).data,
+  update: async (c: Partial<Configuracion>) =>
+    (await api.put<Configuracion>("/configuracion", c)).data,
+};
+
+export const pedidosService = {
+  create: async (payload: {
+    mesa?: string | null;
+    cliente?: string | null;
+    nota?: string | null;
+    tipo_entrega?: TipoEntrega | null;
+    direccion_entrega?: string | null;
+    telefono_cliente?: string | null;
+    items: NuevoPedidoItem[];
+  }) => (await api.post<Pedido>("/pedidos", payload)).data,
+  getAll: async (params?: { estado?: string; mesa?: string }) =>
+    (await api.get<Pedido[]>("/pedidos", { params })).data,
+  getById: async (id: number) =>
+    (await api.get<Pedido>(`/pedidos/${id}`)).data,
+  updateEstado: async (id: number, estado: Pedido["estado"]) =>
+    (await api.put<Pedido>(`/pedidos/${id}/estado`, { estado })).data,
 };
 
 export default api;

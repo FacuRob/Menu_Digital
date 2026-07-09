@@ -1,0 +1,655 @@
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  type ReactNode,
+} from "react";
+
+// Idiomas soportados por el panel admin.
+export const LANGS = [
+  { code: "es", label: "Español", flag: "🇪🇸" },
+  { code: "en", label: "English", flag: "🇬🇧" },
+  { code: "pt", label: "Português", flag: "🇧🇷" },
+] as const;
+
+export type Lang = (typeof LANGS)[number]["code"];
+
+// Locale para formatear fechas/números según el idioma.
+export const LOCALE: Record<Lang, string> = {
+  es: "es-AR",
+  en: "en-US",
+  pt: "pt-BR",
+};
+
+type Dict = Record<string, string>;
+
+// ── Diccionarios ─────────────────────────────────────────────
+const es: Dict = {
+  // Shell / AdminLayout
+  brandSubtitle: "Panel Admin",
+  navDashboard: "Dashboard",
+  navCategorias: "Categorías",
+  navProductos: "Productos",
+  navPedidos: "Pedidos",
+  navQr: "Código QR",
+  navUsuarios: "Usuarios",
+  navNegocios: "Negocios",
+  navPlataforma: "Plataforma",
+  navVerMenu: "Ver Menú",
+  logout: "Cerrar Sesión",
+  online: "En línea",
+  configMenu: "Configurar el menú",
+  manageNegocios: "Gestionar negocios",
+  stockAlerts: "Alertas de stock",
+  stockAllGood: "Todo en orden. Sin faltantes.",
+  soldOut: "Agotado",
+  unitsShort: "{n} u.",
+  inactive: "inactivo",
+  newOrders: "Pedidos nuevos",
+  toastNewOrders_one: "{n} pedido nuevo",
+  toastNewOrders_other: "{n} pedidos nuevos",
+  toastTapToView: "Tocá para ver los pedidos",
+  configModalTitle: "Configuración del menú",
+  // Dashboard
+  greeting: "Hola, {name}",
+  welcome: "Bienvenido al panel de administración",
+  metricProfit: "Ganancia del mes",
+  metricSales: "Ventas del mes",
+  metricCost: "Costo del mes",
+  metricOrders: "Pedidos entregados",
+  chartTitle: "Ventas y ganancia · últimos 6 meses",
+  legendSales: "Ventas",
+  legendProfit: "Ganancia",
+  topProducts: "Más rentables del mes",
+  noSalesMonth: "Todavía no hay ventas entregadas este mes.",
+  lowStock: "Stock bajo",
+  quickAccess: "Accesos rápidos",
+  descCategorias: "Organizá las secciones del menú",
+  descProductos: "Administrá los ítems del menú",
+  descPedidos: "Seguí los pedidos por mesa",
+  descQr: "Generá el QR para tus mesas",
+  descUsuarios: "Roles y permisos del sistema",
+  descNegocios: "Administrá varios locales",
+  descPlataforma: "Cuentas suscriptas al SaaS",
+  goTo: "Ir a {label}",
+  tip: "Usá el sidebar para navegar entre secciones. Podés colapsarlo con el botón ☰ del topbar.",
+  // Login
+  loginSubtitle: "Ingresá a tu panel de administración",
+  forgotSubtitle: "Recuperación de contraseña",
+  user: "Usuario",
+  userPlaceholder: "tu_usuario",
+  password: "Contraseña",
+  signingIn: "Ingresando...",
+  signIn: "Ingresar",
+  forgotLink: "Olvidé mi contraseña",
+  forgotInfo:
+    "Ingresá tu nombre de usuario. Se generará una contraseña temporal y se enviará al email del administrador del sistema.",
+  yourUser: "Tu usuario",
+  back: "Volver",
+  sending: "Enviando...",
+  send: "Enviar",
+  emailSent: "Email enviado",
+  emailSentDesc:
+    "Se generó una contraseña temporal. El administrador del sistema recibirá el email con las instrucciones.",
+  backToLogin: "Volver al login",
+  errInvalidCreds: "Credenciales inválidas",
+  errRequest: "Error al procesar la solicitud",
+  // Cambiar contraseña
+  changeTitle: "Cambiá tu contraseña",
+  changeSubtitle:
+    "Hola {name}, por seguridad debés establecer una nueva contraseña antes de continuar.",
+  tempPwWarning:
+    "Estás usando una contraseña temporal. Debe ser cambiada para acceder al sistema.",
+  newPassword: "Nueva contraseña",
+  min6: "Mínimo 6 caracteres",
+  confirmPassword: "Confirmar contraseña",
+  repeatPassword: "Repetí la contraseña",
+  pwMismatch: "Las contraseñas no coinciden",
+  pwMatch: "Las contraseñas coinciden",
+  saving: "Guardando...",
+  setNewPassword: "Establecer nueva contraseña",
+  strength1: "Muy débil",
+  strength2: "Débil",
+  strength3: "Regular",
+  strength4: "Buena",
+  strength5: "Fuerte",
+  errMin6: "La contraseña debe tener al menos 6 caracteres",
+  errChangeFailed: "Error al cambiar la contraseña",
+  // ── Compartidos (CRUD) ──
+  statusActive: "Activo",
+  statusInactive: "Inactivo",
+  actionEdit: "Editar",
+  actionCancel: "Cancelar",
+  actionUpdate: "Actualizar",
+  colName: "Nombre",
+  colStatus: "Estado",
+  colActions: "Acciones",
+  colOrder: "Orden",
+  clickToDeactivate: "Click para desactivar",
+  clickToActivate: "Click para activar",
+  errSaveGeneric: "Error al guardar",
+  errStatusChange: "Error al cambiar estado",
+  totalLabel: "Total",
+  // ── Categorías ──
+  catCount: "{n} categorías",
+  catNew: "Nueva categoría",
+  catEmpty: "No hay categorías todavía",
+  catEditTitle: "Editar categoría",
+  catNamePh: "Ej: Entradas, Bebidas...",
+  catOrderField: "Orden de aparición",
+  catInitialStatus: "Estado inicial",
+  catCreate: "Crear categoría",
+  // ── Productos ──
+  prodAvailable: "Disponibles",
+  prodUnavailable: "No disponibles",
+  prodAllCategories: "Todas las categorías",
+  prodCount: "{n} productos",
+  prodPlanUsage: "{used} / {limit} productos del plan",
+  prodPlanTitle: "Plan {plan}: hasta {limit} productos por negocio",
+  prodSubCancelled: "Suscripción cancelada",
+  prodLimitReached: "Alcanzaste el límite de {limit} productos de tu plan",
+  prodNew: "Nuevo producto",
+  prodEmptyAvailable: "No hay productos disponibles",
+  prodEmptyUnavailable: "No hay productos no disponibles",
+  colProduct: "Producto",
+  colCategory: "Categoría",
+  colPrice: "Precio",
+  colOrderShort: "Ord.",
+  statusAvailable: "Disponible",
+  statusUnavailableShort: "No disp.",
+  prodEditTitle: "Editar producto",
+  prodNameField: "Nombre *",
+  prodNamePh: "Ej: Milanesa napolitana",
+  prodDescField: "Descripción",
+  prodDescPh: "Descripción del producto...",
+  prodPriceField: "Precio *",
+  prodCategoryField: "Categoría *",
+  prodCostField: "Costo (para ganancia)",
+  prodStockField: "Stock",
+  prodControlStock: "Controlar stock (se oculta del menú al llegar a 0)",
+  prodOrderField: "Orden",
+  prodAvailableField: "Disponible",
+  prodImageField: "Imagen",
+  prodChangeImage: "Cambiar imagen",
+  prodSelectImage: "Seleccionar imagen",
+  prodImageHint: "JPG, PNG, WebP — máx. 5MB",
+  prodUploadError: "Error al subir la imagen.",
+  prodImageWillUpload: "{name} — se subirá al guardar",
+  prodSaveError: "Error al guardar el producto.",
+  prodUploading: "Subiendo imagen...",
+  prodCreate: "Crear producto",
+  // ── Pedidos ──
+  pedTypeOrder: "Tipo de pedido",
+  pedAll: "Todos",
+  pedTable: "Mesa",
+  pedDelivery: "Delivery",
+  pedPickup: "Retiro en local",
+  pedPending: "Pendientes",
+  pedPreparing: "Preparando",
+  pedDelivered: "Entregados",
+  pedCancelled: "Cancelados",
+  pedFilterTable: "Filtrar por mesa…",
+  pedRefresh: "Actualizar",
+  pedLoading: "Cargando pedidos…",
+  pedEmpty: "No hay pedidos para mostrar.",
+  pedPickupInLocal: "Retiro en el local",
+  pedOrder: "Pedido",
+  pedTableN: "Mesa {n}",
+  pedStatePendiente: "Pendiente",
+  pedStatePreparando: "Preparando",
+  pedStateEntregado: "Entregado",
+  pedStateCancelado: "Cancelado",
+  pedPrepare: "Preparar",
+  pedDeliver: "Entregar",
+  pedReopen: "Reabrir",
+};
+
+const en: Dict = {
+  brandSubtitle: "Admin Panel",
+  navDashboard: "Dashboard",
+  navCategorias: "Categories",
+  navProductos: "Products",
+  navPedidos: "Orders",
+  navQr: "QR Code",
+  navUsuarios: "Users",
+  navNegocios: "Businesses",
+  navPlataforma: "Platform",
+  navVerMenu: "View Menu",
+  logout: "Log out",
+  online: "Online",
+  configMenu: "Configure the menu",
+  manageNegocios: "Manage businesses",
+  stockAlerts: "Stock alerts",
+  stockAllGood: "All good. Nothing missing.",
+  soldOut: "Sold out",
+  unitsShort: "{n} u.",
+  inactive: "inactive",
+  newOrders: "New orders",
+  toastNewOrders_one: "{n} new order",
+  toastNewOrders_other: "{n} new orders",
+  toastTapToView: "Tap to see the orders",
+  configModalTitle: "Menu settings",
+  greeting: "Hi, {name}",
+  welcome: "Welcome to the admin panel",
+  metricProfit: "Profit this month",
+  metricSales: "Sales this month",
+  metricCost: "Cost this month",
+  metricOrders: "Delivered orders",
+  chartTitle: "Sales and profit · last 6 months",
+  legendSales: "Sales",
+  legendProfit: "Profit",
+  topProducts: "Most profitable this month",
+  noSalesMonth: "No delivered sales yet this month.",
+  lowStock: "Low stock",
+  quickAccess: "Quick access",
+  descCategorias: "Organize the menu sections",
+  descProductos: "Manage the menu items",
+  descPedidos: "Track orders by table",
+  descQr: "Generate the QR for your tables",
+  descUsuarios: "System roles and permissions",
+  descNegocios: "Manage multiple venues",
+  descPlataforma: "Accounts subscribed to the SaaS",
+  goTo: "Go to {label}",
+  tip: "Use the sidebar to navigate between sections. Collapse it with the ☰ button in the topbar.",
+  loginSubtitle: "Sign in to your admin panel",
+  forgotSubtitle: "Password recovery",
+  user: "Username",
+  userPlaceholder: "your_username",
+  password: "Password",
+  signingIn: "Signing in...",
+  signIn: "Sign in",
+  forgotLink: "I forgot my password",
+  forgotInfo:
+    "Enter your username. A temporary password will be generated and sent to the system administrator's email.",
+  yourUser: "Your username",
+  back: "Back",
+  sending: "Sending...",
+  send: "Send",
+  emailSent: "Email sent",
+  emailSentDesc:
+    "A temporary password was generated. The system administrator will receive the email with instructions.",
+  backToLogin: "Back to login",
+  errInvalidCreds: "Invalid credentials",
+  errRequest: "Couldn't process the request",
+  changeTitle: "Change your password",
+  changeSubtitle:
+    "Hi {name}, for security you must set a new password before continuing.",
+  tempPwWarning:
+    "You're using a temporary password. It must be changed to access the system.",
+  newPassword: "New password",
+  min6: "At least 6 characters",
+  confirmPassword: "Confirm password",
+  repeatPassword: "Repeat the password",
+  pwMismatch: "Passwords don't match",
+  pwMatch: "Passwords match",
+  saving: "Saving...",
+  setNewPassword: "Set new password",
+  strength1: "Very weak",
+  strength2: "Weak",
+  strength3: "Fair",
+  strength4: "Good",
+  strength5: "Strong",
+  errMin6: "The password must be at least 6 characters",
+  errChangeFailed: "Couldn't change the password",
+  statusActive: "Active",
+  statusInactive: "Inactive",
+  actionEdit: "Edit",
+  actionCancel: "Cancel",
+  actionUpdate: "Update",
+  colName: "Name",
+  colStatus: "Status",
+  colActions: "Actions",
+  colOrder: "Order",
+  clickToDeactivate: "Click to deactivate",
+  clickToActivate: "Click to activate",
+  errSaveGeneric: "Error saving",
+  errStatusChange: "Error changing status",
+  totalLabel: "Total",
+  catCount: "{n} categories",
+  catNew: "New category",
+  catEmpty: "No categories yet",
+  catEditTitle: "Edit category",
+  catNamePh: "e.g. Starters, Drinks...",
+  catOrderField: "Display order",
+  catInitialStatus: "Initial status",
+  catCreate: "Create category",
+  prodAvailable: "Available",
+  prodUnavailable: "Unavailable",
+  prodAllCategories: "All categories",
+  prodCount: "{n} products",
+  prodPlanUsage: "{used} / {limit} products of the plan",
+  prodPlanTitle: "{plan} plan: up to {limit} products per business",
+  prodSubCancelled: "Subscription cancelled",
+  prodLimitReached: "You reached the limit of {limit} products in your plan",
+  prodNew: "New product",
+  prodEmptyAvailable: "No available products",
+  prodEmptyUnavailable: "No unavailable products",
+  colProduct: "Product",
+  colCategory: "Category",
+  colPrice: "Price",
+  colOrderShort: "Ord.",
+  statusAvailable: "Available",
+  statusUnavailableShort: "Unavail.",
+  prodEditTitle: "Edit product",
+  prodNameField: "Name *",
+  prodNamePh: "e.g. Chicken parmesan",
+  prodDescField: "Description",
+  prodDescPh: "Product description...",
+  prodPriceField: "Price *",
+  prodCategoryField: "Category *",
+  prodCostField: "Cost (for profit)",
+  prodStockField: "Stock",
+  prodControlStock: "Track stock (hidden from the menu when it reaches 0)",
+  prodOrderField: "Order",
+  prodAvailableField: "Available",
+  prodImageField: "Image",
+  prodChangeImage: "Change image",
+  prodSelectImage: "Select image",
+  prodImageHint: "JPG, PNG, WebP — max. 5MB",
+  prodUploadError: "Error uploading the image.",
+  prodImageWillUpload: "{name} — will be uploaded on save",
+  prodSaveError: "Error saving the product.",
+  prodUploading: "Uploading image...",
+  prodCreate: "Create product",
+  pedTypeOrder: "Order type",
+  pedAll: "All",
+  pedTable: "Table",
+  pedDelivery: "Delivery",
+  pedPickup: "Pickup",
+  pedPending: "Pending",
+  pedPreparing: "Preparing",
+  pedDelivered: "Delivered",
+  pedCancelled: "Cancelled",
+  pedFilterTable: "Filter by table…",
+  pedRefresh: "Refresh",
+  pedLoading: "Loading orders…",
+  pedEmpty: "No orders to show.",
+  pedPickupInLocal: "Pickup at the venue",
+  pedOrder: "Order",
+  pedTableN: "Table {n}",
+  pedStatePendiente: "Pending",
+  pedStatePreparando: "Preparing",
+  pedStateEntregado: "Delivered",
+  pedStateCancelado: "Cancelled",
+  pedPrepare: "Prepare",
+  pedDeliver: "Deliver",
+  pedReopen: "Reopen",
+};
+
+const pt: Dict = {
+  brandSubtitle: "Painel Admin",
+  navDashboard: "Dashboard",
+  navCategorias: "Categorias",
+  navProductos: "Produtos",
+  navPedidos: "Pedidos",
+  navQr: "Código QR",
+  navUsuarios: "Usuários",
+  navNegocios: "Negócios",
+  navPlataforma: "Plataforma",
+  navVerMenu: "Ver Menu",
+  logout: "Sair",
+  online: "Online",
+  configMenu: "Configurar o menu",
+  manageNegocios: "Gerenciar negócios",
+  stockAlerts: "Alertas de estoque",
+  stockAllGood: "Tudo certo. Nada em falta.",
+  soldOut: "Esgotado",
+  unitsShort: "{n} un.",
+  inactive: "inativo",
+  newOrders: "Novos pedidos",
+  toastNewOrders_one: "{n} pedido novo",
+  toastNewOrders_other: "{n} pedidos novos",
+  toastTapToView: "Toque para ver os pedidos",
+  configModalTitle: "Configuração do menu",
+  greeting: "Olá, {name}",
+  welcome: "Bem-vindo ao painel de administração",
+  metricProfit: "Lucro do mês",
+  metricSales: "Vendas do mês",
+  metricCost: "Custo do mês",
+  metricOrders: "Pedidos entregues",
+  chartTitle: "Vendas e lucro · últimos 6 meses",
+  legendSales: "Vendas",
+  legendProfit: "Lucro",
+  topProducts: "Mais rentáveis do mês",
+  noSalesMonth: "Ainda não há vendas entregues neste mês.",
+  lowStock: "Estoque baixo",
+  quickAccess: "Acessos rápidos",
+  descCategorias: "Organize as seções do menu",
+  descProductos: "Gerencie os itens do menu",
+  descPedidos: "Acompanhe os pedidos por mesa",
+  descQr: "Gere o QR para suas mesas",
+  descUsuarios: "Funções e permissões do sistema",
+  descNegocios: "Gerencie vários locais",
+  descPlataforma: "Contas assinantes do SaaS",
+  goTo: "Ir para {label}",
+  tip: "Use a barra lateral para navegar entre as seções. Recolha com o botão ☰ da barra superior.",
+  loginSubtitle: "Acesse seu painel de administração",
+  forgotSubtitle: "Recuperação de senha",
+  user: "Usuário",
+  userPlaceholder: "seu_usuario",
+  password: "Senha",
+  signingIn: "Entrando...",
+  signIn: "Entrar",
+  forgotLink: "Esqueci minha senha",
+  forgotInfo:
+    "Informe seu nome de usuário. Uma senha temporária será gerada e enviada ao e-mail do administrador do sistema.",
+  yourUser: "Seu usuário",
+  back: "Voltar",
+  sending: "Enviando...",
+  send: "Enviar",
+  emailSent: "E-mail enviado",
+  emailSentDesc:
+    "Uma senha temporária foi gerada. O administrador do sistema receberá o e-mail com as instruções.",
+  backToLogin: "Voltar ao login",
+  errInvalidCreds: "Credenciais inválidas",
+  errRequest: "Não foi possível processar a solicitação",
+  changeTitle: "Altere sua senha",
+  changeSubtitle:
+    "Olá {name}, por segurança você deve definir uma nova senha antes de continuar.",
+  tempPwWarning:
+    "Você está usando uma senha temporária. Ela deve ser alterada para acessar o sistema.",
+  newPassword: "Nova senha",
+  min6: "Mínimo de 6 caracteres",
+  confirmPassword: "Confirmar senha",
+  repeatPassword: "Repita a senha",
+  pwMismatch: "As senhas não coincidem",
+  pwMatch: "As senhas coincidem",
+  saving: "Salvando...",
+  setNewPassword: "Definir nova senha",
+  strength1: "Muito fraca",
+  strength2: "Fraca",
+  strength3: "Regular",
+  strength4: "Boa",
+  strength5: "Forte",
+  errMin6: "A senha deve ter pelo menos 6 caracteres",
+  errChangeFailed: "Não foi possível alterar a senha",
+  statusActive: "Ativo",
+  statusInactive: "Inativo",
+  actionEdit: "Editar",
+  actionCancel: "Cancelar",
+  actionUpdate: "Atualizar",
+  colName: "Nome",
+  colStatus: "Status",
+  colActions: "Ações",
+  colOrder: "Ordem",
+  clickToDeactivate: "Clique para desativar",
+  clickToActivate: "Clique para ativar",
+  errSaveGeneric: "Erro ao salvar",
+  errStatusChange: "Erro ao alterar status",
+  totalLabel: "Total",
+  catCount: "{n} categorias",
+  catNew: "Nova categoria",
+  catEmpty: "Ainda não há categorias",
+  catEditTitle: "Editar categoria",
+  catNamePh: "Ex: Entradas, Bebidas...",
+  catOrderField: "Ordem de exibição",
+  catInitialStatus: "Status inicial",
+  catCreate: "Criar categoria",
+  prodAvailable: "Disponíveis",
+  prodUnavailable: "Indisponíveis",
+  prodAllCategories: "Todas as categorias",
+  prodCount: "{n} produtos",
+  prodPlanUsage: "{used} / {limit} produtos do plano",
+  prodPlanTitle: "Plano {plan}: até {limit} produtos por negócio",
+  prodSubCancelled: "Assinatura cancelada",
+  prodLimitReached: "Você atingiu o limite de {limit} produtos do seu plano",
+  prodNew: "Novo produto",
+  prodEmptyAvailable: "Não há produtos disponíveis",
+  prodEmptyUnavailable: "Não há produtos indisponíveis",
+  colProduct: "Produto",
+  colCategory: "Categoria",
+  colPrice: "Preço",
+  colOrderShort: "Ord.",
+  statusAvailable: "Disponível",
+  statusUnavailableShort: "Indisp.",
+  prodEditTitle: "Editar produto",
+  prodNameField: "Nome *",
+  prodNamePh: "Ex: Milanesa à napolitana",
+  prodDescField: "Descrição",
+  prodDescPh: "Descrição do produto...",
+  prodPriceField: "Preço *",
+  prodCategoryField: "Categoria *",
+  prodCostField: "Custo (para lucro)",
+  prodStockField: "Estoque",
+  prodControlStock: "Controlar estoque (some do menu ao chegar a 0)",
+  prodOrderField: "Ordem",
+  prodAvailableField: "Disponível",
+  prodImageField: "Imagem",
+  prodChangeImage: "Trocar imagem",
+  prodSelectImage: "Selecionar imagem",
+  prodImageHint: "JPG, PNG, WebP — máx. 5MB",
+  prodUploadError: "Erro ao enviar a imagem.",
+  prodImageWillUpload: "{name} — será enviada ao salvar",
+  prodSaveError: "Erro ao salvar o produto.",
+  prodUploading: "Enviando imagem...",
+  prodCreate: "Criar produto",
+  pedTypeOrder: "Tipo de pedido",
+  pedAll: "Todos",
+  pedTable: "Mesa",
+  pedDelivery: "Delivery",
+  pedPickup: "Retirada no local",
+  pedPending: "Pendentes",
+  pedPreparing: "Preparando",
+  pedDelivered: "Entregues",
+  pedCancelled: "Cancelados",
+  pedFilterTable: "Filtrar por mesa…",
+  pedRefresh: "Atualizar",
+  pedLoading: "Carregando pedidos…",
+  pedEmpty: "Não há pedidos para mostrar.",
+  pedPickupInLocal: "Retirada no local",
+  pedOrder: "Pedido",
+  pedTableN: "Mesa {n}",
+  pedStatePendiente: "Pendente",
+  pedStatePreparando: "Preparando",
+  pedStateEntregado: "Entregue",
+  pedStateCancelado: "Cancelado",
+  pedPrepare: "Preparar",
+  pedDeliver: "Entregar",
+  pedReopen: "Reabrir",
+};
+
+const DICTS: Record<Lang, Dict> = { es, en, pt };
+
+const detectLang = (): Lang => {
+  const saved = localStorage.getItem("admin_lang");
+  if (saved && saved in DICTS) return saved as Lang;
+  const nav = (navigator.language || "es").slice(0, 2).toLowerCase();
+  return (nav in DICTS ? nav : "es") as Lang;
+};
+
+interface I18nContextType {
+  lang: Lang;
+  setLang: (l: Lang) => void;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}
+
+const I18nContext = createContext<I18nContextType | undefined>(undefined);
+
+export const LanguageProvider = ({ children }: { children: ReactNode }) => {
+  const [lang, setLangState] = useState<Lang>(detectLang);
+
+  const setLang = useCallback((l: Lang) => {
+    localStorage.setItem("admin_lang", l);
+    setLangState(l);
+  }, []);
+
+  const t = useCallback(
+    (key: string, vars?: Record<string, string | number>) => {
+      let s = DICTS[lang][key] ?? DICTS.es[key] ?? key;
+      if (vars) for (const k in vars) s = s.replace(`{${k}}`, String(vars[k]));
+      return s;
+    },
+    [lang],
+  );
+
+  return (
+    <I18nContext.Provider value={{ lang, setLang, t }}>
+      {children}
+    </I18nContext.Provider>
+  );
+};
+
+export const useLang = () => {
+  const ctx = useContext(I18nContext);
+  if (!ctx) throw new Error("useLang debe usarse dentro de LanguageProvider");
+  return ctx;
+};
+
+// ── Selector de idioma (desplegable compacto para el topbar) ──
+export function LangSelector({ isDark = false }: { isDark?: boolean }) {
+  const { lang, setLang } = useLang();
+  const current = LANGS.find((l) => l.code === lang) || LANGS[0];
+  return (
+    <label
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        position: "relative",
+        cursor: "pointer",
+      }}
+      title="Idioma / Language"
+    >
+      <span style={{ fontSize: 15, lineHeight: 1 }}>{current.flag}</span>
+      <select
+        value={lang}
+        onChange={(e) => setLang(e.target.value as Lang)}
+        aria-label="Idioma"
+        style={{
+          appearance: "none",
+          WebkitAppearance: "none",
+          border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`,
+          background: isDark ? "#0f1117" : "#f8f9fa",
+          color: isDark ? "#f1f5f9" : "#1e293b",
+          borderRadius: 8,
+          padding: "5px 24px 5px 8px",
+          fontSize: 12.5,
+          fontWeight: 600,
+          fontFamily: "inherit",
+          cursor: "pointer",
+          outline: "none",
+        }}
+      >
+        {LANGS.map((l) => (
+          <option key={l.code} value={l.code} style={{ color: "#1e293b" }}>
+            {l.label}
+          </option>
+        ))}
+      </select>
+      <svg
+        width={11}
+        height={11}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke={isDark ? "#94a3b8" : "#64748b"}
+        strokeWidth={2.4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ position: "absolute", right: 8, pointerEvents: "none" }}
+      >
+        <path d="M6 9l6 6 6-6" />
+      </svg>
+    </label>
+  );
+}

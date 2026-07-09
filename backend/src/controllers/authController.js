@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { sendPasswordResetEmail } = require("../services/emailService");
+const { getCuentaId } = require("../utils/cuenta");
 
 const rolesValidos = ["superadmin", "editor", "visor"];
 
@@ -48,6 +49,9 @@ const register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // El nuevo usuario pertenece a la misma cuenta que quien lo crea.
+    const cuentaId = await getCuentaId(req);
+
     const { data, error } = await supabase
       .from("usuarios")
       .insert([
@@ -59,6 +63,7 @@ const register = async (req, res) => {
           rol,
           activo: true,
           must_change_password: false,
+          cuenta_id: cuentaId,
         },
       ])
       .select("id, username, nombre, email, rol, activo")
@@ -109,6 +114,8 @@ const login = async (req, res) => {
         id: user.id,
         username: user.username,
         rol: user.rol,
+        cuenta_id: user.cuenta_id,
+        es_plataforma: user.es_plataforma === true,
         must_change_password: user.must_change_password,
       },
       process.env.JWT_SECRET,
@@ -124,6 +131,8 @@ const login = async (req, res) => {
         nombre: user.nombre,
         email: user.email,
         rol: user.rol,
+        cuenta_id: user.cuenta_id,
+        es_plataforma: user.es_plataforma === true,
         permisos,
         must_change_password: user.must_change_password,
       },
@@ -150,7 +159,9 @@ const verifyToken = async (req, res) => {
 
     const { data: user, error: userError } = await supabase
       .from("usuarios")
-      .select("id, username, nombre, email, rol, activo, must_change_password")
+      .select(
+        "id, username, nombre, email, rol, activo, must_change_password, cuenta_id, es_plataforma",
+      )
       .eq("id", req.user.id)
       .single();
 
