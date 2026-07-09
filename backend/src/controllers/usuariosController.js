@@ -22,7 +22,7 @@ const getUsuarios = async (req, res) => {
     if (error) throw error;
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "usuarios");
   }
 };
 
@@ -44,7 +44,7 @@ const getUsuarioById = async (req, res) => {
       return res.status(404).json({ message: "Usuario no encontrado" });
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "usuarios");
   }
 };
 
@@ -108,7 +108,7 @@ const createUsuario = async (req, res) => {
     if (error) throw error;
     res.status(201).json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "usuarios");
   }
 };
 
@@ -165,7 +165,7 @@ const updateUsuario = async (req, res) => {
       return res.status(404).json({ message: "Usuario no encontrado" });
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "usuarios");
   }
 };
 
@@ -202,7 +202,7 @@ const cambiarPassword = async (req, res) => {
       return res.status(404).json({ message: "Usuario no encontrado" });
     res.json({ message: "Contraseña actualizada para " + data.username });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "usuarios");
   }
 };
 
@@ -225,7 +225,7 @@ const deleteUsuario = async (req, res) => {
       return res.status(404).json({ message: "Usuario no encontrado" });
     res.json({ message: "Usuario " + data.username + " eliminado" });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "usuarios");
   }
 };
 
@@ -238,7 +238,7 @@ const getRoles = async (req, res) => {
     if (error) throw error;
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "usuarios");
   }
 };
 

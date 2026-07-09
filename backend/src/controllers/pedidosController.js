@@ -1,5 +1,6 @@
 const supabase = require("../config/database");
 const { getNegocioId } = require("../utils/negocio");
+const { respondError } = require("../utils/respondError");
 
 // ── Crear un pedido (público, desde el menú del cliente) ──
 const createPedido = async (req, res) => {
@@ -101,7 +102,7 @@ const createPedido = async (req, res) => {
 
     res.status(201).json({ ...pedido, items: itemsData });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "pedidos");
   }
 };
 
@@ -130,7 +131,7 @@ const getPedidos = async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "pedidos");
   }
 };
 
@@ -153,7 +154,7 @@ const getPedidoById = async (req, res) => {
     const { pedido_items, ...rest } = data;
     res.json({ ...rest, items: pedido_items || [] });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "pedidos");
   }
 };
 
@@ -184,7 +185,7 @@ const updateEstadoPedido = async (req, res) => {
 
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "pedidos");
   }
 };
 

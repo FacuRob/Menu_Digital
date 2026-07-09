@@ -1,4 +1,5 @@
 const supabase = require("../config/database");
+const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
 
 const MESES_ABBR = [
@@ -107,7 +108,7 @@ const getResumen = async (req, res) => {
       stock_bajo: stockBajo || [],
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "analiticas");
   }
 };
 

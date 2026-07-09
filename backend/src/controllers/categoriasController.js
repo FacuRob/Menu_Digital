@@ -1,4 +1,5 @@
 const supabase = require("../config/database");
+const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
 
 // Obtener todas las categorías del negocio
@@ -14,7 +15,7 @@ const getCategorias = async (req, res) => {
     if (error) throw error;
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "categorias");
   }
 };
 
@@ -32,7 +33,7 @@ const getCategoriasActivas = async (req, res) => {
     if (error) throw error;
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "categorias");
   }
 };
 
@@ -55,7 +56,7 @@ const getCategoriaById = async (req, res) => {
 
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "categorias");
   }
 };
 
@@ -81,7 +82,7 @@ const createCategoria = async (req, res) => {
     if (error) throw error;
     res.status(201).json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "categorias");
   }
 };
 
@@ -111,7 +112,7 @@ const updateCategoria = async (req, res) => {
 
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "categorias");
   }
 };
 
@@ -135,7 +136,7 @@ const deleteCategoria = async (req, res) => {
 
     res.json({ message: "Categoría eliminada exitosamente" });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "categorias");
   }
 };
 

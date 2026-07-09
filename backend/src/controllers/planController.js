@@ -1,4 +1,5 @@
 const supabase = require("../config/database");
+const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
 
 /**
@@ -51,7 +52,7 @@ const getPlan = async (req, res) => {
       productos_usados: productosUsados ?? 0,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "plan");
   }
 };
 

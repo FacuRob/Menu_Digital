@@ -1,4 +1,5 @@
 const supabase = require("../config/database");
+const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
 
 const DEFAULTS = (negocioId) => ({
@@ -34,7 +35,7 @@ const getConfiguracion = async (req, res) => {
     if (error) throw error;
     res.json(data || DEFAULTS(negocioId));
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "configuracion");
   }
 };
 
@@ -92,7 +93,7 @@ const updateConfiguracion = async (req, res) => {
     if (error) throw error;
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "configuracion");
   }
 };
 

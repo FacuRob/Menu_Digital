@@ -17,7 +17,8 @@ const keepAlive = async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ status: "error", error: error.message });
+    console.error("[keep-alive] error:", error);
+    res.status(500).json({ status: "error", message: "keep-alive falló" });
   }
 };
 

@@ -1,4 +1,5 @@
 const supabase = require("../config/database");
+const { respondError } = require("../utils/respondError");
 const { getCuentaId, getAuthScope } = require("../utils/cuenta");
 
 const slugify = (s) =>
@@ -25,7 +26,7 @@ const getNegocios = async (req, res) => {
     if (error) throw error;
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "negocios");
   }
 };
 
@@ -62,7 +63,7 @@ const createNegocio = async (req, res) => {
 
     res.status(201).json(negocio);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "negocios");
   }
 };
 
@@ -91,7 +92,7 @@ const updateNegocio = async (req, res) => {
     }
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "negocios");
   }
 };
 
@@ -120,7 +121,7 @@ const deleteNegocio = async (req, res) => {
     }
     res.json({ message: "Negocio eliminado" });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "negocios");
   }
 };
 

@@ -1,4 +1,5 @@
 const supabase = require("../config/database");
+const { respondError } = require("../utils/respondError");
 const cloudinary = require("../config/cloudinary");
 const { getNegocioId } = require("../utils/negocio");
 
@@ -30,7 +31,7 @@ const getProductos = async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "productos");
   }
 };
 
@@ -45,7 +46,7 @@ const getProductosDisponibles = async (req, res) => {
     if (error) throw error;
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "productos");
   }
 };
 
@@ -64,7 +65,7 @@ const getStockBajo = async (req, res) => {
     if (error) throw error;
     res.json(data || []);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "productos");
   }
 };
 
@@ -90,7 +91,7 @@ const getProductosByCategoria = async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "productos");
   }
 };
 
@@ -116,7 +117,7 @@ const getProductoById = async (req, res) => {
       categorias: undefined,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "productos");
   }
 };
 
@@ -159,7 +160,7 @@ const createProducto = async (req, res) => {
     if (error) throw error;
     res.status(201).json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "productos");
   }
 };
 
@@ -234,7 +235,7 @@ const updateProducto = async (req, res) => {
 
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "productos");
   }
 };
 
@@ -268,7 +269,7 @@ const deleteProducto = async (req, res) => {
 
     res.json({ message: "Producto eliminado exitosamente" });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "productos");
   }
 };
 

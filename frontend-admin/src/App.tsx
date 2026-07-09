@@ -5,6 +5,7 @@ import { NegocioProvider } from "./context/NegocioContext";
 import { LanguageProvider } from "./lib/i18n";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/admin/Login";
+import ResetPassword from "./pages/admin/ResetPassword";
 import CambiarPassword from "./pages/admin/CambiarPassword";
 import Dashboard from "./pages/admin/Dashboard";
 import Categorias from "./pages/admin/Categorias";
@@ -27,6 +28,7 @@ function App() {
           <Route path="/" element={<Navigate to="/admin/login" replace />} />
           <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
           <Route path="/admin/login" element={<Login />} />
+          <Route path="/admin/reset-password" element={<ResetPassword />} />
 
           {/* Ruta especial — accesible estando autenticado pero con must_change_password */}
           <Route

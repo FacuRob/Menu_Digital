@@ -49,9 +49,7 @@ router.post("/", authMiddleware, upload.single("imagen"), async (req, res) => {
     });
   } catch (error) {
     console.error("Error al subir imagen:", error);
-    res
-      .status(500)
-      .json({ message: "Error al subir la imagen", error: error.message });
+    res.status(500).json({ message: "Error al subir la imagen" });
   }
 });
 
@@ -67,9 +65,7 @@ router.delete("/", authMiddleware, async (req, res) => {
     res.json({ message: "Imagen eliminada de Cloudinary" });
   } catch (error) {
     console.error("Error al eliminar imagen:", error);
-    res
-      .status(500)
-      .json({ message: "Error al eliminar la imagen", error: error.message });
+    res.status(500).json({ message: "Error al eliminar la imagen" });
   }
 });
 

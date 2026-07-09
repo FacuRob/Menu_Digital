@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 
 const categoriasRoutes = require("./routes/categorias");
 const productosRoutes = require("./routes/productos");
@@ -28,11 +29,50 @@ const { getCategoriasActivas } = require("./controllers/categoriasController");
 const { getConfiguracion } = require("./controllers/configuracionController");
 const { createPedido } = require("./controllers/pedidosController");
 const { keepAlive } = require("./controllers/keepAliveController");
+const { pedidosLimiter } = require("./middleware/rateLimiters");
+const { validate } = require("./middleware/validate");
+const { createPedidoSchema } = require("./schemas");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+// Detrás del proxy de Render/hosting: necesario para que el rate-limit y los
+// logs vean la IP real del cliente (X-Forwarded-For) y no la del proxy.
+app.set("trust proxy", 1);
+
+// Cabeceras de seguridad (HSTS, noSniff, frameguard, etc.).
+app.use(helmet());
+
+// CORS con whitelist. Se configuran los orígenes permitidos vía la env
+// ALLOWED_ORIGINS (lista separada por comas). Se agregan como fallback los
+// orígenes de VITE_MENU_URL y ADMIN_URL si están definidos.
+// Si no hay ninguno configurado, se permite todo (compatibilidad) — en
+// producción DEBE definirse ALLOWED_ORIGINS.
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+[process.env.VITE_MENU_URL, process.env.ADMIN_URL].forEach((u) => {
+  if (!u) return;
+  try {
+    allowedOrigins.push(new URL(u).origin);
+  } catch {
+    /* URL inválida en env: se ignora */
+  }
+});
+
+const corsOptions = {
+  origin(origin, cb) {
+    // Permitir peticiones sin Origin (curl, apps móviles, healthchecks).
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+      return cb(null, true);
+    }
+    return cb(new Error("Origen no permitido por CORS"));
+  },
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // webhooks Hotmart 1.x (form)
 
@@ -48,7 +88,7 @@ app.get("/api/keep-alive", keepAlive);
 app.get("/api/categorias/activas", getCategoriasActivas);
 app.get("/api/productos/disponibles", getProductosDisponibles);
 app.get("/api/configuracion", getConfiguracion);
-app.post("/api/pedidos", createPedido);
+app.post("/api/pedidos", pedidosLimiter, validate(createPedidoSchema), createPedido);
 app.use("/api/webhooks/hotmart", hotmartRoutes);
 
 // ============================================

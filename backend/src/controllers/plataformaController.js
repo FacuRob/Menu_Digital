@@ -1,4 +1,5 @@
 const supabase = require("../config/database");
+const { respondError } = require("../utils/respondError");
 const { preciosPorPlan, mrrDeCuenta } = require("../utils/planPrecios");
 
 // ══════════════════════════════════════════════════════════════
@@ -55,7 +56,7 @@ const getCuentas = async (req, res) => {
 
     res.json(cuentas);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "plataforma");
   }
 };
 
@@ -115,7 +116,7 @@ const getResumen = async (req, res) => {
       precios,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respondError(res, error, "plataforma");
   }
 };
 

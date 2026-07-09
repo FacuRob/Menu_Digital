@@ -2,7 +2,7 @@ const { Resend } = require("resend");
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const sendPasswordResetEmail = async ({ to, username, tempPassword }) => {
+const sendPasswordResetEmail = async ({ to, username, resetUrl }) => {
   const html = `
 <!DOCTYPE html>
 <html lang="es">
@@ -26,18 +26,19 @@ const sendPasswordResetEmail = async ({ to, username, tempPassword }) => {
             <td style="padding:32px;">
               <h2 style="margin:0 0 8px;color:#1e293b;font-size:18px;font-weight:700;">Recuperación de contraseña</h2>
               <p style="margin:0 0 20px;color:#64748b;font-size:14px;line-height:1.6;">
-                Hola <strong style="color:#1e293b;">${username}</strong>, tu contraseña temporal es:
+                Hola <strong style="color:#1e293b;">${username}</strong>, recibimos un pedido para restablecer tu contraseña. Hacé clic en el botón para elegir una nueva:
               </p>
-              <div style="background:#f8fafc;border:2px dashed #3b82f6;border-radius:12px;padding:20px;text-align:center;margin:0 0 20px;">
-                <p style="margin:0 0 6px;font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;">Contraseña temporal</p>
-                <p style="margin:0;font-size:28px;font-weight:800;color:#1e40af;letter-spacing:4px;font-family:monospace;">${tempPassword}</p>
+              <div style="text-align:center;margin:0 0 20px;">
+                <a href="${resetUrl}" style="display:inline-block;background:#3b82f6;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;">
+                  Restablecer contraseña
+                </a>
               </div>
               <div style="background:#fff7ed;border-left:4px solid #f97316;border-radius:0 8px 8px 0;padding:14px 16px;margin:0 0 20px;">
                 <p style="margin:0;color:#9a3412;font-size:13px;line-height:1.5;">
-                  ⚠️ <strong>Importante:</strong> Al iniciar sesión, el sistema te pedirá que establezcas una nueva contraseña antes de continuar.
+                  ⚠️ <strong>Importante:</strong> Este enlace vence en 1 hora y sólo puede usarse una vez.
                 </p>
               </div>
-              <p style="margin:0;color:#94a3b8;font-size:13px;">Si no solicitaste este cambio, ignorá este email.</p>
+              <p style="margin:0;color:#94a3b8;font-size:13px;">Si no solicitaste este cambio, ignorá este email; tu contraseña actual seguirá funcionando.</p>
             </td>
           </tr>
           <tr>

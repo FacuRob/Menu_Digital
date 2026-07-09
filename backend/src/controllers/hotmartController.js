@@ -2,6 +2,7 @@ const supabase = require("../config/database");
 const bcrypt = require("bcryptjs");
 const { planPorProducto } = require("../utils/hotmartPlans");
 const { sendWelcomeEmail } = require("../services/emailService");
+const { safeEqual } = require("../utils/safeEqual");
 
 // ── Helpers ──────────────────────────────────────────────────
 const generarPassword = () => {
@@ -52,9 +53,12 @@ const esAprobado = (status) =>
 // POST /api/webhooks/hotmart  (público; la seguridad es el hottok)
 const hotmartWebhook = async (req, res) => {
   try {
-    // 1) Validar el token de seguridad de Hotmart (hottok).
+    // 1) Validar el token de seguridad de Hotmart (hottok) en tiempo constante.
     const hottok = req.headers["x-hotmart-hottok"] || req.body?.hottok;
-    if (!process.env.HOTMART_HOTTOK || hottok !== process.env.HOTMART_HOTTOK) {
+    if (
+      !process.env.HOTMART_HOTTOK ||
+      !safeEqual(hottok || "", process.env.HOTMART_HOTTOK)
+    ) {
       return res.status(401).json({ message: "Token de seguridad inválido" });
     }
 
@@ -194,7 +198,10 @@ const hotmartWebhook = async (req, res) => {
   } catch (error) {
     console.error("[Hotmart] Error en webhook:", error);
     // 500 → Hotmart reintenta (útil si fue un error transitorio de BD).
-    return res.status(500).json({ error: error.message });
+    // Sin filtrar el detalle interno al llamante.
+    return res
+      .status(500)
+      .json({ message: "Error procesando el webhook" });
   }
 };
 
