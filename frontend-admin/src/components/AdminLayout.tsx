@@ -287,10 +287,10 @@ export default function AdminLayout({
       }
     };
     check();
-    const t = setInterval(check, 20000);
+    const intervalId = setInterval(check, 20000);
     return () => {
       active = false;
-      clearInterval(t);
+      clearInterval(intervalId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, negocioId]);
