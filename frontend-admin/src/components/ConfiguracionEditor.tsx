@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
+import type { ComponentType } from "react";
 import { useStyles } from "./sharedStyles";
 import { useTheme } from "../context/ThemeContext";
+import { useLang } from "../lib/i18n";
+import { IconUtensils, IconBag, IconTools, IconBox, IconImage } from "../lib/icons";
 import {
   configuracionService,
   uploadService,
   type Configuracion,
   type HorariosConfig,
   type DiaHorario,
+  type TipoRubro,
 } from "../services/api";
 
 type Form = Omit<Configuracion, "id">;
@@ -28,7 +32,21 @@ const EMPTY: Form = {
   color_primario: "#ff5722",
   horarios_config: null,
   moneda: "ARS",
+  tipo_rubro: "gastronomia",
 };
+
+// Rubros soportados (multi-rubro). Cada uno ajusta el vocabulario del panel.
+const RUBROS: {
+  code: TipoRubro;
+  labelKey: string;
+  descKey: string;
+  Icon: ComponentType<{ size?: number }>;
+}[] = [
+  { code: "gastronomia", labelKey: "rubroGastro", descKey: "rubroGastroDesc", Icon: IconUtensils },
+  { code: "retail", labelKey: "rubroRetail", descKey: "rubroRetailDesc", Icon: IconBag },
+  { code: "servicios", labelKey: "rubroServicios", descKey: "rubroServiciosDesc", Icon: IconTools },
+  { code: "generico", labelKey: "rubroGenerico", descKey: "rubroGenericoDesc", Icon: IconBox },
+];
 
 const MONEDAS = [
   { code: "ARS", label: "Peso argentino (ARS)" },
@@ -80,6 +98,7 @@ export default function ConfiguracionEditor({
 }) {
   const s = useStyles();
   const { isDark } = useTheme();
+  const { t } = useLang();
   const [form, setForm] = useState<Form>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -113,6 +132,7 @@ export default function ConfiguracionEditor({
           color_primario: cfg.color_primario || "#ff5722",
           horarios_config: cfg.horarios_config || null,
           moneda: cfg.moneda || "ARS",
+          tipo_rubro: cfg.tipo_rubro || "gastronomia",
         });
         setUsarPorDia(
           Array.isArray(cfg.horarios_config) && cfg.horarios_config.length > 0,
@@ -214,6 +234,61 @@ export default function ConfiguracionEditor({
           {msg.text}
         </div>
       )}
+
+      {/* Tipo de rubro (multi-rubro) */}
+      <div style={{ ...s.card, padding: 20, marginBottom: 16 }}>
+        <h3 style={{ color: textPrimary, fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>
+          {t("rubroTitle")}
+        </h3>
+        <p style={{ color: textMuted, fontSize: 12.5, margin: "0 0 14px" }}>
+          {t("rubroSubtitle")}
+        </p>
+        <div
+          style={{
+            display: "grid",
+            gap: 10,
+            gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+          }}
+        >
+          {RUBROS.map((r) => {
+            const activo = (form.tipo_rubro || "gastronomia") === r.code;
+            return (
+              <button
+                key={r.code}
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, tipo_rubro: r.code }))}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 10,
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  border: `2px solid ${activo ? "#3b82f6" : isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+                  background: activo
+                    ? "rgba(59,130,246,0.08)"
+                    : isDark
+                      ? "#0f1117"
+                      : "#f8f9fa",
+                }}
+              >
+                <span style={{ color: activo ? "#3b82f6" : textMuted, display: "flex", flexShrink: 0 }}>
+                  <r.Icon size={22} />
+                </span>
+                <span style={{ flex: 1 }}>
+                  <span style={{ display: "block", fontSize: 13.5, fontWeight: 600, color: textPrimary }}>
+                    {t(r.labelKey)}
+                  </span>
+                  <span style={{ display: "block", fontSize: 11.5, color: textMuted, marginTop: 2 }}>
+                    {t(r.descKey)}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Imágenes */}
       <div style={{ ...s.card, padding: 20, marginBottom: 16 }}>
@@ -752,7 +827,9 @@ function ImageField({
           {url ? (
             <img src={url} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           ) : (
-            <span style={{ fontSize: 24, opacity: 0.4 }}>🖼️</span>
+            <span style={{ opacity: 0.4, color: isDark ? "#94a3b8" : "#64748b", display: "flex" }}>
+              <IconImage size={24} />
+            </span>
           )}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { IconLock } from "../lib/icons";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -74,7 +75,9 @@ const ProtectedRoute = ({ children, permiso, plataforma }: ProtectedRouteProps) 
             padding: "40px 48px",
           }}
         >
-          <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
+          <div style={{ color: "#f87171", marginBottom: 12, display: "flex", justifyContent: "center" }}>
+            <IconLock size={40} />
+          </div>
           <h2
             style={{
               color: "#f1f5f9",

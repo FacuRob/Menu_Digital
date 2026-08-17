@@ -77,10 +77,10 @@ export default function Plataforma() {
     <AdminLayout title="Plataforma">
       <div style={{ marginBottom: 24 }}>
         <h2 style={{ color: textPrimary, fontSize: 22, fontWeight: 600, margin: 0 }}>
-          Panel de plataforma 🛰️
+          Panel de plataforma
         </h2>
         <p style={{ color: isDark ? "#475569" : "#64748b", fontSize: 13, margin: "4px 0 0" }}>
-          Todas las cuentas suscriptas al SaaS (compras de Hotmart y altas manuales).
+          Todas las cuentas suscriptas al SaaS (altas por Lemon Squeezy y manuales).
         </p>
       </div>
 
@@ -114,7 +114,7 @@ export default function Plataforma() {
           <Metric label="Cuentas totales" value={String(resumen.total_cuentas)} accent="#3b82f6" isDark={isDark} />
           <Metric label="Activas" value={String(resumen.activas)} accent="#10b981" isDark={isDark} />
           <Metric label="Canceladas" value={String(resumen.canceladas)} accent="#ef4444" isDark={isDark} />
-          <Metric label="Altas por Hotmart" value={String(resumen.por_hotmart)} accent="#f59e0b" isDark={isDark} />
+          <Metric label="Altas pagas" value={String(resumen.por_pago)} accent="#f59e0b" isDark={isDark} />
           <Metric label="Negocios totales" value={String(resumen.total_negocios)} accent="#8b5cf6" isDark={isDark} />
         </div>
       )}

@@ -455,7 +455,14 @@ const Menu = () => {
                       key={prod.id}
                       prod={prod}
                       onOpen={() => setModalProd(prod)}
-                      onAdd={() => cart.add(prod, 1)}
+                      onAdd={() => {
+                        // Con variantes hay que elegir opciones → abrir el modal.
+                        if (prod.variantes && prod.variantes.length > 0) {
+                          setModalProd(prod);
+                        } else {
+                          cart.add(prod, 1);
+                        }
+                      }}
                     />
                   ))}
                 </div>
@@ -511,7 +518,7 @@ const Menu = () => {
             {t("pricesIncludeTax")}
           </p>
           <p style={{ fontSize: 11, color: "#d6d0cc", margin: "6px 0 0", letterSpacing: "0.02em" }}>
-            {t("madeWith")} <span style={{ color: PRIMARY, fontWeight: 700 }}>Menú Digital</span>
+            {t("madeWith")} <span style={{ color: PRIMARY, fontWeight: 700 }}>DinexFlow</span>
           </p>
         </div>
       </footer>
@@ -576,7 +583,7 @@ const Menu = () => {
         <ProductModal
           producto={modalProd}
           onClose={() => setModalProd(null)}
-          onAdd={(p, cantidad) => cart.add(p, cantidad)}
+          onAdd={(p, cantidad, opciones) => cart.add(p, cantidad, opciones)}
         />
       )}
 
@@ -651,7 +658,7 @@ const ProductCard = ({
 
       {/* Imagen + botón agregar */}
       <div style={{ position: "relative", width: 132, flexShrink: 0, background: "#f4f2f0" }}>
-        <ProductImage url={prod.imagen_url} alt={prod.nombre} style={{ width: "100%", height: "100%" }} />
+        <ProductImage url={prod.imagen_url} alt={prod.nombre} w={264} h={264} fill style={{ width: "100%", height: "100%" }} />
         <button
           onClick={(e) => {
             e.stopPropagation();

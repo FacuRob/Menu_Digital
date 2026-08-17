@@ -18,7 +18,7 @@ const sendPasswordResetEmail = async ({ to, username, resetUrl }) => {
           <tr>
             <td style="background:linear-gradient(135deg,#1e40af,#3b82f6);padding:32px;text-align:center;">
               <div style="font-size:36px;margin-bottom:10px;">🍽️</div>
-              <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:700;">Menú Digital</h1>
+              <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:700;">DinexFlow</h1>
               <p style="margin:4px 0 0;color:rgba(255,255,255,0.7);font-size:13px;">Panel de Administración</p>
             </td>
           </tr>
@@ -43,7 +43,7 @@ const sendPasswordResetEmail = async ({ to, username, resetUrl }) => {
           </tr>
           <tr>
             <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:16px 32px;text-align:center;">
-              <p style="margin:0;color:#94a3b8;font-size:12px;">Menú Digital · Sistema de administración</p>
+              <p style="margin:0;color:#94a3b8;font-size:12px;">DinexFlow · Sistema de administración</p>
             </td>
           </tr>
         </table>
@@ -54,16 +54,16 @@ const sendPasswordResetEmail = async ({ to, username, resetUrl }) => {
 </html>`;
 
   const { error } = await resend.emails.send({
-    from: process.env.EMAIL_FROM || "Menú Digital <onboarding@resend.dev>",
+    from: process.env.EMAIL_FROM || "DinexFlow <onboarding@resend.dev>",
     to,
-    subject: "🔑 Tu contraseña temporal — Menú Digital",
+    subject: "🔑 Tu contraseña temporal — DinexFlow",
     html,
   });
 
   if (error) throw new Error(error.message);
 };
 
-// ─── EMAIL DE BIENVENIDA (compra Hotmart aprobada) ───────────
+// ─── EMAIL DE BIENVENIDA (alta por suscripción aprobada) ─────
 // Manda las credenciales de acceso al panel. La contraseña es temporal:
 // al primer login el sistema obliga a cambiarla (must_change_password).
 const sendWelcomeEmail = async ({
@@ -89,7 +89,7 @@ const sendWelcomeEmail = async ({
           <tr>
             <td style="background:linear-gradient(135deg,#1e40af,#3b82f6);padding:32px;text-align:center;">
               <div style="font-size:36px;margin-bottom:10px;">🍽️</div>
-              <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:700;">Menú Digital</h1>
+              <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:700;">DinexFlow</h1>
               <p style="margin:4px 0 0;color:rgba(255,255,255,0.7);font-size:13px;">¡Tu cuenta está lista!</p>
             </td>
           </tr>
@@ -120,7 +120,7 @@ const sendWelcomeEmail = async ({
           </tr>
           <tr>
             <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:16px 32px;text-align:center;">
-              <p style="margin:0;color:#94a3b8;font-size:12px;">Menú Digital · Sistema de administración</p>
+              <p style="margin:0;color:#94a3b8;font-size:12px;">DinexFlow · Sistema de administración</p>
             </td>
           </tr>
         </table>
@@ -131,9 +131,9 @@ const sendWelcomeEmail = async ({
 </html>`;
 
   const { error } = await resend.emails.send({
-    from: process.env.EMAIL_FROM || "Menú Digital <onboarding@resend.dev>",
+    from: process.env.EMAIL_FROM || "DinexFlow <onboarding@resend.dev>",
     to,
-    subject: "🎉 Tu cuenta de Menú Digital está lista",
+    subject: "🎉 Tu cuenta de DinexFlow está lista",
     html,
   });
 

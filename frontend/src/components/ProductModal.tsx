@@ -1,5 +1,6 @@
-import { useState } from "react";
-import type { Producto } from "../services/api";
+import { useState, useMemo } from "react";
+import type { Producto, VarianteGrupo } from "../services/api";
+import type { SelectedOption } from "../hooks/useCart";
 import {
   PRIMARY,
   PRIMARY_DARK,
@@ -10,6 +11,9 @@ import {
 } from "../lib/menuUi";
 import { useLang } from "../lib/i18n";
 
+// Estado de selección: grupo_id → set de opcion_id elegidas.
+type Sel = Record<number, number[]>;
+
 export default function ProductModal({
   producto,
   onClose,
@@ -17,11 +21,76 @@ export default function ProductModal({
 }: {
   producto: Producto;
   onClose: () => void;
-  onAdd: (producto: Producto, cantidad: number) => void;
+  onAdd: (
+    producto: Producto,
+    cantidad: number,
+    opciones: SelectedOption[],
+  ) => void;
 }) {
   const { t } = useLang();
   const [cantidad, setCantidad] = useState(1);
-  const precio = Number(producto.precio);
+  const grupos = useMemo<VarianteGrupo[]>(
+    () => (Array.isArray(producto.variantes) ? producto.variantes : []),
+    [producto],
+  );
+
+  // Preselección: grupos single obligatorios arrancan con su primera opción.
+  const [sel, setSel] = useState<Sel>(() => {
+    const init: Sel = {};
+    for (const g of Array.isArray(producto.variantes) ? producto.variantes : []) {
+      if (g.tipo === "single" && g.obligatorio && g.opciones[0]) {
+        init[g.id] = [g.opciones[0].id];
+      } else {
+        init[g.id] = [];
+      }
+    }
+    return init;
+  });
+
+  const toggle = (g: VarianteGrupo, opcionId: number) => {
+    setSel((prev) => {
+      const cur = prev[g.id] || [];
+      if (g.tipo === "single") {
+        return { ...prev, [g.id]: [opcionId] };
+      }
+      // multi: alterna
+      return {
+        ...prev,
+        [g.id]: cur.includes(opcionId)
+          ? cur.filter((id) => id !== opcionId)
+          : [...cur, opcionId],
+      };
+    });
+  };
+
+  // Opciones elegidas, aplanadas.
+  const elegidas = useMemo<SelectedOption[]>(() => {
+    const out: SelectedOption[] = [];
+    for (const g of grupos) {
+      for (const opId of sel[g.id] || []) {
+        const op = g.opciones.find((o) => o.id === opId);
+        if (op) {
+          out.push({
+            grupo_id: g.id,
+            grupo_nombre: g.nombre,
+            opcion_id: op.id,
+            nombre: op.nombre,
+            precio_extra: Number(op.precio_extra || 0),
+          });
+        }
+      }
+    }
+    return out;
+  }, [grupos, sel]);
+
+  // Faltan grupos obligatorios sin elegir → no se puede agregar.
+  const faltanObligatorios = grupos.some(
+    (g) => g.obligatorio && (sel[g.id]?.length ?? 0) === 0,
+  );
+
+  const base = Number(producto.precio);
+  const extra = elegidas.reduce((a, o) => a + o.precio_extra, 0);
+  const unit = base + extra;
 
   return (
     <div
@@ -63,6 +132,9 @@ export default function ProductModal({
           <ProductImage
             url={producto.imagen_url}
             alt={producto.nombre}
+            w={880}
+            h={600}
+            fill
             style={{ width: "100%", height: "100%" }}
           />
           <button
@@ -135,7 +207,7 @@ export default function ProductModal({
               color: PRIMARY,
             }}
           >
-            {fmt(precio)}
+            {fmt(base)}
           </div>
           <div
             style={{
@@ -145,8 +217,104 @@ export default function ProductModal({
               color: "#9ca3af",
             }}
           >
-            {t("taxFree", { v: fmt(neto(precio)) })}
+            {t("taxFree", { v: fmt(neto(base)) })}
           </div>
+
+          {/* Grupos de variantes */}
+          {grupos.map((g) => (
+            <div key={g.id} style={{ marginTop: 18 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 8,
+                }}
+              >
+                <span style={{ fontSize: 14.5, fontWeight: 700, color: "#1c1917" }}>
+                  {g.nombre}
+                </span>
+                {g.obligatorio && (
+                  <span
+                    style={{
+                      fontSize: 10.5,
+                      fontWeight: 700,
+                      color: PRIMARY,
+                      background: "rgba(0,0,0,.04)",
+                      padding: "2px 8px",
+                      borderRadius: 999,
+                      textTransform: "uppercase",
+                      letterSpacing: ".03em",
+                    }}
+                  >
+                    {t("required")}
+                  </span>
+                )}
+              </div>
+              <div style={{ display: "grid", gap: 7 }}>
+                {g.opciones.map((op) => {
+                  const checked = (sel[g.id] || []).includes(op.id);
+                  return (
+                    <button
+                      key={op.id}
+                      onClick={() => toggle(g, op.id)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "11px 13px",
+                        borderRadius: 12,
+                        border: `1.5px solid ${checked ? PRIMARY : "#ececec"}`,
+                        background: checked ? "rgba(0,0,0,.02)" : "#fff",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        width: "100%",
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: g.tipo === "single" ? "50%" : 6,
+                          border: `2px solid ${checked ? PRIMARY : "#d1cbc7"}`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {checked && (
+                          <span
+                            style={{
+                              width: 10,
+                              height: 10,
+                              borderRadius: g.tipo === "single" ? "50%" : 3,
+                              background: PRIMARY,
+                            }}
+                          />
+                        )}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 600,
+                          color: "#374151",
+                          flex: 1,
+                        }}
+                      >
+                        {op.nombre}
+                      </span>
+                      {Number(op.precio_extra) > 0 && (
+                        <span style={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>
+                          +{fmt(Number(op.precio_extra))}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
 
           <div
             style={{
@@ -200,9 +368,11 @@ export default function ProductModal({
           {/* Agregar al pedido */}
           <button
             onClick={() => {
-              onAdd(producto, cantidad);
+              if (faltanObligatorios) return;
+              onAdd(producto, cantidad, elegidas);
               onClose();
             }}
+            disabled={faltanObligatorios}
             style={{
               width: "100%",
               padding: "15px",
@@ -212,16 +382,20 @@ export default function ProductModal({
               color: "#fff",
               fontSize: 15.5,
               fontWeight: 700,
-              cursor: "pointer",
+              cursor: faltanObligatorios ? "default" : "pointer",
+              opacity: faltanObligatorios ? 0.55 : 1,
               boxShadow: `0 8px 22px ${PRIMARY_SHADOW}`,
               transition: "background .15s",
             }}
             onMouseEnter={(e) =>
+              !faltanObligatorios &&
               (e.currentTarget.style.background = PRIMARY_DARK)
             }
             onMouseLeave={(e) => (e.currentTarget.style.background = PRIMARY)}
           >
-            {t("addToOrder")} · {fmt(precio * cantidad)}
+            {faltanObligatorios
+              ? t("chooseRequired")
+              : `${t("addToOrder")} · ${fmt(unit * cantidad)}`}
           </button>
 
           {/* Volver al menú */}

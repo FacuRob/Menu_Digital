@@ -3,6 +3,7 @@ import AdminLayout from "../../components/AdminLayout";
 import { useStyles } from "../../components/sharedStyles";
 import { useTheme } from "../../context/ThemeContext";
 import { useNegocio } from "../../context/NegocioContext";
+import { IconAlert } from "../../lib/icons";
 import {
   negociosService,
   planService,
@@ -278,9 +279,12 @@ export default function Negocios() {
                     color: "#dc2626",
                     fontSize: 12.5,
                     lineHeight: 1.4,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
                   }}
                 >
-                  ⚠️ {saveError}
+                  <IconAlert size={15} style={{ flexShrink: 0 }} /> {saveError}
                 </div>
               )}
             </div>

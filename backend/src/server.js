@@ -6,6 +6,7 @@ const helmet = require("helmet");
 
 const categoriasRoutes = require("./routes/categorias");
 const productosRoutes = require("./routes/productos");
+const variantesRoutes = require("./routes/variantes");
 const authRoutes = require("./routes/auth");
 const uploadRoutes = require("./routes/upload");
 const usuariosRoutes = require("./routes/usuarios");
@@ -14,12 +15,16 @@ const pedidosRoutes = require("./routes/pedidos");
 const negociosRoutes = require("./routes/negocios");
 const analiticasRoutes = require("./routes/analiticas");
 const planRoutes = require("./routes/plan");
-const hotmartRoutes = require("./routes/hotmart");
 const plataformaRoutes = require("./routes/plataforma");
+const suscripcionRoutes = require("./routes/suscripcion");
 const authMiddleware = require("./middleware/authMiddleware");
 const checkPermiso = require("./middleware/checkPermiso");
 const scopeNegocio = require("./middleware/scopeNegocio");
 const requirePlataforma = require("./middleware/requirePlataforma");
+const checkSuscripcion = require("./middleware/checkSuscripcion");
+const {
+  lemonSqueezyWebhook,
+} = require("./controllers/lemonSqueezyController");
 
 // Importar controllers directamente para rutas públicas
 const {
@@ -74,8 +79,17 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+// ── Webhook Lemon Squeezy — DEBE ir antes de express.json() ──
+// La verificación de firma HMAC requiere el body CRUDO (Buffer).
+app.post(
+  "/api/webhooks/lemonsqueezy",
+  express.raw({ type: "*/*" }),
+  lemonSqueezyWebhook,
+);
+
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // webhooks Hotmart 1.x (form)
+app.use(express.urlencoded({ extended: true })); // soporte de bodies form-urlencoded
 
 app.get("/", (req, res) => {
   res.json({ message: "🚀 API del Menú Digital funcionando" });
@@ -96,16 +110,22 @@ app.get("/api/categorias/activas", getCategoriasActivas);
 app.get("/api/productos/disponibles", getProductosDisponibles);
 app.get("/api/configuracion", getConfiguracion);
 app.post("/api/pedidos", pedidosLimiter, validate(createPedidoSchema), createPedido);
-app.use("/api/webhooks/hotmart", hotmartRoutes);
 
 // ============================================
 // RUTAS PROTEGIDAS
 // ============================================
-app.use("/api/upload", authMiddleware, checkPermiso("productos"), uploadRoutes);
+app.use(
+  "/api/upload",
+  authMiddleware,
+  checkSuscripcion,
+  checkPermiso("productos"),
+  uploadRoutes,
+);
 app.use(
   "/api/categorias",
   authMiddleware,
   scopeNegocio,
+  checkSuscripcion,
   checkPermiso("categorias"),
   categoriasRoutes,
 );
@@ -113,15 +133,28 @@ app.use(
   "/api/productos",
   authMiddleware,
   scopeNegocio,
+  checkSuscripcion,
   checkPermiso("productos"),
   productosRoutes,
 );
+app.use(
+  "/api/variantes",
+  authMiddleware,
+  scopeNegocio,
+  checkSuscripcion,
+  checkPermiso("productos"),
+  variantesRoutes,
+);
 app.use("/api/usuarios", usuariosRoutes);
+// /api/plan y /api/suscripcion NO llevan checkSuscripcion: el usuario vencido
+// tiene que poder ver su estado y comprar un plan.
 app.use("/api/plan", authMiddleware, scopeNegocio, planRoutes);
+app.use("/api/suscripcion", authMiddleware, suscripcionRoutes);
 app.use(
   "/api/configuracion",
   authMiddleware,
   scopeNegocio,
+  checkSuscripcion,
   checkPermiso("configuracion"),
   configuracionRoutes,
 );
@@ -129,12 +162,14 @@ app.use(
   "/api/pedidos",
   authMiddleware,
   scopeNegocio,
+  checkSuscripcion,
   checkPermiso("pedidos"),
   pedidosRoutes,
 );
 app.use(
   "/api/negocios",
   authMiddleware,
+  checkSuscripcion,
   checkPermiso("negocios"),
   negociosRoutes,
 );
@@ -142,6 +177,7 @@ app.use(
   "/api/analiticas",
   authMiddleware,
   scopeNegocio,
+  checkSuscripcion,
   checkPermiso("analiticas"),
   analiticasRoutes,
 );

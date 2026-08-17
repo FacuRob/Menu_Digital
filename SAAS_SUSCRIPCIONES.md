@@ -1,5 +1,14 @@
 # Menú Digital — SaaS: Suscripciones, Hotmart y Multi-Tenant
 
+> ⚠️ **DEPRECADO (pasarela de pago):** la integración con **Hotmart** fue
+> reemplazada por **Lemon Squeezy** (webhook con firma HMAC, checkout, portal
+> de cliente y free trial con vencimiento). El código de Hotmart
+> (`hotmartController`, `routes/hotmart`, `utils/hotmartPlans`, sus tests y la
+> ruta `/api/webhooks/hotmart`) fue **eliminado**. Ver la implementación actual
+> en `docs/PLAN_TRANSFORMACION_SAAS.md` (Fase 3) y en `backend/db/lemonsqueezy.sql`.
+> Las secciones de Hotmart de abajo quedan solo como referencia histórica del
+> modelo de datos (cuentas/negocios/usuarios), que sigue vigente.
+
 Documentación de todo lo implementado para convertir Menú Digital en un SaaS
 con planes de suscripción, alta automática vía Hotmart y aislamiento por cuenta.
 

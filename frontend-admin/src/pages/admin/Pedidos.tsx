@@ -1,14 +1,27 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
+import type { ComponentType } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import { useTheme } from "../../context/ThemeContext";
 import {
+  IconReceipt,
+  IconUtensils,
+  IconTruck,
+  IconBag,
+  IconPin,
+  IconPhone,
+  IconNote,
+} from "../../lib/icons";
+import {
   pedidosService,
+  configuracionService,
   type Pedido,
+  type Configuracion,
   type TipoEntrega,
 } from "../../services/api";
 import { useNegocio } from "../../context/NegocioContext";
 import { fmtMoney } from "../../lib/money";
 import { useLang } from "../../lib/i18n";
+import TicketModal from "../../components/TicketModal";
 
 // Formatea la fecha del servidor respetando la zona horaria del que mira.
 // Postgres guarda en UTC; si el string no trae zona, la asumimos UTC.
@@ -28,14 +41,21 @@ const formatFechaHora = (s?: string) => {
 const TIPOS: {
   key: "todos" | TipoEntrega;
   labelKey: string;
-  icon: string;
+  Icon: ComponentType<{ size?: number }>;
   color: string;
 }[] = [
-  { key: "todos", labelKey: "pedAll", icon: "🧾", color: "#64748b" },
-  { key: "mesa", labelKey: "pedTable", icon: "🍽️", color: "#8b5cf6" },
-  { key: "delivery", labelKey: "pedDelivery", icon: "🛵", color: "#0ea5e9" },
-  { key: "retiro", labelKey: "pedPickup", icon: "🛍️", color: "#f59e0b" },
+  { key: "todos", labelKey: "pedAll", Icon: IconReceipt, color: "#64748b" },
+  { key: "mesa", labelKey: "pedTable", Icon: IconUtensils, color: "#8b5cf6" },
+  { key: "delivery", labelKey: "pedDelivery", Icon: IconTruck, color: "#0ea5e9" },
+  { key: "retiro", labelKey: "pedPickup", Icon: IconBag, color: "#f59e0b" },
 ];
+
+// Icono según el tipo de entrega de un pedido.
+const IconoEntrega = ({ tipo, size = 16 }: { tipo?: string | null; size?: number }) => {
+  if (tipo === "delivery") return <IconTruck size={size} />;
+  if (tipo === "retiro") return <IconBag size={size} />;
+  return <IconUtensils size={size} />;
+};
 
 const ESTADOS: {
   key: Pedido["estado"] | "todos";
@@ -75,6 +95,9 @@ export default function Pedidos() {
   const [tipoFiltro, setTipoFiltro] = useState<"todos" | TipoEntrega>("todos");
   const [mesa, setMesa] = useState("");
   const [loading, setLoading] = useState(true);
+  // Datos del local para el comprobante + pedido a facturar (abre el modal).
+  const [config, setConfig] = useState<Configuracion | null>(null);
+  const [ticketPedido, setTicketPedido] = useState<Pedido | null>(null);
 
   const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
   const textSecondary = isDark ? "#94a3b8" : "#64748b";
@@ -102,6 +125,14 @@ export default function Pedidos() {
     return () => clearInterval(t);
   }, [load]);
 
+  // Datos del local (nombre, dirección, teléfono) para el comprobante.
+  useEffect(() => {
+    configuracionService
+      .get()
+      .then(setConfig)
+      .catch((e) => console.error(e));
+  }, []);
+
   const cambiarEstado = async (id: number, estado: Pedido["estado"]) => {
     try {
       await pedidosService.updateEstado(id, estado);
@@ -109,6 +140,13 @@ export default function Pedidos() {
     } catch (e) {
       console.error(e);
     }
+  };
+
+  // Entregar un pedido y ofrecer generar el ticket. Se pasa el pedido tal cual
+  // (ya trae items/total) para facturar sin esperar la recarga.
+  const entregar = async (p: Pedido) => {
+    await cambiarEstado(p.id, "entregado");
+    setTicketPedido({ ...p, estado: "entregado" });
   };
 
   // El estado se filtra en el backend; el tipo, en el cliente.
@@ -153,7 +191,7 @@ export default function Pedidos() {
                     cursor: "pointer",
                   }}
                 >
-                  <span>{tp.icon}</span>
+                  <span style={{ display: "flex" }}><tp.Icon size={16} /></span>
                   {t(tp.labelKey)}
                   <span
                     style={{
@@ -244,7 +282,9 @@ export default function Pedidos() {
         <p style={{ color: textMuted }}>{t("pedLoading")}</p>
       ) : visibles.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 0", color: textMuted }}>
-          <div style={{ fontSize: 40, marginBottom: 10 }}>🧾</div>
+          <div style={{ marginBottom: 10, display: "flex", justifyContent: "center", color: "#cbd5e1" }}>
+            <IconReceipt size={40} />
+          </div>
           <p style={{ fontSize: 15 }}>{t("pedEmpty")}</p>
         </div>
       ) : (
@@ -278,12 +318,8 @@ export default function Pedidos() {
               >
                 <div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: textPrimary, display: "flex", alignItems: "center", gap: 7 }}>
-                    <span>
-                      {p.tipo_entrega === "delivery"
-                        ? "🛵"
-                        : p.tipo_entrega === "retiro"
-                          ? "🛍️"
-                          : "🍽️"}
+                    <span style={{ display: "flex" }}>
+                      <IconoEntrega tipo={p.tipo_entrega} size={17} />
                     </span>
                     {p.tipo_entrega === "delivery"
                       ? t("pedDelivery")
@@ -345,16 +381,16 @@ export default function Pedidos() {
 
               {/* Dirección de delivery */}
               {p.tipo_entrega === "delivery" && p.direccion_entrega && (
-                <div style={{ fontSize: 12.5, color: textSecondary, marginTop: 8, display: "flex", gap: 6 }}>
-                  <span>📍</span>
+                <div style={{ fontSize: 12.5, color: textSecondary, marginTop: 8, display: "flex", gap: 6, alignItems: "center" }}>
+                  <span style={{ display: "flex", flexShrink: 0 }}><IconPin size={14} /></span>
                   <span>{p.direccion_entrega}</span>
                 </div>
               )}
 
               {/* Teléfono del cliente (retiro/delivery) */}
               {p.telefono_cliente && (
-                <div style={{ fontSize: 12.5, marginTop: 8, display: "flex", gap: 8, alignItems: "center" }}>
-                  <span>📞</span>
+                <div style={{ fontSize: 12.5, marginTop: 8, display: "flex", gap: 8, alignItems: "center", color: textSecondary }}>
+                  <span style={{ display: "flex", flexShrink: 0 }}><IconPhone size={14} /></span>
                   <a href={`tel:${p.telefono_cliente}`} style={{ color: textSecondary, textDecoration: "none" }}>
                     {p.telefono_cliente}
                   </a>
@@ -377,9 +413,13 @@ export default function Pedidos() {
                     color: textMuted,
                     fontStyle: "italic",
                     marginTop: 8,
+                    display: "flex",
+                    gap: 6,
+                    alignItems: "center",
                   }}
                 >
-                  📝 {p.nota}
+                  <span style={{ display: "flex", flexShrink: 0 }}><IconNote size={13} /></span>
+                  {p.nota}
                 </div>
               )}
 
@@ -406,13 +446,18 @@ export default function Pedidos() {
                   </EstadoBtn>
                 )}
                 {p.estado === "preparando" && (
-                  <EstadoBtn color="#10b981" onClick={() => cambiarEstado(p.id, "entregado")}>
+                  <EstadoBtn color="#10b981" onClick={() => entregar(p)}>
                     {t("pedDeliver")}
                   </EstadoBtn>
                 )}
                 {(p.estado === "pendiente" || p.estado === "preparando") && (
                   <EstadoBtn color="#ef4444" ghost onClick={() => cambiarEstado(p.id, "cancelado")}>
                     {t("actionCancel")}
+                  </EstadoBtn>
+                )}
+                {p.estado === "entregado" && (
+                  <EstadoBtn color="#8b5cf6" ghost onClick={() => setTicketPedido(p)}>
+                    🧾 {t("ticketReprint")}
                   </EstadoBtn>
                 )}
                 {(p.estado === "entregado" || p.estado === "cancelado") && (
@@ -425,6 +470,13 @@ export default function Pedidos() {
           ))}
         </div>
       )}
+
+      {/* Modal de facturación al entregar / reimprimir */}
+      <TicketModal
+        pedido={ticketPedido}
+        config={config}
+        onClose={() => setTicketPedido(null)}
+      />
     </AdminLayout>
   );
 }

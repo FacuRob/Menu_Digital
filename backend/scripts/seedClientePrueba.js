@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════════════════════
-// Crea un CLIENTE DE PRUEBA simulando una compra de Hotmart, sin
-// depender del webhook. Sirve para verificar el panel de plataforma
-// y que el menú del cliente nuevo arranca vacío.
+// Crea un CLIENTE DE PRUEBA (cuenta + negocio + usuario admin) sin
+// depender de la pasarela de pago. Sirve para verificar el panel de
+// plataforma y que el menú del cliente nuevo arranca vacío.
 //
 // Uso (desde backend/):
 //   node scripts/seedClientePrueba.js
@@ -40,8 +40,7 @@ const slugify = (s) =>
           tipo_plan: plan,
           ciclo_facturacion: ciclo,
           estado_suscripcion: "activo",
-          origen: "hotmart",
-          hotmart_transaction: `TEST-${Date.now()}`,
+          origen: "seed",
         },
         { onConflict: "email" },
       )
@@ -74,7 +73,7 @@ const slugify = (s) =>
         .insert([{ negocio_id: neg.id, nombre, retiro_activo: true }]);
     }
 
-    // 3) Usuario superadmin de la cuenta, con contraseña temporal conocida.
+    // 3) Usuario admin (dueño) de la cuenta, con contraseña temporal conocida.
     const tempPassword = "Prueba123";
     const hashed = await bcrypt.hash(tempPassword, 10);
     const username = email.length <= 50 ? email : `cliente-${cuenta.id}`;
@@ -97,7 +96,7 @@ const slugify = (s) =>
           password: hashed,
           nombre,
           email,
-          rol: "superadmin",
+          rol: "admin",
           activo: true,
           must_change_password: true,
           cuenta_id: cuenta.id,

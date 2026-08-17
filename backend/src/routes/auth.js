@@ -3,6 +3,8 @@ const router = express.Router();
 const {
   register,
   login,
+  signup,
+  googleAuth,
   verifyToken,
   forgotPassword,
   resetPassword,
@@ -15,6 +17,8 @@ const { validate } = require("../middleware/validate");
 const {
   loginSchema,
   registerSchema,
+  signupSchema,
+  googleAuthSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
   changePasswordSchema,
@@ -22,6 +26,8 @@ const {
 
 // Públicas (con rate-limit anti fuerza bruta / spam + validación)
 router.post("/login", authLimiter, validate(loginSchema), login);
+router.post("/signup", authLimiter, validate(signupSchema), signup);
+router.post("/google", authLimiter, validate(googleAuthSchema), googleAuth);
 router.post(
   "/forgot-password",
   authLimiter,

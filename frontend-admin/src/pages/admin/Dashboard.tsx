@@ -6,6 +6,7 @@ import AdminLayout from "../../components/AdminLayout";
 import { useNegocio } from "../../context/NegocioContext";
 import { fmtMoney } from "../../lib/money";
 import { useLang, LOCALE } from "../../lib/i18n";
+import { IconInfo } from "../../lib/icons";
 import { analiticasService, type Resumen, type ResumenMes } from "../../services/api";
 
 const CARDS = [
@@ -213,7 +214,7 @@ export default function Dashboard() {
         <h2
           style={{ color: isDark ? "#f1f5f9" : "#1e293b", fontSize: 22, fontWeight: 600, margin: 0 }}
         >
-          {t("greeting", { name: user?.nombre || user?.username || "" })} 👋
+          {t("greeting", { name: user?.nombre || user?.username || "" })}
         </h2>
         <p style={{ color: isDark ? "#475569" : "#64748b", fontSize: 13, margin: "4px 0 0" }}>
           {t("welcome")}
@@ -424,7 +425,7 @@ export default function Dashboard() {
           gap: 12,
         }}
       >
-        <div style={{ color: "#3b82f6", fontSize: 18 }}>💡</div>
+        <div style={{ color: "#3b82f6", display: "flex", flexShrink: 0 }}><IconInfo size={18} /></div>
         <div style={{ color: isDark ? "#64748b" : "#475569", fontSize: 12 }}>
           {t("tip")}
         </div>

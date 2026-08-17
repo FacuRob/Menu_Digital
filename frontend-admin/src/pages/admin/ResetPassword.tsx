@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { authService, getApiErrorMessage } from "../../services/api";
+import { BRAND_GRADIENT } from "../../lib/brand";
+import { IconEye, IconEyeOff, IconAlert, IconCheck } from "../../lib/icons";
 
 // Página pública para restablecer la contraseña con el token de un solo uso
 // que llega por email (link ?token=...). No cambia nada hasta que el usuario
@@ -97,15 +99,17 @@ export default function ResetPassword() {
               width: 52,
               height: 52,
               borderRadius: 14,
-              background: "linear-gradient(135deg,#1e40af,#3b82f6)",
+              background: BRAND_GRADIENT,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               fontSize: 24,
+              fontWeight: 800,
+              color: "#fff",
               margin: "0 auto 14px",
             }}
           >
-            🍽️
+            D
           </div>
           <h1
             style={{
@@ -139,9 +143,9 @@ export default function ResetPassword() {
                 gap: 14,
               }}
             >
-              <p style={{ color: "#f87171", fontSize: 14, margin: 0 }}>
-                ⚠️ El enlace no es válido. Solicitá uno nuevo desde “Olvidé mi
-                contraseña”.
+              <p style={{ color: "#f87171", fontSize: 14, margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                <IconAlert size={15} style={{ flexShrink: 0 }} /> El enlace no es
+                válido. Solicitá uno nuevo desde “Olvidé mi contraseña”.
               </p>
               <button
                 onClick={() => navigate("/admin/login")}
@@ -170,10 +174,10 @@ export default function ResetPassword() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 24,
+                  color: "#10b981",
                 }}
               >
-                ✅
+                <IconCheck size={26} />
               </div>
               <p style={{ color: "#f1f5f9", fontSize: 15, fontWeight: 600, margin: 0 }}>
                 Contraseña actualizada
@@ -217,7 +221,7 @@ export default function ResetPassword() {
                       fontSize: 14,
                     }}
                   >
-                    {showPwd ? "🙈" : "👁️"}
+                    {showPwd ? <IconEyeOff size={17} /> : <IconEye size={17} />}
                   </button>
                 </div>
               </div>
@@ -243,9 +247,12 @@ export default function ResetPassword() {
                     border: "1px solid rgba(239,68,68,0.2)",
                     color: "#f87171",
                     fontSize: 13,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
                   }}
                 >
-                  ⚠️ {error}
+                  <IconAlert size={15} style={{ flexShrink: 0 }} /> {error}
                 </div>
               )}
 

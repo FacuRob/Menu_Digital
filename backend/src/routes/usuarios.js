@@ -12,16 +12,16 @@ const {
   getRoles,
 } = require("../controllers/usuariosController");
 
-// Todas las rutas requieren auth + ser superadmin
-// checkPermiso('*') equivale a solo superadmin por el permiso wildcard
-const soloSuperadmin = [authMiddleware, checkPermiso("*")];
+// Todas las rutas requieren auth + permiso "*" (rol admin). El staff, con
+// permisos acotados, no accede a la gestión de usuarios.
+const soloAdmin = [authMiddleware, checkPermiso("*")];
 
-router.get("/", ...soloSuperadmin, getUsuarios);
-router.get("/roles", ...soloSuperadmin, getRoles);
-router.get("/:id", ...soloSuperadmin, getUsuarioById);
-router.post("/", ...soloSuperadmin, createUsuario);
-router.put("/:id", ...soloSuperadmin, updateUsuario);
-router.put("/:id/password", ...soloSuperadmin, cambiarPassword);
-router.delete("/:id", ...soloSuperadmin, deleteUsuario);
+router.get("/", ...soloAdmin, getUsuarios);
+router.get("/roles", ...soloAdmin, getRoles);
+router.get("/:id", ...soloAdmin, getUsuarioById);
+router.post("/", ...soloAdmin, createUsuario);
+router.put("/:id", ...soloAdmin, updateUsuario);
+router.put("/:id/password", ...soloAdmin, cambiarPassword);
+router.delete("/:id", ...soloAdmin, deleteUsuario);
 
 module.exports = router;

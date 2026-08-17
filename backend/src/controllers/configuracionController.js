@@ -2,6 +2,10 @@ const supabase = require("../config/database");
 const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
 
+// Rubros soportados (multi-rubro). Debe coincidir con el CHECK de la BD
+// (db/multirubro.sql → chk_tipo_rubro).
+const RUBROS = ["gastronomia", "retail", "servicios", "generico"];
+
 const DEFAULTS = (negocioId) => ({
   negocio_id: negocioId,
   nombre: "Mi Restaurante",
@@ -26,14 +30,29 @@ const DEFAULTS = (negocioId) => ({
 const getConfiguracion = async (req, res) => {
   try {
     const negocioId = getNegocioId(req);
-    const { data, error } = await supabase
-      .from("configuracion")
-      .select("*")
-      .eq("negocio_id", negocioId)
-      .maybeSingle();
+    const [cfgRes, negRes] = await Promise.all([
+      supabase
+        .from("configuracion")
+        .select("*")
+        .eq("negocio_id", negocioId)
+        .maybeSingle(),
+      // tipo_rubro / config_campos viven en `negocios`; los adjuntamos acá
+      // para que el panel de configuración los lea/guarde en una sola vista.
+      supabase
+        .from("negocios")
+        .select("tipo_rubro, config_campos")
+        .eq("id", negocioId)
+        .maybeSingle(),
+    ]);
 
-    if (error) throw error;
-    res.json(data || DEFAULTS(negocioId));
+    if (cfgRes.error) throw cfgRes.error;
+
+    const base = cfgRes.data || DEFAULTS(negocioId);
+    res.json({
+      ...base,
+      tipo_rubro: negRes.data?.tipo_rubro || "gastronomia",
+      config_campos: negRes.data?.config_campos || {},
+    });
   } catch (error) {
     return respondError(res, error, "configuracion");
   }
@@ -60,7 +79,28 @@ const updateConfiguracion = async (req, res) => {
       color_primario,
       horarios_config,
       moneda,
+      tipo_rubro,
+      config_campos,
     } = req.body;
+
+    // tipo_rubro / config_campos se guardan en `negocios`, no en `configuracion`.
+    if (tipo_rubro !== undefined || config_campos !== undefined) {
+      const negPatch = {};
+      if (tipo_rubro !== undefined) {
+        if (!RUBROS.includes(tipo_rubro)) {
+          return res.status(400).json({ message: "Tipo de rubro inválido" });
+        }
+        negPatch.tipo_rubro = tipo_rubro;
+      }
+      if (config_campos !== undefined && config_campos !== null) {
+        negPatch.config_campos = config_campos;
+      }
+      const { error: negErr } = await supabase
+        .from("negocios")
+        .update(negPatch)
+        .eq("id", negocioId);
+      if (negErr) throw negErr;
+    }
 
     const payload = {
       negocio_id: negocioId,
@@ -91,7 +131,11 @@ const updateConfiguracion = async (req, res) => {
       .single();
 
     if (error) throw error;
-    res.json(data);
+    res.json({
+      ...data,
+      ...(tipo_rubro !== undefined ? { tipo_rubro } : {}),
+      ...(config_campos !== undefined ? { config_campos } : {}),
+    });
   } catch (error) {
     return respondError(res, error, "configuracion");
   }

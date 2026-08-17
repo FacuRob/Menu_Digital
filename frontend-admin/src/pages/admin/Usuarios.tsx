@@ -7,6 +7,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import AdminLayout from "../../components/AdminLayout";
 import { useStyles } from "../../components/sharedStyles";
+import { IconEye, IconEyeOff, IconAlert } from "../../lib/icons";
 
 type Mode = "crear" | "editar" | "password" | null;
 
@@ -35,6 +36,18 @@ const PlusIcon = () => (
 
 const ROL_COLOR: Record<string, { bg: string; text: string; border: string }> =
   {
+    // Roles actuales
+    admin: {
+      bg: "rgba(59,130,246,0.12)",
+      text: "#60a5fa",
+      border: "rgba(59,130,246,0.3)",
+    },
+    staff: {
+      bg: "rgba(139,92,246,0.12)",
+      text: "#a78bfa",
+      border: "rgba(139,92,246,0.3)",
+    },
+    // Roles legacy (por si quedan usuarios/tokens sin migrar)
     superadmin: {
       bg: "rgba(59,130,246,0.12)",
       text: "#60a5fa",
@@ -51,6 +64,10 @@ const ROL_COLOR: Record<string, { bg: string; text: string; border: string }> =
       border: "rgba(100,116,139,0.3)",
     },
   };
+
+// Roles que el panel permite asignar. El "SuperAdmin" (plataforma) no se
+// asigna desde acá: es un flag de servidor (es_plataforma).
+const ROLES_ASIGNABLES = ["admin", "staff"];
 
 const inputFocus = (e: React.FocusEvent<any>) =>
   (e.target.style.borderColor = "#3b82f6");
@@ -71,7 +88,7 @@ export default function Usuarios() {
     nombre: "",
     email: "",
     password: "",
-    rol: "editor",
+    rol: "staff",
     activo: true,
   });
   const [newPwd, setNewPwd] = useState("");
@@ -107,7 +124,7 @@ export default function Usuarios() {
         nombre: "",
         email: "",
         password: "",
-        rol: "editor",
+        rol: "staff",
         activo: true,
       });
     if (m === "editar" && u)
@@ -184,6 +201,11 @@ export default function Usuarios() {
     }
   };
 
+  // Solo los roles asignables aparecen en las tarjetas y selects.
+  const rolesAsignables = roles.filter((r) =>
+    ROLES_ASIGNABLES.includes(r.rol),
+  );
+
   const RolBadge = ({ rol }: { rol: string }) => {
     const c = ROL_COLOR[rol] || ROL_COLOR.visor;
     return (
@@ -214,7 +236,7 @@ export default function Usuarios() {
           marginBottom: 20,
         }}
       >
-        {roles.map((r) => (
+        {rolesAsignables.map((r) => (
           <div key={r.rol} style={{ ...S.card, padding: "14px 16px" }}>
             <RolBadge rol={r.rol} />
             <div
@@ -235,7 +257,9 @@ export default function Usuarios() {
                 marginTop: 8,
               }}
             >
-              {(r.permisos as string[]).map((p) => (
+              {/* permisos puede venir como array (["productos",…]) o como
+                  el string "*" (rol admin). Normalizamos a array siempre. */}
+              {(Array.isArray(r.permisos) ? r.permisos : [r.permisos]).map((p) => (
                 <span
                   key={p}
                   style={{
@@ -602,7 +626,7 @@ export default function Usuarios() {
                         onFocus={inputFocus as any}
                         onBlur={inputBlur as any}
                       >
-                        {roles.map((r) => (
+                        {rolesAsignables.map((r) => (
                           <option key={r.rol} value={r.rol}>
                             {r.rol} — {r.descripcion}
                           </option>
@@ -650,7 +674,7 @@ export default function Usuarios() {
                           onFocus={inputFocus as any}
                           onBlur={inputBlur as any}
                         >
-                          {roles.map((r) => (
+                          {rolesAsignables.map((r) => (
                             <option key={r.rol} value={r.rol}>
                               {r.rol} — {r.descripcion}
                             </option>
@@ -759,7 +783,7 @@ export default function Usuarios() {
                           fontSize: 14,
                         }}
                       >
-                        {showPwd ? "🙈" : "👁️"}
+                        {showPwd ? <IconEyeOff size={17} /> : <IconEye size={17} />}
                       </button>
                     </div>
                   </div>
@@ -774,9 +798,12 @@ export default function Usuarios() {
                       border: "1px solid rgba(239,68,68,0.2)",
                       borderRadius: 8,
                       padding: "8px 12px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
                     }}
                   >
-                    ⚠️ {error}
+                    <IconAlert size={14} style={{ flexShrink: 0 }} /> {error}
                   </div>
                 )}
               </div>

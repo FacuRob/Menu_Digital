@@ -15,16 +15,18 @@ const buildResetUrl = (token) => {
   return `${base}/reset-password?token=${token}`;
 };
 
-const rolesValidos = ["superadmin", "editor", "visor"];
+// Roles asignables vía API. 'admin' = dueño del negocio, 'staff' = personal.
+// El "SuperAdmin" (plataforma) es el flag es_plataforma, no un rol asignable.
+const rolesValidos = ["admin", "staff"];
 
 // ─── REGISTER ───────────────────────────────────────────────
 const register = async (req, res) => {
   try {
-    const { username, password, nombre, email, rol = "editor" } = req.body;
+    const { username, password, nombre, email, rol = "staff" } = req.body;
 
     if (!rolesValidos.includes(rol)) {
       return res.status(400).json({
-        message: "Rol inválido. Debe ser: superadmin, editor o visor",
+        message: "Rol inválido. Debe ser: admin o staff",
       });
     }
 
@@ -141,6 +143,233 @@ const login = async (req, res) => {
     });
   } catch (error) {
     return respondError(res, error, "login");
+  }
+};
+
+// ─── Helpers de sesión / alta ────────────────────────────────
+const TRIAL_DIAS = Math.max(0, parseInt(process.env.FREE_TRIAL_DAYS, 10) || 14);
+
+const slugify = (s) =>
+  (s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, 50);
+
+// Firma el JWT y arma el objeto `user` de respuesta (login/signup/google).
+const issueSession = async (user) => {
+  const { data: rolData } = await supabase
+    .from("roles_permisos")
+    .select("permisos")
+    .eq("rol", user.rol)
+    .single();
+  const permisos = rolData?.permisos || [];
+  const token = jwt.sign(
+    {
+      id: user.id,
+      username: user.username,
+      rol: user.rol,
+      cuenta_id: user.cuenta_id,
+      es_plataforma: user.es_plataforma === true,
+      must_change_password: user.must_change_password,
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: "24h" },
+  );
+  return {
+    token,
+    user: {
+      id: user.id,
+      username: user.username,
+      nombre: user.nombre,
+      email: user.email,
+      rol: user.rol,
+      cuenta_id: user.cuenta_id,
+      es_plataforma: user.es_plataforma === true,
+      permisos,
+      must_change_password: user.must_change_password,
+    },
+  };
+};
+
+// Crea una cuenta nueva en período de prueba (free trial) + su negocio inicial.
+const crearCuentaConNegocio = async ({ nombre, email, origen }) => {
+  const periodoFin = new Date(
+    Date.now() + TRIAL_DIAS * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  const { data: cuenta, error } = await supabase
+    .from("cuentas")
+    .insert([
+      {
+        nombre,
+        email,
+        tipo_plan: "free",
+        ciclo_facturacion: "mensual",
+        estado_suscripcion: "trial",
+        periodo_fin: periodoFin,
+        origen: origen || "signup",
+      },
+    ])
+    .select()
+    .single();
+  if (error) throw error;
+
+  const { data: neg } = await supabase
+    .from("negocios")
+    .insert([
+      {
+        nombre,
+        slug: `${slugify(nombre) || "negocio"}-${cuenta.id}`,
+        activo: true,
+        cuenta_id: cuenta.id,
+      },
+    ])
+    .select()
+    .single();
+  if (neg) {
+    await supabase
+      .from("configuracion")
+      .insert([{ negocio_id: neg.id, nombre, retiro_activo: true }]);
+  }
+  return cuenta;
+};
+
+const buildUsername = (email, cuentaId) =>
+  email.length <= 50 ? email : `${email.split("@")[0].slice(0, 40)}-${cuentaId}`;
+
+// ─── SIGNUP (alta self-serve, público) ───────────────────────
+const signup = async (req, res) => {
+  try {
+    const { negocio, email, password } = req.body;
+
+    const [{ data: uExist }, { data: cExist }] = await Promise.all([
+      supabase.from("usuarios").select("id").eq("email", email).maybeSingle(),
+      supabase.from("cuentas").select("id").eq("email", email).maybeSingle(),
+    ]);
+    if (uExist || cExist) {
+      return res
+        .status(400)
+        .json({ message: "Ya existe una cuenta con ese email" });
+    }
+
+    const cuenta = await crearCuentaConNegocio({
+      nombre: negocio,
+      email,
+      origen: "signup",
+    });
+
+    const hashed = await bcrypt.hash(password, 10);
+    const username = buildUsername(email, cuenta.id);
+    const { data: user, error } = await supabase
+      .from("usuarios")
+      .insert([
+        {
+          username,
+          password: hashed,
+          nombre: negocio,
+          email,
+          rol: "admin",
+          activo: true,
+          must_change_password: false,
+          cuenta_id: cuenta.id,
+        },
+      ])
+      .select("*")
+      .single();
+    if (error) throw error;
+
+    const session = await issueSession(user);
+    return res.status(201).json({ message: "Cuenta creada", ...session });
+  } catch (error) {
+    return respondError(res, error, "signup");
+  }
+};
+
+// ─── GOOGLE (alta / login con Google) ────────────────────────
+const googleAuth = async (req, res) => {
+  try {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      return res
+        .status(503)
+        .json({ message: "El acceso con Google no está configurado" });
+    }
+    const { credential } = req.body;
+
+    // Verificar el ID token contra Google (valida firma, expiración, etc.).
+    const resp = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`,
+    );
+    if (!resp.ok) {
+      return res.status(401).json({ message: "Token de Google inválido" });
+    }
+    const payload = await resp.json();
+
+    if (payload.aud !== clientId) {
+      return res
+        .status(401)
+        .json({ message: "Token de Google no válido para esta aplicación" });
+    }
+    const emailVerificado =
+      payload.email_verified === "true" || payload.email_verified === true;
+    if (!emailVerificado) {
+      return res
+        .status(401)
+        .json({ message: "El email de Google no está verificado" });
+    }
+    const email = String(payload.email || "").toLowerCase();
+    if (!email) {
+      return res.status(401).json({ message: "Google no devolvió un email" });
+    }
+    const nombre = payload.name || payload.given_name || null;
+
+    let { data: user } = await supabase
+      .from("usuarios")
+      .select("*")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (!user) {
+      // Alta nueva (trial). Contraseña aleatoria: nunca se usa (entra por Google).
+      const cuenta = await crearCuentaConNegocio({
+        nombre: nombre || email,
+        email,
+        origen: "google",
+      });
+      const randomPwd = crypto.randomBytes(24).toString("hex");
+      const hashed = await bcrypt.hash(randomPwd, 10);
+      const username = buildUsername(email, cuenta.id);
+      const ins = await supabase
+        .from("usuarios")
+        .insert([
+          {
+            username,
+            password: hashed,
+            nombre,
+            email,
+            rol: "admin",
+            activo: true,
+            must_change_password: false,
+            cuenta_id: cuenta.id,
+          },
+        ])
+        .select("*")
+        .single();
+      if (ins.error) throw ins.error;
+      user = ins.data;
+    }
+
+    if (!user.activo) {
+      return res.status(401).json({ message: "Usuario inactivo" });
+    }
+
+    const session = await issueSession(user);
+    return res.json({ message: "Login con Google exitoso", ...session });
+  } catch (error) {
+    return respondError(res, error, "googleAuth");
   }
 };
 
@@ -330,6 +559,8 @@ const changePassword = async (req, res) => {
 module.exports = {
   register,
   login,
+  signup,
+  googleAuth,
   verifyToken,
   forgotPassword,
   resetPassword,

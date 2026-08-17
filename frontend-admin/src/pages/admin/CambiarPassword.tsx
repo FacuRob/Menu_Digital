@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { useLang } from "../../lib/i18n";
+import { IconEye, IconEyeOff, IconAlert, IconLock } from "../../lib/icons";
 
 export default function CambiarPassword() {
   const { t } = useLang();
@@ -127,11 +128,11 @@ export default function CambiarPassword() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 24,
+              color: "#fff",
               margin: "0 auto 14px",
             }}
           >
-            🔑
+            <IconLock size={24} />
           </div>
           <h1
             style={{
@@ -161,7 +162,9 @@ export default function CambiarPassword() {
             alignItems: "flex-start",
           }}
         >
-          <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+          <span style={{ flexShrink: 0, color: "#f59e0b", display: "flex" }}>
+            <IconAlert size={16} />
+          </span>
           <p
             style={{
               margin: 0,
@@ -217,7 +220,7 @@ export default function CambiarPassword() {
                     fontSize: 14,
                   }}
                 >
-                  {showNew ? "🙈" : "👁️"}
+                  {showNew ? <IconEyeOff size={17} /> : <IconEye size={17} />}
                 </button>
               </div>
 
@@ -294,7 +297,7 @@ export default function CambiarPassword() {
                     fontSize: 14,
                   }}
                 >
-                  {showConfirm ? "🙈" : "👁️"}
+                  {showConfirm ? <IconEyeOff size={17} /> : <IconEye size={17} />}
                 </button>
               </div>
               {confirm && confirm !== newPassword && (
@@ -322,9 +325,12 @@ export default function CambiarPassword() {
                   border: "1px solid rgba(239,68,68,0.2)",
                   color: "#f87171",
                   fontSize: 13,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
                 }}
               >
-                ⚠️ {error}
+                <IconAlert size={15} style={{ flexShrink: 0 }} /> {error}
               </div>
             )}
 

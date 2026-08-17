@@ -90,8 +90,9 @@ export default function CartDrawer({
     items: lines.map((l) => ({
       producto_id: l.producto.id,
       nombre: l.producto.nombre,
-      precio: Number(l.producto.precio),
+      precio: l.unitPrice,
       cantidad: l.cantidad,
+      opciones: l.opciones.map((o) => o.opcion_id),
     })),
   });
 
@@ -160,12 +161,15 @@ export default function CartDrawer({
 
     // Datos para el mensaje antes de limpiar el carrito.
     const lineasMsg = lines
-      .map(
-        (l) =>
-          `• ${l.cantidad}x ${l.producto.nombre} — ${fmt(
-            l.cantidad * Number(l.producto.precio),
-          )}`,
-      )
+      .map((l) => {
+        const ops =
+          l.opciones.length > 0
+            ? ` (${l.opciones.map((o) => o.nombre).join(", ")})`
+            : "";
+        return `• ${l.cantidad}x ${l.producto.nombre}${ops} — ${fmt(
+          l.cantidad * l.unitPrice,
+        )}`;
+      })
       .join("\n");
     const totalMsg = total;
 
@@ -300,29 +304,37 @@ export default function CartDrawer({
             <div style={{ flex: 1, overflowY: "auto", padding: "14px 16px" }}>
               {lines.map((l) => (
                 <div
-                  key={l.producto.id}
+                  key={l.key}
                   style={{ display: "flex", gap: 12, padding: "12px 0", borderBottom: "1px solid #efeae7" }}
                 >
                   <ProductImage
                     url={l.producto.imagen_url}
                     alt={l.producto.nombre}
+                    w={120}
+                    h={120}
+                    fill
                     style={{ width: 58, height: 58, borderRadius: 12, flexShrink: 0 }}
                   />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: "#1c1917", lineHeight: 1.3 }}>
                       {l.producto.nombre}
                     </div>
+                    {l.opciones.length > 0 && (
+                      <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.4, marginTop: 2 }}>
+                        {l.opciones.map((o) => o.nombre).join(" · ")}
+                      </div>
+                    )}
                     <div style={{ fontSize: 13, color: PRIMARY, fontWeight: 700 }}>
-                      {fmt(Number(l.producto.precio) * l.cantidad)}
+                      {fmt(l.unitPrice * l.cantidad)}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-                      <MiniBtn onClick={() => setQty(l.producto.id, l.cantidad - 1)}>−</MiniBtn>
+                      <MiniBtn onClick={() => setQty(l.key, l.cantidad - 1)}>−</MiniBtn>
                       <span style={{ minWidth: 22, textAlign: "center", fontWeight: 700, fontSize: 14 }}>
                         {l.cantidad}
                       </span>
-                      <MiniBtn onClick={() => setQty(l.producto.id, l.cantidad + 1)}>+</MiniBtn>
+                      <MiniBtn onClick={() => setQty(l.key, l.cantidad + 1)}>+</MiniBtn>
                       <button
-                        onClick={() => remove(l.producto.id)}
+                        onClick={() => remove(l.key)}
                         style={{ marginLeft: "auto", border: "none", background: "none", color: "#9ca3af", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}
                       >
                         {t("remove")}

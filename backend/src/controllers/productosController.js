@@ -135,6 +135,8 @@ const createProducto = async (req, res) => {
       orden,
       stock,
       controlar_stock,
+      sku,
+      atributos,
     } = req.body;
 
     const { data, error } = await supabase
@@ -151,6 +153,8 @@ const createProducto = async (req, res) => {
           orden: orden || 0,
           stock: stock || 0,
           controlar_stock: !!controlar_stock,
+          sku: sku || null,
+          atributos: atributos || {},
           negocio_id: negocioId,
         },
       ])
@@ -179,6 +183,8 @@ const updateProducto = async (req, res) => {
       orden,
       stock,
       controlar_stock,
+      sku,
+      atributos,
     } = req.body;
 
     const { data: current } = await supabase
@@ -222,6 +228,8 @@ const updateProducto = async (req, res) => {
         orden,
         stock: stock ?? 0,
         controlar_stock: !!controlar_stock,
+        ...(sku !== undefined ? { sku: sku || null } : {}),
+        ...(atributos !== undefined ? { atributos: atributos || {} } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)

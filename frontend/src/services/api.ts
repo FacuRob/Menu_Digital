@@ -36,6 +36,22 @@ export interface Categoria {
   updated_at?: string;
 }
 
+// Multi-rubro: variantes/modificadores (talles, colores, extras…).
+export interface VarianteOpcion {
+  id: number;
+  nombre: string;
+  precio_extra: number;
+  stock?: number | null;
+}
+export interface VarianteGrupo {
+  id: number;
+  nombre: string;
+  tipo: "single" | "multi";
+  obligatorio: boolean;
+  orden: number;
+  opciones: VarianteOpcion[];
+}
+
 export interface Producto {
   id: number;
   nombre: string;
@@ -50,6 +66,9 @@ export interface Producto {
   stock?: number;
   controlar_stock?: boolean;
   negocio_id?: number;
+  sku?: string | null;
+  atributos?: Record<string, unknown>;
+  variantes?: VarianteGrupo[];
   created_at?: string;
   updated_at?: string;
 }
@@ -233,6 +252,7 @@ export interface NuevoPedidoItem {
   nombre: string;
   precio: number;
   cantidad: number;
+  opciones?: number[]; // ids de opciones de variante elegidas
 }
 
 export const configuracionService = {

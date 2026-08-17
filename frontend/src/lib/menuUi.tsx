@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { cld } from "./cloudinary";
 
 // ── Paleta ───────────────────────────────────────────────────
 // Los colores salen de variables CSS que setea el menú según la
@@ -218,16 +219,23 @@ export function ProductImage({
   url,
   alt,
   style,
+  w,
+  h,
+  fill,
 }: {
   url?: string | null;
   alt: string;
   style?: CSSProperties;
+  w?: number;
+  h?: number;
+  fill?: boolean;
 }) {
   if (url) {
     return (
       <img
-        src={url}
+        src={cld(url, { w, h, fill }) || url}
         alt={alt}
+        loading="lazy"
         style={{ objectFit: "cover", ...style }}
         onError={(e) => {
           const img = e.currentTarget;

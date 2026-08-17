@@ -10,10 +10,21 @@ import {
   type PlanInfo,
 } from "../../services/api";
 import AdminLayout from "../../components/AdminLayout";
+import VariantesEditor from "../../components/VariantesEditor";
 import { useStyles } from "../../components/sharedStyles";
 import { useNegocio } from "../../context/NegocioContext";
 import { fmtMoney } from "../../lib/money";
+import { cld } from "../../lib/cloudinary";
 import { useLang } from "../../lib/i18n";
+import {
+  IconPlus,
+  IconX,
+  IconInfo,
+  IconCheck,
+  IconBan,
+  IconImage,
+  IconAlert,
+} from "../../lib/icons";
 
 const PlusIcon = () => (
   <svg
@@ -64,6 +75,11 @@ export default function Productos() {
     stock: 0,
     controlar_stock: false,
   });
+  // Atributos libres por rubro (marca, material, duración…). Se editan como
+  // pares clave/valor y se guardan como JSONB junto al producto.
+  const [atributos, setAtributos] = useState<{ clave: string; valor: string }[]>(
+    [],
+  );
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -161,6 +177,14 @@ export default function Productos() {
             controlar_stock: false,
           },
     );
+    setAtributos(
+      p?.atributos
+        ? Object.entries(p.atributos).map(([clave, valor]) => ({
+            clave,
+            valor: valor == null ? "" : String(valor),
+          }))
+        : [],
+    );
     setImagePreview(p?.imagen_url || "");
     setImageFile(null);
     setUploadError("");
@@ -213,7 +237,16 @@ export default function Productos() {
           setUploading(false);
         }
       }
-      const data = { ...form, imagen_url: url || null };
+      // Pares clave/valor → objeto (descarta filas sin clave).
+      const atributosObj = atributos.reduce<Record<string, string>>(
+        (acc, { clave, valor }) => {
+          const k = clave.trim();
+          if (k) acc[k] = valor;
+          return acc;
+        },
+        {},
+      );
+      const data = { ...form, imagen_url: url || null, atributos: atributosObj };
       editing
         ? await productosService.update(editing.id, data)
         : await productosService.create(data);
@@ -435,8 +468,8 @@ export default function Productos() {
           <div
             style={{ textAlign: "center", padding: "48px 0", color: "#94a3b8" }}
           >
-            <div style={{ fontSize: 32, marginBottom: 8 }}>
-              {vista === "disponibles" ? "✅" : "🚫"}
+            <div style={{ marginBottom: 8, display: "flex", justifyContent: "center", color: "#cbd5e1" }}>
+              {vista === "disponibles" ? <IconCheck size={32} /> : <IconBan size={32} />}
             </div>
             <div style={{ fontSize: 14 }}>
               {vista === "disponibles"
@@ -480,8 +513,9 @@ export default function Productos() {
                     <td style={{ ...S.td, width: 44 }}>
                       {p.imagen_url ? (
                         <img
-                          src={p.imagen_url}
+                          src={cld(p.imagen_url, { w: 72, h: 72, fill: true }) || p.imagen_url}
                           alt={p.nombre}
+                          loading="lazy"
                           style={{
                             width: 36,
                             height: 36,
@@ -504,10 +538,10 @@ export default function Productos() {
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            fontSize: 16,
+                            color: "#94a3b8",
                           }}
                         >
-                          🍽️
+                          <IconImage size={18} />
                         </div>
                       )}
                     </td>
@@ -991,19 +1025,138 @@ export default function Productos() {
                   </div>
                   {uploadError && (
                     <div
-                      style={{ fontSize: 11, color: "#f87171", marginTop: 6 }}
+                      style={{ fontSize: 11, color: "#f87171", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}
                     >
-                      ⚠️ {uploadError}
+                      <IconAlert size={13} style={{ flexShrink: 0 }} /> {uploadError}
                     </div>
                   )}
                   {imageFile && !uploadError && (
                     <div
-                      style={{ fontSize: 11, color: "#60a5fa", marginTop: 6 }}
+                      style={{ fontSize: 11, color: "#60a5fa", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}
                     >
-                      📎 {t("prodImageWillUpload", { name: imageFile.name })}
+                      <IconImage size={13} style={{ flexShrink: 0 }} /> {t("prodImageWillUpload", { name: imageFile.name })}
                     </div>
                   )}
                 </div>
+
+                {/* Atributos libres por rubro (marca, material, etc.) */}
+                <div
+                  style={{
+                    borderTop: "1px solid rgba(0,0,0,0.08)",
+                    paddingTop: 14,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 4,
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: "#1e293b" }}>
+                        {t("attrTitle")}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: "#94a3b8", marginTop: 2 }}>
+                        {t("attrSubtitle")}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAtributos((a) => [...a, { clave: "", valor: "" }])
+                      }
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                        padding: "7px 10px",
+                        borderRadius: 8,
+                        border: "1px solid #3b82f6",
+                        color: "#3b82f6",
+                        background: "rgba(59,130,246,0.06)",
+                        cursor: "pointer",
+                        fontSize: 13,
+                        fontWeight: 600,
+                      }}
+                    >
+                      <IconPlus size={13} /> {t("attrAddField")}
+                    </button>
+                  </div>
+                  {atributos.length > 0 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+                      {atributos.map((a, i) => (
+                        <div key={i} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <input
+                            style={{ ...S.input, flex: "0 0 40%" }}
+                            placeholder={t("attrKeyPh")}
+                            value={a.clave}
+                            onChange={(e) =>
+                              setAtributos((arr) =>
+                                arr.map((x, j) =>
+                                  j === i ? { ...x, clave: e.target.value } : x,
+                                ),
+                              )
+                            }
+                            onFocus={inputFocus}
+                            onBlur={inputBlur}
+                          />
+                          <input
+                            style={{ ...S.input, flex: 1 }}
+                            placeholder={t("attrValuePh")}
+                            value={a.valor}
+                            onChange={(e) =>
+                              setAtributos((arr) =>
+                                arr.map((x, j) =>
+                                  j === i ? { ...x, valor: e.target.value } : x,
+                                ),
+                              )
+                            }
+                            onFocus={inputFocus}
+                            onBlur={inputBlur}
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setAtributos((arr) => arr.filter((_, j) => j !== i))
+                            }
+                            title={t("attrRemove")}
+                            style={{
+                              border: "none",
+                              background: "none",
+                              color: "#ef4444",
+                              cursor: "pointer",
+                              display: "flex",
+                              padding: "0 4px",
+                            }}
+                          >
+                            <IconX size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Variantes/opciones — solo para productos ya creados. */}
+                {editing ? (
+                  <VariantesEditor productoId={editing.id} />
+                ) : (
+                  <div
+                    style={{
+                      borderTop: "1px solid rgba(0,0,0,0.08)",
+                      paddingTop: 12,
+                      fontSize: 12,
+                      color: "#94a3b8",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <IconInfo size={14} /> {t("attrSaveFirst")}
+                  </div>
+                )}
               </div>
               {saveError && (
                 <div
@@ -1016,9 +1169,12 @@ export default function Productos() {
                     color: "#dc2626",
                     fontSize: 12.5,
                     lineHeight: 1.4,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
                   }}
                 >
-                  ⚠️ {saveError}
+                  <IconAlert size={15} style={{ flexShrink: 0 }} /> {saveError}
                 </div>
               )}
               <div style={S.modalFooter}>

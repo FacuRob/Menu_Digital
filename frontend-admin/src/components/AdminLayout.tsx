@@ -6,6 +6,8 @@ import { useNegocio } from "../context/NegocioContext";
 import { pedidosService, productosService } from "../services/api";
 import ConfiguracionEditor from "./ConfiguracionEditor";
 import { useLang, LangSelector } from "../lib/i18n";
+import { BRAND_NAME, BRAND_GRADIENT, brandTextStyle } from "../lib/brand";
+import { IconBell } from "../lib/icons";
 
 const SunIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} style={{ width: 16, height: 16 }}>
@@ -156,6 +158,23 @@ const NAV = [
     ),
   },
   {
+    permiso: "*",
+    ruta: "/admin/suscripcion",
+    labelKey: "navSuscripcion",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.7}
+        className="w-[18px] h-[18px] flex-shrink-0"
+      >
+        <rect x="2" y="5" width="20" height="14" rx="2" />
+        <path d="M2 10h20" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
     permiso: "plataforma",
     ruta: "/admin/plataforma",
     labelKey: "navPlataforma",
@@ -193,6 +212,9 @@ const NAV = [
 ];
 
 const rolColor: Record<string, string> = {
+  admin: "#3b82f6",
+  staff: "#8b5cf6",
+  // Legacy (usuarios/tokens sin migrar)
   superadmin: "#3b82f6",
   editor: "#8b5cf6",
   visor: "#6b7280",
@@ -407,28 +429,30 @@ export default function AdminLayout({
               width: 30,
               height: 30,
               borderRadius: 8,
-              background: "linear-gradient(135deg,#3b82f6,#6366f1)",
+              background: BRAND_GRADIENT,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               fontSize: 15,
+              fontWeight: 800,
+              color: "#fff",
               flexShrink: 0,
             }}
           >
-            🍽️
+            D
           </div>
           {!collapsed && (
             <div style={{ overflow: "hidden" }}>
               <div
                 style={{
-                  color: textPrimary,
-                  fontWeight: 600,
-                  fontSize: 13,
+                  ...brandTextStyle,
+                  fontWeight: 800,
+                  fontSize: 14,
                   lineHeight: 1.2,
                   whiteSpace: "nowrap",
                 }}
               >
-                Menú Digital
+                {BRAND_NAME}
               </div>
               <div
                 style={{ color: textMuted, fontSize: 11, whiteSpace: "nowrap" }}
@@ -600,7 +624,7 @@ export default function AdminLayout({
                 padding: collapsed ? "8px 0" : "8px 8px",
                 justifyContent: collapsed ? "center" : "flex-start",
               }}
-              title={collapsed ? `${user.nombre || user.username} · ${user.rol}` : undefined}
+              title={collapsed ? `${user.nombre || user.username} · ${isPlataforma ? "SuperAdmin" : user.rol}` : undefined}
             >
               <div
                 style={{
@@ -643,7 +667,7 @@ export default function AdminLayout({
                       marginTop: 1,
                     }}
                   >
-                    {user.rol}
+                    {isPlataforma ? "SuperAdmin" : user.rol}
                   </div>
                 </div>
               )}
@@ -1159,7 +1183,7 @@ export default function AdminLayout({
           }}
         >
           <style>{`@keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}`}</style>
-          <span style={{ fontSize: 20 }}>🔔</span>
+          <span style={{ display: "flex", color: "#fbbf24" }}><IconBell size={20} /></span>
           <div>
             <div style={{ fontWeight: 700, fontSize: 14 }}>{toast}</div>
             <div style={{ fontSize: 12, color: "#9ca3af" }}>

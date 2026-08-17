@@ -1,8 +1,11 @@
 const supabase = require("../config/database");
 const bcrypt = require("bcryptjs");
 const { getCuentaId, getAuthScope } = require("../utils/cuenta");
+const { respondError } = require("../utils/respondError");
 
-const rolesValidos = ["superadmin", "editor", "visor"];
+// 'admin' = dueño del negocio, 'staff' = personal. El "SuperAdmin"
+// (plataforma) es el flag es_plataforma, nunca asignable vía API.
+const rolesValidos = ["admin", "staff"];
 
 const getUsuarios = async (req, res) => {
   try {
@@ -50,7 +53,7 @@ const getUsuarioById = async (req, res) => {
 
 const createUsuario = async (req, res) => {
   try {
-    const { username, password, nombre, email, rol = "editor" } = req.body;
+    const { username, password, nombre, email, rol = "staff" } = req.body;
 
     if (!username || !password) {
       return res
@@ -117,10 +120,10 @@ const updateUsuario = async (req, res) => {
     const { id } = req.params;
     const { nombre, email, rol, activo } = req.body;
 
-    if (req.user.id === parseInt(id) && rol && rol !== "superadmin") {
+    if (req.user.id === parseInt(id) && rol && rol !== "admin") {
       return res
         .status(400)
-        .json({ message: "No podés cambiar tu propio rol de superadmin" });
+        .json({ message: "No podés cambiar tu propio rol de admin" });
     }
     if (rol && !rolesValidos.includes(rol)) {
       return res

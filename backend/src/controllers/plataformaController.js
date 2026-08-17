@@ -82,7 +82,9 @@ const getResumen = async (req, res) => {
     const mrrPorPlan = { basic: 0, standard: 0, premium: 0 };
     let activas = 0;
     let canceladas = 0;
-    let porHotmart = 0;
+    // Altas provenientes de una pasarela de pago (Hotmart histórico o
+    // Lemon Squeezy), frente a las cargadas a mano.
+    let porPago = 0;
 
     for (const c of cuentas) {
       if (porPlan[c.tipo_plan] !== undefined) porPlan[c.tipo_plan] += 1;
@@ -98,7 +100,7 @@ const getResumen = async (req, res) => {
       } else if (c.estado_suscripcion === "cancelado") {
         canceladas += 1;
       }
-      if (c.origen === "hotmart") porHotmart += 1;
+      if (c.origen === "hotmart" || c.origen === "lemonsqueezy") porPago += 1;
     }
 
     const mrr = mrrPorPlan.basic + mrrPorPlan.standard + mrrPorPlan.premium;
@@ -107,7 +109,7 @@ const getResumen = async (req, res) => {
       total_cuentas: cuentas.length,
       activas,
       canceladas,
-      por_hotmart: porHotmart,
+      por_pago: porPago,
       por_plan: porPlan,
       total_negocios: (negociosRes.data || []).length,
       moneda: precios.moneda,

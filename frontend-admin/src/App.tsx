@@ -16,6 +16,7 @@ import Configuracion from "./pages/admin/Configuracion";
 import Pedidos from "./pages/admin/Pedidos";
 import Negocios from "./pages/admin/Negocios";
 import Plataforma from "./pages/admin/Plataforma";
+import Suscripcion from "./pages/admin/Suscripcion";
 
 function App() {
   return (
@@ -109,6 +110,16 @@ function App() {
             element={
               <ProtectedRoute plataforma>
                 <Plataforma />
+              </ProtectedRoute>
+            }
+          />
+          {/* Suscripción: accesible aunque el plan esté vencido (sin permiso
+              especial) para que el usuario pueda comprar/renovar. */}
+          <Route
+            path="/admin/suscripcion"
+            element={
+              <ProtectedRoute>
+                <Suscripcion />
               </ProtectedRoute>
             }
           />

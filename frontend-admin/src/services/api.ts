@@ -23,6 +23,23 @@ api.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
+// Suscripción vencida (402): el backend bloquea los datos del panel. Redirigir
+// a la página de suscripción para que el usuario elija/renueve un plan.
+api.interceptors.response.use(
+  (r) => r,
+  (error) => {
+    const data = error?.response?.data as { error?: string } | undefined;
+    if (
+      error?.response?.status === 402 &&
+      data?.error === "SUSCRIPCION_VENCIDA" &&
+      !window.location.pathname.includes("/admin/suscripcion")
+    ) {
+      window.location.assign("/admin/suscripcion");
+    }
+    return Promise.reject(error);
+  },
+);
+
 // Extrae el mensaje de error que manda el backend (p. ej. límites 403),
 // con un fallback genérico si la respuesta no trae detalle.
 export function getApiErrorMessage(e: unknown, fallback: string): string {
@@ -58,8 +75,36 @@ export interface Producto {
   stock?: number;
   controlar_stock?: boolean;
   negocio_id?: number;
+  sku?: string | null;
+  atributos?: Record<string, unknown>;
   created_at?: string;
   updated_at?: string;
+}
+
+// Multi-rubro: variantes/modificadores (talles, colores, extras…).
+export interface VarianteOpcion {
+  id?: number;
+  nombre: string;
+  precio_extra: number;
+  stock?: number | null;
+  activo?: boolean;
+  orden?: number;
+}
+export interface VarianteGrupo {
+  id: number;
+  producto_id: number;
+  nombre: string;
+  tipo: "single" | "multi";
+  obligatorio: boolean;
+  orden: number;
+  opciones: VarianteOpcion[];
+}
+export interface VarianteGrupoInput {
+  nombre: string;
+  tipo: "single" | "multi";
+  obligatorio: boolean;
+  orden?: number;
+  opciones: VarianteOpcion[];
 }
 
 export interface Usuario {
@@ -97,6 +142,20 @@ export const authService = {
     const response = await api.post<LoginResponse>("/auth/login", {
       username,
       password,
+    });
+    return response.data;
+  },
+  signup: async (negocio: string, email: string, password: string) => {
+    const response = await api.post<LoginResponse>("/auth/signup", {
+      negocio,
+      email,
+      password,
+    });
+    return response.data;
+  },
+  google: async (credential: string) => {
+    const response = await api.post<LoginResponse>("/auth/google", {
+      credential,
     });
     return response.data;
   },
@@ -156,6 +215,17 @@ export const productosService = {
     p: Omit<Producto, "id" | "created_at" | "updated_at" | "categoria_nombre">,
   ) => (await api.put<Producto>(`/productos/${id}`, p)).data,
   delete: async (id: number) => (await api.delete(`/productos/${id}`)).data,
+};
+
+export const variantesService = {
+  getByProducto: async (productoId: number) =>
+    (await api.get<VarianteGrupo[]>(`/variantes/producto/${productoId}`)).data,
+  createGrupo: async (productoId: number, g: VarianteGrupoInput) =>
+    (await api.post<VarianteGrupo>(`/variantes/producto/${productoId}`, g)).data,
+  updateGrupo: async (grupoId: number, g: Partial<VarianteGrupoInput>) =>
+    (await api.put<VarianteGrupo>(`/variantes/grupo/${grupoId}`, g)).data,
+  deleteGrupo: async (grupoId: number) =>
+    (await api.delete(`/variantes/grupo/${grupoId}`)).data,
 };
 
 export const uploadService = {
@@ -221,7 +291,12 @@ export interface Configuracion {
   color_primario?: string | null;
   horarios_config?: HorariosConfig | null;
   moneda?: string | null;
+  // Multi-rubro (viven en `negocios`, se editan desde Configuración).
+  tipo_rubro?: TipoRubro;
+  config_campos?: Record<string, unknown>;
 }
+
+export type TipoRubro = "gastronomia" | "retail" | "servicios" | "generico";
 
 export type TipoEntrega = "mesa" | "retiro" | "delivery";
 
@@ -230,6 +305,8 @@ export interface PedidoItem {
   producto_id: number | null;
   nombre: string;
   precio_unit: number;
+  // Costo congelado al momento de la venta (para calcular ganancia en el ticket).
+  costo_unit?: number;
   cantidad: number;
   subtotal: number;
 }
@@ -346,7 +423,6 @@ export interface Cuenta {
   limite_negocios: number;
   limite_productos: number;
   origen: string | null;
-  hotmart_transaction: string | null;
   created_at?: string;
   suscripcion_actualizada_at?: string;
   negocios_count: number;
@@ -358,7 +434,7 @@ export interface PlataformaResumen {
   total_cuentas: number;
   activas: number;
   canceladas: number;
-  por_hotmart: number;
+  por_pago: number;
   por_plan: { free: number; basic: number; standard: number; premium: number };
   total_negocios: number;
   moneda: string;
@@ -376,6 +452,45 @@ export const plataformaService = {
     (await api.get<Cuenta[]>("/plataforma/cuentas")).data,
   getResumen: async () =>
     (await api.get<PlataformaResumen>("/plataforma/resumen")).data,
+};
+
+// ── Suscripción (Lemon Squeezy + trial) ──────────────────────
+export type EstadoSuscripcion = "trial" | "activo" | "cancelado" | "vencido";
+export type CicloFacturacion = "mensual" | "anual";
+
+export interface PlanCatalogo {
+  code: "basic" | "standard" | "premium";
+  precio_mensual: number;
+  precio_anual: number;
+  limites: { negocios: number; productos: number };
+}
+
+export interface SuscripcionEstado {
+  es_plataforma: boolean;
+  tipo_plan: TipoPlan;
+  ciclo_facturacion?: CicloFacturacion;
+  estado_suscripcion: EstadoSuscripcion;
+  vigente: boolean;
+  periodo_fin: string | null;
+  dias_restantes: number | null;
+  creado_at?: string;
+  moneda: string;
+  trial_dias: number;
+  planes: PlanCatalogo[];
+}
+
+export const suscripcionService = {
+  get: async () => (await api.get<SuscripcionEstado>("/suscripcion")).data,
+  checkout: async (
+    plan: PlanCatalogo["code"],
+    ciclo: CicloFacturacion,
+  ) =>
+    (
+      await api.get<{ url: string }>(`/suscripcion/checkout/${plan}`, {
+        params: { ciclo },
+      })
+    ).data,
+  portal: async () => (await api.get<{ url: string }>("/suscripcion/portal")).data,
 };
 
 export default api;
