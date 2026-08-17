@@ -11,6 +11,30 @@ const slugify = (s) =>
     .replace(/(^-|-$)/g, "")
     .slice(0, 60);
 
+// Resolver un negocio por su slug (RUTA PÚBLICA, sin auth). La usa el menú
+// público para saber qué negocio mostrar desde la URL /menu/:slug.
+// Devuelve sólo datos no sensibles (id, nombre, slug).
+const getNegocioPublicoBySlug = async (req, res) => {
+  try {
+    const slug = slugify(req.params.slug);
+    if (!slug) return res.status(404).json({ message: "Negocio no encontrado" });
+
+    const { data, error } = await supabase
+      .from("negocios")
+      .select("id, nombre, slug")
+      .eq("slug", slug)
+      .eq("activo", true)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ message: "Negocio no encontrado" });
+
+    res.json(data);
+  } catch (error) {
+    return respondError(res, error, "negocios");
+  }
+};
+
 // Listar negocios. Cuenta normal → sólo los suyos. Plataforma → todos.
 const getNegocios = async (req, res) => {
   try {
@@ -127,6 +151,7 @@ const deleteNegocio = async (req, res) => {
 
 module.exports = {
   getNegocios,
+  getNegocioPublicoBySlug,
   createNegocio,
   updateNegocio,
   deleteNegocio,

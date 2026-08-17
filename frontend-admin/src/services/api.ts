@@ -276,6 +276,8 @@ export type HorariosConfig = DiaHorario[]; // 0=Lunes … 6=Domingo
 export interface Configuracion {
   id: number;
   nombre: string;
+  // Slug del negocio (para la URL pública /menu/:slug).
+  slug?: string | null;
   descripcion: string | null;
   direccion: string | null;
   telefono: string | null;

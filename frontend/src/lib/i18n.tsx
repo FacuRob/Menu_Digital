@@ -23,6 +23,8 @@ type Dict = Record<string, string>;
 const es: Dict = {
   loading: "Cargando el menú…",
   defaultTitle: "Nuestro Menú",
+  notFoundTitle: "Menú no encontrado",
+  notFoundDesc: "El local que buscás no existe o no está disponible.",
   searchPlaceholder: "Buscar por productos",
   noResults: "No encontramos productos con esa búsqueda",
   preparingTitle: "Estamos preparando el menú 🍽️",
@@ -94,6 +96,8 @@ const es: Dict = {
 const en: Dict = {
   loading: "Loading menu…",
   defaultTitle: "Our Menu",
+  notFoundTitle: "Menu not found",
+  notFoundDesc: "The place you're looking for doesn't exist or isn't available.",
   searchPlaceholder: "Search products",
   noResults: "No products found for that search",
   preparingTitle: "We're preparing the menu 🍽️",
@@ -163,6 +167,8 @@ const en: Dict = {
 const pt: Dict = {
   loading: "Carregando o menu…",
   defaultTitle: "Nosso Menu",
+  notFoundTitle: "Menu não encontrado",
+  notFoundDesc: "O local que você procura não existe ou não está disponível.",
   searchPlaceholder: "Buscar produtos",
   noResults: "Nenhum produto encontrado para essa busca",
   preparingTitle: "Estamos preparando o menu 🍽️",

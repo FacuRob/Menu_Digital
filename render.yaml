@@ -91,6 +91,6 @@ services:
     envVars:
       - key: VITE_API_URL
         value: https://menu-digital-backend.onrender.com
-      # URL del menú público (botón "Ver Menú" del panel admin).
+      # URL del menú público (botón "Ver Menú" y QR del panel admin).
       - key: VITE_MENU_URL
-        value: https://menu-digital-frontend.onrender.com
+        value: https://menu-digital-publico.netlify.app

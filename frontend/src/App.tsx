@@ -9,6 +9,8 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/menu" replace />} />
         <Route path="/menu" element={<Menu />} />
+        {/* Menú por negocio (multi-tenant): /menu/:slug */}
+        <Route path="/menu/:slug" element={<Menu />} />
 
         <Route
           path="*"

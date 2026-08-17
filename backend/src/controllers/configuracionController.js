@@ -40,7 +40,7 @@ const getConfiguracion = async (req, res) => {
       // para que el panel de configuración los lea/guarde en una sola vista.
       supabase
         .from("negocios")
-        .select("tipo_rubro, config_campos")
+        .select("slug, tipo_rubro, config_campos")
         .eq("id", negocioId)
         .maybeSingle(),
     ]);
@@ -50,6 +50,7 @@ const getConfiguracion = async (req, res) => {
     const base = cfgRes.data || DEFAULTS(negocioId);
     res.json({
       ...base,
+      slug: negRes.data?.slug || null,
       tipo_rubro: negRes.data?.tipo_rubro || "gastronomia",
       config_campos: negRes.data?.config_campos || {},
     });

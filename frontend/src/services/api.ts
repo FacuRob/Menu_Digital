@@ -11,21 +11,43 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// Negocio del menú público, tomado de la URL (?negocio=<id>). Default: 1.
-const negocioParam =
+// Negocio del menú público. Se resuelve desde la URL:
+//   - /menu/:slug  → se resuelve el slug a un id (ver setNegocioActivo).
+//   - /menu?negocio=<id>  → compatibilidad con el esquema viejo.
+// Por defecto queda vacío (el backend cae al negocio 1).
+let negocioActivo =
   new URLSearchParams(window.location.search).get("negocio") || "";
+
+// Fija el negocio activo (lo llama el menú tras resolver el slug).
+export const setNegocioActivo = (id: number | string) => {
+  negocioActivo = String(id);
+};
 
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
     if (token) config.headers.Authorization = `Bearer ${token}`;
-    if (negocioParam) {
-      config.params = { ...(config.params || {}), negocio: negocioParam };
+    if (negocioActivo) {
+      config.params = { ...(config.params || {}), negocio: negocioActivo };
     }
     return config;
   },
   (error) => Promise.reject(error),
 );
+
+// Negocio público resuelto por slug (datos no sensibles).
+export interface NegocioPublico {
+  id: number;
+  nombre: string;
+  slug: string | null;
+}
+
+export const negociosPublicoService = {
+  // Resuelve /menu/:slug → { id, nombre, slug }. Lanza 404 si no existe.
+  getBySlug: async (slug: string) =>
+    (await api.get<NegocioPublico>(`/negocios/publico/${encodeURIComponent(slug)}`))
+      .data,
+};
 
 export interface Categoria {
   id: number;

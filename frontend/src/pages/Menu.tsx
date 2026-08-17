@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useParams } from "react-router-dom";
 import {
   productosService,
   categoriasService,
   configuracionService,
+  negociosPublicoService,
+  setNegocioActivo,
 } from "../services/api";
 import type {
   Producto,
@@ -55,10 +58,12 @@ const tieneHorarios = (hc?: HorariosConfig | null) =>
 
 const Menu = () => {
   const { t } = useLang();
+  const { slug } = useParams<{ slug?: string }>();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [config, setConfig] = useState<Configuracion | null>(null);
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const [search, setSearch] = useState("");
   const [modalProd, setModalProd] = useState<Producto | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
@@ -85,6 +90,20 @@ const Menu = () => {
     (async () => {
       try {
         setLoading(true);
+        setNotFound(false);
+
+        // Multi-tenant: si la URL es /menu/:slug, resolver el slug al negocio
+        // antes de pedir los datos. Si no existe, mostrar "no encontrado".
+        if (slug) {
+          try {
+            const neg = await negociosPublicoService.getBySlug(slug);
+            setNegocioActivo(neg.id);
+          } catch {
+            setNotFound(true);
+            return;
+          }
+        }
+
         const [p, c, cfg] = await Promise.all([
           productosService.getDisponibles(),
           categoriasService.getActivas(),
@@ -100,7 +119,7 @@ const Menu = () => {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [slug]);
 
   const q = search.trim().toLowerCase();
   const filtered = useMemo(
@@ -152,6 +171,33 @@ const Menu = () => {
         </div>
         <p style={{ color: "#9ca3af", fontSize: 15 }}>{t("loading")}</p>
         <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
+      </div>
+    );
+  }
+
+  // Slug inexistente: el negocio no existe o está inactivo.
+  if (notFound) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#fbf7f4",
+          fontFamily: "'Inter',system-ui,sans-serif",
+          textAlign: "center",
+          padding: 24,
+        }}
+      >
+        <div style={{ fontSize: 46, marginBottom: 14 }}>🔍</div>
+        <h1 style={{ color: "#374151", fontSize: 20, fontWeight: 700, margin: "0 0 6px" }}>
+          {t("notFoundTitle")}
+        </h1>
+        <p style={{ color: "#9ca3af", fontSize: 14, margin: 0 }}>
+          {t("notFoundDesc")}
+        </p>
       </div>
     );
   }

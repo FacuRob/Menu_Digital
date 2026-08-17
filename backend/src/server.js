@@ -33,6 +33,9 @@ const {
 const { getCategoriasActivas } = require("./controllers/categoriasController");
 const { getConfiguracion } = require("./controllers/configuracionController");
 const { createPedido } = require("./controllers/pedidosController");
+const {
+  getNegocioPublicoBySlug,
+} = require("./controllers/negociosController");
 const { keepAlive } = require("./controllers/keepAliveController");
 const { startKeepAlive } = require("./services/keepAlive");
 const { pedidosLimiter } = require("./middleware/rateLimiters");
@@ -109,6 +112,8 @@ app.get("/api/keep-alive", keepAlive);
 app.get("/api/categorias/activas", getCategoriasActivas);
 app.get("/api/productos/disponibles", getProductosDisponibles);
 app.get("/api/configuracion", getConfiguracion);
+// Resolver el negocio del menú público por su slug (/menu/:slug).
+app.get("/api/negocios/publico/:slug", getNegocioPublicoBySlug);
 app.post("/api/pedidos", pedidosLimiter, validate(createPedidoSchema), createPedido);
 
 // ============================================

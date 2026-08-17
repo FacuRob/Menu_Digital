@@ -6,14 +6,17 @@ import { useTheme } from "../../context/ThemeContext";
 import { useNegocio } from "../../context/NegocioContext";
 import { configuracionService } from "../../services/api";
 
-const MENU_BASE =
+// URL del menú público. En producción se define VITE_MENU_URL; si falta,
+// se usa la URL pública de Netlify (evita apuntar a localhost por error).
+const MENU_BASE = (
   (import.meta.env.VITE_MENU_URL as string | undefined) ||
-  "http://localhost:3000";
+  "https://menu-digital-publico.netlify.app"
+).replace(/\/+$/, "");
 
 export default function QRCode() {
   const S = useStyles();
   const { isDark } = useTheme();
-  const { negocioId, negocios } = useNegocio();
+  const { negocioId, negocios, slug } = useNegocio();
   const [qrUrl, setQrUrl] = useState("");
   const [menuUrl, setMenuUrl] = useState("");
   const [copied, setCopied] = useState(false);
@@ -35,10 +38,14 @@ export default function QRCode() {
       .catch(() => setMesasCant(0));
   }, [negocioId]);
 
-  // Generar la URL + QR cuando cambia negocio o mesa.
+  // Generar la URL + QR cuando cambia negocio, slug o mesa.
   useEffect(() => {
-    let url = `${MENU_BASE}/menu?negocio=${negocioId}`;
-    if (mesa) url += `&mesa=${encodeURIComponent(mesa)}`;
+    // Preferimos el slug (/menu/:slug). Si el negocio aún no tiene slug,
+    // caemos al esquema viejo por id (/menu?negocio=<id>).
+    let url = slug
+      ? `${MENU_BASE}/menu/${slug}`
+      : `${MENU_BASE}/menu?negocio=${negocioId}`;
+    if (mesa) url += `${slug ? "?" : "&"}mesa=${encodeURIComponent(mesa)}`;
     setMenuUrl(url);
     if (ref.current) {
       QRCodeLib.toCanvas(ref.current, url, {
@@ -49,7 +56,7 @@ export default function QRCode() {
         .then(() => setQrUrl(ref.current!.toDataURL("image/png")))
         .catch(console.error);
     }
-  }, [negocioId, mesa]);
+  }, [negocioId, slug, mesa]);
 
   const download = () => {
     const a = document.createElement("a");

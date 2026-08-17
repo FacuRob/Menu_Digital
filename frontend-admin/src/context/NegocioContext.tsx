@@ -11,6 +11,7 @@ interface NegocioContextType {
   negocioId: number;
   negocios: Negocio[];
   moneda: string;
+  slug: string | null;
   setNegocioId: (id: number) => void;
   refresh: () => Promise<void>;
 }
@@ -28,6 +29,7 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
   const [negocioId, setId] = useState<number>(getStored);
   const [negocios, setNegocios] = useState<Negocio[]>([]);
   const [moneda, setMoneda] = useState<string>("ARS");
+  const [slug, setSlug] = useState<string | null>(null);
 
   // Mantener el header del api sincronizado desde el arranque.
   useEffect(() => {
@@ -39,9 +41,12 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
     if (!isAuthenticated) return;
     configuracionService
       .get()
-      .then((cfg) => setMoneda(cfg.moneda || "ARS"))
+      .then((cfg) => {
+        setMoneda(cfg.moneda || "ARS");
+        setSlug(cfg.slug || null);
+      })
       .catch(() => {});
-  }, [isAuthenticated]);
+  }, [isAuthenticated, negocioId]);
 
   const refresh = async () => {
     if (!isSuperAdmin) return;
@@ -74,7 +79,7 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <NegocioContext.Provider
-      value={{ negocioId, negocios, moneda, setNegocioId, refresh }}
+      value={{ negocioId, negocios, moneda, slug, setNegocioId, refresh }}
     >
       {children}
     </NegocioContext.Provider>

@@ -230,15 +230,22 @@ export default function AdminLayout({
   const [collapsed, setCollapsed] = useState(false);
   const { user, logout, hasPermiso, isSuperAdmin, isPlataforma, isAuthenticated } = useAuth();
   const { t } = useLang();
-  const { negocioId, negocios, setNegocioId } = useNegocio();
+  const { negocioId, negocios, slug, setNegocioId } = useNegocio();
   const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // URL del menú público (otro frontend). En dev: localhost:3000.
-  const menuBase =
+  // URL del menú público (otro frontend). En producción se define
+  // VITE_MENU_URL; si falta, se usa la URL de Netlify (no localhost).
+  const menuBase = (
     (import.meta.env.VITE_MENU_URL as string | undefined) ||
-    "http://localhost:3000";
+    "https://menu-digital-publico.netlify.app"
+  ).replace(/\/+$/, "");
+
+  // Link al menú del negocio activo: /menu/:slug (o ?negocio=<id> si no hay slug).
+  const menuHref = slug
+    ? `${menuBase}/menu/${slug}`
+    : `${menuBase}/menu?negocio=${negocioId}`;
 
   // ── Notificaciones de pedidos nuevos ──
   const [nuevosPedidos, setNuevosPedidos] = useState(0);
@@ -479,7 +486,7 @@ export default function AdminLayout({
               <button
                 onClick={() =>
                   item.external
-                    ? window.open(menuBase + item.ruta, "_blank", "noopener")
+                    ? window.open(menuHref, "_blank", "noopener")
                     : navigate(item.ruta)
                 }
                 title={collapsed ? t(item.labelKey) : undefined}
