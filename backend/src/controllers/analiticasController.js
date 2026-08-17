@@ -15,7 +15,7 @@ const getResumen = async (req, res) => {
     // Pedidos entregados con sus items.
     const { data: pedidos, error } = await supabase
       .from("pedidos")
-      .select("id, created_at, estado, pedido_items(cantidad, precio_unit, costo_unit, nombre, subtotal)")
+      .select("id, created_at, entregado_at, estado, pedido_items(cantidad, precio_unit, costo_unit, nombre, subtotal)")
       .eq("negocio_id", negocioId)
       .eq("estado", "entregado");
 
@@ -44,7 +44,9 @@ const getResumen = async (req, res) => {
     const topMap = {}; // nombre -> { ganancia, cantidad }
 
     for (const p of pedidos || []) {
-      const d = new Date(p.created_at);
+      // Contar la venta en el mes en que se entregó. Fallback a created_at
+      // para pedidos entregados antes de existir la columna entregado_at.
+      const d = new Date(p.entregado_at || p.created_at);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const bucket = idx[key];
 

@@ -38,15 +38,48 @@ const createPedido = async (req, res) => {
       prodsDB = Object.fromEntries(prods.map((p) => [p.id, p]));
     }
 
+    // Multi-rubro: opciones de variante elegidas. Se recalcula el precio_extra
+    // real desde la BD (scopeado al negocio vía el grupo) — nunca del cliente.
+    const opcionIds = [
+      ...new Set(
+        items
+          .flatMap((i) => (Array.isArray(i.opciones) ? i.opciones : []))
+          .filter((id) => Number.isInteger(id)),
+      ),
+    ];
+    let opcionesDB = {};
+    if (opcionIds.length > 0) {
+      const { data: ops, error: opsErr } = await supabase
+        .from("variantes_opcion")
+        .select("id, nombre, precio_extra, grupo_id, variantes_grupo!inner(negocio_id)")
+        .in("id", opcionIds)
+        .eq("variantes_grupo.negocio_id", negocioId);
+      if (opsErr) throw opsErr;
+      opcionesDB = Object.fromEntries((ops || []).map((o) => [o.id, o]));
+    }
+
     const itemsCalc = items.map((i) => {
       const cantidad = Math.max(1, parseInt(i.cantidad, 10) || 1);
       const prod = prodsDB[i.producto_id];
-      const precio_unit = prod ? Number(prod.precio) : Number(i.precio) || 0;
+      const base = prod ? Number(prod.precio) : Number(i.precio) || 0;
+
+      // Opciones válidas de este ítem (que pertenezcan al negocio).
+      const opsSel = (Array.isArray(i.opciones) ? i.opciones : [])
+        .map((id) => opcionesDB[id])
+        .filter(Boolean);
+      const extra = opsSel.reduce((a, o) => a + Number(o.precio_extra || 0), 0);
+      const precio_unit = +(base + extra).toFixed(2);
       const costo_unit = prod ? Number(prod.costo) : 0;
-      const nombre = prod ? prod.nombre : i.nombre || "Producto";
+
+      const baseNombre = prod ? prod.nombre : i.nombre || "Producto";
+      const nombre =
+        opsSel.length > 0
+          ? `${baseNombre} (${opsSel.map((o) => o.nombre).join(", ")})`
+          : baseNombre;
+
       return {
         producto_id: Number.isInteger(i.producto_id) ? i.producto_id : null,
-        nombre,
+        nombre: nombre.slice(0, 250),
         precio_unit,
         costo_unit,
         cantidad,
@@ -171,9 +204,14 @@ const updateEstadoPedido = async (req, res) => {
       return res.status(400).json({ message: "Estado inválido" });
     }
 
+    // Registrar la fecha de entrega para que las analíticas cuenten la
+    // venta en el mes correcto. Se limpia si el pedido deja de estar entregado.
+    const patch = { estado, updated_at: new Date().toISOString() };
+    patch.entregado_at = estado === "entregado" ? new Date().toISOString() : null;
+
     const { data, error } = await supabase
       .from("pedidos")
-      .update({ estado, updated_at: new Date().toISOString() })
+      .update(patch)
       .eq("id", id)
       .eq("negocio_id", negocioId)
       .select()
