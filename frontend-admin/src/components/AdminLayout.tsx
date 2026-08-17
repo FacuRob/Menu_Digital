@@ -6,7 +6,7 @@ import { useNegocio } from "../context/NegocioContext";
 import { pedidosService, productosService } from "../services/api";
 import ConfiguracionEditor from "./ConfiguracionEditor";
 import { useLang, LangSelector } from "../lib/i18n";
-import { BRAND_NAME, BRAND_GRADIENT, brandTextStyle } from "../lib/brand";
+import { BRAND_NAME, BRAND_LOGO, brandTextStyle } from "../lib/brand";
 import { IconBell } from "../lib/icons";
 
 const SunIcon = () => (
@@ -424,23 +424,16 @@ export default function AdminLayout({
             justifyContent: collapsed ? "center" : "flex-start",
           }}
         >
-          <div
+          <img
+            src={BRAND_LOGO}
+            alt={BRAND_NAME}
             style={{
-              width: 30,
-              height: 30,
-              borderRadius: 8,
-              background: BRAND_GRADIENT,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 15,
-              fontWeight: 800,
-              color: "#fff",
+              width: 32,
+              height: 32,
+              objectFit: "contain",
               flexShrink: 0,
             }}
-          >
-            D
-          </div>
+          />
           {!collapsed && (
             <div style={{ overflow: "hidden" }}>
               <div

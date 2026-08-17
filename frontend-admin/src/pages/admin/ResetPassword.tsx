@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { authService, getApiErrorMessage } from "../../services/api";
-import { BRAND_GRADIENT } from "../../lib/brand";
+import { BRAND_LOGO, BRAND_NAME } from "../../lib/brand";
 import { IconEye, IconEyeOff, IconAlert, IconCheck } from "../../lib/icons";
 
 // Página pública para restablecer la contraseña con el token de un solo uso
@@ -94,23 +94,11 @@ export default function ResetPassword() {
     >
       <div style={{ width: "100%", maxWidth: 380 }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div
-            style={{
-              width: 52,
-              height: 52,
-              borderRadius: 14,
-              background: BRAND_GRADIENT,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 24,
-              fontWeight: 800,
-              color: "#fff",
-              margin: "0 auto 14px",
-            }}
-          >
-            D
-          </div>
+          <img
+            src={BRAND_LOGO}
+            alt={BRAND_NAME}
+            style={{ width: 56, height: 56, objectFit: "contain", margin: "0 auto 14px", display: "block" }}
+          />
           <h1
             style={{
               color: "#f1f5f9",

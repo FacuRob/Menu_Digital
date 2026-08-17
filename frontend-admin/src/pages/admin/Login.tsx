@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { authService } from "../../services/api";
 import { useLang, LangSelector } from "../../lib/i18n";
-import { BRAND_NAME, BRAND_GRADIENT, brandTextStyle } from "../../lib/brand";
+import { BRAND_NAME, BRAND_GRADIENT, BRAND_LOGO_FULL } from "../../lib/brand";
 import {
   IconEye,
   IconEyeOff,
@@ -257,27 +257,11 @@ export default function Login() {
       <div style={{ width: "100%", maxWidth: 380, position: "relative" }}>
         {/* Marca */}
         <div style={{ textAlign: "center", marginBottom: 26 }}>
-          <div
-            style={{
-              width: 54,
-              height: 54,
-              borderRadius: 15,
-              background: BRAND_GRADIENT,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 26,
-              fontWeight: 800,
-              color: "#fff",
-              margin: "0 auto 14px",
-              boxShadow: "0 8px 24px rgba(99,102,241,0.35)",
-            }}
-          >
-            D
-          </div>
-          <h1 style={{ ...brandTextStyle, fontSize: 26, fontWeight: 800, margin: "0 0 4px" }}>
-            {BRAND_NAME}
-          </h1>
+          <img
+            src={BRAND_LOGO_FULL}
+            alt={BRAND_NAME}
+            style={{ width: 190, maxWidth: "70%", height: "auto", margin: "0 auto 10px", display: "block" }}
+          />
           <p style={{ color: "#475569", fontSize: 13, margin: 0 }}>
             {view === "signup"
               ? t("authSignupSubtitle")
