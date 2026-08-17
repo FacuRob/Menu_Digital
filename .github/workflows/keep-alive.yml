@@ -1,0 +1,64 @@
+# ============================================================================
+# Menu Digital — Llamada automática (keep-alive) desde GitHub Actions
+# ----------------------------------------------------------------------------
+# Golpea el endpoint /api/keep-alive del backend en Render. Ese endpoint hace
+# un SELECT liviano a Supabase, así que UNA sola llamada:
+#   1) despierta el Web Service Free de Render, y
+#   2) mantiene viva la base de Supabase (que se pausa tras ~7 días inactiva).
+#
+# CONFIGURACIÓN (una sola vez):
+#   Repo → Settings → Secrets and variables → Actions → New repository secret
+#     Nombre : KEEPALIVE_URL
+#     Valor  : https://backend-menu-digital.onrender.com   (sin barra final, sin /api)
+#
+# FRECUENCIA: 1 vez por día (08:17 UTC). Es a propósito: este workflow NO es lo
+# que mantiene despierto a Render. De eso se encarga el selfPing del backend
+# (KEEP_ALIVE_CRON, cada 14 min), que es más confiable y no gasta minutos de
+# Actions. Este job cumple otro rol: DESPERTAR el servicio si igual llegó a
+# dormirse (deploy, crash, pausa) y mantener viva la base de Supabase, que se
+# pausa tras ~7 días de inactividad. Una vez por día alcanza para ambas cosas.
+#
+# No conviene bajarle el cron a cada 10 min: en repos privados cada corrida
+# consume minutos de Actions (2000/mes gratis) y ~4300 corridas mensuales se
+# pasan del cupo, sin aportar nada que el selfPing no haga ya.
+#
+# LÍMITES de GitHub Actions: los cron pueden demorarse algunos minutos y el
+# workflow se auto-desactiva si el repo queda 60 días sin actividad (GitHub
+# manda un aviso por email para reactivarlo). Alternativa sin código:
+# cron-job.org o UptimeRobot apuntando a la misma URL.
+# ============================================================================
+
+name: keep-alive
+
+on:
+  schedule:
+    - cron: "17 8 * * *" # todos los días 08:17 UTC
+  workflow_dispatch: {} # permite dispararlo a mano desde la pestaña Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend /api/keep-alive
+        env:
+          KEEPALIVE_URL: ${{ secrets.KEEPALIVE_URL }}
+        run: |
+          if [ -z "$KEEPALIVE_URL" ]; then
+            echo "::error::Falta el secret KEEPALIVE_URL. Configuralo en Settings → Secrets → Actions."
+            exit 1
+          fi
+          URL="${KEEPALIVE_URL%/}/api/keep-alive"
+          echo "Pegando a: $URL"
+          # Reintentos: Render puede tardar en despertar (cold start ~50s).
+          code=$(curl -sS -o /tmp/body.txt -w "%{http_code}" \
+            --connect-timeout 15 --max-time 90 \
+            --retry 5 --retry-delay 20 --retry-all-errors \
+            "$URL")
+          echo "HTTP $code"
+          echo "Respuesta: $(cat /tmp/body.txt)"
+          # 200 = DB reachable. Cualquier otra cosa es fallo real.
+          if [ "$code" != "200" ]; then
+            echo "::error::El keep-alive devolvió HTTP $code"
+            exit 1
+          fi
+          echo "Keep-alive OK ✅"

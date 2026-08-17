@@ -19,6 +19,15 @@ services:
         generateValue: true
       - key: NODE_ENV
         value: production
+      # ---- Keep-alive interno: cada 14 min (por debajo de los 15 min de
+      #      inactividad de Render). Ping a Supabase + auto-llamada HTTP. ----
+      - key: KEEP_ALIVE_CRON
+        value: "*/14 * * * *"
+      # SELF_URL es opcional: si no se define, el backend usa RENDER_EXTERNAL_URL
+      # (que Render inyecta automáticamente). Definila solo si querés forzar la
+      # URL pública del self-ping.
+      # - key: SELF_URL
+      #   value: https://backend-menu-digital.onrender.com
 
   # Frontend - Menú (público)
   - type: web

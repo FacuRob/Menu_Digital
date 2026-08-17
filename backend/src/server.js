@@ -29,6 +29,7 @@ const { getCategoriasActivas } = require("./controllers/categoriasController");
 const { getConfiguracion } = require("./controllers/configuracionController");
 const { createPedido } = require("./controllers/pedidosController");
 const { keepAlive } = require("./controllers/keepAliveController");
+const { startKeepAlive } = require("./services/keepAlive");
 const { pedidosLimiter } = require("./middleware/rateLimiters");
 const { validate } = require("./middleware/validate");
 const { createPedidoSchema } = require("./schemas");
@@ -78,6 +79,12 @@ app.use(express.urlencoded({ extended: true })); // webhooks Hotmart 1.x (form)
 
 app.get("/", (req, res) => {
   res.json({ message: "🚀 API del Menú Digital funcionando" });
+});
+
+// Liveness liviano (sin tocar la DB). Lo usa el self-ping del keep-alive para
+// resetear el idle-timer de Render sin generar carga en Supabase.
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", service: "menu-digital-backend", ts: new Date().toISOString() });
 });
 
 // ============================================
@@ -149,4 +156,7 @@ app.use(
 
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+  // Keep-alive interno: mantiene despiertos Render y Supabase mientras el
+  // proceso está vivo (ping a la DB + auto-llamada HTTP cada 14 min).
+  startKeepAlive();
 });
