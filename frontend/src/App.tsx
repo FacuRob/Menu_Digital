@@ -1,6 +1,28 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Menu from "./pages/Menu";
-import { LanguageProvider } from "./lib/i18n";
+import { LanguageProvider, useLang } from "./lib/i18n";
+
+function NotFound() {
+  const { t } = useLang();
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100vh",
+        background: "#0f1117",
+        color: "#475569",
+        fontFamily: "system-ui",
+      }}
+    >
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 48, marginBottom: 12 }}>404</div>
+        <p>{t("notFound")}</p>
+      </div>
+    </div>
+  );
+}
 
 function App() {
   return (
@@ -12,27 +34,7 @@ function App() {
         {/* Menú por negocio (multi-tenant): /menu/:slug */}
         <Route path="/menu/:slug" element={<Menu />} />
 
-        <Route
-          path="*"
-          element={
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                height: "100vh",
-                background: "#0f1117",
-                color: "#475569",
-                fontFamily: "system-ui",
-              }}
-            >
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 48, marginBottom: 12 }}>404</div>
-                <p>Página no encontrada</p>
-              </div>
-            </div>
-          }
-        />
+        <Route path="*" element={<NotFound />} />
       </Routes>
       </BrowserRouter>
     </LanguageProvider>

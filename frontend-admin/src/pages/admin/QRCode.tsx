@@ -4,6 +4,7 @@ import AdminLayout from "../../components/AdminLayout";
 import { useStyles } from "../../components/sharedStyles";
 import { useTheme } from "../../context/ThemeContext";
 import { useNegocio } from "../../context/NegocioContext";
+import { useLang } from "../../lib/i18n";
 import { configuracionService } from "../../services/api";
 
 // URL del menú público. En producción se define VITE_MENU_URL; si falta,
@@ -16,6 +17,7 @@ const MENU_BASE = (
 export default function QRCode() {
   const S = useStyles();
   const { isDark } = useTheme();
+  const { t } = useLang();
   const { negocioId, negocios, slug } = useNegocio();
   const [qrUrl, setQrUrl] = useState("");
   const [menuUrl, setMenuUrl] = useState("");
@@ -28,7 +30,8 @@ export default function QRCode() {
   const textSecondary = isDark ? "#94a3b8" : "#475569";
   const cardBg = isDark ? "#1a1d27" : "#ffffff";
   const negocioNombre =
-    negocios.find((n) => n.id === negocioId)?.nombre || `Negocio ${negocioId}`;
+    negocios.find((n) => n.id === negocioId)?.nombre ||
+    t("bizFallback", { n: negocioId });
 
   // Traer cantidad de mesas del negocio activo.
   useEffect(() => {
@@ -71,7 +74,7 @@ export default function QRCode() {
   };
 
   return (
-    <AdminLayout title="Código QR">
+    <AdminLayout title={t("navQr")}>
       {/* Centrado en toda la pantalla */}
       <div
         style={{
@@ -85,12 +88,12 @@ export default function QRCode() {
       >
         <div style={{ width: "100%", maxWidth: 460, textAlign: "center" }}>
           <h2 style={{ color: textPrimary, fontSize: 20, fontWeight: 700, margin: "0 0 4px" }}>
-            Código QR del menú
+            {t("qrHeading")}
           </h2>
           <p style={{ color: textSecondary, fontSize: 13, margin: "0 0 20px", lineHeight: 1.6 }}>
-            Apunta a <strong>{negocioNombre}</strong>. Descargalo o imprimilo
-            para colocarlo en tus mesas; los clientes lo escanean y acceden al
-            menú al instante.
+            {t("qrSubA")}
+            <strong>{negocioNombre}</strong>
+            {t("qrSubB")}
           </p>
 
           <div
@@ -107,16 +110,16 @@ export default function QRCode() {
             {/* Selector de mesa (si el negocio usa mesas) */}
             {mesasCant > 0 && (
               <div style={{ width: "100%", textAlign: "left" }}>
-                <label style={S.label}>Mesa del QR</label>
+                <label style={S.label}>{t("qrTableLabel")}</label>
                 <select
                   value={mesa}
                   onChange={(e) => setMesa(e.target.value)}
                   style={{ ...S.input, cursor: "pointer" } as React.CSSProperties}
                 >
-                  <option value="">General (sin mesa)</option>
+                  <option value="">{t("qrGeneral")}</option>
                   {Array.from({ length: mesasCant }, (_, i) => i + 1).map((n) => (
                     <option key={n} value={String(n)}>
-                      Mesa {n}
+                      {t("pedTableN", { n })}
                     </option>
                   ))}
                 </select>
@@ -138,7 +141,7 @@ export default function QRCode() {
 
             {/* URL */}
             <div style={{ width: "100%", textAlign: "left" }}>
-              <label style={S.label}>URL del menú</label>
+              <label style={S.label}>{t("qrUrlLabel")}</label>
               <div style={{ display: "flex", gap: 8 }}>
                 <input
                   readOnly
@@ -156,7 +159,7 @@ export default function QRCode() {
                       : {}),
                   } as React.CSSProperties}
                 >
-                  {copied ? "✓ Copiado" : "Copiar"}
+                  {copied ? t("qrCopied") : t("qrCopy")}
                 </button>
               </div>
             </div>
@@ -170,7 +173,7 @@ export default function QRCode() {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} style={{ width: 15, height: 15 }}>
                   <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                Descargar PNG
+                {t("qrDownload")}
               </button>
               <button
                 onClick={() => window.print()}
@@ -179,7 +182,7 @@ export default function QRCode() {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} style={{ width: 15, height: 15 }}>
                   <path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                Imprimir
+                {t("ticketPrint")}
               </button>
             </div>
           </div>

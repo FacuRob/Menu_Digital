@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTheme } from "../../context/ThemeContext";
 import AdminLayout from "../../components/AdminLayout";
+import { useLang, LOCALE, type Lang } from "../../lib/i18n";
 import {
   plataformaService,
   getApiErrorMessage,
@@ -16,9 +17,9 @@ const planColor: Record<TipoPlan, string> = {
   premium: "#f59e0b",
 };
 
-const fmtFecha = (s?: string) =>
+const fmtFecha = (s?: string, lang: Lang = "es") =>
   s
-    ? new Date(s).toLocaleDateString("es-AR", {
+    ? new Date(s).toLocaleDateString(LOCALE[lang], {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
@@ -34,6 +35,7 @@ const fmtMoney = (n: number, moneda = "USD") =>
 
 export default function Plataforma() {
   const { isDark } = useTheme();
+  const { t, lang } = useLang();
   const [resumen, setResumen] = useState<PlataformaResumen | null>(null);
   const [cuentas, setCuentas] = useState<Cuenta[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,10 +56,7 @@ export default function Plataforma() {
       const fail = [resR, cueR].find((r) => r.status === "rejected");
       if (fail && fail.status === "rejected") {
         setError(
-          getApiErrorMessage(
-            fail.reason,
-            "No se pudieron cargar los datos de plataforma.",
-          ),
+          getApiErrorMessage(fail.reason, t("pfLoadError")),
         );
       }
       setLoading(false);
@@ -65,6 +64,7 @@ export default function Plataforma() {
     return () => {
       active = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const cardBg = isDark ? "#1a1d27" : "#ffffff";
@@ -74,13 +74,13 @@ export default function Plataforma() {
   const textMuted = isDark ? "#475569" : "#94a3b8";
 
   return (
-    <AdminLayout title="Plataforma">
+    <AdminLayout title={t("navPlataforma")}>
       <div style={{ marginBottom: 24 }}>
         <h2 style={{ color: textPrimary, fontSize: 22, fontWeight: 600, margin: 0 }}>
-          Panel de plataforma
+          {t("pfHeading")}
         </h2>
         <p style={{ color: isDark ? "#475569" : "#64748b", fontSize: 13, margin: "4px 0 0" }}>
-          Todas las cuentas suscriptas al SaaS (altas por Lemon Squeezy y manuales).
+          {t("pfSubtitle")}
         </p>
       </div>
 
@@ -110,12 +110,12 @@ export default function Plataforma() {
             marginBottom: 22,
           }}
         >
-          <Metric label={`Ganancia mensual · MRR (${resumen.moneda})`} value={fmtMoney(resumen.mrr, resumen.moneda)} accent="#10b981" isDark={isDark} big />
-          <Metric label="Cuentas totales" value={String(resumen.total_cuentas)} accent="#3b82f6" isDark={isDark} />
-          <Metric label="Activas" value={String(resumen.activas)} accent="#10b981" isDark={isDark} />
-          <Metric label="Canceladas" value={String(resumen.canceladas)} accent="#ef4444" isDark={isDark} />
-          <Metric label="Altas pagas" value={String(resumen.por_pago)} accent="#f59e0b" isDark={isDark} />
-          <Metric label="Negocios totales" value={String(resumen.total_negocios)} accent="#8b5cf6" isDark={isDark} />
+          <Metric label={t("pfMrr", { cur: resumen.moneda })} value={fmtMoney(resumen.mrr, resumen.moneda)} accent="#10b981" isDark={isDark} big />
+          <Metric label={t("pfTotalAccounts")} value={String(resumen.total_cuentas)} accent="#3b82f6" isDark={isDark} />
+          <Metric label={t("pfActive")} value={String(resumen.activas)} accent="#10b981" isDark={isDark} />
+          <Metric label={t("pfCancelled")} value={String(resumen.canceladas)} accent="#ef4444" isDark={isDark} />
+          <Metric label={t("pfPaid")} value={String(resumen.por_pago)} accent="#f59e0b" isDark={isDark} />
+          <Metric label={t("pfTotalBiz")} value={String(resumen.total_negocios)} accent="#8b5cf6" isDark={isDark} />
         </div>
       )}
 
@@ -138,9 +138,11 @@ export default function Plataforma() {
               marginBottom: 20,
             }}
           >
-            ⚠ Configurá el precio de cada plan (variables{" "}
-            <code>PLAN_PRECIO_*_MONTHLY</code> y <code>PLAN_PRECIO_*_ANNUAL</code>{" "}
-            en el backend) para que el MRR muestre tu ganancia real.
+            {t("pfPriceWarnA")}
+            <code>PLAN_PRECIO_*_MONTHLY</code>
+            {t("pfPriceWarnMid")}
+            <code>PLAN_PRECIO_*_ANNUAL</code>
+            {t("pfPriceWarnB")}
           </div>
         )}
 
@@ -180,7 +182,7 @@ export default function Plataforma() {
                 </span>
                 {facturacion > 0 && (
                   <span style={{ fontSize: 11.5, color: textMuted, borderLeft: `1px solid ${cardBorder}`, paddingLeft: 8 }}>
-                    {fmtMoney(facturacion, resumen.moneda)}/mes
+                    {fmtMoney(facturacion, resumen.moneda)}/{t("subPerMonth")}
                   </span>
                 )}
               </div>
@@ -201,41 +203,50 @@ export default function Plataforma() {
       >
         <div style={{ padding: "14px 18px", borderBottom: `1px solid ${cardBorder}` }}>
           <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: textPrimary }}>
-            Cuentas suscriptas
+            {t("pfAccountsTitle")}
           </h3>
         </div>
 
         {loading ? (
-          <div style={{ padding: 24, fontSize: 13, color: textMuted }}>Cargando…</div>
+          <div style={{ padding: 24, fontSize: 13, color: textMuted }}>{t("subLoading")}</div>
         ) : cuentas.length === 0 ? (
           <div style={{ padding: 24, fontSize: 13, color: textMuted }}>
-            Todavía no hay cuentas registradas.
+            {t("pfNoAccounts")}
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr>
-                  {["Cuenta", "Email", "Plan", "Ciclo", "Estado", "Origen", "Negocios", "Usuarios", "Productos", "Alta"].map(
-                    (h) => (
-                      <th
-                        key={h}
-                        style={{
-                          textAlign: h === "Cuenta" || h === "Email" ? "left" : "center",
-                          padding: "10px 14px",
-                          color: textMuted,
-                          fontWeight: 600,
-                          fontSize: 11,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.04em",
-                          borderBottom: `1px solid ${cardBorder}`,
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {h}
-                      </th>
-                    ),
-                  )}
+                  {[
+                    { label: t("pfColAccount"), left: true },
+                    { label: t("colEmail"), left: true },
+                    { label: t("pfColPlan"), left: false },
+                    { label: t("pfColCycle"), left: false },
+                    { label: t("colStatus"), left: false },
+                    { label: t("pfColOrigin"), left: false },
+                    { label: t("navNegocios"), left: false },
+                    { label: t("navUsuarios"), left: false },
+                    { label: t("navProductos"), left: false },
+                    { label: t("pfColSignup"), left: false },
+                  ].map((h) => (
+                    <th
+                      key={h.label}
+                      style={{
+                        textAlign: h.left ? "left" : "center",
+                        padding: "10px 14px",
+                        color: textMuted,
+                        fontWeight: 600,
+                        fontSize: 11,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.04em",
+                        borderBottom: `1px solid ${cardBorder}`,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {h.label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -264,7 +275,7 @@ export default function Plataforma() {
                       </span>
                     </td>
                     <td style={{ padding: "11px 14px", textAlign: "center", color: isDark ? "#cbd5e1" : "#334155", borderBottom: `1px solid ${cardBorder}`, textTransform: "capitalize" }}>
-                      {c.ciclo_facturacion || "mensual"}
+                      {c.ciclo_facturacion || t("pfCycleMonthly")}
                     </td>
                     <td style={{ padding: "11px 14px", textAlign: "center", borderBottom: `1px solid ${cardBorder}` }}>
                       <span
@@ -289,7 +300,7 @@ export default function Plataforma() {
                       </span>
                     </td>
                     <td style={{ padding: "11px 14px", textAlign: "center", color: isDark ? "#cbd5e1" : "#334155", borderBottom: `1px solid ${cardBorder}`, textTransform: "capitalize" }}>
-                      {c.origen || "manual"}
+                      {c.origen || t("pfOriginManual")}
                     </td>
                     <td style={{ padding: "11px 14px", textAlign: "center", color: textPrimary, borderBottom: `1px solid ${cardBorder}` }}>
                       {c.negocios_count}
@@ -302,7 +313,7 @@ export default function Plataforma() {
                       {c.productos_count}
                     </td>
                     <td style={{ padding: "11px 14px", textAlign: "center", color: textMuted, borderBottom: `1px solid ${cardBorder}`, whiteSpace: "nowrap" }}>
-                      {fmtFecha(c.created_at)}
+                      {fmtFecha(c.created_at, lang)}
                     </td>
                   </tr>
                 ))}

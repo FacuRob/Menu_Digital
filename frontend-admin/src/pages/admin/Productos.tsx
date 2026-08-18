@@ -13,9 +13,11 @@ import AdminLayout from "../../components/AdminLayout";
 import VariantesEditor from "../../components/VariantesEditor";
 import { useStyles } from "../../components/sharedStyles";
 import { useNegocio } from "../../context/NegocioContext";
+import { useTheme } from "../../context/ThemeContext";
 import { fmtMoney } from "../../lib/money";
 import { cld } from "../../lib/cloudinary";
 import { useLang } from "../../lib/i18n";
+import { SearchIcon, ListIcon, GridIcon, Highlight } from "../../lib/listUi";
 import {
   IconPlus,
   IconX,
@@ -49,12 +51,25 @@ const CloseIcon = () => (
   </svg>
 );
 
+// Estado de stock (solo si el producto controla stock). Umbral bajo = 5,
+// igual que el backend (getStockBajo).
+type StockState = "out" | "low" | "ok" | null;
+const getStockState = (p: Producto): StockState => {
+  if (!p.controlar_stock) return null;
+  const st = p.stock ?? 0;
+  if (st === 0) return "out";
+  if (st <= 5) return "low";
+  return "ok";
+};
+
 type Vista = "disponibles" | "no_disponibles";
+type ViewMode = "lista" | "cards";
 
 export default function Productos() {
   const S = useStyles();
   const { moneda } = useNegocio();
   const { t } = useLang();
+  const { isDark } = useTheme();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [plan, setPlan] = useState<PlanInfo | null>(null);
@@ -86,7 +101,17 @@ export default function Productos() {
   const [uploadError, setUploadError] = useState("");
   const [saving, setSaving] = useState(false);
   const [filterCategoria, setFilterCategoria] = useState<number | "all">("all");
+  const [soloPorAgotarse, setSoloPorAgotarse] = useState(false);
+  const [search, setSearch] = useState("");
+  const [view, setView] = useState<ViewMode>(
+    () => (localStorage.getItem("prod_view") as ViewMode) || "lista",
+  );
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const setViewMode = (v: ViewMode) => {
+    localStorage.setItem("prod_view", v);
+    setView(v);
+  };
 
   useEffect(() => {
     fetch_();
@@ -110,11 +135,30 @@ export default function Productos() {
     }
   };
 
-  // Filtrar por vista activos/inactivos + categoría
+  // Cantidad total de productos por agotarse (bajo o agotado), para el badge.
+  const porAgotarseCount = productos.filter((p) => {
+    const st = getStockState(p);
+    return st === "out" || st === "low";
+  }).length;
+
+  // Filtrar por vista activos/inactivos + categoría + stock + texto de búsqueda
+  const q = search.trim().toLowerCase();
   const filtrados = productos
     .filter((p) => (vista === "disponibles" ? p.disponible : !p.disponible))
     .filter((p) =>
       filterCategoria === "all" ? true : p.categoria_id === filterCategoria,
+    )
+    .filter((p) => {
+      if (!soloPorAgotarse) return true;
+      const st = getStockState(p);
+      return st === "out" || st === "low";
+    })
+    .filter(
+      (p) =>
+        !q ||
+        p.nombre.toLowerCase().includes(q) ||
+        (p.descripcion || "").toLowerCase().includes(q) ||
+        (p.categoria_nombre || "").toLowerCase().includes(q),
     );
 
   const totalDisponibles = productos.filter((p) => p.disponible).length;
@@ -266,24 +310,130 @@ export default function Productos() {
   const inputBlur = (e: React.FocusEvent<any>) =>
     (e.target.style.borderColor = "rgba(0,0,0,0.1)");
 
+  const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
+  const textMuted = isDark ? "#94a3b8" : "#94a3b8";
+  const cardBg = isDark ? "#1a1d27" : "#ffffff";
+  const cardBorder = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)";
+
+  // Badge de stock con parpadeo cuando está bajo/agotado, para que "salte" a
+  // la vista. Si el producto no controla stock, no muestra nada.
+  const renderStock = (p: Producto, big = false) => {
+    const st = getStockState(p);
+    if (!st) return null;
+    const n = p.stock ?? 0;
+    if (st === "ok") {
+      return (
+        <span style={{ fontSize: big ? 12 : 11, color: textMuted, fontWeight: 600 }}>
+          {t("unitsShort", { n })}
+        </span>
+      );
+    }
+    const isOut = st === "out";
+    const color = isOut ? "#ef4444" : "#f59e0b";
+    const bg = isOut ? "rgba(239,68,68,0.12)" : "rgba(245,158,11,0.14)";
+    const label = isOut ? t("soldOut") : `${t("lowStock")} · ${t("unitsShort", { n })}`;
+    return (
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          fontSize: big ? 12 : 11,
+          fontWeight: 700,
+          padding: "3px 10px",
+          borderRadius: 20,
+          background: bg,
+          color,
+          border: `1px solid ${color}55`,
+          whiteSpace: "nowrap",
+        }}
+      >
+        <span
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            background: color,
+            flexShrink: 0,
+            animation: `${isOut ? "stockPulseRed" : "stockPulseAmber"} 1.3s ease-in-out infinite`,
+          }}
+        />
+        {label}
+      </span>
+    );
+  };
+
   return (
     <AdminLayout title={t("navProductos")}>
-      {/* ── Toggle Disponibles / No disponibles ── */}
+      {/* ── Toolbar: búsqueda + filtros + vista ── */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           gap: 8,
           marginBottom: 16,
+          flexWrap: "wrap",
         }}
       >
+        {/* Búsqueda por texto */}
+        <div
+          style={{
+            position: "relative",
+            flex: "1 1 220px",
+            minWidth: 180,
+            maxWidth: 340,
+          }}
+        >
+          <span
+            style={{
+              position: "absolute",
+              left: 11,
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: textMuted,
+              display: "flex",
+              pointerEvents: "none",
+            }}
+          >
+            <SearchIcon />
+          </span>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t("prodSearchPh")}
+            style={{ ...S.input, padding: "8px 30px 8px 32px" }}
+            onFocus={inputFocus}
+            onBlur={inputBlur}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              title={t("actionCancel")}
+              style={{
+                position: "absolute",
+                right: 8,
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: textMuted,
+                display: "flex",
+                padding: 2,
+              }}
+            >
+              <IconX size={14} />
+            </button>
+          )}
+        </div>
+
         <div
           style={{
             display: "flex",
-            background: "#ffffff",
+            background: cardBg,
             borderRadius: 10,
             padding: 3,
-            border: "1px solid rgba(0,0,0,0.08)",
+            border: `1px solid ${cardBorder}`,
           }}
         >
           <button
@@ -393,6 +543,57 @@ export default function Productos() {
           ))}
         </select>
 
+        {/* Filtro rápido: productos por agotarse (stock bajo o agotado) */}
+        <button
+          onClick={() => setSoloPorAgotarse((v) => !v)}
+          title={t("filterLowStock")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "7px 12px",
+            borderRadius: 8,
+            cursor: "pointer",
+            fontSize: 12.5,
+            fontWeight: 600,
+            transition: "all 0.15s",
+            border: `1px solid ${soloPorAgotarse ? "#f59e0b" : cardBorder}`,
+            background: soloPorAgotarse
+              ? "rgba(245,158,11,0.14)"
+              : cardBg,
+            color: soloPorAgotarse ? "#d97706" : textMuted,
+          }}
+        >
+          <span
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: "50%",
+              background: porAgotarseCount > 0 ? "#f59e0b" : "#cbd5e1",
+              flexShrink: 0,
+              animation:
+                porAgotarseCount > 0 && !soloPorAgotarse
+                  ? "stockPulseAmber 1.3s ease-in-out infinite"
+                  : "none",
+            }}
+          />
+          {t("filterLowStock")}
+          {porAgotarseCount > 0 && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                background: soloPorAgotarse ? "rgba(245,158,11,0.25)" : "rgba(245,158,11,0.16)",
+                color: "#d97706",
+                padding: "1px 7px",
+                borderRadius: 99,
+              }}
+            >
+              {porAgotarseCount}
+            </span>
+          )}
+        </button>
+
         <span style={{ color: "#94a3b8", fontSize: 12, marginLeft: 4 }}>
           {t("prodCount", { n: filtrados.length })}
         </span>
@@ -419,12 +620,54 @@ export default function Productos() {
           </span>
         )}
 
+        {/* Toggle de vista Lista / Tarjetas */}
+        <div
+          style={{
+            display: "flex",
+            marginLeft: "auto",
+            background: cardBg,
+            borderRadius: 10,
+            padding: 3,
+            border: `1px solid ${cardBorder}`,
+          }}
+        >
+          {(
+            [
+              { key: "lista", label: t("viewList"), Icon: ListIcon },
+              { key: "cards", label: t("viewCards"), Icon: GridIcon },
+            ] as const
+          ).map((v) => (
+            <button
+              key={v.key}
+              onClick={() => setViewMode(v.key)}
+              title={v.label}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "7px 12px",
+                borderRadius: 8,
+                border: "none",
+                cursor: "pointer",
+                fontSize: 12.5,
+                fontWeight: 600,
+                transition: "all 0.15s",
+                background:
+                  view === v.key ? (isDark ? "#0f1117" : "#f0f2f5") : "transparent",
+                color: view === v.key ? "#3b82f6" : textMuted,
+              }}
+            >
+              <v.Icon />
+              {v.label}
+            </button>
+          ))}
+        </div>
+
         {/* Botón nuevo — a la derecha */}
         <button
           disabled={bloqueadoNuevo}
           style={{
             ...S.btnPrimary,
-            marginLeft: "auto",
             opacity: bloqueadoNuevo ? 0.5 : 1,
             cursor: bloqueadoNuevo ? "not-allowed" : "pointer",
           }}
@@ -447,12 +690,10 @@ export default function Productos() {
         </button>
       </div>
 
-      {/* Table */}
-      <div style={S.card}>
-        {loading ? (
-          <div
-            style={{ display: "flex", justifyContent: "center", padding: 48 }}
-          >
+      {/* ── Resultados ── */}
+      {loading ? (
+        <div style={S.card}>
+          <div style={{ display: "flex", justifyContent: "center", padding: 48 }}>
             <div
               style={{
                 width: 28,
@@ -464,20 +705,140 @@ export default function Productos() {
               }}
             />
           </div>
-        ) : filtrados.length === 0 ? (
-          <div
-            style={{ textAlign: "center", padding: "48px 0", color: "#94a3b8" }}
-          >
+        </div>
+      ) : filtrados.length === 0 ? (
+        <div style={S.card}>
+          <div style={{ textAlign: "center", padding: "48px 0", color: "#94a3b8" }}>
             <div style={{ marginBottom: 8, display: "flex", justifyContent: "center", color: "#cbd5e1" }}>
-              {vista === "disponibles" ? <IconCheck size={32} /> : <IconBan size={32} />}
+              {q || filterCategoria !== "all" || soloPorAgotarse ? (
+                <SearchIcon size={30} />
+              ) : vista === "disponibles" ? (
+                <IconCheck size={32} />
+              ) : (
+                <IconBan size={32} />
+              )}
             </div>
             <div style={{ fontSize: 14 }}>
-              {vista === "disponibles"
-                ? t("prodEmptyAvailable")
-                : t("prodEmptyUnavailable")}
+              {q || filterCategoria !== "all" || soloPorAgotarse
+                ? t("searchNoResults")
+                : vista === "disponibles"
+                  ? t("prodEmptyAvailable")
+                  : t("prodEmptyUnavailable")}
             </div>
           </div>
-        ) : (
+        </div>
+      ) : view === "cards" ? (
+        /* ── Vista Tarjetas ── */
+        <div
+          style={{
+            display: "grid",
+            gap: 14,
+            gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))",
+          }}
+        >
+          {filtrados.map((p) => {
+            const st = getStockState(p);
+            const alertColor = st === "out" ? "#ef4444" : st === "low" ? "#f59e0b" : null;
+            return (
+              <div
+                key={p.id}
+                style={{
+                  ...S.card,
+                  padding: 0,
+                  overflow: "hidden",
+                  display: "flex",
+                  flexDirection: "column",
+                  border: alertColor ? `1px solid ${alertColor}66` : (S.card.border as string),
+                }}
+              >
+                <div
+                  style={{
+                    position: "relative",
+                    height: 128,
+                    background: isDark ? "#0f1117" : "#f1f5f9",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    overflow: "hidden",
+                  }}
+                >
+                  {p.imagen_url ? (
+                    <img
+                      src={cld(p.imagen_url, { w: 360, h: 220, fill: true }) || p.imagen_url}
+                      alt={p.nombre}
+                      loading="lazy"
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <span style={{ color: "#94a3b8", opacity: 0.55 }}>
+                      <IconImage size={30} />
+                    </span>
+                  )}
+                  {alertColor && (
+                    <div style={{ position: "absolute", top: 8, left: 8 }}>
+                      {renderStock(p)}
+                    </div>
+                  )}
+                </div>
+                <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                    <span style={{ color: textPrimary, fontWeight: 700, fontSize: 14, lineHeight: 1.3 }}>
+                      <Highlight text={p.nombre} query={search} />
+                    </span>
+                    <span style={{ color: textPrimary, fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap" }}>
+                      {fmt(p.precio)}
+                    </span>
+                  </div>
+                  {p.descripcion && (
+                    <div
+                      style={{
+                        color: textMuted,
+                        fontSize: 11.5,
+                        lineHeight: 1.4,
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {p.descripcion}
+                    </div>
+                  )}
+                  <div style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, paddingTop: 2 }}>
+                    <span style={{ ...S.badgeBlue, background: "rgba(59,130,246,0.08)" }}>
+                      {p.categoria_nombre}
+                    </span>
+                    <button
+                      onClick={() => openModal(p)}
+                      style={{ background: "none", border: "none", color: "#60a5fa", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0 }}
+                    >
+                      {t("actionEdit")}
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => toggleDisponible(p)}
+                    title={p.disponible ? t("clickToDeactivate") : t("clickToActivate")}
+                    style={{
+                      ...(p.disponible ? S.badgeGreen : S.badgeRed),
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      border: "none",
+                    }}
+                  >
+                    <span style={{ width: 5, height: 5, borderRadius: "50%", background: p.disponible ? "#10b981" : "#ef4444" }} />
+                    {p.disponible ? t("statusAvailable") : t("statusUnavailableShort")}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* ── Vista Lista (tabla) ── */
+        <div style={S.card}>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead style={S.thead}>
@@ -487,6 +848,7 @@ export default function Productos() {
                     { k: "prod", label: t("colProduct") },
                     { k: "cat", label: t("colCategory") },
                     { k: "price", label: t("colPrice") },
+                    { k: "stock", label: t("stockLabel") },
                     { k: "status", label: t("colStatus") },
                     { k: "ord", label: t("colOrderShort") },
                     { k: "act", label: t("colActions") },
@@ -498,19 +860,27 @@ export default function Productos() {
                 </tr>
               </thead>
               <tbody>
-                {filtrados.map((p) => (
+                {filtrados.map((p) => {
+                  const st = getStockState(p);
+                  const alertColor = st === "out" ? "#ef4444" : st === "low" ? "#f59e0b" : null;
+                  return (
                   <tr
                     key={p.id}
                     style={S.tr}
                     onMouseEnter={(e) =>
-                      (e.currentTarget.style.background =
-                        "rgba(0,0,0,0.02)")
+                      (e.currentTarget.style.background = "rgba(0,0,0,0.02)")
                     }
                     onMouseLeave={(e) =>
                       (e.currentTarget.style.background = "transparent")
                     }
                   >
-                    <td style={{ ...S.td, width: 44 }}>
+                    <td
+                      style={{
+                        ...S.td,
+                        width: 44,
+                        borderLeft: `3px solid ${alertColor || "transparent"}`,
+                      }}
+                    >
                       {p.imagen_url ? (
                         <img
                           src={cld(p.imagen_url, { w: 72, h: 72, fill: true }) || p.imagen_url}
@@ -524,8 +894,7 @@ export default function Productos() {
                             border: "1px solid rgba(0,0,0,0.06)",
                           }}
                           onError={(e) => {
-                            (e.target as HTMLImageElement).style.display =
-                              "none";
+                            (e.target as HTMLImageElement).style.display = "none";
                           }}
                         />
                       ) : (
@@ -545,17 +914,18 @@ export default function Productos() {
                         </div>
                       )}
                     </td>
-                    <td style={{ ...S.td, maxWidth: 200 }}>
+                    <td style={{ ...S.td, maxWidth: 220 }}>
                       <div
                         style={{
-                          color: "#1e293b",
-                          fontWeight: 500,
+                          color: textPrimary,
+                          fontWeight: 600,
+                          fontSize: 13.5,
                           overflow: "hidden",
                           textOverflow: "ellipsis",
                           whiteSpace: "nowrap",
                         }}
                       >
-                        {p.nombre}
+                        <Highlight text={p.nombre} query={search} />
                       </div>
                       {p.descripcion && (
                         <div
@@ -573,25 +943,21 @@ export default function Productos() {
                       )}
                     </td>
                     <td style={S.td}>
-                      <span
-                        style={{
-                          ...S.badgeBlue,
-                          background: "rgba(59,130,246,0.08)",
-                        }}
-                      >
-                        {p.categoria_nombre}
+                      <span style={{ ...S.badgeBlue, background: "rgba(59,130,246,0.08)" }}>
+                        <Highlight text={p.categoria_nombre || ""} query={search} />
                       </span>
                     </td>
                     <td
                       style={{
                         ...S.td,
-                        color: "#1e293b",
+                        color: textPrimary,
                         fontWeight: 600,
                         whiteSpace: "nowrap",
                       }}
                     >
                       {fmt(p.precio)}
                     </td>
+                    <td style={S.td}>{renderStock(p) || <span style={{ color: "#cbd5e1" }}>—</span>}</td>
                     <td style={S.td}>
                       {/* Toggle disponible directamente */}
                       <button
@@ -641,18 +1007,16 @@ export default function Productos() {
                         >
                           {t("actionEdit")}
                         </button>
-
-                        {/* BOTON ELIMINAR, COMENTADO */}
-                        {/* <button onClick={() => del(p.id)} style={S.btnDanger}>Eliminar</button> */}
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (
@@ -1225,7 +1589,11 @@ export default function Productos() {
           </div>
         </div>
       )}
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <style>{`
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes stockPulseRed{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.6)}70%{box-shadow:0 0 0 5px rgba(239,68,68,0)}}
+        @keyframes stockPulseAmber{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0.6)}70%{box-shadow:0 0 0 5px rgba(245,158,11,0)}}
+      `}</style>
     </AdminLayout>
   );
 }

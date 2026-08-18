@@ -3,6 +3,7 @@ import AdminLayout from "../../components/AdminLayout";
 import { useStyles } from "../../components/sharedStyles";
 import { useTheme } from "../../context/ThemeContext";
 import { useNegocio } from "../../context/NegocioContext";
+import { useLang } from "../../lib/i18n";
 import { IconAlert } from "../../lib/icons";
 import {
   negociosService,
@@ -15,6 +16,7 @@ import {
 export default function Negocios() {
   const s = useStyles();
   const { isDark } = useTheme();
+  const { t } = useLang();
   const { negocios, refresh, negocioId, setNegocioId } = useNegocio();
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -64,7 +66,7 @@ export default function Negocios() {
       setPlan(await planService.get().catch(() => plan));
       setShowModal(false);
     } catch (e) {
-      setSaveError(getApiErrorMessage(e, "No se pudo guardar el negocio."));
+      setSaveError(getApiErrorMessage(e, t("bizSaveError")));
     } finally {
       setSaving(false);
     }
@@ -81,31 +83,25 @@ export default function Negocios() {
 
   const eliminar = async (n: Negocio) => {
     if (n.id === 1) return;
-    if (
-      !confirm(
-        `¿Eliminar "${n.nombre}"? Se borrarán su menú, configuración y pedidos.`,
-      )
-    )
-      return;
+    if (!confirm(t("bizConfirmDelete", { name: n.nombre }))) return;
     try {
       await negociosService.delete(n.id);
       await refresh();
     } catch (e) {
       console.error(e);
-      alert("No se pudo eliminar.");
+      alert(t("bizDeleteError"));
     }
   };
 
   return (
-    <AdminLayout title="Negocios">
+    <AdminLayout title={t("navNegocios")}>
       <div style={{ display: "flex", alignItems: "center", marginBottom: 18 }}>
         <div>
           <h2 style={{ color: textPrimary, fontSize: 20, fontWeight: 600, margin: 0 }}>
-            Tus negocios
+            {t("bizHeading")}
           </h2>
           <p style={{ color: textMuted, fontSize: 13, margin: "4px 0 0" }}>
-            Administrá varios locales desde un solo panel. El negocio activo es
-            el que ves en el resto de las secciones.
+            {t("bizSubtitle")}
           </p>
         </div>
         <div
@@ -128,9 +124,15 @@ export default function Negocios() {
                   : "rgba(59,130,246,0.1)",
                 color: alLimite ? "#dc2626" : "#3b82f6",
               }}
-              title={`Plan ${plan?.tipo_plan}: hasta ${limite} negocios`}
+              title={t("bizPlanTitleAttr", {
+                plan: plan?.tipo_plan || "",
+                limit: limite,
+              })}
             >
-              {usados} / {limite === 9999 ? "∞" : limite} negocios del plan
+              {t("bizPlanUsage", {
+                used: usados,
+                limit: limite === 9999 ? "∞" : limite,
+              })}
             </span>
           )}
           <button
@@ -138,12 +140,12 @@ export default function Negocios() {
             disabled={bloqueadoNuevo}
             title={
               suscripcionCancelada
-                ? "Suscripción cancelada"
+                ? t("prodSubCancelled")
                 : alLimite
                   ? limite === 1
-                    ? "Tu plan Free permite un solo negocio. Mejorá tu plan para multi-negocio."
-                    : `Alcanzaste el límite de ${limite} negocios de tu plan`
-                  : "Nuevo negocio"
+                    ? t("bizFreeOne")
+                    : t("bizLimitReached", { limit: limite })
+                  : t("bizNew")
             }
             style={{
               ...s.btnPrimary,
@@ -151,13 +153,13 @@ export default function Negocios() {
               cursor: bloqueadoNuevo ? "not-allowed" : "pointer",
             }}
           >
-            + Nuevo negocio
+            + {t("bizNew")}
           </button>
         </div>
       </div>
 
       {loading ? (
-        <p style={{ color: textMuted }}>Cargando…</p>
+        <p style={{ color: textMuted }}>{t("subLoading")}</p>
       ) : (
         <div
           style={{
@@ -201,11 +203,11 @@ export default function Negocios() {
                       {n.nombre}
                     </div>
                     <div style={{ color: textMuted, fontSize: 11 }}>
-                      #{n.id} · {n.slug || "sin-slug"}
+                      #{n.id} · {n.slug || t("bizNoSlug")}
                     </div>
                   </div>
                   {activo && (
-                    <span style={{ ...s.badgeBlue }}>Activo</span>
+                    <span style={{ ...s.badgeBlue }}>{t("statusActive")}</span>
                   )}
                 </div>
 
@@ -215,27 +217,27 @@ export default function Negocios() {
                       onClick={() => setNegocioId(n.id)}
                       style={{ ...s.btnPrimary, padding: "7px 12px", fontSize: 12.5 }}
                     >
-                      Usar este
+                      {t("bizUseThis")}
                     </button>
                   )}
                   <button
                     onClick={() => open(n)}
                     style={{ ...s.btnGhost, padding: "7px 12px", fontSize: 12.5 }}
                   >
-                    Editar
+                    {t("actionEdit")}
                   </button>
                   <button
                     onClick={() => toggleActivo(n)}
                     style={{ ...s.btnGhost, padding: "7px 12px", fontSize: 12.5 }}
                   >
-                    {n.activo ? "Desactivar" : "Activar"}
+                    {n.activo ? t("bizDeactivate") : t("bizActivate")}
                   </button>
                   {n.id !== 1 && (
                     <button
                       onClick={() => eliminar(n)}
                       style={{ ...s.btnGhost, padding: "7px 12px", fontSize: 12.5, color: "#ef4444" }}
                     >
-                      Eliminar
+                      {t("actionDelete")}
                     </button>
                   )}
                 </div>
@@ -250,7 +252,7 @@ export default function Negocios() {
           <div style={s.modal} onClick={(e) => e.stopPropagation()}>
             <div style={s.modalHeader}>
               <h3 style={{ margin: 0, fontSize: 16, color: textPrimary }}>
-                {editing ? "Editar negocio" : "Nuevo negocio"}
+                {editing ? t("bizEdit") : t("bizNew")}
               </h3>
               <button
                 onClick={() => setShowModal(false)}
@@ -260,11 +262,11 @@ export default function Negocios() {
               </button>
             </div>
             <div style={s.modalBody}>
-              <label style={s.label}>Nombre del negocio *</label>
+              <label style={s.label}>{t("bizNameField")}</label>
               <input
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
-                placeholder="Ej: Parrilla del Centro"
+                placeholder={t("bizNamePh")}
                 style={s.input}
                 autoFocus
               />
@@ -290,14 +292,14 @@ export default function Negocios() {
             </div>
             <div style={s.modalFooter}>
               <button onClick={() => setShowModal(false)} style={s.btnGhost}>
-                Cancelar
+                {t("actionCancel")}
               </button>
               <button
                 onClick={save}
                 disabled={saving || !nombre.trim()}
                 style={{ ...s.btnPrimary, marginLeft: "auto", opacity: saving ? 0.7 : 1 }}
               >
-                {saving ? "Guardando…" : "Guardar"}
+                {saving ? t("saving") : t("actionSave")}
               </button>
             </div>
           </div>

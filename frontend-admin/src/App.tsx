@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { NegocioProvider } from "./context/NegocioContext";
-import { LanguageProvider } from "./lib/i18n";
+import { LanguageProvider, useLang } from "./lib/i18n";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/admin/Login";
 import ResetPassword from "./pages/admin/ResetPassword";
@@ -124,33 +124,35 @@ function App() {
             }
           />
 
-          <Route
-            path="*"
-            element={
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  height: "100vh",
-                  background: "#0f1117",
-                  color: "#475569",
-                  fontFamily: "system-ui",
-                }}
-              >
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 48, marginBottom: 12 }}>404</div>
-                  <p>Página no encontrada</p>
-                </div>
-              </div>
-            }
-          />
+          <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
         </NegocioProvider>
       </AuthProvider>
     </ThemeProvider>
     </LanguageProvider>
+  );
+}
+
+function NotFound() {
+  const { t } = useLang();
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100vh",
+        background: "#0f1117",
+        color: "#475569",
+        fontFamily: "system-ui",
+      }}
+    >
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 48, marginBottom: 12 }}>404</div>
+        <p>{t("notFound")}</p>
+      </div>
+    </div>
   );
 }
 

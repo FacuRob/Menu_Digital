@@ -2,7 +2,12 @@ import { useState, useEffect } from "react";
 import { categoriasService, type Categoria } from "../../services/api";
 import AdminLayout from "../../components/AdminLayout";
 import { useStyles } from "../../components/sharedStyles";
+import { useTheme } from "../../context/ThemeContext";
 import { useLang } from "../../lib/i18n";
+import { SearchIcon, ListIcon, GridIcon, Highlight } from "../../lib/listUi";
+import { IconX } from "../../lib/icons";
+
+type ViewMode = "lista" | "cards";
 
 const PlusIcon = () => (
   <svg
@@ -30,12 +35,32 @@ const CloseIcon = () => (
 export default function Categorias() {
   const S = useStyles();
   const { t } = useLang();
+  const { isDark } = useTheme();
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Categoria | null>(null);
   const [form, setForm] = useState({ nombre: "", orden: 0, activo: true });
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+  const [view, setView] = useState<ViewMode>(
+    () => (localStorage.getItem("cat_view") as ViewMode) || "lista",
+  );
+
+  const setViewMode = (v: ViewMode) => {
+    localStorage.setItem("cat_view", v);
+    setView(v);
+  };
+
+  const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
+  const textMuted = isDark ? "#94a3b8" : "#94a3b8";
+  const cardBg = isDark ? "#1a1d27" : "#ffffff";
+  const cardBorder = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)";
+
+  const q = search.trim().toLowerCase();
+  const filtradas = categorias.filter(
+    (c) => !q || c.nombre.toLowerCase().includes(q),
+  );
 
   useEffect(() => {
     fetch_();
@@ -99,18 +124,107 @@ export default function Categorias() {
 
   return (
     <AdminLayout title={t("navCategorias")}>
-      {/* Toolbar */}
+      {/* Toolbar: búsqueda + vista + nuevo */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
+          gap: 8,
           marginBottom: 16,
+          flexWrap: "wrap",
         }}
       >
-        <span style={{ color: "#475569", fontSize: 12 }}>
-          {t("catCount", { n: categorias.length })}
+        {/* Búsqueda por texto */}
+        <div style={{ position: "relative", flex: "1 1 220px", minWidth: 180, maxWidth: 340 }}>
+          <span
+            style={{
+              position: "absolute",
+              left: 11,
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: textMuted,
+              display: "flex",
+              pointerEvents: "none",
+            }}
+          >
+            <SearchIcon />
+          </span>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t("catSearchPh")}
+            style={{ ...S.input, padding: "8px 30px 8px 32px" }}
+            onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
+            onBlur={(e) => (e.target.style.borderColor = "rgba(0,0,0,0.1)")}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              style={{
+                position: "absolute",
+                right: 8,
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: textMuted,
+                display: "flex",
+                padding: 2,
+              }}
+            >
+              <IconX size={14} />
+            </button>
+          )}
+        </div>
+
+        <span style={{ color: textMuted, fontSize: 12 }}>
+          {t("catCount", { n: filtradas.length })}
         </span>
+
+        {/* Toggle de vista Lista / Tarjetas */}
+        <div
+          style={{
+            display: "flex",
+            marginLeft: "auto",
+            background: cardBg,
+            borderRadius: 10,
+            padding: 3,
+            border: `1px solid ${cardBorder}`,
+          }}
+        >
+          {(
+            [
+              { key: "lista", label: t("viewList"), Icon: ListIcon },
+              { key: "cards", label: t("viewCards"), Icon: GridIcon },
+            ] as const
+          ).map((v) => (
+            <button
+              key={v.key}
+              onClick={() => setViewMode(v.key)}
+              title={v.label}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "7px 12px",
+                borderRadius: 8,
+                border: "none",
+                cursor: "pointer",
+                fontSize: 12.5,
+                fontWeight: 600,
+                transition: "all 0.15s",
+                background:
+                  view === v.key ? (isDark ? "#0f1117" : "#f0f2f5") : "transparent",
+                color: view === v.key ? "#3b82f6" : textMuted,
+              }}
+            >
+              <v.Icon />
+              {v.label}
+            </button>
+          ))}
+        </div>
+
         <button
           style={S.btnPrimary}
           onClick={() => openModal()}
@@ -121,12 +235,10 @@ export default function Categorias() {
         </button>
       </div>
 
-      {/* Table card */}
-      <div style={S.card}>
-        {loading ? (
-          <div
-            style={{ display: "flex", justifyContent: "center", padding: 48 }}
-          >
+      {/* ── Resultados ── */}
+      {loading ? (
+        <div style={S.card}>
+          <div style={{ display: "flex", justifyContent: "center", padding: 48 }}>
             <div
               style={{
                 width: 28,
@@ -138,14 +250,73 @@ export default function Categorias() {
               }}
             />
           </div>
-        ) : categorias.length === 0 ? (
-          <div
-            style={{ textAlign: "center", padding: "48px 0", color: "#94a3b8" }}
-          >
-            <div style={{ fontSize: 32, marginBottom: 8 }}>📁</div>
-            <div style={{ fontSize: 14 }}>{t("catEmpty")}</div>
+        </div>
+      ) : filtradas.length === 0 ? (
+        <div style={S.card}>
+          <div style={{ textAlign: "center", padding: "48px 0", color: "#94a3b8" }}>
+            <div style={{ fontSize: 32, marginBottom: 8, display: "flex", justifyContent: "center", color: "#cbd5e1" }}>
+              {q ? <SearchIcon size={30} /> : "📁"}
+            </div>
+            <div style={{ fontSize: 14 }}>
+              {q ? t("searchNoResults") : t("catEmpty")}
+            </div>
           </div>
-        ) : (
+        </div>
+      ) : view === "cards" ? (
+        /* ── Vista Tarjetas ── */
+        <div
+          style={{
+            display: "grid",
+            gap: 12,
+            gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))",
+          }}
+        >
+          {filtradas.map((c) => (
+            <div
+              key={c.id}
+              style={{ ...S.card, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}
+            >
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                <span style={{ color: textPrimary, fontWeight: 700, fontSize: 15, lineHeight: 1.3 }}>
+                  <Highlight text={c.nombre} query={search} />
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: textMuted,
+                    background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+                    borderRadius: 6,
+                    padding: "2px 7px",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={t("colOrder")}
+                >
+                  #{c.orden}
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <button
+                  onClick={() => toggleActivo(c)}
+                  title={c.activo ? t("clickToDeactivate") : t("clickToActivate")}
+                  style={{ ...(c.activo ? S.badgeGreen : S.badgeRed), cursor: "pointer", border: "none" }}
+                >
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: c.activo ? "#10b981" : "#ef4444" }} />
+                  {c.activo ? t("statusActive") : t("statusInactive")}
+                </button>
+                <button
+                  onClick={() => openModal(c)}
+                  style={{ background: "none", border: "none", color: "#60a5fa", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0 }}
+                >
+                  {t("actionEdit")}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        /* ── Vista Lista (tabla) ── */
+        <div style={S.card}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead style={S.thead}>
               <tr>
@@ -157,20 +328,19 @@ export default function Categorias() {
               </tr>
             </thead>
             <tbody>
-              {categorias.map((c) => (
+              {filtradas.map((c) => (
                 <tr
                   key={c.id}
                   style={S.tr}
                   onMouseEnter={(e) =>
-                    (e.currentTarget.style.background =
-                      "rgba(0,0,0,0.02)")
+                    (e.currentTarget.style.background = "rgba(0,0,0,0.02)")
                   }
                   onMouseLeave={(e) =>
                     (e.currentTarget.style.background = "transparent")
                   }
                 >
-                  <td style={{ ...S.td, fontWeight: 500, color: "#1e293b" }}>
-                    {c.nombre}
+                  <td style={{ ...S.td, fontWeight: 600, fontSize: 13.5, color: textPrimary }}>
+                    <Highlight text={c.nombre} query={search} />
                   </td>
                   <td style={S.tdMuted}>{c.orden}</td>
                   <td style={S.td}>
@@ -221,17 +391,14 @@ export default function Categorias() {
                       >
                         {t("actionEdit")}
                       </button>
-
-                      {/* BOTON ELIMINAR, COMENTADO */}
-                      {/* <button onClick={() => del(c.id)} style={S.btnDanger}>Eliminar</button> */}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (

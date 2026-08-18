@@ -18,6 +18,7 @@ import { useCart } from "../hooks/useCart";
 import {
   PRIMARY,
   PRIMARY_DARK,
+  PRIMARY_SOFT,
   PRIMARY_SHADOW,
   paletteVars,
   fmt,
@@ -85,6 +86,16 @@ const Menu = () => {
 
   const cart = useCart();
   const sectionRefs = useRef<Record<number, HTMLElement | null>>({});
+  const [activeCat, setActiveCat] = useState<number | null>(null);
+  const [showTop, setShowTop] = useState(false);
+
+  // Mostrar el botón "ir arriba" tras bajar un poco.
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 400);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -152,6 +163,24 @@ const Menu = () => {
       window.scrollTo({ top: y, behavior: "smooth" });
     }
   };
+
+  // Scroll-spy: resalta la categoría cuya sección estás mirando. Recorre las
+  // secciones y marca como activa la última cuyo tope ya pasó el offset.
+  useEffect(() => {
+    if (!porCategoria.length) return;
+    const onScroll = () => {
+      const offset = 130;
+      let current = porCategoria[0].cat.id;
+      for (const { cat } of porCategoria) {
+        const el = sectionRefs.current[cat.id];
+        if (el && el.getBoundingClientRect().top - offset <= 0) current = cat.id;
+      }
+      setActiveCat(current);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [porCategoria]);
 
   if (loading) {
     return (
@@ -421,6 +450,7 @@ const Menu = () => {
             categorias={categorias}
             onPick={scrollToCat}
             isDesktop={isDesktop}
+            active={activeCat}
           />
         )}
 
@@ -479,16 +509,7 @@ const Menu = () => {
                   sectionRefs.current[cat.id] = el;
                 }}
               >
-                <h2
-                  style={{
-                    margin: "0 0 16px",
-                    fontSize: 22,
-                    fontWeight: 800,
-                    color: "#1c1917",
-                  }}
-                >
-                  {cat.nombre}
-                </h2>
+                <SectionHeading nombre={cat.nombre} count={prods.length} />
                 <div
                   style={{
                     display: "grid",
@@ -568,6 +589,47 @@ const Menu = () => {
           </p>
         </div>
       </footer>
+
+      {/* ══ Botón "ir arriba" (apilado arriba del carrito, misma esquina) ══ */}
+      {showTop && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          aria-label={t("ariaScrollTop")}
+          title={t("ariaScrollTop")}
+          style={{
+            position: "fixed",
+            right: 29,
+            bottom: 96,
+            zIndex: 80,
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            border: "none",
+            background: PRIMARY,
+            color: "#fff",
+            cursor: "pointer",
+            boxShadow: `0 8px 22px ${PRIMARY_SHADOW}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "transform .15s, background .15s",
+            animation: "scrollTopIn .25s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "translateY(-2px)";
+            e.currentTarget.style.background = PRIMARY_DARK;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "none";
+            e.currentTarget.style.background = PRIMARY;
+          }}
+        >
+          <style>{`@keyframes scrollTopIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}`}</style>
+          <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 19V5M6 11l6-6 6 6" />
+          </svg>
+        </button>
+      )}
 
       {/* ══ Botón flotante del carrito ══ */}
       <button
@@ -740,19 +802,84 @@ const ProductCard = ({
   );
 };
 
+// ── Título de sección: subrayado degradado en color de marca + contador ──
+const SectionHeading = ({ nombre, count }: { nombre: string; count: number }) => (
+  <div style={{ display: "flex", alignItems: "center", gap: 14, margin: "0 0 18px" }}>
+    <h2
+      style={{
+        margin: 0,
+        fontSize: 24,
+        fontWeight: 800,
+        color: "#1c1917",
+        letterSpacing: "-0.02em",
+        position: "relative",
+        paddingBottom: 9,
+        display: "inline-block",
+      }}
+    >
+      {nombre}
+      <span
+        style={{
+          position: "absolute",
+          left: 0,
+          bottom: 0,
+          height: 3,
+          width: "100%",
+          borderRadius: 99,
+          background: `linear-gradient(90deg, ${PRIMARY}, transparent)`,
+        }}
+      />
+    </h2>
+    <span
+      style={{
+        fontSize: 12.5,
+        fontWeight: 700,
+        color: PRIMARY,
+        background: PRIMARY_SOFT,
+        borderRadius: 999,
+        padding: "3px 10px",
+        flexShrink: 0,
+      }}
+    >
+      {count}
+    </span>
+    <span
+      style={{
+        flex: 1,
+        height: 1,
+        background: "linear-gradient(90deg,#ece9e7,transparent)",
+      }}
+    />
+  </div>
+);
+
 // ── Barra de categorías con flechas next/prev (desktop) ──
 const CategoryBar = ({
   categorias,
   onPick,
   isDesktop,
+  active,
 }: {
   categorias: Categoria[];
   onPick: (id: number) => void;
   isDesktop: boolean;
+  active: number | null;
 }) => {
   const rowRef = useRef<HTMLDivElement>(null);
+  const btnRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(false);
+
+  // Mantener la categoría activa visible en la barra (auto-scroll suave).
+  useEffect(() => {
+    if (active == null) return;
+    const btn = btnRefs.current[active];
+    const row = rowRef.current;
+    if (btn && row) {
+      const target = btn.offsetLeft - row.clientWidth / 2 + btn.clientWidth / 2;
+      row.scrollTo({ left: Math.max(0, target), behavior: "smooth" });
+    }
+  }, [active]);
 
   const update = () => {
     const el = rowRef.current;
@@ -802,39 +929,52 @@ const CategoryBar = ({
         }}
       >
         <style>{`::-webkit-scrollbar{display:none}`}</style>
-        {categorias.map((c) => (
-          <button
-            key={c.id}
-            onClick={() => onPick(c.id)}
-            style={{
-              flexShrink: 0,
-              width: 104,
-              padding: "6px 4px",
-              border: "none",
-              background: "none",
-              cursor: "pointer",
-              color: PRIMARY,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 7,
-              fontFamily: "inherit",
-            }}
-          >
-            <CategoriaIcon nombre={c.nombre} size={28} />
-            <span
+        {categorias.map((c) => {
+          const isActive = c.id === active;
+          return (
+            <button
+              key={c.id}
+              ref={(el) => {
+                btnRefs.current[c.id] = el;
+              }}
+              onClick={() => onPick(c.id)}
               style={{
-                fontSize: 11.5,
-                fontWeight: 600,
-                color: "#3f3f46",
-                lineHeight: 1.25,
-                textAlign: "center",
+                flexShrink: 0,
+                width: 104,
+                padding: "8px 4px 7px",
+                border: "none",
+                background: isActive ? PRIMARY_SOFT : "none",
+                borderRadius: 14,
+                cursor: "pointer",
+                color: PRIMARY,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 7,
+                fontFamily: "inherit",
+                transition: "background .25s ease",
               }}
             >
-              {c.nombre}
-            </span>
-          </button>
-        ))}
+              <CategoriaIcon
+                nombre={c.nombre}
+                size={28}
+                style={{ opacity: isActive ? 1 : 0.7, transition: "opacity .25s" }}
+              />
+              <span
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: isActive ? 800 : 600,
+                  color: isActive ? PRIMARY : "#3f3f46",
+                  lineHeight: 1.25,
+                  textAlign: "center",
+                  transition: "color .2s",
+                }}
+              >
+                {c.nombre}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {isDesktop && (

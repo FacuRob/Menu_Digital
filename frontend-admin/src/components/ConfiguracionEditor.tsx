@@ -1,9 +1,18 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ComponentType } from "react";
 import { useStyles } from "./sharedStyles";
 import { useTheme } from "../context/ThemeContext";
 import { useLang } from "../lib/i18n";
-import { IconUtensils, IconBag, IconTools, IconBox, IconImage } from "../lib/icons";
+import {
+  IconUtensils,
+  IconBag,
+  IconTools,
+  IconBox,
+  IconImage,
+  IconCheck,
+  IconAlert,
+} from "../lib/icons";
 import {
   configuracionService,
   uploadService,
@@ -48,45 +57,47 @@ const RUBROS: {
   { code: "generico", labelKey: "rubroGenerico", descKey: "rubroGenericoDesc", Icon: IconBox },
 ];
 
+// Códigos de moneda soportados. La etiqueta se traduce con t(`cur_${code}`).
 const MONEDAS = [
-  { code: "ARS", label: "Peso argentino (ARS)" },
-  { code: "USD", label: "Dólar (USD)" },
-  { code: "EUR", label: "Euro (EUR)" },
-  { code: "BRL", label: "Real brasileño (BRL)" },
-  { code: "MXN", label: "Peso mexicano (MXN)" },
-  { code: "CLP", label: "Peso chileno (CLP)" },
-  { code: "COP", label: "Peso colombiano (COP)" },
-  { code: "PEN", label: "Sol peruano (PEN)" },
-  { code: "UYU", label: "Peso uruguayo (UYU)" },
-  { code: "PYG", label: "Guaraní (PYG)" },
-  { code: "BOB", label: "Boliviano (BOB)" },
-  { code: "GTQ", label: "Quetzal (GTQ)" },
+  "ARS",
+  "USD",
+  "EUR",
+  "BRL",
+  "MXN",
+  "CLP",
+  "COP",
+  "PEN",
+  "UYU",
+  "PYG",
+  "BOB",
+  "GTQ",
 ];
 
-const DIAS = [
-  "Lunes",
-  "Martes",
-  "Miércoles",
-  "Jueves",
-  "Viernes",
-  "Sábado",
-  "Domingo",
+// Claves i18n de los días (lun→dom). Se traducen con t(dayKey).
+const DIA_KEYS = [
+  "dayMon",
+  "dayTue",
+  "dayWed",
+  "dayThu",
+  "dayFri",
+  "daySat",
+  "daySun",
 ];
 
 const PALETAS = [
-  { nombre: "Naranja", color: "#ff5722" },
-  { nombre: "Rojo", color: "#e11d48" },
-  { nombre: "Verde", color: "#16a34a" },
-  { nombre: "Azul", color: "#2563eb" },
-  { nombre: "Violeta", color: "#7c3aed" },
-  { nombre: "Turquesa", color: "#0d9488" },
-  { nombre: "Fucsia", color: "#db2777" },
-  { nombre: "Ámbar", color: "#d97706" },
+  { nameKey: "palOrange", color: "#ff5722" },
+  { nameKey: "palRed", color: "#e11d48" },
+  { nameKey: "palGreen", color: "#16a34a" },
+  { nameKey: "palBlue", color: "#2563eb" },
+  { nameKey: "palViolet", color: "#7c3aed" },
+  { nameKey: "palTeal", color: "#0d9488" },
+  { nameKey: "palFuchsia", color: "#db2777" },
+  { nameKey: "palAmber", color: "#d97706" },
 ];
 
 // Template inicial cuando se activan los horarios por día.
 const horariosTemplate = (): HorariosConfig =>
-  DIAS.map((_, i) => ({
+  DIA_KEYS.map((_, i) => ({
     cerrado: i === 6, // domingo cerrado por defecto
     franjas: i === 6 ? [] : [{ desde: "09:00", hasta: "13:00" }],
   }));
@@ -100,9 +111,14 @@ export default function ConfiguracionEditor({
   const { isDark } = useTheme();
   const { t } = useLang();
   const [form, setForm] = useState<Form>(EMPTY);
+  // Snapshot de lo persistido: sirve para detectar cambios (dirty) y para
+  // revertir con "Cancelar". Los cambios NO se aplican hasta confirmar.
+  const [initial, setInitial] = useState<{ form: Form; usarPorDia: boolean } | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(
+  const [toast, setToast] = useState<{ type: "ok" | "err"; text: string } | null>(
     null,
   );
   const [uploading, setUploading] = useState<"logo" | "portada" | null>(null);
@@ -110,12 +126,14 @@ export default function ConfiguracionEditor({
 
   const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
   const textMuted = isDark ? "#64748b" : "#94a3b8";
+  const cardBg = isDark ? "#1a1d27" : "#ffffff";
+  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
 
   useEffect(() => {
     (async () => {
       try {
         const cfg = await configuracionService.get();
-        setForm({
+        const loaded: Form = {
           nombre: cfg.nombre || "",
           descripcion: cfg.descripcion || "",
           direccion: cfg.direccion || "",
@@ -133,18 +151,28 @@ export default function ConfiguracionEditor({
           horarios_config: cfg.horarios_config || null,
           moneda: cfg.moneda || "ARS",
           tipo_rubro: cfg.tipo_rubro || "gastronomia",
-        });
-        setUsarPorDia(
-          Array.isArray(cfg.horarios_config) && cfg.horarios_config.length > 0,
-        );
+        };
+        const upd =
+          Array.isArray(cfg.horarios_config) && cfg.horarios_config.length > 0;
+        setForm(loaded);
+        setUsarPorDia(upd);
+        setInitial({ form: loaded, usarPorDia: upd });
       } catch (e) {
         console.error(e);
-        setMsg({ type: "err", text: "No se pudo cargar la configuración." });
+        setToast({ type: "err", text: t("cfgLoadError") });
       } finally {
         setLoading(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-cierre del toast.
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), toast.type === "ok" ? 3000 : 4500);
+    return () => clearTimeout(id);
+  }, [toast]);
 
   const set = (k: keyof Form) => (v: string) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -156,13 +184,12 @@ export default function ConfiguracionEditor({
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(campo === "logo_url" ? "logo" : "portada");
-    setMsg(null);
     try {
       const { url } = await uploadService.uploadImagen(file);
       setForm((f) => ({ ...f, [campo]: url }));
     } catch (err) {
       console.error(err);
-      setMsg({ type: "err", text: "No se pudo subir la imagen." });
+      setToast({ type: "err", text: t("cfgUploadError") });
     } finally {
       setUploading(null);
       e.target.value = "";
@@ -179,70 +206,127 @@ export default function ConfiguracionEditor({
     }
   };
 
+  // Firma del "payload efectivo": normaliza horarios_config (null si no se usa
+  // por día) para que toggles reversibles no marquen cambios falsos.
+  const signature = (f: Form, u: boolean) =>
+    JSON.stringify({ ...f, horarios_config: u ? f.horarios_config : null });
+  const dirty =
+    !!initial &&
+    signature(form, usarPorDia) !== signature(initial.form, initial.usarPorDia);
+
+  const cancel = () => {
+    if (!initial) return;
+    setForm(initial.form);
+    setUsarPorDia(initial.usarPorDia);
+  };
+
   const save = async () => {
     setSaving(true);
-    setMsg(null);
     try {
       await configuracionService.update({
         ...form,
         horarios_config: usarPorDia ? form.horarios_config : null,
       });
-      setMsg({ type: "ok", text: "Configuración guardada correctamente." });
+      setInitial({ form, usarPorDia });
+      setToast({ type: "ok", text: t("cfgSaved") });
       onSaved?.();
     } catch (e) {
       console.error(e);
-      setMsg({ type: "err", text: "No se pudo guardar. Intentá de nuevo." });
+      setToast({ type: "err", text: t("cfgSaveError") });
     } finally {
       setSaving(false);
     }
   };
 
   if (loading) {
-    return <p style={{ color: textMuted }}>Cargando…</p>;
+    return <p style={{ color: textMuted }}>{t("subLoading")}</p>;
   }
 
   return (
     <>
-      <div style={{ marginBottom: 20 }}>
-        <h2 style={{ color: textPrimary, fontSize: 20, fontWeight: 600, margin: 0 }}>
-          Datos del local
-        </h2>
-        <p style={{ color: textMuted, fontSize: 13, margin: "4px 0 0" }}>
-          Esta información se muestra en el menú público de tus clientes.
-        </p>
-      </div>
-
-      {msg && (
+      {/* ── Datos del local (identidad) ── */}
+      <SectionCard
+        accent="#3b82f6"
+        title={t("cfgHeading")}
+        subtitle={t("cfgSubtitle")}
+        textPrimary={textPrimary}
+        textMuted={textMuted}
+        cardBg={cardBg}
+        cardBorder={cardBorder}
+      >
         <div
           style={{
-            marginBottom: 16,
-            padding: "10px 14px",
-            borderRadius: 8,
-            fontSize: 13,
-            background:
-              msg.type === "ok"
-                ? "rgba(16,185,129,0.12)"
-                : "rgba(239,68,68,0.1)",
-            color: msg.type === "ok" ? "#059669" : "#dc2626",
-            border: `1px solid ${
-              msg.type === "ok"
-                ? "rgba(16,185,129,0.25)"
-                : "rgba(239,68,68,0.25)"
-            }`,
+            display: "grid",
+            gap: 16,
+            gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
           }}
         >
-          {msg.text}
+          <TextField s={s} label={t("cfgVenueName")} value={form.nombre} onChange={set("nombre")} />
+          <TextField s={s} label={t("cfgAddress")} value={form.direccion} onChange={set("direccion")} />
+          <TextField s={s} label={t("cfgPhone")} value={form.telefono} onChange={set("telefono")} />
+          <TextField s={s} label="WhatsApp" value={form.whatsapp} onChange={set("whatsapp")} placeholder="3814665263" />
+          <TextField s={s} label={t("colEmail")} value={form.email} onChange={set("email")} />
         </div>
-      )}
+        <div style={{ marginTop: 16 }}>
+          <label style={s.label}>{t("prodDescField")}</label>
+          <textarea
+            value={form.descripcion || ""}
+            onChange={(e) => set("descripcion")(e.target.value)}
+            rows={3}
+            placeholder={t("cfgDescriptionPh")}
+            style={{ ...s.input, resize: "vertical" }}
+          />
+        </div>
+      </SectionCard>
 
-      {/* Tipo de rubro (multi-rubro) */}
-      <div style={{ ...s.card, padding: 20, marginBottom: 16 }}>
-        <h3 style={{ color: textPrimary, fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>
-          {t("rubroTitle")}
-        </h3>
-        <p style={{ color: textMuted, fontSize: 12.5, margin: "0 0 14px" }}>
-          {t("rubroSubtitle")}
-        </p>
+      {/* ── Imágenes ── */}
+      <SectionCard
+        accent="#8b5cf6"
+        title={t("cfgImagesTitle")}
+        subtitle={t("cfgImagesSubtitle")}
+        textPrimary={textPrimary}
+        textMuted={textMuted}
+        cardBg={cardBg}
+        cardBorder={cardBorder}
+      >
+        <div
+          style={{
+            display: "grid",
+            gap: 20,
+            gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
+          }}
+        >
+          <ImageField
+            label={t("cfgLogo")}
+            url={form.logo_url}
+            uploading={uploading === "logo"}
+            onPick={(e) => handleUpload(e, "logo_url")}
+            onClear={() => set("logo_url")("")}
+            shape="square"
+            isDark={isDark}
+          />
+          <ImageField
+            label={t("cfgCover")}
+            url={form.portada_url}
+            uploading={uploading === "portada"}
+            onPick={(e) => handleUpload(e, "portada_url")}
+            onClear={() => set("portada_url")("")}
+            shape="wide"
+            isDark={isDark}
+          />
+        </div>
+      </SectionCard>
+
+      {/* ── Tipo de rubro (multi-rubro) ── */}
+      <SectionCard
+        accent="#0d9488"
+        title={t("rubroTitle")}
+        subtitle={t("rubroSubtitle")}
+        textPrimary={textPrimary}
+        textMuted={textMuted}
+        cardBg={cardBg}
+        cardBorder={cardBorder}
+      >
         <div
           style={{
             display: "grid",
@@ -265,15 +349,15 @@ export default function ConfiguracionEditor({
                   borderRadius: 10,
                   cursor: "pointer",
                   textAlign: "left",
-                  border: `2px solid ${activo ? "#3b82f6" : isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+                  border: `2px solid ${activo ? "#0d9488" : isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
                   background: activo
-                    ? "rgba(59,130,246,0.08)"
+                    ? "rgba(13,148,136,0.08)"
                     : isDark
                       ? "#0f1117"
                       : "#f8f9fa",
                 }}
               >
-                <span style={{ color: activo ? "#3b82f6" : textMuted, display: "flex", flexShrink: 0 }}>
+                <span style={{ color: activo ? "#0d9488" : textMuted, display: "flex", flexShrink: 0 }}>
                   <r.Icon size={22} />
                 </span>
                 <span style={{ flex: 1 }}>
@@ -288,53 +372,25 @@ export default function ConfiguracionEditor({
             );
           })}
         </div>
-      </div>
+      </SectionCard>
 
-      {/* Imágenes */}
-      <div style={{ ...s.card, padding: 20, marginBottom: 16 }}>
-        <div
-          style={{
-            display: "grid",
-            gap: 20,
-            gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
-          }}
-        >
-          <ImageField
-            label="Logo"
-            url={form.logo_url}
-            uploading={uploading === "logo"}
-            onPick={(e) => handleUpload(e, "logo_url")}
-            onClear={() => set("logo_url")("")}
-            shape="square"
-            isDark={isDark}
-          />
-          <ImageField
-            label="Imagen de portada (banner)"
-            url={form.portada_url}
-            uploading={uploading === "portada"}
-            onPick={(e) => handleUpload(e, "portada_url")}
-            onClear={() => set("portada_url")("")}
-            shape="wide"
-            isDark={isDark}
-          />
-        </div>
-      </div>
-
-      {/* Apariencia: paleta de colores */}
-      <div style={{ ...s.card, padding: 20, marginBottom: 16 }}>
-        <h3 style={{ color: textPrimary, fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>
-          Color del menú
-        </h3>
-        <p style={{ color: textMuted, fontSize: 12.5, margin: "0 0 14px" }}>
-          Elegí la paleta del menú público (botones, precios, íconos).
-        </p>
+      {/* ── Apariencia: paleta de colores ── */}
+      <SectionCard
+        accent={form.color_primario || "#db2777"}
+        title={t("cfgColorTitle")}
+        subtitle={t("cfgColorSubtitle")}
+        textPrimary={textPrimary}
+        textMuted={textMuted}
+        cardBg={cardBg}
+        cardBorder={cardBorder}
+      >
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
           {PALETAS.map((p) => {
             const activo = (form.color_primario || "").toLowerCase() === p.color;
             return (
               <button
                 key={p.color}
-                title={p.nombre}
+                title={t(p.nameKey)}
                 onClick={() => set("color_primario")(p.color)}
                 style={{
                   width: 34,
@@ -361,7 +417,7 @@ export default function ConfiguracionEditor({
               cursor: "pointer",
             }}
           >
-            Personalizado
+            {t("cfgCustom")}
             <input
               type="color"
               value={form.color_primario || "#ff5722"}
@@ -377,50 +433,52 @@ export default function ConfiguracionEditor({
             />
           </label>
         </div>
-      </div>
+      </SectionCard>
 
-      {/* Moneda del menú */}
-      <div style={{ ...s.card, padding: 20, marginBottom: 16 }}>
-        <h3 style={{ color: textPrimary, fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>
-          Moneda del menú
-        </h3>
-        <p style={{ color: textMuted, fontSize: 12.5, margin: "0 0 14px" }}>
-          Los precios se muestran en esta moneda. No hay conversión: cargá los
-          precios directamente en la moneda que elijas.
-        </p>
+      {/* ── Moneda del menú ── */}
+      <SectionCard
+        accent="#f59e0b"
+        title={t("cfgCurrencyTitle")}
+        subtitle={t("cfgCurrencySubtitle")}
+        textPrimary={textPrimary}
+        textMuted={textMuted}
+        cardBg={cardBg}
+        cardBorder={cardBorder}
+      >
         <select
           value={form.moneda || "ARS"}
           onChange={(e) => set("moneda")(e.target.value)}
           style={{ ...s.input, maxWidth: 320, cursor: "pointer" }}
         >
-          {MONEDAS.map((m) => (
-            <option key={m.code} value={m.code}>
-              {m.label}
+          {MONEDAS.map((code) => (
+            <option key={code} value={code}>
+              {t(`cur_${code}`)}
             </option>
           ))}
         </select>
-      </div>
+      </SectionCard>
 
-      {/* Opciones de servicio */}
-      <div style={{ ...s.card, padding: 20, marginBottom: 16 }}>
-        <h3 style={{ color: textPrimary, fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>
-          Opciones de servicio
-        </h3>
-        <p style={{ color: textMuted, fontSize: 12.5, margin: "0 0 16px" }}>
-          Activá cómo pueden pedir tus clientes. Aparecen en el carrito del menú.
-        </p>
-
+      {/* ── Opciones de servicio ── */}
+      <SectionCard
+        accent="#10b981"
+        title={t("cfgServiceTitle")}
+        subtitle={t("cfgServiceSubtitle")}
+        textPrimary={textPrimary}
+        textMuted={textMuted}
+        cardBg={cardBg}
+        cardBorder={cardBorder}
+      >
         <div style={{ display: "grid", gap: 12 }}>
           <Toggle
             isDark={isDark}
-            label="Mesas"
-            desc="Pedidos para consumir en el local, eligiendo mesa."
+            label={t("cfgTables")}
+            desc={t("cfgTablesDesc")}
             value={form.mesas_activo}
             onChange={(v) => setForm((f) => ({ ...f, mesas_activo: v }))}
           />
           {form.mesas_activo && (
             <div style={{ paddingLeft: 4, maxWidth: 220 }}>
-              <label style={s.label}>Cantidad de mesas</label>
+              <label style={s.label}>{t("cfgTablesQty")}</label>
               <input
                 type="number"
                 min={0}
@@ -437,33 +495,35 @@ export default function ConfiguracionEditor({
           )}
           <Toggle
             isDark={isDark}
-            label="Retiro en el local"
-            desc="El cliente retira el pedido en el mostrador."
+            label={t("cfgPickup")}
+            desc={t("cfgPickupDesc")}
             value={form.retiro_activo}
             onChange={(v) => setForm((f) => ({ ...f, retiro_activo: v }))}
           />
           <Toggle
             isDark={isDark}
-            label="Delivery"
-            desc="Envío a domicilio. Se pide la dirección al confirmar."
+            label={t("pedDelivery")}
+            desc={t("cfgDeliveryDesc")}
             value={form.delivery_activo}
             onChange={(v) => setForm((f) => ({ ...f, delivery_activo: v }))}
           />
         </div>
-      </div>
+      </SectionCard>
 
-      {/* Horarios */}
-      <div style={{ ...s.card, padding: 20, marginBottom: 16 }}>
-        <h3 style={{ color: textPrimary, fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>
-          Horarios
-        </h3>
-        <p style={{ color: textMuted, fontSize: 12.5, margin: "0 0 14px" }}>
-          Definí por día (horario corrido o cortado) o dejá un texto simple.
-        </p>
+      {/* ── Horarios ── */}
+      <SectionCard
+        accent="#6366f1"
+        title={t("cfgHours")}
+        subtitle={t("cfgHoursSubtitle")}
+        textPrimary={textPrimary}
+        textMuted={textMuted}
+        cardBg={cardBg}
+        cardBorder={cardBorder}
+      >
         <Toggle
           isDark={isDark}
-          label="Definir horarios por día"
-          desc="Mañana y tarde, sábado a la mañana, domingo cerrado, etc."
+          label={t("cfgHoursPerDay")}
+          desc={t("cfgHoursPerDayDesc")}
           value={usarPorDia}
           onChange={toggleUsarPorDia}
         />
@@ -476,56 +536,171 @@ export default function ConfiguracionEditor({
             />
           ) : (
             <div>
-              <label style={s.label}>Horario (texto libre)</label>
+              <label style={s.label}>{t("cfgHoursText")}</label>
               <input
                 value={form.horarios || ""}
                 onChange={(e) => set("horarios")(e.target.value)}
-                placeholder="20:00 a 01:00 hs"
+                placeholder={t("cfgHoursTextPh")}
                 style={s.input}
               />
             </div>
           )}
         </div>
-      </div>
+      </SectionCard>
 
-      {/* Campos */}
-      <div style={{ ...s.card, padding: 20 }}>
-        <div
-          style={{
-            display: "grid",
-            gap: 16,
-            gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
+      {/* Espaciador para que la barra flotante no tape la última tarjeta. */}
+      <div style={{ height: dirty ? 76 : 8, transition: "height 0.2s" }} />
+
+      {/* ── Barra flotante: aparece al haber cambios sin guardar ──
+          Se renderiza con un portal a <body> para que position:fixed sea
+          relativo a la ventana. Si quedara dentro del modal (que usa
+          backdrop-filter), este crearía un containing block y la barra
+          aparecería en el medio y no seguiría el scroll. */}
+      {dirty &&
+        createPortal(
+          <div
+            style={{
+              position: "fixed",
+              left: "50%",
+              bottom: 24,
+              transform: "translateX(-50%)",
+              zIndex: 350,
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            padding: "11px 12px 11px 18px",
+            borderRadius: 14,
+            background: isDark ? "#1a1d27" : "#ffffff",
+            border: `1px solid ${cardBorder}`,
+            boxShadow: "0 16px 44px rgba(0,0,0,0.30)",
+            animation: "cfgBarIn .22s cubic-bezier(.2,.8,.2,1)",
+            maxWidth: "calc(100vw - 32px)",
           }}
         >
-          <TextField s={s} label="Nombre del local" value={form.nombre} onChange={set("nombre")} />
-          <TextField s={s} label="Dirección" value={form.direccion} onChange={set("direccion")} />
-          <TextField s={s} label="Teléfono" value={form.telefono} onChange={set("telefono")} />
-          <TextField s={s} label="WhatsApp" value={form.whatsapp} onChange={set("whatsapp")} placeholder="3814665263" />
-          <TextField s={s} label="Email" value={form.email} onChange={set("email")} />
-        </div>
-
-        <div style={{ marginTop: 16 }}>
-          <label style={s.label}>Descripción</label>
-          <textarea
-            value={form.descripcion || ""}
-            onChange={(e) => set("descripcion")(e.target.value)}
-            rows={3}
-            placeholder="Breve descripción del local…"
-            style={{ ...s.input, resize: "vertical" }}
-          />
-        </div>
-
-        <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
-          <button
-            onClick={save}
-            disabled={saving}
-            style={{ ...s.btnPrimary, opacity: saving ? 0.7 : 1 }}
+          <style>{`@keyframes cfgBarIn{from{opacity:0;transform:translate(-50%,18px)}to{opacity:1;transform:translate(-50%,0)}}`}</style>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              color: textPrimary,
+              whiteSpace: "nowrap",
+            }}
           >
-            {saving ? "Guardando…" : "Guardar cambios"}
-          </button>
-        </div>
-      </div>
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "#f59e0b",
+                boxShadow: "0 0 0 3px rgba(245,158,11,0.2)",
+                flexShrink: 0,
+              }}
+            />
+            {t("cfgUnsaved")}
+          </span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={cancel}
+              disabled={saving}
+              style={{ ...s.btnGhost, padding: "8px 14px" }}
+            >
+              {t("actionCancel")}
+            </button>
+            <button
+              onClick={save}
+              disabled={saving}
+              style={{ ...s.btnPrimary, padding: "8px 16px", opacity: saving ? 0.7 : 1 }}
+            >
+              {saving ? t("saving") : t("saveChanges")}
+            </button>
+          </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* ── Toast (arriba a la derecha) ──
+          También con portal a <body> por el mismo motivo del backdrop-filter. */}
+      {toast &&
+        createPortal(
+          <div
+            style={{
+              position: "fixed",
+              top: 20,
+              right: 20,
+              zIndex: 400,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "12px 16px",
+            borderRadius: 12,
+            background: toast.type === "ok" ? "#059669" : "#dc2626",
+            color: "#fff",
+            fontSize: 13.5,
+            fontWeight: 600,
+            boxShadow: "0 12px 34px rgba(0,0,0,0.28)",
+            animation: "cfgToastIn .25s ease",
+            maxWidth: "min(360px, calc(100vw - 32px))",
+          }}
+        >
+          <style>{`@keyframes cfgToastIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}`}</style>
+          <span style={{ display: "flex", flexShrink: 0 }}>
+            {toast.type === "ok" ? <IconCheck size={18} /> : <IconAlert size={18} />}
+          </span>
+          {toast.text}
+          </div>,
+          document.body,
+        )}
     </>
+  );
+}
+
+// Tarjeta de sección con encabezado (título + subtítulo) y un borde de acento
+// de color a la izquierda, para dar jerarquía visual clara al modal.
+function SectionCard({
+  accent,
+  title,
+  subtitle,
+  children,
+  textPrimary,
+  textMuted,
+  cardBg,
+  cardBorder,
+}: {
+  accent: string;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  textPrimary: string;
+  textMuted: string;
+  cardBg: string;
+  cardBorder: string;
+}) {
+  return (
+    <div
+      style={{
+        background: cardBg,
+        border: `1px solid ${cardBorder}`,
+        borderLeft: `3px solid ${accent}`,
+        borderRadius: 12,
+        marginBottom: 14,
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ padding: "15px 18px 0" }}>
+        <h3 style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: textPrimary }}>
+          {title}
+        </h3>
+        {subtitle && (
+          <p style={{ margin: "3px 0 0", fontSize: 12, color: textMuted, lineHeight: 1.5 }}>
+            {subtitle}
+          </p>
+        )}
+      </div>
+      <div style={{ padding: 18 }}>{children}</div>
+    </div>
   );
 }
 
@@ -631,6 +806,7 @@ function HorariosEditor({
   onChange: (v: HorariosConfig) => void;
   isDark: boolean;
 }) {
+  const { t } = useLang();
   const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
   const textMuted = isDark ? "#64748b" : "#94a3b8";
   const border = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
@@ -692,11 +868,12 @@ function HorariosEditor({
 
   return (
     <div style={{ display: "grid", gap: 8 }}>
-      {DIAS.map((dia, i) => {
+      {DIA_KEYS.map((diaKey, i) => {
+        const dia = t(diaKey);
         const d = value[i] || { cerrado: true, franjas: [] };
         const franjas = d.franjas || [];
         return (
-          <div key={dia} style={{ border: `1px solid ${border}`, borderRadius: 10, padding: "10px 12px" }}>
+          <div key={diaKey} style={{ border: `1px solid ${border}`, borderRadius: 10, padding: "10px 12px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <span style={{ width: 78, fontSize: 13, fontWeight: 600, color: textPrimary }}>
                 {dia}
@@ -730,14 +907,14 @@ function HorariosEditor({
                 />
               </button>
               <span style={{ fontSize: 12, color: textMuted }}>
-                {d.cerrado ? "Cerrado" : "Abierto"}
+                {d.cerrado ? t("cfgClosed") : t("cfgOpen")}
               </span>
               {!d.cerrado && (
                 <button
                   onClick={() => copiarATodos(i)}
                   style={{ marginLeft: "auto", fontSize: 11, color: "#3b82f6", background: "none", border: "none", cursor: "pointer" }}
                 >
-                  Copiar a todos
+                  {t("cfgCopyAll")}
                 </button>
               )}
             </div>
@@ -747,10 +924,10 @@ function HorariosEditor({
                 {franjas.map((f, j) => (
                   <div key={j} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <input type="time" value={f.desde} onChange={(e) => setFranja(i, j, { desde: e.target.value })} style={timeInput} />
-                    <span style={{ color: textMuted, fontSize: 12 }}>a</span>
+                    <span style={{ color: textMuted, fontSize: 12 }}>{t("cfgTo")}</span>
                     <input type="time" value={f.hasta} onChange={(e) => setFranja(i, j, { hasta: e.target.value })} style={timeInput} />
                     {franjas.length > 1 && (
-                      <button onClick={() => removeFranja(i, j)} title="Quitar franja" style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>
+                      <button onClick={() => removeFranja(i, j)} title={t("cfgRemoveRange")} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>
                         ×
                       </button>
                     )}
@@ -761,7 +938,7 @@ function HorariosEditor({
                     onClick={() => addFranja(i)}
                     style={{ fontSize: 12, color: "#3b82f6", background: "none", border: "none", cursor: "pointer", justifySelf: "start", padding: 0 }}
                   >
-                    + Agregar franja (horario cortado)
+                    {t("cfgAddRange")}
                   </button>
                 )}
               </div>
@@ -790,6 +967,7 @@ function ImageField({
   shape: "square" | "wide";
   isDark: boolean;
 }) {
+  const { t } = useLang();
   const border = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)";
   const boxH = 120;
   const boxW = shape === "square" ? 120 : "100%";
@@ -847,7 +1025,7 @@ function ImageField({
               color: "#fff",
             }}
           >
-            {uploading ? "Subiendo…" : url ? "Cambiar" : "Subir imagen"}
+            {uploading ? t("cfgUploading") : url ? t("cfgChange") : t("cfgUploadImg")}
             <input type="file" accept="image/*" onChange={onPick} style={{ display: "none" }} disabled={uploading} />
           </label>
           {url && (
@@ -863,7 +1041,7 @@ function ImageField({
                 textAlign: "left",
               }}
             >
-              Quitar
+              {t("attrRemove")}
             </button>
           )}
         </div>

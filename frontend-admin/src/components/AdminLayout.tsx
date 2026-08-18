@@ -22,6 +22,13 @@ const MoonIcon = () => (
   </svg>
 );
 
+const GearIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} style={{ width: 18, height: 18, flexShrink: 0 }}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 const NAV = [
   {
     permiso: "any",
@@ -211,6 +218,113 @@ const NAV = [
   },
 ];
 
+// Etiqueta de grupo dentro del panel de Configuración (con color de acento).
+const configGroupLabel = (color: string): React.CSSProperties => ({
+  display: "flex",
+  alignItems: "center",
+  gap: 7,
+  padding: "5px 10px 7px",
+  fontSize: 10,
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+  color,
+});
+
+// Punto de color que precede a cada grupo.
+const configDot = (color: string): React.CSSProperties => ({
+  width: 6,
+  height: 6,
+  borderRadius: "50%",
+  background: color,
+  flexShrink: 0,
+});
+
+// Ítem del panel de Configuración. Si `soon` está activo, se muestra
+// deshabilitado con un badge "Próximamente" (funcionalidad futura). Los ítems
+// accionables muestran una flecha en el color de acento del grupo.
+function ConfigSubItem({
+  label,
+  onClick,
+  soon,
+  soonLabel,
+  accent,
+  textColor,
+  muted,
+  hoverBg,
+}: {
+  label: string;
+  onClick?: () => void;
+  soon?: boolean;
+  soonLabel?: string;
+  accent: string;
+  textColor: string;
+  muted: string;
+  hoverBg: string;
+}) {
+  return (
+    <button
+      onClick={soon ? undefined : onClick}
+      disabled={soon}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "8px 10px",
+        borderRadius: 8,
+        border: "none",
+        width: "100%",
+        background: "transparent",
+        color: soon ? muted : textColor,
+        fontSize: 12.5,
+        fontWeight: 500,
+        cursor: soon ? "default" : "pointer",
+        textAlign: "left",
+        transition: "background 0.15s",
+      }}
+      onMouseEnter={(e) => {
+        if (soon) return;
+        (e.currentTarget as HTMLButtonElement).style.background = hoverBg;
+      }}
+      onMouseLeave={(e) => {
+        if (soon) return;
+        (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+      }}
+    >
+      <span style={{ flex: 1 }}>{label}</span>
+      {soon ? (
+        <span
+          style={{
+            fontSize: 9,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.03em",
+            padding: "2px 7px",
+            borderRadius: 999,
+            background: "rgba(245,158,11,0.16)",
+            color: "#d97706",
+            flexShrink: 0,
+          }}
+        >
+          {soonLabel}
+        </span>
+      ) : (
+        <svg
+          viewBox="0 0 24 24"
+          width={13}
+          height={13}
+          fill="none"
+          stroke={accent}
+          strokeWidth={2.2}
+          style={{ flexShrink: 0 }}
+        >
+          <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 const rolColor: Record<string, string> = {
   admin: "#3b82f6",
   staff: "#8b5cf6",
@@ -251,8 +365,14 @@ export default function AdminLayout({
   const [nuevosPedidos, setNuevosPedidos] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [negOpen, setNegOpen] = useState(false);
-  const [verMenuHover, setVerMenuHover] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [configOpen, setConfigOpen] = useState(false);
+  const [configPos, setConfigPos] = useState<{ left: number; bottom: number }>({
+    left: 0,
+    bottom: 0,
+  });
+  const configBtnRef = useRef<HTMLButtonElement>(null);
+  const configPanelRef = useRef<HTMLDivElement>(null);
   const [stockBajo, setStockBajo] = useState<
     { id: number; nombre: string; stock: number }[]
   >([]);
@@ -375,6 +495,36 @@ export default function AdminLayout({
     return () => document.removeEventListener("mousedown", onClick);
   }, [stockOpen]);
 
+  // El panel de Configuración se abre "hacia el costado" (flotante). Como el
+  // sidebar tiene overflow:hidden, lo posicionamos con position:fixed usando
+  // el rect del botón. Se cierra al hacer click fuera del botón y del panel.
+  const toggleConfig = () => {
+    if (!configOpen) {
+      const r = configBtnRef.current?.getBoundingClientRect();
+      if (r)
+        setConfigPos({
+          left: r.right + 8,
+          bottom: Math.max(12, window.innerHeight - r.bottom),
+        });
+    }
+    setConfigOpen((v) => !v);
+  };
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        configBtnRef.current &&
+        !configBtnRef.current.contains(target) &&
+        configPanelRef.current &&
+        !configPanelRef.current.contains(target)
+      )
+        setConfigOpen(false);
+    };
+    if (configOpen) document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [configOpen]);
+
   const visible = NAV.filter((n) =>
     n.permiso === "any"
       ? true
@@ -477,12 +627,7 @@ export default function AdminLayout({
           {visible.map((item) => {
             const active = isActive(item.ruta);
             return (
-              <div
-                key={item.ruta}
-                style={{ position: "relative" }}
-                onMouseEnter={() => item.external && setVerMenuHover(true)}
-                onMouseLeave={() => item.external && setVerMenuHover(false)}
-              >
+              <div key={item.ruta} style={{ position: "relative" }}>
               <button
                 onClick={() =>
                   item.external
@@ -569,36 +714,6 @@ export default function AdminLayout({
                   </svg>
                 )}
               </button>
-              {item.external && !collapsed && verMenuHover && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowConfigModal(true);
-                  }}
-                  title={t("configMenu")}
-                  style={{
-                    position: "absolute",
-                    right: 6,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    width: 26,
-                    height: 26,
-                    borderRadius: 7,
-                    border: "none",
-                    background: isDark ? "#0f1117" : "#e2e8f0",
-                    color: isDark ? "#cbd5e1" : "#475569",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 16,
-                    lineHeight: 1,
-                    fontWeight: 700,
-                  }}
-                >
-                  ⋮
-                </button>
-              )}
               </div>
             );
           })}
@@ -614,6 +729,60 @@ export default function AdminLayout({
             gap: 2,
           }}
         >
+          {/* Configuración: abre un panel flotante hacia el costado (agrupa
+              perfil personal y config del menú del negocio). Se ubica arriba
+              del bloque del usuario. */}
+          <button
+            ref={configBtnRef}
+            onClick={toggleConfig}
+            title={collapsed ? t("pageConfig") : undefined}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 9,
+              padding: collapsed ? "9px 0" : "9px 11px",
+              justifyContent: collapsed ? "center" : "flex-start",
+              borderRadius: 8,
+              border: "none",
+              cursor: "pointer",
+              background: configOpen ? navBgActive : "transparent",
+              color: configOpen ? navActiveColor : navColor,
+              fontSize: 13,
+              width: "100%",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              if (configOpen) return;
+              (e.currentTarget as HTMLButtonElement).style.background = navHoverBg;
+              (e.currentTarget as HTMLButtonElement).style.color = navHoverColor;
+            }}
+            onMouseLeave={(e) => {
+              if (configOpen) return;
+              (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+              (e.currentTarget as HTMLButtonElement).style.color = navColor;
+            }}
+          >
+            <GearIcon />
+            {!collapsed && (
+              <span style={{ flex: 1, textAlign: "left", whiteSpace: "nowrap" }}>
+                {t("pageConfig")}
+              </span>
+            )}
+            {!collapsed && (
+              <svg
+                viewBox="0 0 24 24"
+                width={12}
+                height={12}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                style={{ flexShrink: 0, opacity: 0.7 }}
+              >
+                <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
+
           {/* Usuario (antes estaba dentro de "Ajustes") */}
           {user && (
             <div
@@ -835,7 +1004,7 @@ export default function AdminLayout({
                       textOverflow: "ellipsis",
                     }}
                   >
-                    {negocioActual?.nombre || `Negocio ${negocioId}`}
+                    {negocioActual?.nombre || t("bizFallback", { n: negocioId })}
                   </span>
                   <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={2}>
                     <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
@@ -1160,6 +1329,109 @@ export default function AdminLayout({
           {children}
         </main>
       </div>
+
+      {/* Panel flotante de Configuración (se abre hacia el costado) */}
+      {configOpen && (
+        <div
+          ref={configPanelRef}
+          style={{
+            position: "fixed",
+            left: configPos.left,
+            bottom: configPos.bottom,
+            width: 252,
+            background: isDark ? "#1a1d27" : "#ffffff",
+            border: `1px solid ${sidebarBorder}`,
+            borderRadius: 12,
+            boxShadow: "0 12px 40px rgba(0,0,0,0.28)",
+            zIndex: 120,
+            overflow: "hidden",
+            animation: "cfgIn .16s ease",
+          }}
+        >
+          <style>{`@keyframes cfgIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}`}</style>
+
+          {/* Encabezado */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "12px 14px",
+              borderBottom: `1px solid ${sidebarBorder}`,
+              background: isDark ? "rgba(59,130,246,0.10)" : "rgba(59,130,246,0.06)",
+              color: textPrimary,
+              fontSize: 13.5,
+              fontWeight: 700,
+            }}
+          >
+            <span style={{ color: "#3b82f6", display: "flex" }}>
+              <GearIcon />
+            </span>
+            {t("pageConfig")}
+          </div>
+
+          {/* ── Perfil (cuenta personal) ── */}
+          <div style={{ padding: "8px 8px 6px" }}>
+            <div style={configGroupLabel("#3b82f6")}>
+              <span style={configDot("#3b82f6")} />
+              {t("cfgGroupProfile")}
+            </div>
+            <ConfigSubItem
+              label={t("profileEdit")}
+              soon
+              soonLabel={t("soon")}
+              accent="#3b82f6"
+              textColor={textPrimary}
+              muted={textMuted}
+              hoverBg={navHoverBg}
+            />
+            <ConfigSubItem
+              label={t("profileEmail")}
+              soon
+              soonLabel={t("soon")}
+              accent="#3b82f6"
+              textColor={textPrimary}
+              muted={textMuted}
+              hoverBg={navHoverBg}
+            />
+            <ConfigSubItem
+              label={t("usrChangePw")}
+              onClick={() => {
+                setConfigOpen(false);
+                navigate("/admin/cambiar-password");
+              }}
+              accent="#3b82f6"
+              textColor={textPrimary}
+              muted={textMuted}
+              hoverBg={navHoverBg}
+            />
+          </div>
+
+          {/* ── Menú del negocio ── */}
+          {hasPermiso("configuracion") && (
+            <>
+              <div style={{ height: 1, background: sidebarBorder }} />
+              <div style={{ padding: "8px 8px 10px" }}>
+                <div style={configGroupLabel("#8b5cf6")}>
+                  <span style={configDot("#8b5cf6")} />
+                  {t("cfgGroupMenu")}
+                </div>
+                <ConfigSubItem
+                  label={t("configModalTitle")}
+                  onClick={() => {
+                    setConfigOpen(false);
+                    setShowConfigModal(true);
+                  }}
+                  accent="#8b5cf6"
+                  textColor={textPrimary}
+                  muted={textMuted}
+                  hoverBg={navHoverBg}
+                />
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Toast de pedido nuevo */}
       {toast && (

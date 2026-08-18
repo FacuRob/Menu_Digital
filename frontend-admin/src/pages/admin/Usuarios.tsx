@@ -7,6 +7,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import AdminLayout from "../../components/AdminLayout";
 import { useStyles } from "../../components/sharedStyles";
+import { useLang, LOCALE } from "../../lib/i18n";
 import { IconEye, IconEyeOff, IconAlert } from "../../lib/icons";
 
 type Mode = "crear" | "editar" | "password" | null;
@@ -69,6 +70,27 @@ const ROL_COLOR: Record<string, { bg: string; text: string; border: string }> =
 // asigna desde acá: es un flag de servidor (es_plataforma).
 const ROLES_ASIGNABLES = ["admin", "staff"];
 
+// La descripción del rol y los permisos llegan del backend en español. Los
+// traducimos en el cliente mapeando por código; si el código no está mapeado,
+// se usa el texto original como respaldo.
+const ROLE_DESC_KEY: Record<string, string> = {
+  admin: "roleDescAdmin",
+  staff: "roleDescStaff",
+  superadmin: "roleDescAdmin",
+  editor: "roleDescStaff",
+  visor: "roleDescStaff",
+};
+const PERM_KEY: Record<string, string> = {
+  productos: "navProductos",
+  categorias: "navCategorias",
+  pedidos: "navPedidos",
+  stock: "permStock",
+  qr: "navQr",
+  usuarios: "navUsuarios",
+  configuracion: "pageConfig",
+  plataforma: "navPlataforma",
+};
+
 const inputFocus = (e: React.FocusEvent<any>) =>
   (e.target.style.borderColor = "#3b82f6");
 const inputBlur = (e: React.FocusEvent<any>) =>
@@ -76,6 +98,7 @@ const inputBlur = (e: React.FocusEvent<any>) =>
 
 export default function Usuarios() {
   const S = useStyles();
+  const { t, lang } = useLang();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [roles, setRoles] = useState<RolPermiso[]>([]);
   const [loading, setLoading] = useState(true);
@@ -183,12 +206,12 @@ export default function Usuarios() {
   };
 
   const del = async (u: Usuario) => {
-    if (!confirm(`¿Eliminar a "${u.username}"?`)) return;
+    if (!confirm(t("usrConfirmDelete", { name: u.username }))) return;
     try {
       await usuariosService.delete(u.id);
       await fetch_();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Error al eliminar");
+      alert(err.response?.data?.message || t("usrDeleteError"));
     }
   };
 
@@ -205,6 +228,13 @@ export default function Usuarios() {
   const rolesAsignables = roles.filter((r) =>
     ROLES_ASIGNABLES.includes(r.rol),
   );
+
+  // Descripción del rol traducida (respaldo: texto del backend).
+  const rolDesc = (rol: string, fallback?: string) =>
+    ROLE_DESC_KEY[rol] ? t(ROLE_DESC_KEY[rol]) : fallback || "";
+  // Nombre de permiso traducido (respaldo: código crudo).
+  const permLabel = (p: string) =>
+    p === "*" ? t("usrPermAll") : PERM_KEY[p] ? t(PERM_KEY[p]) : p;
 
   const RolBadge = ({ rol }: { rol: string }) => {
     const c = ROL_COLOR[rol] || ROL_COLOR.visor;
@@ -226,7 +256,7 @@ export default function Usuarios() {
   };
 
   return (
-    <AdminLayout title="Usuarios">
+    <AdminLayout title={t("navUsuarios")}>
       {/* Rol cards */}
       <div
         style={{
@@ -247,7 +277,7 @@ export default function Usuarios() {
                 lineHeight: 1.5,
               }}
             >
-              {r.descripcion}
+              {rolDesc(r.rol, r.descripcion)}
             </div>
             <div
               style={{
@@ -270,7 +300,7 @@ export default function Usuarios() {
                     borderRadius: 6,
                   }}
                 >
-                  {p === "*" ? "Todo" : p}
+                  {permLabel(p)}
                 </span>
               ))}
             </div>
@@ -288,7 +318,7 @@ export default function Usuarios() {
         }}
       >
         <span style={{ color: "#475569", fontSize: 12 }}>
-          {usuarios.length} usuarios
+          {t("usrCount", { n: usuarios.length })}
         </span>
         <button
           style={S.btnPrimary}
@@ -296,7 +326,7 @@ export default function Usuarios() {
           onMouseEnter={(e) => (e.currentTarget.style.background = "#2563eb")}
           onMouseLeave={(e) => (e.currentTarget.style.background = "#3b82f6")}
         >
-          <PlusIcon /> Nuevo usuario
+          <PlusIcon /> {t("usrNew")}
         </button>
       </div>
 
@@ -323,13 +353,13 @@ export default function Usuarios() {
               <thead style={S.thead}>
                 <tr>
                   {[
-                    "Usuario",
-                    "Nombre",
-                    "Email",
-                    "Rol",
-                    "Estado",
-                    "Creado",
-                    "Acciones",
+                    t("usrColUser"),
+                    t("colName"),
+                    t("colEmail"),
+                    t("colRole"),
+                    t("colStatus"),
+                    t("usrColCreated"),
+                    t("colActions"),
                   ].map((h) => (
                     <th key={h} style={S.th}>
                       {h}
@@ -391,7 +421,7 @@ export default function Usuarios() {
                               borderRadius: 10,
                             }}
                           >
-                            vos
+                            {t("usrYou")}
                           </span>
                         )}
                       </div>
@@ -416,7 +446,7 @@ export default function Usuarios() {
                             fontSize: 12,
                           }}
                         >
-                          sin email
+                          {t("usrNoEmail")}
                         </span>
                       )}
                     </td>
@@ -447,12 +477,12 @@ export default function Usuarios() {
                             background: u.activo ? "#10b981" : "#ef4444",
                           }}
                         />
-                        {u.activo ? "Activo" : "Inactivo"}
+                        {u.activo ? t("statusActive") : t("statusInactive")}
                       </button>
                     </td>
                     <td style={S.tdMuted}>
                       {u.created_at
-                        ? new Date(u.created_at).toLocaleDateString("es-AR")
+                        ? new Date(u.created_at).toLocaleDateString(LOCALE[lang])
                         : "—"}
                     </td>
                     <td style={S.td}>
@@ -468,7 +498,7 @@ export default function Usuarios() {
                             padding: 0,
                           }}
                         >
-                          Editar
+                          {t("actionEdit")}
                         </button>
                         <button
                           onClick={() => open("password", u)}
@@ -481,11 +511,11 @@ export default function Usuarios() {
                             padding: 0,
                           }}
                         >
-                          Password
+                          {t("usrPasswordBtn")}
                         </button>
                         {u.id !== me?.id && (
                           <button onClick={() => del(u)} style={S.btnDanger}>
-                            Eliminar
+                            {t("actionDelete")}
                           </button>
                         )}
                       </div>
@@ -505,10 +535,10 @@ export default function Usuarios() {
             <div style={S.modalHeader}>
               <span style={{ color: "#1e293b", fontWeight: 600, fontSize: 15 }}>
                 {mode === "crear"
-                  ? "Nuevo usuario"
+                  ? t("usrNew")
                   : mode === "editar"
-                    ? `Editar: ${selected?.username}`
-                    : `Password: ${selected?.username}`}
+                    ? t("usrEditName", { name: selected?.username || "" })
+                    : t("usrPwName", { name: selected?.username || "" })}
               </span>
               <button
                 onClick={close}
@@ -537,12 +567,12 @@ export default function Usuarios() {
                 {mode === "crear" && (
                   <>
                     <div>
-                      <label style={S.label}>Username *</label>
+                      <label style={S.label}>{t("usrUsernameField")}</label>
                       <input
                         style={S.input}
                         required
                         value={form.username}
-                        placeholder="ej: maria_garcia"
+                        placeholder={t("usrUsernamePh")}
                         onChange={(e) =>
                           setForm({ ...form, username: e.target.value })
                         }
@@ -558,11 +588,11 @@ export default function Usuarios() {
                       }}
                     >
                       <div>
-                        <label style={S.label}>Nombre</label>
+                        <label style={S.label}>{t("colName")}</label>
                         <input
                           style={S.input}
                           value={form.nombre}
-                          placeholder="ej: María García"
+                          placeholder={t("usrNamePh")}
                           onChange={(e) =>
                             setForm({ ...form, nombre: e.target.value })
                           }
@@ -571,14 +601,14 @@ export default function Usuarios() {
                         />
                       </div>
                       <div>
-                        <label style={S.label}>Contraseña *</label>
+                        <label style={S.label}>{`${t("password")} *`}</label>
                         <input
                           style={S.input}
                           type="password"
                           required
                           minLength={6}
                           value={form.password}
-                          placeholder="Mín. 6 caracteres"
+                          placeholder={t("usrPwPh6")}
                           onChange={(e) =>
                             setForm({ ...form, password: e.target.value })
                           }
@@ -589,7 +619,7 @@ export default function Usuarios() {
                     </div>
                     <div>
                       <label style={S.label}>
-                        Email
+                        {t("colEmail")}
                         <span
                           style={{
                             color: "#94a3b8",
@@ -600,14 +630,14 @@ export default function Usuarios() {
                             fontSize: 10,
                           }}
                         >
-                          — usado para recuperar contraseña
+                          {" "}{t("usrEmailHint")}
                         </span>
                       </label>
                       <input
                         style={S.input}
                         type="email"
                         value={form.email}
-                        placeholder="ej: maria@empresa.com"
+                        placeholder={t("usrEmailPh")}
                         onChange={(e) =>
                           setForm({ ...form, email: e.target.value })
                         }
@@ -628,7 +658,7 @@ export default function Usuarios() {
                       >
                         {rolesAsignables.map((r) => (
                           <option key={r.rol} value={r.rol}>
-                            {r.rol} — {r.descripcion}
+                            {r.rol} — {rolDesc(r.rol, r.descripcion)}
                           </option>
                         ))}
                       </select>
@@ -646,11 +676,11 @@ export default function Usuarios() {
                       }}
                     >
                       <div>
-                        <label style={S.label}>Nombre</label>
+                        <label style={S.label}>{t("colName")}</label>
                         <input
                           style={S.input}
                           value={form.nombre}
-                          placeholder="ej: María García"
+                          placeholder={t("usrNamePh")}
                           onChange={(e) =>
                             setForm({ ...form, nombre: e.target.value })
                           }
@@ -659,7 +689,7 @@ export default function Usuarios() {
                         />
                       </div>
                       <div>
-                        <label style={S.label}>Rol</label>
+                        <label style={S.label}>{t("colRole")}</label>
                         <select
                           style={{
                             ...S.input,
@@ -684,7 +714,7 @@ export default function Usuarios() {
                     </div>
                     <div>
                       <label style={S.label}>
-                        Email
+                        {t("colEmail")}
                         <span
                           style={{
                             color: "#94a3b8",
@@ -695,14 +725,14 @@ export default function Usuarios() {
                             fontSize: 10,
                           }}
                         >
-                          — usado para recuperar contraseña
+                          {" "}{t("usrEmailHint")}
                         </span>
                       </label>
                       <input
                         style={S.input}
                         type="email"
                         value={form.email}
-                        placeholder="ej: maria@empresa.com"
+                        placeholder={t("usrEmailPh")}
                         onChange={(e) =>
                           setForm({ ...form, email: e.target.value })
                         }
@@ -747,7 +777,7 @@ export default function Usuarios() {
                         />
                       </div>
                       <span style={{ color: "#64748b", fontSize: 13 }}>
-                        Usuario activo
+                        {t("usrActiveToggle")}
                       </span>
                     </div>
                   </>
@@ -755,7 +785,7 @@ export default function Usuarios() {
 
                 {mode === "password" && (
                   <div>
-                    <label style={S.label}>Nueva contraseña</label>
+                    <label style={S.label}>{t("newPassword")}</label>
                     <div style={{ position: "relative" }}>
                       <input
                         style={S.input}
@@ -763,7 +793,7 @@ export default function Usuarios() {
                         required
                         minLength={6}
                         value={newPwd}
-                        placeholder="Mínimo 6 caracteres"
+                        placeholder={t("min6")}
                         onChange={(e) => setNewPwd(e.target.value)}
                         onFocus={inputFocus}
                         onBlur={inputBlur}
@@ -821,7 +851,7 @@ export default function Usuarios() {
                       "rgba(0,0,0,0.04)")
                   }
                 >
-                  Cancelar
+                  {t("actionCancel")}
                 </button>
                 <button
                   type="submit"
@@ -843,12 +873,12 @@ export default function Usuarios() {
                   }
                 >
                   {saving
-                    ? "Guardando..."
+                    ? t("saving")
                     : mode === "crear"
-                      ? "Crear usuario"
+                      ? t("usrCreate")
                       : mode === "editar"
-                        ? "Guardar cambios"
-                        : "Cambiar contraseña"}
+                        ? t("saveChanges")
+                        : t("usrChangePw")}
                 </button>
               </div>
             </form>

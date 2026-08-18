@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { authService, getApiErrorMessage } from "../../services/api";
 import { BRAND_LOGO, BRAND_NAME } from "../../lib/brand";
+import { useLang } from "../../lib/i18n";
 import { IconEye, IconEyeOff, IconAlert, IconCheck } from "../../lib/icons";
 
 // Página pública para restablecer la contraseña con el token de un solo uso
@@ -12,6 +13,7 @@ export default function ResetPassword() {
   const [params] = useSearchParams();
   const token = params.get("token") || "";
   const navigate = useNavigate();
+  const { t } = useLang();
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -24,11 +26,11 @@ export default function ResetPassword() {
     e.preventDefault();
     setError("");
     if (password.length < 8) {
-      setError("La contraseña debe tener al menos 8 caracteres.");
+      setError(t("rpErrMin8"));
       return;
     }
     if (password !== confirm) {
-      setError("Las contraseñas no coinciden.");
+      setError(t("rpErrMismatch"));
       return;
     }
     setLoading(true);
@@ -36,12 +38,7 @@ export default function ResetPassword() {
       await authService.resetPassword(token, password);
       setDone(true);
     } catch (err) {
-      setError(
-        getApiErrorMessage(
-          err,
-          "No se pudo restablecer la contraseña. El enlace puede haber expirado.",
-        ),
-      );
+      setError(getApiErrorMessage(err, t("rpErrReset")));
     } finally {
       setLoading(false);
     }
@@ -107,10 +104,10 @@ export default function ResetPassword() {
               margin: "0 0 4px",
             }}
           >
-            Nueva contraseña
+            {t("newPassword")}
           </h1>
           <p style={{ color: "#475569", fontSize: 13, margin: 0 }}>
-            Elegí una contraseña nueva para tu cuenta
+            {t("rpSubtitle")}
           </p>
         </div>
 
@@ -132,14 +129,13 @@ export default function ResetPassword() {
               }}
             >
               <p style={{ color: "#f87171", fontSize: 14, margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                <IconAlert size={15} style={{ flexShrink: 0 }} /> El enlace no es
-                válido. Solicitá uno nuevo desde “Olvidé mi contraseña”.
+                <IconAlert size={15} style={{ flexShrink: 0 }} /> {t("rpInvalidLink")}
               </p>
               <button
                 onClick={() => navigate("/admin/login")}
                 style={primaryBtn}
               >
-                Ir al login
+                {t("rpGoLogin")}
               </button>
             </div>
           ) : done ? (
@@ -168,13 +164,13 @@ export default function ResetPassword() {
                 <IconCheck size={26} />
               </div>
               <p style={{ color: "#f1f5f9", fontSize: 15, fontWeight: 600, margin: 0 }}>
-                Contraseña actualizada
+                {t("rpDone")}
               </p>
               <button
                 onClick={() => navigate("/admin/login")}
                 style={primaryBtn}
               >
-                Iniciar sesión
+                {t("authTabLogin")}
               </button>
             </div>
           ) : (
@@ -183,7 +179,7 @@ export default function ResetPassword() {
               style={{ display: "flex", flexDirection: "column", gap: 16 }}
             >
               <div>
-                <label style={label}>Nueva contraseña</label>
+                <label style={label}>{t("newPassword")}</label>
                 <div style={{ position: "relative" }}>
                   <input
                     style={inp}
@@ -192,7 +188,7 @@ export default function ResetPassword() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     autoComplete="new-password"
-                    placeholder="Mínimo 8 caracteres"
+                    placeholder={t("rpPwPh8")}
                   />
                   <button
                     type="button"
@@ -214,7 +210,7 @@ export default function ResetPassword() {
                 </div>
               </div>
               <div>
-                <label style={label}>Repetir contraseña</label>
+                <label style={label}>{t("repeatPassword")}</label>
                 <input
                   style={inp}
                   type={showPwd ? "text" : "password"}
@@ -245,7 +241,7 @@ export default function ResetPassword() {
               )}
 
               <button type="submit" disabled={loading} style={primaryBtn}>
-                {loading ? "Guardando…" : "Guardar contraseña"}
+                {loading ? t("saving") : t("rpSave")}
               </button>
               <button
                 type="button"
@@ -260,7 +256,7 @@ export default function ResetPassword() {
                   padding: 0,
                 }}
               >
-                Volver al login
+                {t("backToLogin")}
               </button>
             </form>
           )}
