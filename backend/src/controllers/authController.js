@@ -15,9 +15,10 @@ const buildResetUrl = (token) => {
   return `${base}/reset-password?token=${token}`;
 };
 
-// Roles asignables vía API. 'admin' = dueño del negocio, 'staff' = personal.
-// El "SuperAdmin" (plataforma) es el flag es_plataforma, no un rol asignable.
-const rolesValidos = ["admin", "staff"];
+// Roles asignables por el endpoint /register (protegido con permiso "*", o sea
+// el dueño). Labels: admin=SuperAdmin (dueño), manager=Admin (2º jefe),
+// staff=Staff. El "HiperAdmin" es el flag es_plataforma, no un rol asignable.
+const rolesValidos = ["admin", "manager", "staff"];
 
 // ─── REGISTER ───────────────────────────────────────────────
 const register = async (req, res) => {
@@ -26,7 +27,7 @@ const register = async (req, res) => {
 
     if (!rolesValidos.includes(rol)) {
       return res.status(400).json({
-        message: "Rol inválido. Debe ser: admin o staff",
+        message: "Rol inválido. Debe ser: admin, manager o staff",
       });
     }
 
@@ -282,7 +283,10 @@ const signup = async (req, res) => {
     if (error) throw error;
 
     const session = await issueSession(user);
-    return res.status(201).json({ message: "Cuenta creada", ...session });
+    // nuevo:true → el front lleva al onboarding (calibración inicial del negocio).
+    return res
+      .status(201)
+      .json({ message: "Cuenta creada", nuevo: true, ...session });
   } catch (error) {
     return respondError(res, error, "signup");
   }
@@ -332,7 +336,9 @@ const googleAuth = async (req, res) => {
       .eq("email", email)
       .maybeSingle();
 
+    let creado = false;
     if (!user) {
+      creado = true;
       // Alta nueva (trial). Contraseña aleatoria: nunca se usa (entra por Google).
       const cuenta = await crearCuentaConNegocio({
         nombre: nombre || email,
@@ -367,7 +373,12 @@ const googleAuth = async (req, res) => {
     }
 
     const session = await issueSession(user);
-    return res.json({ message: "Login con Google exitoso", ...session });
+    // nuevo:true sólo si se acaba de crear la cuenta → onboarding inicial.
+    return res.json({
+      message: "Login con Google exitoso",
+      nuevo: creado,
+      ...session,
+    });
   } catch (error) {
     return respondError(res, error, "googleAuth");
   }

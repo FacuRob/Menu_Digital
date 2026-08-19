@@ -2,6 +2,10 @@ const supabase = require("../config/database");
 const { respondError } = require("../utils/respondError");
 const { getCuentaId, getAuthScope } = require("../utils/cuenta");
 
+// Rubros soportados (multi-rubro). Debe coincidir con el CHECK de la BD
+// (db/multirubro.sql → chk_tipo_rubro) y con configuracionController.
+const RUBROS = ["gastronomia", "retail", "servicios", "generico"];
+
 const slugify = (s) =>
   (s || "")
     .toLowerCase()
@@ -57,9 +61,12 @@ const getNegocios = async (req, res) => {
 // Crear un negocio + su fila de configuración inicial.
 const createNegocio = async (req, res) => {
   try {
-    const { nombre, slug } = req.body;
+    const { nombre, slug, tipo_rubro } = req.body;
     if (!nombre || !nombre.trim()) {
       return res.status(400).json({ message: "El nombre es obligatorio" });
+    }
+    if (tipo_rubro !== undefined && !RUBROS.includes(tipo_rubro)) {
+      return res.status(400).json({ message: "Tipo de rubro inválido" });
     }
 
     const finalSlug = (slug && slugify(slug)) || slugify(nombre) || `negocio`;
@@ -70,11 +77,18 @@ const createNegocio = async (req, res) => {
       return res.status(403).json({ message: "Usuario sin cuenta asociada" });
     }
 
+    const nuevoNegocio = {
+      nombre: nombre.trim(),
+      slug: finalSlug,
+      activo: true,
+      cuenta_id: cuentaId,
+    };
+    // Rubro opcional: si no viene, la BD aplica el default 'gastronomia'.
+    if (tipo_rubro !== undefined) nuevoNegocio.tipo_rubro = tipo_rubro;
+
     const { data: negocio, error } = await supabase
       .from("negocios")
-      .insert([
-        { nombre: nombre.trim(), slug: finalSlug, activo: true, cuenta_id: cuentaId },
-      ])
+      .insert([nuevoNegocio])
       .select()
       .single();
 
@@ -95,7 +109,11 @@ const createNegocio = async (req, res) => {
 const updateNegocio = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, slug, activo } = req.body;
+    const { nombre, slug, activo, tipo_rubro } = req.body;
+
+    if (tipo_rubro !== undefined && !RUBROS.includes(tipo_rubro)) {
+      return res.status(400).json({ message: "Tipo de rubro inválido" });
+    }
 
     const { cuentaId, esPlataforma } = await getAuthScope(req);
     if (!cuentaId && !esPlataforma) {
@@ -105,6 +123,7 @@ const updateNegocio = async (req, res) => {
     const patch = { activo };
     if (nombre !== undefined) patch.nombre = nombre;
     if (slug !== undefined) patch.slug = slugify(slug);
+    if (tipo_rubro !== undefined) patch.tipo_rubro = tipo_rubro;
 
     // El .eq("cuenta_id") impide editar negocios de otra cuenta (salvo plataforma).
     let q = supabase.from("negocios").update(patch).eq("id", id);

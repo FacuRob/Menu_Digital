@@ -18,7 +18,7 @@ const registerSchema = z.object({
     .max(200),
   nombre: z.string().trim().max(120).optional().nullable(),
   email: z.string().trim().email("Email inválido").max(120).optional().nullable(),
-  rol: z.enum(["admin", "staff"]).optional(),
+  rol: z.enum(["admin", "manager", "staff"]).optional(),
 });
 
 // Alta self-serve (crear cuenta nueva). Público, con rate-limit.

@@ -3,9 +3,32 @@ const bcrypt = require("bcryptjs");
 const { getCuentaId, getAuthScope } = require("../utils/cuenta");
 const { respondError } = require("../utils/respondError");
 
-// 'admin' = dueño del negocio, 'staff' = personal. El "SuperAdmin"
-// (plataforma) es el flag es_plataforma, nunca asignable vía API.
-const rolesValidos = ["admin", "staff"];
+// Labels visibles → claves DB:
+//   HiperAdmin = flag es_plataforma (nunca asignable vía API)
+//   SuperAdmin = 'admin'   (dueño; se crea en el registro, no acá)
+//   Admin      = 'manager' (segundo jefe; crea SOLO staff)
+//   Staff      = 'staff'
+const rolesValidos = ["admin", "manager", "staff"];
+
+// Roles que cada nivel puede ASIGNAR/gestionar (crear, editar rol, borrar).
+// El dueño (admin / plataforma) crea Admin y Staff; el Admin (manager) SOLO
+// crea Staff. Nadie crea otro dueño vía API (el dueño nace en el registro).
+const rolesAsignablesPor = (reqUser) => {
+  if (reqUser.es_plataforma === true || reqUser.rol === "admin")
+    return ["manager", "staff"];
+  if (reqUser.rol === "manager") return ["staff"];
+  return [];
+};
+
+// Trae rol + cuenta de un usuario destino (para validar jerarquía y aislamiento).
+const getTargetUsuario = async (id) => {
+  const { data } = await supabase
+    .from("usuarios")
+    .select("id, rol, cuenta_id")
+    .eq("id", id)
+    .single();
+  return data || null;
+};
 
 const getUsuarios = async (req, res) => {
   try {
@@ -60,12 +83,14 @@ const createUsuario = async (req, res) => {
         .status(400)
         .json({ message: "Username y password son requeridos" });
     }
-    if (!rolesValidos.includes(rol)) {
-      return res
-        .status(400)
-        .json({
-          message: "Rol inválido. Opciones: " + rolesValidos.join(", "),
-        });
+    // Jerarquía: sólo se puede crear un rol que el nivel del creador permita.
+    const asignables = rolesAsignablesPor(req.user);
+    if (!asignables.includes(rol)) {
+      return res.status(403).json({
+        message:
+          "No podés crear usuarios con ese rol. Permitidos: " +
+          (asignables.join(", ") || "ninguno"),
+      });
     }
 
     const { data: existing } = await supabase
@@ -120,17 +145,36 @@ const updateUsuario = async (req, res) => {
     const { id } = req.params;
     const { nombre, email, rol, activo } = req.body;
 
-    if (req.user.id === parseInt(id) && rol && rol !== "admin") {
+    // Nadie cambia su propio rol (evita auto-degradarse o auto-promoverse).
+    if (req.user.id === parseInt(id) && rol && rol !== req.user.rol) {
       return res
         .status(400)
-        .json({ message: "No podés cambiar tu propio rol de admin" });
+        .json({ message: "No podés cambiar tu propio rol" });
     }
-    if (rol && !rolesValidos.includes(rol)) {
-      return res
-        .status(400)
-        .json({
-          message: "Rol inválido. Opciones: " + rolesValidos.join(", "),
-        });
+
+    const asignables = rolesAsignablesPor(req.user);
+
+    // Sólo se puede editar a usuarios que el nivel del editor gestiona.
+    // (El dueño gestiona manager/staff; el manager sólo staff.) El editor
+    // puede editarse a sí mismo. Nadie edita a un dueño (admin) ajeno.
+    if (req.user.id !== parseInt(id)) {
+      const target = await getTargetUsuario(id);
+      if (!target)
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      if (!asignables.includes(target.rol)) {
+        return res
+          .status(403)
+          .json({ message: "No tenés permiso para editar a este usuario" });
+      }
+    }
+
+    // Si se cambia el rol, el nuevo rol debe estar dentro de lo asignable.
+    if (rol && !asignables.includes(rol)) {
+      return res.status(403).json({
+        message:
+          "No podés asignar ese rol. Permitidos: " +
+          (asignables.join(", ") || "ninguno"),
+      });
     }
 
     if (email) {
@@ -188,6 +232,19 @@ const cambiarPassword = async (req, res) => {
       return res.status(403).json({ message: "Usuario sin cuenta asociada" });
     }
 
+    // Jerarquía: sólo se puede resetear la clave de usuarios que el nivel del
+    // solicitante gestiona, o la propia.
+    if (req.user.id !== parseInt(id)) {
+      const target = await getTargetUsuario(id);
+      if (!target)
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      if (!rolesAsignablesPor(req.user).includes(target.rol)) {
+        return res
+          .status(403)
+          .json({ message: "No tenés permiso para cambiar esta contraseña" });
+      }
+    }
+
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -220,6 +277,16 @@ const deleteUsuario = async (req, res) => {
     const { cuentaId, esPlataforma } = await getAuthScope(req);
     if (!cuentaId && !esPlataforma) {
       return res.status(403).json({ message: "Usuario sin cuenta asociada" });
+    }
+    // Jerarquía: sólo se puede borrar a usuarios de un rol que el nivel del
+    // solicitante gestiona (el manager no borra dueños ni otros manager).
+    const target = await getTargetUsuario(id);
+    if (!target)
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    if (!rolesAsignablesPor(req.user).includes(target.rol)) {
+      return res
+        .status(403)
+        .json({ message: "No tenés permiso para eliminar a este usuario" });
     }
     let q = supabase.from("usuarios").delete().eq("id", id);
     if (!esPlataforma) q = q.eq("cuenta_id", cuentaId);

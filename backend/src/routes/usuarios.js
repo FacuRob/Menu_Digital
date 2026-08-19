@@ -12,16 +12,18 @@ const {
   getRoles,
 } = require("../controllers/usuariosController");
 
-// Todas las rutas requieren auth + permiso "*" (rol admin). El staff, con
-// permisos acotados, no accede a la gestión de usuarios.
-const soloAdmin = [authMiddleware, checkPermiso("*")];
+// Gestión de usuarios: requiere el permiso "usuarios". Lo tienen el dueño
+// (rol 'admin', vía "*") y el "Admin" (rol 'manager'). El staff no lo tiene.
+// La jerarquía fina (quién puede crear/editar/borrar a quién) se valida en el
+// controller: el manager sólo gestiona staff.
+const gestionUsuarios = [authMiddleware, checkPermiso("usuarios")];
 
-router.get("/", ...soloAdmin, getUsuarios);
-router.get("/roles", ...soloAdmin, getRoles);
-router.get("/:id", ...soloAdmin, getUsuarioById);
-router.post("/", ...soloAdmin, createUsuario);
-router.put("/:id", ...soloAdmin, updateUsuario);
-router.put("/:id/password", ...soloAdmin, cambiarPassword);
-router.delete("/:id", ...soloAdmin, deleteUsuario);
+router.get("/", ...gestionUsuarios, getUsuarios);
+router.get("/roles", ...gestionUsuarios, getRoles);
+router.get("/:id", ...gestionUsuarios, getUsuarioById);
+router.post("/", ...gestionUsuarios, createUsuario);
+router.put("/:id", ...gestionUsuarios, updateUsuario);
+router.put("/:id/password", ...gestionUsuarios, cambiarPassword);
+router.delete("/:id", ...gestionUsuarios, deleteUsuario);
 
 module.exports = router;
