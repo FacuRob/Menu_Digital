@@ -3,15 +3,30 @@ import AdminLayout from "../../components/AdminLayout";
 import { useStyles } from "../../components/sharedStyles";
 import { useTheme } from "../../context/ThemeContext";
 import { useNegocio } from "../../context/NegocioContext";
+import type { ComponentType } from "react";
 import { useLang } from "../../lib/i18n";
-import { IconAlert } from "../../lib/icons";
+import { IconAlert, IconUtensils, IconBag, IconTools, IconBox } from "../../lib/icons";
 import {
   negociosService,
   planService,
   getApiErrorMessage,
   type Negocio,
   type PlanInfo,
+  type TipoRubro,
 } from "../../services/api";
+
+// Rubros soportados (mismo set que el onboarding / backend). Deciden los
+// iconos del menú público y el vocabulario del panel del negocio.
+const RUBROS: {
+  code: TipoRubro;
+  labelKey: string;
+  Icon: ComponentType<{ size?: number }>;
+}[] = [
+  { code: "gastronomia", labelKey: "rubroGastro", Icon: IconUtensils },
+  { code: "retail", labelKey: "rubroRetail", Icon: IconBag },
+  { code: "servicios", labelKey: "rubroServicios", Icon: IconTools },
+  { code: "generico", labelKey: "rubroGenerico", Icon: IconBox },
+];
 
 export default function Negocios() {
   const s = useStyles();
@@ -22,6 +37,7 @@ export default function Negocios() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Negocio | null>(null);
   const [nombre, setNombre] = useState("");
+  const [rubro, setRubro] = useState<TipoRubro>("gastronomia");
   const [saving, setSaving] = useState(false);
   const [plan, setPlan] = useState<PlanInfo | null>(null);
   const [saveError, setSaveError] = useState("");
@@ -48,6 +64,7 @@ export default function Negocios() {
   const open = (n?: Negocio) => {
     setEditing(n || null);
     setNombre(n?.nombre || "");
+    setRubro((n?.tipo_rubro as TipoRubro) || "gastronomia");
     setSaveError("");
     setShowModal(true);
   };
@@ -58,9 +75,12 @@ export default function Negocios() {
     setSaveError("");
     try {
       if (editing) {
-        await negociosService.update(editing.id, { nombre: nombre.trim() });
+        await negociosService.update(editing.id, {
+          nombre: nombre.trim(),
+          tipo_rubro: rubro,
+        });
       } else {
-        await negociosService.create({ nombre: nombre.trim() });
+        await negociosService.create({ nombre: nombre.trim(), tipo_rubro: rubro });
       }
       await refresh();
       setPlan(await planService.get().catch(() => plan));
@@ -270,6 +290,48 @@ export default function Negocios() {
                 style={s.input}
                 autoFocus
               />
+
+              {/* Rubro del negocio: decide los iconos del menú y el vocabulario. */}
+              <label style={{ ...s.label, marginTop: 14 }}>{t("rubroTitle")}</label>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))",
+                  gap: 8,
+                }}
+              >
+                {RUBROS.map((r) => {
+                  const activo = rubro === r.code;
+                  return (
+                    <button
+                      key={r.code}
+                      type="button"
+                      onClick={() => setRubro(r.code)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        cursor: "pointer",
+                        textAlign: "left",
+                        background: activo
+                          ? "rgba(59,130,246,0.12)"
+                          : isDark
+                            ? "rgba(255,255,255,0.03)"
+                            : "rgba(0,0,0,0.02)",
+                        border: `1.5px solid ${activo ? "#3b82f6" : (s.card.border as string)}`,
+                        color: activo ? "#3b82f6" : textPrimary,
+                        fontSize: 13,
+                        fontWeight: activo ? 600 : 500,
+                      }}
+                    >
+                      <r.Icon size={18} />
+                      {t(r.labelKey)}
+                    </button>
+                  );
+                })}
+              </div>
               {saveError && (
                 <div
                   style={{

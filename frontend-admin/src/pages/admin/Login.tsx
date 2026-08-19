@@ -59,7 +59,8 @@ export default function Login() {
     try {
       const res = await authService.signup(negocio, email, signupPwd);
       setSession(res.token, res.user);
-      navigate("/admin/dashboard");
+      // Cuenta recién creada → onboarding (calibración inicial del negocio).
+      navigate(res.nuevo ? "/admin/onboarding" : "/admin/dashboard");
     } catch (err: any) {
       setError(err.response?.data?.message || t("errRequest"));
     } finally {
@@ -89,7 +90,8 @@ export default function Login() {
     try {
       const res = await authService.google(resp.credential);
       setSession(res.token, res.user);
-      navigate("/admin/dashboard");
+      // Si Google acaba de crear la cuenta → onboarding; si no, al panel.
+      navigate(res.nuevo ? "/admin/onboarding" : "/admin/dashboard");
     } catch (err: any) {
       setError(err.response?.data?.message || t("errRequest"));
     } finally {

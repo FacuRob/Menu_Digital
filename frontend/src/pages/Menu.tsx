@@ -451,6 +451,7 @@ const Menu = () => {
             onPick={scrollToCat}
             isDesktop={isDesktop}
             active={activeCat}
+            rubro={config?.tipo_rubro}
           />
         )}
 
@@ -859,11 +860,13 @@ const CategoryBar = ({
   onPick,
   isDesktop,
   active,
+  rubro,
 }: {
   categorias: Categoria[];
   onPick: (id: number) => void;
   isDesktop: boolean;
   active: number | null;
+  rubro?: string | null;
 }) => {
   const rowRef = useRef<HTMLDivElement>(null);
   const btnRefs = useRef<Record<number, HTMLButtonElement | null>>({});
@@ -957,6 +960,7 @@ const CategoryBar = ({
             >
               <CategoriaIcon
                 nombre={c.nombre}
+                rubro={rubro}
                 size={28}
                 style={{ opacity: isActive ? 1 : 0.7, transition: "opacity .25s" }}
               />

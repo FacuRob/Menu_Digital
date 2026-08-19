@@ -7,6 +7,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/admin/Login";
 import ResetPassword from "./pages/admin/ResetPassword";
 import CambiarPassword from "./pages/admin/CambiarPassword";
+import Onboarding from "./pages/admin/Onboarding";
 import Dashboard from "./pages/admin/Dashboard";
 import Categorias from "./pages/admin/Categorias";
 import Productos from "./pages/admin/Productos";
@@ -41,6 +42,15 @@ function App() {
             }
           />
 
+          {/* Onboarding post-registro: calibración inicial del negocio. */}
+          <Route
+            path="/admin/onboarding"
+            element={
+              <ProtectedRoute>
+                <Onboarding />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/admin/dashboard"
             element={
@@ -92,7 +102,7 @@ function App() {
           <Route
             path="/admin/usuarios"
             element={
-              <ProtectedRoute permiso="*">
+              <ProtectedRoute permiso="usuarios">
                 <Usuarios />
               </ProtectedRoute>
             }
@@ -100,7 +110,7 @@ function App() {
           <Route
             path="/admin/negocios"
             element={
-              <ProtectedRoute permiso="*">
+              <ProtectedRoute permiso="negocios">
                 <Negocios />
               </ProtectedRoute>
             }
@@ -113,12 +123,13 @@ function App() {
               </ProtectedRoute>
             }
           />
-          {/* Suscripción: accesible aunque el plan esté vencido (sin permiso
-              especial) para que el usuario pueda comprar/renovar. */}
+          {/* Suscripción: accesible aunque el plan esté vencido para poder
+              comprar/renovar. Reservada al dueño (SuperAdmin): el permiso
+              "suscripcion" sólo lo cubre el "*" del rol 'admin'. */}
           <Route
             path="/admin/suscripcion"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute permiso="suscripcion">
                 <Suscripcion />
               </ProtectedRoute>
             }

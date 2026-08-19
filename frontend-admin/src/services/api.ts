@@ -130,6 +130,8 @@ export interface LoginResponse {
   message: string;
   token: string;
   user: Usuario;
+  // Presente en signup/google: true si se acaba de crear la cuenta (→ onboarding).
+  nuevo?: boolean;
 }
 
 export interface UploadResponse {
@@ -364,16 +366,17 @@ export interface Negocio {
   nombre: string;
   slug: string | null;
   activo: boolean;
+  tipo_rubro?: TipoRubro;
   created_at?: string;
 }
 
 export const negociosService = {
   getAll: async () => (await api.get<Negocio[]>("/negocios")).data,
-  create: async (payload: { nombre: string; slug?: string }) =>
+  create: async (payload: { nombre: string; slug?: string; tipo_rubro?: TipoRubro }) =>
     (await api.post<Negocio>("/negocios", payload)).data,
   update: async (
     id: number,
-    payload: { nombre?: string; slug?: string; activo?: boolean },
+    payload: { nombre?: string; slug?: string; activo?: boolean; tipo_rubro?: TipoRubro },
   ) => (await api.put<Negocio>(`/negocios/${id}`, payload)).data,
   delete: async (id: number) =>
     (await api.delete(`/negocios/${id}`)).data,

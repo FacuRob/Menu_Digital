@@ -126,7 +126,7 @@ const NAV = [
     ),
   },
   {
-    permiso: "*",
+    permiso: "usuarios",
     ruta: "/admin/usuarios",
     labelKey: "navUsuarios",
     icon: (
@@ -147,7 +147,7 @@ const NAV = [
     ),
   },
   {
-    permiso: "*",
+    permiso: "negocios",
     ruta: "/admin/negocios",
     labelKey: "navNegocios",
     icon: (
@@ -165,7 +165,7 @@ const NAV = [
     ),
   },
   {
-    permiso: "*",
+    permiso: "suscripcion",
     ruta: "/admin/suscripcion",
     labelKey: "navSuscripcion",
     icon: (
@@ -326,12 +326,24 @@ function ConfigSubItem({
 }
 
 const rolColor: Record<string, string> = {
-  admin: "#3b82f6",
+  admin: "#3b82f6", // SuperAdmin (dueño)
+  manager: "#0ea5e9", // Admin (2º jefe)
   staff: "#8b5cf6",
   // Legacy (usuarios/tokens sin migrar)
   superadmin: "#3b82f6",
   editor: "#8b5cf6",
   visor: "#6b7280",
+};
+
+// Label visible del rol (clave DB → nombre de negocio). El "HiperAdmin"
+// (es_plataforma) se resuelve aparte porque es un flag, no un rol.
+const rolLabel: Record<string, string> = {
+  admin: "SuperAdmin",
+  manager: "Admin",
+  staff: "Staff",
+  superadmin: "SuperAdmin",
+  editor: "Staff",
+  visor: "Staff",
 };
 
 export default function AdminLayout({
@@ -793,7 +805,7 @@ export default function AdminLayout({
                 padding: collapsed ? "8px 0" : "8px 8px",
                 justifyContent: collapsed ? "center" : "flex-start",
               }}
-              title={collapsed ? `${user.nombre || user.username} · ${isPlataforma ? "SuperAdmin" : user.rol}` : undefined}
+              title={collapsed ? `${user.nombre || user.username} · ${isPlataforma ? "HiperAdmin" : rolLabel[user.rol] || user.rol}` : undefined}
             >
               <div
                 style={{
@@ -836,7 +848,7 @@ export default function AdminLayout({
                       marginTop: 1,
                     }}
                   >
-                    {isPlataforma ? "SuperAdmin" : user.rol}
+                    {isPlataforma ? "HiperAdmin" : rolLabel[user.rol] || user.rol}
                   </div>
                 </div>
               )}
@@ -961,8 +973,9 @@ export default function AdminLayout({
               gap: 14,
             }}
           >
-            {/* Selector de negocio (multi-tenant, solo superadmin) */}
-            {isSuperAdmin && negocios.length > 0 && (
+            {/* Selector de negocio (multi-tenant): dueño (SuperAdmin) y
+                Admin/manager, que también gestionan sucursales. */}
+            {(isSuperAdmin || hasPermiso("negocios")) && negocios.length > 0 && (
               <div ref={negRef} style={{ position: "relative" }}>
                 <button
                   onClick={() => setNegOpen((v) => !v)}

@@ -387,8 +387,27 @@ const es: Dict = {
   usrChangePw: "Cambiar contraseña",
   roleDescAdmin:
     "Dueño del negocio. Control total de su tienda, catálogo, pagos y personal.",
+  roleDescManager:
+    "Segundo jefe. Gestiona el negocio, sucursales y crea personal (Staff). Sin suscripción ni panel de plataforma.",
   roleDescStaff:
     "Personal del negocio. Gestiona catálogo, stock y pedidos. Sin pagos, facturación ni reportes financieros.",
+  // ── Onboarding (post-registro) ──
+  obWelcome: "¡Bienvenido! Configuremos tu negocio en 1 minuto.",
+  obRubroTitle: "¿Qué vendés?",
+  obRubroSubtitle:
+    "Elegí tu rubro. Ajusta los iconos del menú y el vocabulario del panel.",
+  obSkip: "Omitir por ahora",
+  obContinue: "Continuar",
+  obTuneTitle: "Puesta a punto rápida",
+  obTuneSubtitle: "Opcional. Definí lo básico para arrancar.",
+  obModalidad: "¿Cómo recibís pedidos?",
+  obMesa: "En mesa",
+  obRetiro: "Retiro",
+  obDelivery: "Delivery",
+  obCurrency: "Moneda",
+  obTuneNote:
+    "Podés cambiar esto y mucho más (horarios, contacto, colores) cuando quieras en Configuración.",
+  obFinish: "Terminar y entrar",
   permStock: "Stock",
   // ── Negocios ──
   bizHeading: "Tus negocios",
@@ -889,8 +908,27 @@ const en: Dict = {
   usrChangePw: "Change password",
   roleDescAdmin:
     "Business owner. Full control of the store, catalog, payments and staff.",
+  roleDescManager:
+    "Second-in-command. Manages the business, branches and creates staff. No subscription or platform panel.",
   roleDescStaff:
     "Business staff. Manages catalog, stock and orders. No payments, billing or financial reports.",
+  // ── Onboarding (post-signup) ──
+  obWelcome: "Welcome! Let's set up your business in 1 minute.",
+  obRubroTitle: "What do you sell?",
+  obRubroSubtitle:
+    "Pick your industry. It tailors the menu icons and the panel wording.",
+  obSkip: "Skip for now",
+  obContinue: "Continue",
+  obTuneTitle: "Quick setup",
+  obTuneSubtitle: "Optional. Set the basics to get started.",
+  obModalidad: "How do you take orders?",
+  obMesa: "Dine-in",
+  obRetiro: "Pickup",
+  obDelivery: "Delivery",
+  obCurrency: "Currency",
+  obTuneNote:
+    "You can change this and much more (hours, contact, colors) anytime in Settings.",
+  obFinish: "Finish and enter",
   permStock: "Stock",
   // ── Businesses ──
   bizHeading: "Your businesses",
@@ -1391,8 +1429,27 @@ const pt: Dict = {
   usrChangePw: "Alterar senha",
   roleDescAdmin:
     "Dono do negócio. Controle total da loja, catálogo, pagamentos e equipe.",
+  roleDescManager:
+    "Segundo no comando. Gerencia o negócio, filiais e cria a equipe (Staff). Sem assinatura ou painel de plataforma.",
   roleDescStaff:
     "Equipe do negócio. Gerencia catálogo, estoque e pedidos. Sem pagamentos, faturamento ou relatórios financeiros.",
+  // ── Onboarding (pós-cadastro) ──
+  obWelcome: "Bem-vindo! Vamos configurar seu negócio em 1 minuto.",
+  obRubroTitle: "O que você vende?",
+  obRubroSubtitle:
+    "Escolha seu segmento. Ajusta os ícones do menu e o vocabulário do painel.",
+  obSkip: "Pular por agora",
+  obContinue: "Continuar",
+  obTuneTitle: "Ajuste rápido",
+  obTuneSubtitle: "Opcional. Defina o básico para começar.",
+  obModalidad: "Como você recebe pedidos?",
+  obMesa: "Na mesa",
+  obRetiro: "Retirada",
+  obDelivery: "Delivery",
+  obCurrency: "Moeda",
+  obTuneNote:
+    "Você pode alterar isso e muito mais (horários, contato, cores) quando quiser em Configurações.",
+  obFinish: "Concluir e entrar",
   permStock: "Estoque",
   // ── Negócios ──
   bizHeading: "Seus negócios",

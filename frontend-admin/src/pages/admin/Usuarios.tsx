@@ -37,11 +37,16 @@ const PlusIcon = () => (
 
 const ROL_COLOR: Record<string, { bg: string; text: string; border: string }> =
   {
-    // Roles actuales
+    // Roles actuales (admin=SuperAdmin, manager=Admin, staff=Staff)
     admin: {
       bg: "rgba(59,130,246,0.12)",
       text: "#60a5fa",
       border: "rgba(59,130,246,0.3)",
+    },
+    manager: {
+      bg: "rgba(14,165,233,0.12)",
+      text: "#38bdf8",
+      border: "rgba(14,165,233,0.3)",
     },
     staff: {
       bg: "rgba(139,92,246,0.12)",
@@ -66,15 +71,31 @@ const ROL_COLOR: Record<string, { bg: string; text: string; border: string }> =
     },
   };
 
-// Roles que el panel permite asignar. El "SuperAdmin" (plataforma) no se
-// asigna desde acá: es un flag de servidor (es_plataforma).
-const ROLES_ASIGNABLES = ["admin", "staff"];
+// Label visible de cada rol (clave DB → nombre de negocio).
+const ROL_LABEL: Record<string, string> = {
+  admin: "SuperAdmin",
+  manager: "Admin",
+  staff: "Staff",
+  superadmin: "SuperAdmin",
+  editor: "Staff",
+  visor: "Staff",
+};
+
+// Roles que puede ASIGNAR/gestionar el usuario logueado, según su nivel.
+// Dueño (SuperAdmin / plataforma) → Admin y Staff. Admin (manager) → sólo
+// Staff. El dueño (admin) no se asigna desde acá: nace en el registro.
+const rolesAsignablesPara = (rol?: string, esPlataforma?: boolean): string[] => {
+  if (esPlataforma || rol === "admin") return ["manager", "staff"];
+  if (rol === "manager") return ["staff"];
+  return [];
+};
 
 // La descripción del rol y los permisos llegan del backend en español. Los
 // traducimos en el cliente mapeando por código; si el código no está mapeado,
 // se usa el texto original como respaldo.
 const ROLE_DESC_KEY: Record<string, string> = {
   admin: "roleDescAdmin",
+  manager: "roleDescManager",
   staff: "roleDescStaff",
   superadmin: "roleDescAdmin",
   editor: "roleDescStaff",
@@ -88,6 +109,9 @@ const PERM_KEY: Record<string, string> = {
   qr: "navQr",
   usuarios: "navUsuarios",
   configuracion: "pageConfig",
+  negocios: "navNegocios",
+  analiticas: "subPerkAnalytics",
+  suscripcion: "navSuscripcion",
   plataforma: "navPlataforma",
 };
 
@@ -224,10 +248,15 @@ export default function Usuarios() {
     }
   };
 
-  // Solo los roles asignables aparecen en las tarjetas y selects.
-  const rolesAsignables = roles.filter((r) =>
-    ROLES_ASIGNABLES.includes(r.rol),
+  // Roles que ESTE usuario puede asignar, según su nivel (dueño vs Admin).
+  const asignables = rolesAsignablesPara(
+    me?.rol,
+    (me as any)?.es_plataforma,
   );
+  const rolesAsignables = roles.filter((r) => asignables.includes(r.rol));
+  // ¿Puedo gestionar (editar/borrar/cambiar clave) a este usuario?
+  const puedeGestionar = (u: Usuario) =>
+    u.id === me?.id || asignables.includes(u.rol);
 
   // Descripción del rol traducida (respaldo: texto del backend).
   const rolDesc = (rol: string, fallback?: string) =>
@@ -250,7 +279,7 @@ export default function Usuarios() {
           border: `1px solid ${c.border}`,
         }}
       >
-        {rol}
+        {ROL_LABEL[rol] || rol}
       </span>
     );
   };
@@ -456,10 +485,13 @@ export default function Usuarios() {
                     <td style={S.td}>
                       <button
                         onClick={() => toggle(u)}
-                        disabled={u.id === me?.id}
+                        disabled={u.id === me?.id || !puedeGestionar(u)}
                         style={{
                           ...(u.activo ? S.badgeGreen : S.badgeRed),
-                          cursor: u.id === me?.id ? "not-allowed" : "pointer",
+                          cursor:
+                            u.id === me?.id || !puedeGestionar(u)
+                              ? "not-allowed"
+                              : "pointer",
                           border: "none",
                         }}
                         onMouseEnter={(e) =>
@@ -487,36 +519,42 @@ export default function Usuarios() {
                     </td>
                     <td style={S.td}>
                       <div style={{ display: "flex", gap: 14 }}>
-                        <button
-                          onClick={() => open("editar", u)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#60a5fa",
-                            fontSize: 13,
-                            cursor: "pointer",
-                            padding: 0,
-                          }}
-                        >
-                          {t("actionEdit")}
-                        </button>
-                        <button
-                          onClick={() => open("password", u)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#a78bfa",
-                            fontSize: 13,
-                            cursor: "pointer",
-                            padding: 0,
-                          }}
-                        >
-                          {t("usrPasswordBtn")}
-                        </button>
-                        {u.id !== me?.id && (
-                          <button onClick={() => del(u)} style={S.btnDanger}>
-                            {t("actionDelete")}
-                          </button>
+                        {puedeGestionar(u) ? (
+                          <>
+                            <button
+                              onClick={() => open("editar", u)}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                color: "#60a5fa",
+                                fontSize: 13,
+                                cursor: "pointer",
+                                padding: 0,
+                              }}
+                            >
+                              {t("actionEdit")}
+                            </button>
+                            <button
+                              onClick={() => open("password", u)}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                color: "#a78bfa",
+                                fontSize: 13,
+                                cursor: "pointer",
+                                padding: 0,
+                              }}
+                            >
+                              {t("usrPasswordBtn")}
+                            </button>
+                            {u.id !== me?.id && (
+                              <button onClick={() => del(u)} style={S.btnDanger}>
+                                {t("actionDelete")}
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <span style={{ color: "#94a3b8", fontSize: 13 }}>—</span>
                         )}
                       </div>
                     </td>
@@ -658,7 +696,7 @@ export default function Usuarios() {
                       >
                         {rolesAsignables.map((r) => (
                           <option key={r.rol} value={r.rol}>
-                            {r.rol} — {rolDesc(r.rol, r.descripcion)}
+                            {ROL_LABEL[r.rol] || r.rol} — {rolDesc(r.rol, r.descripcion)}
                           </option>
                         ))}
                       </select>
@@ -706,7 +744,7 @@ export default function Usuarios() {
                         >
                           {rolesAsignables.map((r) => (
                             <option key={r.rol} value={r.rol}>
-                              {r.rol} — {r.descripcion}
+                              {ROL_LABEL[r.rol] || r.rol} — {rolDesc(r.rol, r.descripcion)}
                             </option>
                           ))}
                         </select>

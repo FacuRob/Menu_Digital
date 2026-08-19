@@ -241,6 +241,7 @@ export interface Configuracion {
   color_primario?: string | null;
   horarios_config?: HorariosConfig | null;
   moneda?: string | null;
+  tipo_rubro?: "gastronomia" | "retail" | "servicios" | "generico" | string | null;
 }
 
 export type TipoEntrega = "mesa" | "retiro" | "delivery";

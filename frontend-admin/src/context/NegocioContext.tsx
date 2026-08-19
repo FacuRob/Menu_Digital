@@ -25,7 +25,10 @@ const getStored = () => {
 };
 
 export const NegocioProvider = ({ children }: { children: ReactNode }) => {
-  const { isSuperAdmin, isAuthenticated } = useAuth();
+  const { isSuperAdmin, hasPermiso, isAuthenticated } = useAuth();
+  // Quién puede ver/cambiar de sucursal: el dueño (SuperAdmin) y el Admin
+  // (manager), que también gestiona negocios.
+  const puedeNegocios = isSuperAdmin || hasPermiso("negocios");
   const [negocioId, setId] = useState<number>(getStored);
   const [negocios, setNegocios] = useState<Negocio[]>([]);
   const [moneda, setMoneda] = useState<string>("ARS");
@@ -49,14 +52,18 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
   }, [isAuthenticated, negocioId]);
 
   const refresh = async () => {
-    if (!isSuperAdmin) return;
+    if (!puedeNegocios) return;
     try {
       const data = await negociosService.getAll();
       setNegocios(data);
-      // Si el negocio activo no pertenece a la cuenta, caer al primero
-      // de la lista (no a un id fijo, que podría ser de otra cuenta).
+      // Si el negocio activo no pertenece a la cuenta (p. ej. id stale en
+      // localStorage tras registrarse), caer al primero de la lista. Es una
+      // AUTOCORRECCIÓN de arranque: sólo se ajusta el estado, SIN recargar la
+      // página (el reload se reserva para cuando el usuario cambia de sucursal
+      // a propósito; recargar acá rompería flujos como el onboarding).
       if (data.length && !data.some((n) => n.id === negocioId)) {
-        setNegocioId(data[0].id);
+        localStorage.setItem("negocio_id", String(data[0].id));
+        setId(data[0].id);
       }
     } catch (e) {
       console.error(e);
@@ -64,9 +71,9 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    if (isAuthenticated && isSuperAdmin) refresh();
+    if (isAuthenticated && puedeNegocios) refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, isSuperAdmin]);
+  }, [isAuthenticated, puedeNegocios]);
 
   // Cambiar de negocio recarga la app para que todo re-consulte con el nuevo header.
   const setNegocioId = (id: number) => {
