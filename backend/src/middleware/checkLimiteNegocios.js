@@ -1,5 +1,6 @@
 const supabase = require("../config/database");
 const { getCuentaId } = require("../utils/cuenta");
+const { limitesEfectivos } = require("../utils/suscripcion");
 
 /**
  * Middleware que valida el plan de la cuenta antes de permitir crear un
@@ -50,14 +51,16 @@ const checkLimiteNegocios = async (req, res, next) => {
 
     if (countError) throw countError;
 
-    if ((count ?? 0) >= cuenta.limite_negocios) {
+    // En prueba gratis rigen los límites del plan de prueba (ver limitesEfectivos).
+    const limite = limitesEfectivos(cuenta).negocios;
+    if ((count ?? 0) >= limite) {
       return res.status(403).json({
         error: "LIMITE_NEGOCIOS_ALCANZADO",
         message:
-          cuenta.limite_negocios === 1
-            ? "Tu plan Free permite un solo negocio. Mejorá tu plan para habilitar multi-negocio."
-            : `Alcanzaste el límite de ${cuenta.limite_negocios} negocios de tu plan. Mejorá tu plan para agregar más.`,
-        limite: cuenta.limite_negocios,
+          limite === 1
+            ? "Tu plan permite un solo negocio. Mejorá tu plan para habilitar multi-negocio."
+            : `Alcanzaste el límite de ${limite} negocios de tu plan. Mejorá tu plan para agregar más.`,
+        limite,
         actuales: count ?? 0,
       });
     }

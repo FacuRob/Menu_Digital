@@ -1,18 +1,13 @@
 const supabase = require("../config/database");
 const { respondError } = require("../utils/respondError");
-const { estaVigente, diasRestantes } = require("../utils/suscripcion");
+const {
+  estaVigente,
+  diasRestantes,
+  TRIAL_DIAS,
+  LIMITES_POR_PLAN: LIMITES,
+} = require("../utils/suscripcion");
 const { preciosPorPlan } = require("../utils/planPrecios");
 const { checkoutUrl } = require("../utils/lemonSqueezyPlans");
-
-const TRIAL_DIAS = Math.max(0, parseInt(process.env.FREE_TRIAL_DAYS, 10) || 14);
-
-// Límites por plan (coinciden con el trigger set_limites_por_plan de la BD).
-const LIMITES = {
-  free: { negocios: 1, productos: 10 },
-  basic: { negocios: 3, productos: 50 },
-  standard: { negocios: 10, productos: 100 },
-  premium: { negocios: 9999, productos: 9999 },
-};
 
 // Catálogo de planes para las tarjetas del frontend (precios desde env).
 const catalogoPlanes = () => {
@@ -109,14 +104,27 @@ const getCheckout = async (req, res) => {
       });
     }
 
-    // Prefill del email del usuario para correlacionar la compra.
-    const email = req.user?.email;
-    let url = base;
-    if (email) {
-      const sep = base.includes("?") ? "&" : "?";
-      url = `${base}${sep}checkout[email]=${encodeURIComponent(email)}`;
+    // El pago se vincula a la cuenta por su id (custom data que Lemon Squeezy
+    // reenvía en el webhook), NO por el email: el cliente puede pagar con
+    // otro email y la suscripción igual llega a su cuenta.
+    const cuentaId = req.user?.cuenta_id;
+    if (!cuentaId) {
+      return res.status(403).json({ message: "Usuario sin cuenta asociada" });
     }
-    res.json({ url });
+    const params = [`checkout[custom][cuenta_id]=${encodeURIComponent(cuentaId)}`];
+
+    // Prefill del email (el JWT no lo trae: se lee del usuario en la BD).
+    if (req.user?.id) {
+      const { data: u } = await supabase
+        .from("usuarios")
+        .select("email")
+        .eq("id", req.user.id)
+        .maybeSingle();
+      if (u?.email) params.push(`checkout[email]=${encodeURIComponent(u.email)}`);
+    }
+
+    const sep = base.includes("?") ? "&" : "?";
+    res.json({ url: `${base}${sep}${params.join("&")}` });
   } catch (error) {
     return respondError(res, error, "suscripcion");
   }

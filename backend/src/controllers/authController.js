@@ -5,6 +5,8 @@ const crypto = require("crypto");
 const { sendPasswordResetEmail } = require("../services/emailService");
 const { getCuentaId } = require("../utils/cuenta");
 const { respondError } = require("../utils/respondError");
+const { TRIAL_DIAS } = require("../utils/suscripcion");
+const { slugify } = require("../utils/slug");
 
 // Construye la URL de reseteo a partir de ADMIN_URL (que apunta al login).
 // Ej: "https://panel.app/admin/login" -> "https://panel.app/admin/reset-password?token=..."
@@ -148,17 +150,6 @@ const login = async (req, res) => {
 };
 
 // ─── Helpers de sesión / alta ────────────────────────────────
-const TRIAL_DIAS = Math.max(0, parseInt(process.env.FREE_TRIAL_DAYS, 10) || 14);
-
-const slugify = (s) =>
-  (s || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
-    .slice(0, 50);
-
 // Firma el JWT y arma el objeto `user` de respuesta (login/signup/google).
 const issueSession = async (user) => {
   const { data: rolData } = await supabase
@@ -223,7 +214,7 @@ const crearCuentaConNegocio = async ({ nombre, email, origen }) => {
     .insert([
       {
         nombre,
-        slug: `${slugify(nombre) || "negocio"}-${cuenta.id}`,
+        slug: `${slugify(nombre, 50) || "negocio"}-${cuenta.id}`,
         activo: true,
         cuenta_id: cuenta.id,
       },

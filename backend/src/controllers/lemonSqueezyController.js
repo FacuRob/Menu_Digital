@@ -3,6 +3,7 @@ const supabase = require("../config/database");
 const bcrypt = require("bcryptjs");
 const { planPorVariant } = require("../utils/lemonSqueezyPlans");
 const { sendWelcomeEmail } = require("../services/emailService");
+const { slugify } = require("../utils/slug");
 
 // ── Helpers ──────────────────────────────────────────────────
 const generarPassword = () => {
@@ -13,14 +14,54 @@ const generarPassword = () => {
   return pwd;
 };
 
-const slugify = (s) =>
-  (s || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
-    .slice(0, 50);
+// Cuenta a la que corresponde el pago, si ya está vinculada: primero la que
+// mandó nuestro checkout (cuenta_id), si no, la que ya tiene esta suscripción.
+const buscarCuentaVinculada = async (cuentaId, subId) => {
+  if (Number.isInteger(cuentaId) && cuentaId > 0) {
+    const { data } = await supabase
+      .from("cuentas")
+      .select("id")
+      .eq("id", cuentaId)
+      .maybeSingle();
+    if (data) return data;
+  }
+  if (subId) {
+    const { data } = await supabase
+      .from("cuentas")
+      .select("id")
+      .eq("ls_subscription_id", subId)
+      .maybeSingle();
+    if (data) return data;
+  }
+  return null;
+};
+
+// Asegurar que la cuenta tenga al menos un negocio (con su configuración).
+const asegurarNegocio = async (cuenta, nombre, email) => {
+  const { count } = await supabase
+    .from("negocios")
+    .select("id", { count: "exact", head: true })
+    .eq("cuenta_id", cuenta.id);
+  if (count) return;
+  const nombreNeg = nombre || "Mi negocio";
+  const { data: neg } = await supabase
+    .from("negocios")
+    .insert([
+      {
+        nombre: nombreNeg,
+        slug: `${slugify(nombre || email, 50) || "negocio"}-${cuenta.id}`,
+        activo: true,
+        cuenta_id: cuenta.id,
+      },
+    ])
+    .select()
+    .single();
+  if (neg) {
+    await supabase
+      .from("configuracion")
+      .insert([{ negocio_id: neg.id, nombre: nombreNeg, retiro_activo: true }]);
+  }
+};
 
 const buildUsername = (email, cuentaId) => {
   if (email && email.length <= 50) return email;
@@ -92,17 +133,16 @@ const lemonSqueezyWebhook = async (req, res) => {
       return res.status(200).json({ message: "Evento ignorado", event });
     }
 
-    const email = attrs.user_email || null;
+    const email = attrs.user_email ? String(attrs.user_email).toLowerCase() : null;
     const nombre = attrs.user_name || null;
     const variantId = attrs.variant_id ?? null;
     const lsStatus = attrs.status || null;
     const customerId = attrs.customer_id ? String(attrs.customer_id) : null;
     // Fin del período: ends_at (cancelaciones) o renews_at (próximo cobro).
     const periodoFin = attrs.ends_at || attrs.renews_at || null;
-
-    if (!email) {
-      return res.status(200).json({ message: "Evento sin email" });
-    }
+    // Cuenta que inició el pago desde el panel (checkout[custom][cuenta_id]).
+    // LS la reenvía en meta.custom_data en todos los eventos de la suscripción.
+    const cuentaIdCheckout = parseInt(payload?.meta?.custom_data?.cuenta_id, 10);
 
     const { plan, ciclo } = planPorVariant(variantId);
     if (!plan) {
@@ -113,23 +153,48 @@ const lemonSqueezyWebhook = async (req, res) => {
     }
 
     const estado = estadoDeLS(lsStatus);
+    // Datos de la suscripción. El trigger de la BD recalcula los límites.
+    const datosSuscripcion = {
+      tipo_plan: plan,
+      ciclo_facturacion: ciclo,
+      estado_suscripcion: estado,
+      periodo_fin: periodoFin,
+      ls_customer_id: customerId,
+      ls_subscription_id: subId,
+      ls_variant_id: variantId ? String(variantId) : null,
+      ls_status: lsStatus,
+    };
 
-    // Upsert de la cuenta por email. El trigger de la BD recalcula límites.
+    // 1) Cuenta ya vinculada: la que pagó desde el panel (aunque haya usado
+    //    otro email en el checkout) o la dueña de esta suscripción.
+    const vinculada = await buscarCuentaVinculada(cuentaIdCheckout, subId);
+    if (vinculada) {
+      const { data: cuenta, error } = await supabase
+        .from("cuentas")
+        .update(datosSuscripcion)
+        .eq("id", vinculada.id)
+        .select()
+        .single();
+      if (error) throw error;
+      await asegurarNegocio(cuenta, nombre, email);
+      return res
+        .status(200)
+        .json({ message: "Suscripción actualizada", plan, estado, cuenta_id: cuenta.id });
+    }
+
+    // 2) Compra directa en Lemon Squeezy (sin cuenta previa en el panel):
+    //    se identifica por email y, si no existe, se crea la cuenta.
+    if (!email) {
+      return res.status(200).json({ message: "Evento sin email ni cuenta vinculada" });
+    }
     const { data: cuenta, error: cuentaErr } = await supabase
       .from("cuentas")
       .upsert(
         {
           email,
           nombre: nombre || email,
-          tipo_plan: plan,
-          ciclo_facturacion: ciclo,
-          estado_suscripcion: estado,
-          periodo_fin: periodoFin,
           origen: "lemonsqueezy",
-          ls_customer_id: customerId,
-          ls_subscription_id: subId,
-          ls_variant_id: variantId ? String(variantId) : null,
-          ls_status: lsStatus,
+          ...datosSuscripcion,
         },
         { onConflict: "email" },
       )
@@ -137,33 +202,7 @@ const lemonSqueezyWebhook = async (req, res) => {
       .single();
     if (cuentaErr) throw cuentaErr;
 
-    // Asegurar que la cuenta tenga al menos un negocio.
-    const { count: negocios } = await supabase
-      .from("negocios")
-      .select("id", { count: "exact", head: true })
-      .eq("cuenta_id", cuenta.id);
-
-    if (!negocios) {
-      const { data: neg } = await supabase
-        .from("negocios")
-        .insert([
-          {
-            nombre: nombre || "Mi negocio",
-            slug: `${slugify(nombre || email) || "negocio"}-${cuenta.id}`,
-            activo: true,
-            cuenta_id: cuenta.id,
-          },
-        ])
-        .select()
-        .single();
-      if (neg) {
-        await supabase
-          .from("configuracion")
-          .insert([
-            { negocio_id: neg.id, nombre: nombre || "Mi negocio", retiro_activo: true },
-          ]);
-      }
-    }
+    await asegurarNegocio(cuenta, nombre, email);
 
     // Crear el usuario admin si no existe.
     const { data: userExist } = await supabase

@@ -1,26 +1,22 @@
 const supabase = require("../config/database");
 const { respondError } = require("../utils/respondError");
 const { getCuentaId, getAuthScope } = require("../utils/cuenta");
+const { slugify, slugDisponible, slugUnico } = require("../utils/slug");
 
 // Rubros soportados (multi-rubro). Debe coincidir con el CHECK de la BD
 // (db/multirubro.sql → chk_tipo_rubro) y con configuracionController.
 const RUBROS = ["gastronomia", "retail", "servicios", "generico"];
 
-const slugify = (s) =>
-  (s || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
-    .slice(0, 60);
+// Error de Postgres por violar un UNIQUE (dos altas simultáneas con el mismo slug).
+const SLUG_EN_USO = "23505";
 
 // Resolver un negocio por su slug (RUTA PÚBLICA, sin auth). La usa el menú
 // público para saber qué negocio mostrar desde la URL /menu/:slug.
 // Devuelve sólo datos no sensibles (id, nombre, slug).
 const getNegocioPublicoBySlug = async (req, res) => {
   try {
-    const slug = slugify(req.params.slug);
+    // Largo de la columna (80): no recortar slugs con sufijo ("-2", "-15"…).
+    const slug = slugify(req.params.slug, 80);
     if (!slug) return res.status(404).json({ message: "Negocio no encontrado" });
 
     const { data, error } = await supabase
@@ -69,7 +65,9 @@ const createNegocio = async (req, res) => {
       return res.status(400).json({ message: "Tipo de rubro inválido" });
     }
 
-    const finalSlug = (slug && slugify(slug)) || slugify(nombre) || `negocio`;
+    // Link público único entre TODAS las cuentas: si "pizzeria-roma" ya
+    // existe, se usa "pizzeria-roma-2" (en vez de fallar por el UNIQUE).
+    const finalSlug = await slugUnico(supabase, (slug && slug.trim()) || nombre);
 
     // El negocio se crea en la cuenta del usuario autenticado (no del body).
     const cuentaId = req.cuentaId || (await getCuentaId(req));
@@ -92,6 +90,11 @@ const createNegocio = async (req, res) => {
       .select()
       .single();
 
+    if (error?.code === SLUG_EN_USO) {
+      return res
+        .status(409)
+        .json({ message: "Ese link ya está en uso. Probá de nuevo." });
+    }
     if (error) throw error;
 
     // Configuración inicial del negocio.
@@ -122,7 +125,18 @@ const updateNegocio = async (req, res) => {
 
     const patch = { activo };
     if (nombre !== undefined) patch.nombre = nombre;
-    if (slug !== undefined) patch.slug = slugify(slug);
+    if (slug !== undefined) {
+      const nuevo = slugify(slug);
+      if (!nuevo) {
+        return res.status(400).json({ message: "El link no puede quedar vacío" });
+      }
+      if (!(await slugDisponible(supabase, nuevo, { excludeId: id }))) {
+        return res
+          .status(409)
+          .json({ message: "Ese link ya está en uso por otro negocio. Elegí otro." });
+      }
+      patch.slug = nuevo;
+    }
     if (tipo_rubro !== undefined) patch.tipo_rubro = tipo_rubro;
 
     // El .eq("cuenta_id") impide editar negocios de otra cuenta (salvo plataforma).
@@ -130,6 +144,11 @@ const updateNegocio = async (req, res) => {
     if (!esPlataforma) q = q.eq("cuenta_id", cuentaId);
     const { data, error } = await q.select().single();
 
+    if (error?.code === SLUG_EN_USO) {
+      return res
+        .status(409)
+        .json({ message: "Ese link ya está en uso por otro negocio. Elegí otro." });
+    }
     if (error || !data) {
       return res.status(404).json({ message: "Negocio no encontrado" });
     }

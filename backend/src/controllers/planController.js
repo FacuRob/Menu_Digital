@@ -1,6 +1,7 @@
 const supabase = require("../config/database");
 const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
+const { limitesEfectivos } = require("../utils/suscripcion");
 
 /**
  * Devuelve el plan de la cuenta dueña del negocio activo + el uso actual.
@@ -43,12 +44,14 @@ const getPlan = async (req, res) => {
           .eq("negocio_id", negocioId),
       ]);
 
+    // Límites vigentes (en prueba gratis, los del plan de prueba).
+    const limites = limitesEfectivos(cuenta);
     res.json({
       tipo_plan: cuenta.tipo_plan,
       estado_suscripcion: cuenta.estado_suscripcion,
-      limite_negocios: cuenta.limite_negocios,
+      limite_negocios: limites.negocios,
       negocios_usados: negociosUsados ?? 0,
-      limite_productos: cuenta.limite_productos,
+      limite_productos: limites.productos,
       productos_usados: productosUsados ?? 0,
     });
   } catch (error) {

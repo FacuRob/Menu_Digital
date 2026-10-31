@@ -1,5 +1,6 @@
 const supabase = require("../config/database");
 const { getNegocioId } = require("../utils/negocio");
+const { limitesEfectivos } = require("../utils/suscripcion");
 
 /**
  * Middleware que valida el plan de la CUENTA dueña del negocio antes de
@@ -30,7 +31,9 @@ const checkLimiteProductos = async (req, res, next) => {
         .json({ message: "Negocio o cuenta no encontrados" });
     }
 
-    const { limite_productos, estado_suscripcion } = negocio.cuentas;
+    const { estado_suscripcion } = negocio.cuentas;
+    // En prueba gratis rigen los límites del plan de prueba (ver limitesEfectivos).
+    const limite_productos = limitesEfectivos(negocio.cuentas).productos;
 
     // Suscripción cancelada → no puede cargar más productos.
     if (estado_suscripcion === "cancelado") {
