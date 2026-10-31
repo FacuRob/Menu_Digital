@@ -8,6 +8,7 @@ import ConfiguracionEditor from "./ConfiguracionEditor";
 import { useLang, LangSelector } from "../lib/i18n";
 import { BRAND_NAME, BRAND_LOGO, brandTextStyle } from "../lib/brand";
 import { IconBell } from "../lib/icons";
+import { menuPath } from "../lib/menuUrl";
 
 const SunIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} style={{ width: 16, height: 16 }}>
@@ -361,17 +362,9 @@ export default function AdminLayout({
   const navigate = useNavigate();
   const location = useLocation();
 
-  // URL del menú público (otro frontend). En producción se define
-  // VITE_MENU_URL; si falta, se usa la URL de Netlify (no localhost).
-  const menuBase = (
-    (import.meta.env.VITE_MENU_URL as string | undefined) ||
-    "https://menu-digital-publico.netlify.app"
-  ).replace(/\/+$/, "");
-
-  // Link al menú del negocio activo: /menu/:slug (o ?negocio=<id> si no hay slug).
-  const menuHref = slug
-    ? `${menuBase}/menu/${slug}`
-    : `${menuBase}/menu?negocio=${negocioId}`;
+  // "Ver Menú" abre la vista previa del propio panel (/menu/:slug), que
+  // carga el menú público del negocio activo.
+  const menuHref = menuPath(slug, negocioId);
 
   // ── Notificaciones de pedidos nuevos ──
   const [nuevosPedidos, setNuevosPedidos] = useState(0);

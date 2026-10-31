@@ -18,6 +18,7 @@ import Pedidos from "./pages/admin/Pedidos";
 import Negocios from "./pages/admin/Negocios";
 import Plataforma from "./pages/admin/Plataforma";
 import Suscripcion from "./pages/admin/Suscripcion";
+import MenuPreview from "./pages/MenuPreview";
 
 function App() {
   return (
@@ -134,6 +135,11 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* Vista previa del menú público de un negocio: /menu/:slug
+              (o /menu?negocio=<id> si el negocio aún no tiene slug). */}
+          <Route path="/menu" element={<MenuPreview />} />
+          <Route path="/menu/:slug" element={<MenuPreview />} />
 
           <Route path="*" element={<NotFound />} />
           </Routes>

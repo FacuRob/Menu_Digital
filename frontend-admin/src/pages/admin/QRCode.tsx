@@ -7,12 +7,7 @@ import { useNegocio } from "../../context/NegocioContext";
 import { useLang } from "../../lib/i18n";
 import { configuracionService } from "../../services/api";
 
-// URL del menú público. En producción se define VITE_MENU_URL; si falta,
-// se usa la URL pública de Netlify (evita apuntar a localhost por error).
-const MENU_BASE = (
-  (import.meta.env.VITE_MENU_URL as string | undefined) ||
-  "https://menu-digital-publico.netlify.app"
-).replace(/\/+$/, "");
+import { MENU_PUBLIC_BASE as MENU_BASE } from "../../lib/menuUrl";
 
 export default function QRCode() {
   const S = useStyles();
