@@ -1,1 +1,111 @@
 @import "tailwindcss";
+
+/* ── Landing: animaciones ─────────────────────────────────── */
+@keyframes lp-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes lp-blob {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -40px) scale(1.08); }
+  66% { transform: translate(-25px, 20px) scale(0.95); }
+}
+@keyframes lp-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes lp-rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes lp-ping-soft {
+  0% { transform: scale(1); opacity: 0.7; }
+  80%, 100% { transform: scale(2.2); opacity: 0; }
+}
+@keyframes lp-shine {
+  from { background-position: 200% center; }
+  to { background-position: -200% center; }
+}
+@keyframes lp-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.lp-float { animation: lp-float 6s ease-in-out infinite; }
+.lp-float-slow { animation: lp-float 8s ease-in-out infinite; }
+.lp-blob { animation: lp-blob 18s ease-in-out infinite; }
+.lp-marquee { animation: lp-marquee 40s linear infinite; }
+.lp-marquee:hover { animation-play-state: paused; }
+.lp-rise { animation: lp-rise 0.8s cubic-bezier(.2,.7,.2,1) both; }
+.lp-ping-soft { animation: lp-ping-soft 2s cubic-bezier(0,0,.2,1) infinite; }
+.lp-shine {
+  background-size: 200% auto;
+  animation: lp-shine 6s linear infinite;
+}
+.lp-progress {
+  transform-origin: left;
+  animation: lp-progress linear forwards;
+}
+
+/* Revelado al hacer scroll (lo activa un IntersectionObserver). */
+.lp-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.8s cubic-bezier(.2,.7,.2,1), transform 0.8s cubic-bezier(.2,.7,.2,1);
+}
+.lp-reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.lp-grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(148, 163, 184, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.07) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse at 50% 30%, black 30%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 30%, black 30%, transparent 75%);
+}
+
+.lp-no-scrollbar::-webkit-scrollbar { display: none; }
+.lp-no-scrollbar { scrollbar-width: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-float, .lp-float-slow, .lp-blob, .lp-marquee, .lp-ping-soft, .lp-shine, .lp-rise {
+    animation: none !important;
+  }
+  .lp-reveal { opacity: 1; transform: none; transition: none; }
+}
+
+/* ── Menú público ─────────────────────────────────────────── */
+@keyframes mn-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+.mn-in { animation: mn-in 0.55s cubic-bezier(.2,.7,.2,1) both; }
+
+@keyframes mn-bar-in {
+  from { opacity: 0; transform: translate(-50%, 30px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+.mn-bar-in { animation: mn-bar-in 0.4s cubic-bezier(.2,.8,.2,1) both; }
+
+@keyframes mn-bump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+.mn-bump { animation: mn-bump 0.35s ease; }
+
+@keyframes mn-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mn-pop {
+  from { opacity: 0; transform: translateY(24px) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.mn-scroll::-webkit-scrollbar { display: none; }
+.mn-scroll { scrollbar-width: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mn-in, .mn-bar-in, .mn-bump { animation: none !important; }
+}

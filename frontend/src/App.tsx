@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Menu from "./pages/Menu";
+import Landing from "./pages/Landing";
 import { LanguageProvider, useLang } from "./lib/i18n";
 
 function NotFound() {
@@ -29,7 +30,8 @@ function App() {
     <LanguageProvider>
       <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/menu" replace />} />
+        {/* Página informativa del producto (landing). */}
+        <Route path="/" element={<Landing />} />
         <Route path="/menu" element={<Menu />} />
         {/* Menú por negocio (multi-tenant): /menu/:slug */}
         <Route path="/menu/:slug" element={<Menu />} />

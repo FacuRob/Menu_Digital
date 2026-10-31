@@ -5,6 +5,8 @@ import {
   PRIMARY,
   PRIMARY_DARK,
   PRIMARY_SHADOW,
+  PRIMARY_ON,
+  PRIMARY_SOFT,
   fmt,
   neto,
   ProductImage,
@@ -99,36 +101,37 @@ export default function ProductModal({
         position: "fixed",
         inset: 0,
         zIndex: 100,
-        background: "rgba(15,10,8,0.6)",
-        backdropFilter: "blur(3px)",
-        WebkitBackdropFilter: "blur(3px)",
+        background: "rgba(0,0,0,0.65)",
+        backdropFilter: "blur(6px)",
+        WebkitBackdropFilter: "blur(6px)",
         display: "flex",
-        alignItems: "center",
         justifyContent: "center",
-        padding: 16,
         animation: "fadeIn .18s ease",
+        fontFamily: "Inter,system-ui,sans-serif",
       }}
     >
       <style>{`
         @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-        @keyframes popIn{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+        @keyframes popIn{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:none}}
       `}</style>
 
       <div
         onClick={(e) => e.stopPropagation()}
+        className="mn-scroll self-end rounded-t-[28px] sm:m-4 sm:self-center sm:rounded-[28px]"
         style={{
           width: "100%",
-          maxWidth: 440,
+          maxWidth: 460,
           maxHeight: "92vh",
           overflowY: "auto",
-          background: "#fff",
-          borderRadius: 22,
-          boxShadow: "0 24px 70px rgba(0,0,0,0.35)",
+          background: "linear-gradient(180deg, var(--mp-bg1, #2a0f06), #0b0b0b 70%)",
+          color: "#fff",
+          border: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "0 24px 70px rgba(0,0,0,0.6)",
           animation: "popIn .22s cubic-bezier(.2,.8,.2,1)",
         }}
       >
         {/* Imagen */}
-        <div style={{ position: "relative", height: 300, background: "#111" }}>
+        <div style={{ position: "relative", height: 280, background: "#111" }}>
           <ProductImage
             url={producto.imagen_url}
             alt={producto.nombre}
@@ -137,6 +140,7 @@ export default function ProductModal({
             fill
             style={{ width: "100%", height: "100%" }}
           />
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 55%, var(--mp-bg1, #2a0f06))", pointerEvents: "none" }} />
           <button
             onClick={onClose}
             aria-label={t("back")}
@@ -148,8 +152,9 @@ export default function ProductModal({
               height: 38,
               borderRadius: "50%",
               border: "none",
-              background: "#fff",
-              color: "#1c1917",
+              background: "rgba(0,0,0,0.45)",
+              backdropFilter: "blur(8px)",
+              color: "#fff",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -179,7 +184,7 @@ export default function ProductModal({
               margin: 0,
               fontSize: 23,
               fontWeight: 800,
-              color: "#1c1917",
+              color: "#fff",
               letterSpacing: "-0.4px",
             }}
           >
@@ -191,7 +196,7 @@ export default function ProductModal({
               style={{
                 margin: "8px 0 0",
                 fontSize: 14,
-                color: "#6b7280",
+                color: "rgba(255,255,255,0.6)",
                 lineHeight: 1.55,
               }}
             >
@@ -214,7 +219,7 @@ export default function ProductModal({
               marginTop: 2,
               fontSize: 12.5,
               fontStyle: "italic",
-              color: "#9ca3af",
+              color: "rgba(255,255,255,0.4)",
             }}
           >
             {t("taxFree", { v: fmt(neto(base)) })}
@@ -231,7 +236,7 @@ export default function ProductModal({
                   marginBottom: 8,
                 }}
               >
-                <span style={{ fontSize: 14.5, fontWeight: 700, color: "#1c1917" }}>
+                <span style={{ fontSize: 14.5, fontWeight: 700, color: "#fff" }}>
                   {g.nombre}
                 </span>
                 {g.obligatorio && (
@@ -240,7 +245,7 @@ export default function ProductModal({
                       fontSize: 10.5,
                       fontWeight: 700,
                       color: PRIMARY,
-                      background: "rgba(0,0,0,.04)",
+                      background: PRIMARY_SOFT,
                       padding: "2px 8px",
                       borderRadius: 999,
                       textTransform: "uppercase",
@@ -264,8 +269,9 @@ export default function ProductModal({
                         gap: 10,
                         padding: "11px 13px",
                         borderRadius: 12,
-                        border: `1.5px solid ${checked ? PRIMARY : "#ececec"}`,
-                        background: checked ? "rgba(0,0,0,.02)" : "#fff",
+                        border: `1.5px solid ${checked ? PRIMARY : "rgba(255,255,255,0.1)"}`,
+                        background: checked ? PRIMARY_SOFT : "rgba(255,255,255,0.04)",
+                        transition: "all .15s",
                         cursor: "pointer",
                         textAlign: "left",
                         width: "100%",
@@ -276,7 +282,7 @@ export default function ProductModal({
                           width: 20,
                           height: 20,
                           borderRadius: g.tipo === "single" ? "50%" : 6,
-                          border: `2px solid ${checked ? PRIMARY : "#d1cbc7"}`,
+                          border: `2px solid ${checked ? PRIMARY : "rgba(255,255,255,0.3)"}`,
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
@@ -298,7 +304,7 @@ export default function ProductModal({
                         style={{
                           fontSize: 14,
                           fontWeight: 600,
-                          color: "#374151",
+                          color: "rgba(255,255,255,0.88)",
                           flex: 1,
                         }}
                       >
@@ -319,7 +325,7 @@ export default function ProductModal({
           <div
             style={{
               height: 1,
-              background: "#f1f0ee",
+              background: "rgba(255,255,255,0.08)",
               margin: "18px 0",
             }}
           />
@@ -333,7 +339,7 @@ export default function ProductModal({
               marginBottom: 14,
             }}
           >
-            <span style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.8)" }}>
               {t("quantity")}
             </span>
             <div
@@ -341,7 +347,7 @@ export default function ProductModal({
                 display: "flex",
                 alignItems: "center",
                 gap: 4,
-                border: "1.5px solid #eee",
+                border: "1.5px solid rgba(255,255,255,0.12)",
                 borderRadius: 999,
                 padding: 3,
               }}
@@ -356,7 +362,7 @@ export default function ProductModal({
                   textAlign: "center",
                   fontWeight: 700,
                   fontSize: 15,
-                  color: "#1c1917",
+                  color: "#fff",
                 }}
               >
                 {cantidad}
@@ -379,7 +385,7 @@ export default function ProductModal({
               borderRadius: 999,
               border: "none",
               background: PRIMARY,
-              color: "#fff",
+              color: PRIMARY_ON,
               fontSize: 15.5,
               fontWeight: 700,
               cursor: faltanObligatorios ? "default" : "pointer",
@@ -406,9 +412,9 @@ export default function ProductModal({
               marginTop: 10,
               padding: "13px",
               borderRadius: 999,
-              border: "1.5px solid #eee",
-              background: "#fff",
-              color: "#6b7280",
+              border: "1.5px solid rgba(255,255,255,0.12)",
+              background: "transparent",
+              color: "rgba(255,255,255,0.65)",
               fontSize: 14.5,
               fontWeight: 600,
               cursor: "pointer",
@@ -431,8 +437,8 @@ function StepBtn({ label, onClick }: { label: string; onClick: () => void }) {
         height: 34,
         borderRadius: "50%",
         border: "none",
-        background: "#f6f5f4",
-        color: "#1c1917",
+        background: "rgba(255,255,255,0.08)",
+        color: "#fff",
         fontSize: 20,
         fontWeight: 700,
         lineHeight: 1,

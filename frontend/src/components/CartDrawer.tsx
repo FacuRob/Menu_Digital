@@ -7,6 +7,7 @@ import {
   PRIMARY_DARK,
   PRIMARY_SOFT,
   PRIMARY_SHADOW,
+  PRIMARY_ON,
   fmt,
   ProductImage,
 } from "../lib/menuUi";
@@ -214,7 +215,7 @@ export default function CartDrawer({
           position: "fixed",
           inset: 0,
           zIndex: 90,
-          background: "rgba(15,10,8,0.5)",
+          background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
           opacity: open ? 1 : 0,
           pointerEvents: open ? "auto" : "none",
           transition: "opacity .25s",
@@ -229,7 +230,9 @@ export default function CartDrawer({
           bottom: 0,
           zIndex: 91,
           width: "min(420px, 100%)",
-          background: "#faf7f5",
+          background: "linear-gradient(180deg, var(--mp-bg1, #2a0f06), #0b0b0b 55%)",
+          color: "#fff",
+          borderLeft: "1px solid rgba(255,255,255,0.08)",
           boxShadow: "-8px 0 40px rgba(0,0,0,0.2)",
           transform: open ? "translateX(0)" : "translateX(100%)",
           transition: "transform .3s cubic-bezier(.2,.8,.2,1)",
@@ -245,8 +248,8 @@ export default function CartDrawer({
             display: "flex",
             alignItems: "center",
             gap: 10,
-            borderBottom: "1px solid #eee",
-            background: "#fff",
+            borderBottom: "1px solid rgba(255,255,255,0.08)",
+            background: "rgba(255,255,255,0.04)",
           }}
         >
           {step === "entrega" && !done && (
@@ -261,19 +264,19 @@ export default function CartDrawer({
                 height: 32,
                 borderRadius: "50%",
                 border: "none",
-                background: "#f3f0ee",
+                background: "rgba(255,255,255,0.08)",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M15 18l-6-6 6-6" />
               </svg>
             </button>
           )}
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#1c1917", flex: 1 }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#fff", flex: 1 }}>
             {done ? t("orderSent") : step === "entrega" ? t("howDoYouWantIt") : t("yourOrder")}
           </h2>
           <button
@@ -284,10 +287,10 @@ export default function CartDrawer({
               height: 34,
               borderRadius: "50%",
               border: "none",
-              background: "#f3f0ee",
+              background: "rgba(255,255,255,0.08)",
               cursor: "pointer",
               fontSize: 18,
-              color: "#6b7280",
+              color: "rgba(255,255,255,0.6)",
             }}
           >
             ✕
@@ -305,7 +308,7 @@ export default function CartDrawer({
               {lines.map((l) => (
                 <div
                   key={l.key}
-                  style={{ display: "flex", gap: 12, padding: "12px 0", borderBottom: "1px solid #efeae7" }}
+                  style={{ display: "flex", gap: 12, padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }}
                 >
                   <ProductImage
                     url={l.producto.imagen_url}
@@ -316,11 +319,11 @@ export default function CartDrawer({
                     style={{ width: 58, height: 58, borderRadius: 12, flexShrink: 0 }}
                   />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#1c1917", lineHeight: 1.3 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", lineHeight: 1.3 }}>
                       {l.producto.nombre}
                     </div>
                     {l.opciones.length > 0 && (
-                      <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.4, marginTop: 2 }}>
+                      <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.4, marginTop: 2 }}>
                         {l.opciones.map((o) => o.nombre).join(" · ")}
                       </div>
                     )}
@@ -335,7 +338,7 @@ export default function CartDrawer({
                       <MiniBtn onClick={() => setQty(l.key, l.cantidad + 1)}>+</MiniBtn>
                       <button
                         onClick={() => remove(l.key)}
-                        style={{ marginLeft: "auto", border: "none", background: "none", color: "#9ca3af", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}
+                        style={{ marginLeft: "auto", border: "none", background: "none", color: "rgba(255,255,255,0.45)", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}
                       >
                         {t("remove")}
                       </button>
@@ -391,8 +394,9 @@ export default function CartDrawer({
                       gap: 12,
                       padding: "14px 16px",
                       borderRadius: 14,
-                      border: `2px solid ${tipo === op ? PRIMARY : "#e7e2df"}`,
-                      background: tipo === op ? PRIMARY_SOFT : "#fff",
+                      border: `2px solid ${tipo === op ? PRIMARY : "rgba(255,255,255,0.12)"}`,
+                      background: tipo === op ? PRIMARY_SOFT : "rgba(255,255,255,0.04)",
+                      transition: "all .15s",
                       cursor: "pointer",
                       textAlign: "left",
                     }}
@@ -400,7 +404,7 @@ export default function CartDrawer({
                     <span style={{ fontSize: 22 }}>
                       {op === "mesa" ? "🍽️" : op === "retiro" ? "🛍️" : "🛵"}
                     </span>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: "#1c1917", flex: 1 }}>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: "#fff", flex: 1 }}>
                       {entregaLabel[op]}
                     </span>
                     <span
@@ -408,7 +412,7 @@ export default function CartDrawer({
                         width: 20,
                         height: 20,
                         borderRadius: "50%",
-                        border: `2px solid ${tipo === op ? PRIMARY : "#d1cbc7"}`,
+                        border: `2px solid ${tipo === op ? PRIMARY : "rgba(255,255,255,0.3)"}`,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -508,19 +512,19 @@ function Footer({
   return (
     <div
       style={{
-        borderTop: "1px solid #eee",
-        background: "#fff",
+        borderTop: "1px solid rgba(255,255,255,0.08)",
+        background: "rgba(255,255,255,0.04)",
         padding: "16px 18px calc(16px + env(safe-area-inset-bottom))",
       }}
     >
       {error && (
-        <div style={{ background: "#fef2f2", color: "#b91c1c", fontSize: 13, padding: "8px 12px", borderRadius: 10, marginBottom: 10 }}>
+        <div style={{ background: "rgba(239,68,68,0.12)", color: "#fca5a5", fontSize: 13, padding: "8px 12px", borderRadius: 10, marginBottom: 10 }}>
           {error}
         </div>
       )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <span style={{ fontSize: 14, color: "#6b7280" }}>{t("total")}</span>
-        <span style={{ fontSize: 22, fontWeight: 800, color: "#1c1917" }}>{fmt(total)}</span>
+        <span style={{ fontSize: 14, color: "rgba(255,255,255,0.6)" }}>{t("total")}</span>
+        <span style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{fmt(total)}</span>
       </div>
 
       <button
@@ -532,7 +536,7 @@ function Footer({
           borderRadius: 999,
           border: "none",
           background: PRIMARY,
-          color: "#fff",
+          color: PRIMARY_ON,
           fontSize: 15.5,
           fontWeight: 700,
           cursor: primaryDisabled ? "default" : "pointer",
@@ -581,14 +585,14 @@ function SuccessView({ onClose }: { onClose: () => void }) {
   const { t } = useLang();
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 30, textAlign: "center" }}>
-      <div style={{ width: 72, height: 72, borderRadius: "50%", background: "#dcfce7", color: "#16a34a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 38, marginBottom: 16 }}>
+      <div style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(34,197,94,0.15)", color: "#4ade80", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 38, marginBottom: 16 }}>
         ✓
       </div>
-      <h3 style={{ margin: 0, fontSize: 19, color: "#1c1917" }}>{t("successTitle")}</h3>
-      <p style={{ color: "#6b7280", fontSize: 14, marginTop: 6 }}>{t("successSubtitle")}</p>
+      <h3 style={{ margin: 0, fontSize: 19, color: "#fff" }}>{t("successTitle")}</h3>
+      <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 14, marginTop: 6 }}>{t("successSubtitle")}</p>
       <button
         onClick={onClose}
-        style={{ marginTop: 22, padding: "13px 26px", borderRadius: 999, border: "none", background: PRIMARY, color: "#fff", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
+        style={{ marginTop: 22, padding: "13px 26px", borderRadius: 999, border: "none", background: PRIMARY, color: PRIMARY_ON, fontWeight: 700, fontSize: 15, cursor: "pointer" }}
       >
         {t("keepBrowsing")}
       </button>
@@ -599,7 +603,7 @@ function SuccessView({ onClose }: { onClose: () => void }) {
 function EmptyView() {
   const { t } = useLang();
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 30, color: "#9ca3af", textAlign: "center" }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 30, color: "rgba(255,255,255,0.45)", textAlign: "center" }}>
       <div style={{ fontSize: 46, marginBottom: 10 }}>🛒</div>
       <p style={{ fontSize: 15 }}>{t("emptyCart")}</p>
       <p style={{ fontSize: 13 }}>{t("emptyCartSub")}</p>
@@ -611,7 +615,7 @@ function MiniBtn({ children, onClick }: { children: React.ReactNode; onClick: ()
   return (
     <button
       onClick={onClick}
-      style={{ width: 28, height: 28, borderRadius: "50%", border: "1.5px solid #e7e2df", background: "#fff", color: "#1c1917", fontSize: 16, fontWeight: 700, lineHeight: 1, cursor: "pointer" }}
+      style={{ width: 28, height: 28, borderRadius: "50%", border: "1.5px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.04)", color: "#fff", fontSize: 16, fontWeight: 700, lineHeight: 1, cursor: "pointer" }}
     >
       {children}
     </button>
@@ -622,7 +626,7 @@ const labelStyle: React.CSSProperties = {
   display: "block",
   fontSize: 12.5,
   fontWeight: 600,
-  color: "#6b7280",
+  color: "rgba(255,255,255,0.6)",
   marginBottom: 5,
 };
 
@@ -630,13 +634,14 @@ const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "10px 13px",
   borderRadius: 12,
-  border: "1.5px solid #e7e2df",
+  border: "1.5px solid rgba(255,255,255,0.12)",
   fontSize: 14,
   fontFamily: "inherit",
-  background: "#fff",
-  color: "#1c1917",
+  background: "rgba(255,255,255,0.04)",
+  color: "#fff",
   outline: "none",
   boxSizing: "border-box",
+  colorScheme: "dark",
 };
 
 function Field({
@@ -656,7 +661,7 @@ function Field({
 }) {
   const st: React.CSSProperties = {
     ...inputStyle,
-    border: `1.5px solid ${invalid ? "#ef4444" : "#e7e2df"}`,
+    border: `1.5px solid ${invalid ? "#ef4444" : "rgba(255,255,255,0.12)"}`,
   };
   return (
     <label style={{ display: "block" }}>

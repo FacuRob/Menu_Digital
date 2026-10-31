@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import {
   productosService,
@@ -17,9 +17,10 @@ import type {
 import { useCart } from "../hooks/useCart";
 import {
   PRIMARY,
-  PRIMARY_DARK,
   PRIMARY_SOFT,
   PRIMARY_SHADOW,
+  PRIMARY_ON,
+  PRIMARY_A35,
   paletteVars,
   fmt,
   setMonedaMenu,
@@ -30,15 +31,7 @@ import ProductModal from "../components/ProductModal";
 import CartDrawer from "../components/CartDrawer";
 import { useLang, LangSelector } from "../lib/i18n";
 
-const DIAS_SEMANA = [
-  "Lunes",
-  "Martes",
-  "Miércoles",
-  "Jueves",
-  "Viernes",
-  "Sábado",
-  "Domingo",
-];
+// ── Horarios ────────────────────────────────────────────────
 const hoyIndex = () => {
   const d = new Date().getDay(); // 0=Domingo..6=Sábado
   return d === 0 ? 6 : d - 1; // 0=Lunes..6=Domingo
@@ -57,6 +50,25 @@ const horarioHoy = (hc?: HorariosConfig | null) => {
 const tieneHorarios = (hc?: HorariosConfig | null) =>
   !!hc && Array.isArray(hc) && hc.length > 0;
 
+const toMin = (hhmm: string) => {
+  const [h, m] = hhmm.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+};
+// ¿Está abierto ahora? Considera franjas que pasan la medianoche (ej. 20:00–02:00).
+const abiertoAhora = (hc?: HorariosConfig | null): boolean | null => {
+  if (!tieneHorarios(hc)) return null;
+  const now = new Date();
+  const mins = now.getHours() * 60 + now.getMinutes();
+  const hoy = hoyIndex();
+  const ayer = (hoy + 6) % 7;
+  const dentro = (d: DiaHorario | undefined, check: (desde: number, hasta: number) => boolean) =>
+    !!d && !d.cerrado && (d.franjas || []).some((f) => f.desde && f.hasta && check(toMin(f.desde), toMin(f.hasta)));
+  return (
+    dentro(hc![hoy], (a, b) => (b > a ? mins >= a && mins < b : mins >= a)) ||
+    dentro(hc![ayer], (a, b) => b <= a && mins < b)
+  );
+};
+
 const Menu = () => {
   const { t } = useLang();
   const { slug } = useParams<{ slug?: string }>();
@@ -71,21 +83,10 @@ const Menu = () => {
   const [mesa, setMesa] = useState(
     () => new URLSearchParams(window.location.search).get("mesa") || "",
   );
-  const [isDesktop, setIsDesktop] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia("(min-width: 768px)").matches,
-  );
-
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 768px)");
-    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
 
   const cart = useCart();
   const sectionRefs = useRef<Record<number, HTMLElement | null>>({});
+  const stickyRef = useRef<HTMLDivElement>(null);
   const [activeCat, setActiveCat] = useState<number | null>(null);
   const [showTop, setShowTop] = useState(false);
 
@@ -132,6 +133,11 @@ const Menu = () => {
     })();
   }, [slug]);
 
+  // Título de la pestaña con el nombre del local.
+  useEffect(() => {
+    if (config?.nombre) document.title = config.nombre;
+  }, [config?.nombre]);
+
   const q = search.trim().toLowerCase();
   const filtered = useMemo(
     () =>
@@ -156,10 +162,13 @@ const Menu = () => {
     [categorias, filtered],
   );
 
+  // Alto de la barra fija (buscador + categorías) para compensar el scroll.
+  const stickyOffset = () => (stickyRef.current?.offsetHeight || 120) + 12;
+
   const scrollToCat = (id: number) => {
     const el = sectionRefs.current[id];
     if (el) {
-      const y = el.getBoundingClientRect().top + window.scrollY - 90;
+      const y = el.getBoundingClientRect().top + window.scrollY - stickyOffset();
       window.scrollTo({ top: y, behavior: "smooth" });
     }
   };
@@ -169,7 +178,7 @@ const Menu = () => {
   useEffect(() => {
     if (!porCategoria.length) return;
     const onScroll = () => {
-      const offset = 130;
+      const offset = stickyOffset() + 40;
       let current = porCategoria[0].cat.id;
       for (const { cat } of porCategoria) {
         const el = sectionRefs.current[cat.id];
@@ -182,24 +191,23 @@ const Menu = () => {
     return () => window.removeEventListener("scroll", onScroll);
   }, [porCategoria]);
 
+  const pageStyle = {
+    ...paletteVars(config?.color_primario),
+    background: `radial-gradient(1100px 520px at 85% -8%, ${PRIMARY_A35}, transparent 62%), linear-gradient(165deg, var(--mp-bg1, #2a0f06) 0%, var(--mp-bg2, #120604) 45%, #070707 100%)`,
+    backgroundAttachment: "fixed",
+  };
+
   if (loading) {
     return (
       <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "#fbf7f4",
-          fontFamily: "'Inter',system-ui,sans-serif",
-        }}
+        className="flex min-h-screen flex-col items-center justify-center font-[Inter,system-ui,sans-serif] text-white"
+        style={pageStyle}
       >
-        <div style={{ fontSize: 46, marginBottom: 14, animation: "pulse 1.4s ease-in-out infinite" }}>
+        <div className="text-5xl" style={{ animation: "pulse 1.4s ease-in-out infinite" }}>
           🍽️
         </div>
-        <p style={{ color: "#9ca3af", fontSize: 15 }}>{t("loading")}</p>
-        <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
+        <p className="mt-4 text-[15px] text-white/50">{t("loading")}</p>
+        <style>{`@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.94)}}`}</style>
       </div>
     );
   }
@@ -208,301 +216,195 @@ const Menu = () => {
   if (notFound) {
     return (
       <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "#fbf7f4",
-          fontFamily: "'Inter',system-ui,sans-serif",
-          textAlign: "center",
-          padding: 24,
-        }}
+        className="flex min-h-screen flex-col items-center justify-center p-6 text-center font-[Inter,system-ui,sans-serif] text-white"
+        style={pageStyle}
       >
-        <div style={{ fontSize: 46, marginBottom: 14 }}>🔍</div>
-        <h1 style={{ color: "#374151", fontSize: 20, fontWeight: 700, margin: "0 0 6px" }}>
-          {t("notFoundTitle")}
-        </h1>
-        <p style={{ color: "#9ca3af", fontSize: 14, margin: 0 }}>
-          {t("notFoundDesc")}
-        </p>
+        <div className="grid h-20 w-20 place-items-center rounded-3xl bg-white/[0.06] text-4xl ring-1 ring-white/10">🔍</div>
+        <h1 className="mt-5 text-2xl font-extrabold">{t("notFoundTitle")}</h1>
+        <p className="mt-2 text-sm text-white/50">{t("notFoundDesc")}</p>
       </div>
     );
   }
 
   const nombre = config?.nombre || t("defaultTitle");
   const portada = config?.portada_url;
+  const abierto = abiertoAhora(config?.horarios_config);
+  const hoyTxt = tieneHorarios(config?.horarios_config)
+    ? `${t("today")}: ${horarioHoy(config?.horarios_config) || t("closedToday")}`
+    : config?.horarios || "";
+  const entregas = [
+    config?.mesas_activo && (config.mesas_cantidad || 0) > 0 ? { k: "mesa", e: "🍽️", l: t("deliveryTable") } : null,
+    config?.retiro_activo ? { k: "retiro", e: "🛍️", l: t("deliveryPickup") } : null,
+    config?.delivery_activo ? { k: "delivery", e: "🛵", l: t("deliveryDelivery") } : null,
+  ].filter(Boolean) as { k: string; e: string; l: string }[];
 
   return (
     <div
-      style={{
-        ...paletteVars(config?.color_primario),
-        minHeight: "100vh",
-        background: "#fbf7f4",
-        fontFamily: "'Inter',system-ui,sans-serif",
-        paddingBottom: 90,
-      }}
+      className="min-h-screen pb-32 font-[Inter,system-ui,sans-serif] text-white antialiased selection:bg-white/20"
+      style={pageStyle}
     >
-      {/* ══ Banner superior ══ */}
-      <header
-        style={{
-          position: "relative",
-          padding: "22px 24px 70px",
-          color: "#fff",
-          background: portada
-            ? `linear-gradient(rgba(20,12,8,.62),rgba(20,12,8,.74)), url(${portada}) center/cover`
-            : "linear-gradient(120deg,#2a1913 0%,#7a2f13 60%,#c1440e 100%)",
-        }}
-      >
-        <div style={{ position: "absolute", top: 16, right: 20, zIndex: 6 }}>
-          <LangSelector dark />
-        </div>
+      {/* ══ Portada ══ */}
+      <header className="relative overflow-hidden">
+        {portada && (
+          <>
+            <img src={portada} alt="" className="absolute inset-0 h-full w-full object-cover opacity-45" />
+            <div
+              className="absolute inset-0"
+              style={{ background: "linear-gradient(180deg, rgba(0,0,0,.35) 0%, rgba(0,0,0,.15) 40%, var(--mp-bg2, #120604) 100%)" }}
+            />
+          </>
+        )}
         <div
-          style={{
-            maxWidth: 1180,
-            margin: "0 auto",
-            display: "flex",
-            alignItems: "center",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          {/* Logo + nombre */}
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full opacity-50 blur-3xl"
+          style={{ background: PRIMARY }}
+        />
+
+        <div className="relative mx-auto max-w-6xl px-4 pb-6 pt-5 sm:px-6 sm:pb-8">
+          <div className="flex justify-end">
+            <LangSelector dark />
+          </div>
+
+          <div className="mn-in mt-6 flex items-center gap-4 sm:mt-10 sm:gap-5">
             {config?.logo_url ? (
               <img
                 src={config.logo_url}
                 alt={nombre}
-                style={{
-                  width: 74,
-                  height: 74,
-                  borderRadius: 16,
-                  objectFit: "cover",
-                  boxShadow: "0 6px 20px rgba(0,0,0,.35)",
-                }}
+                className="h-16 w-16 shrink-0 rounded-2xl object-cover shadow-2xl sm:h-20 sm:w-20"
+                style={{ boxShadow: `0 0 0 2px ${PRIMARY_A35}, 0 18px 40px -12px ${PRIMARY_SHADOW}` }}
               />
             ) : (
               <div
-                style={{
-                  width: 74,
-                  height: 74,
-                  borderRadius: 16,
-                  background: "rgba(0,0,0,.55)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 30,
-                  fontWeight: 800,
-                  color: PRIMARY,
-                  boxShadow: "0 6px 20px rgba(0,0,0,.35)",
-                }}
+                className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl text-3xl font-extrabold sm:h-20 sm:w-20"
+                style={{ background: PRIMARY_SOFT, color: PRIMARY, boxShadow: `inset 0 0 0 1px ${PRIMARY_A35}` }}
               >
                 {nombre.charAt(0).toUpperCase()}
               </div>
             )}
-            <div style={{ minWidth: 0 }}>
-              <h1
-                style={{
-                  margin: 0,
-                  fontSize: 30,
-                  fontWeight: 800,
-                  letterSpacing: "0.5px",
-                  textShadow: "0 2px 10px rgba(0,0,0,.4)",
-                }}
-              >
-                {nombre}
-              </h1>
+            <div className="min-w-0">
+              <h1 className="text-3xl font-extrabold leading-tight tracking-tight drop-shadow sm:text-5xl">{nombre}</h1>
               {config?.descripcion && (
-                <p
-                  style={{
-                    margin: "3px 0 0",
-                    fontSize: 13.5,
-                    color: "rgba(255,255,255,0.85)",
-                    lineHeight: 1.4,
-                    maxWidth: 360,
-                    textShadow: "0 1px 6px rgba(0,0,0,.45)",
-                  }}
-                >
-                  {config.descripcion}
-                </p>
+                <p className="mt-1 line-clamp-2 max-w-xl text-sm text-white/65 sm:text-base">{config.descripcion}</p>
               )}
             </div>
           </div>
 
+          {/* Estado + modos de entrega */}
+          <div className="mn-in mt-5 flex flex-wrap items-center gap-2 text-xs" style={{ animationDelay: "80ms" }}>
+            {abierto !== null && (
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold ${
+                  abierto ? "bg-emerald-400/15 text-emerald-300" : "bg-red-400/15 text-red-300"
+                }`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${abierto ? "bg-emerald-400" : "bg-red-400"}`} />
+                {abierto ? t("openNow") : t("closedNow")}
+              </span>
+            )}
+            {hoyTxt && <Chip icon="clock">{hoyTxt}</Chip>}
+            {entregas.map((e) => (
+              <span key={e.k} className="rounded-full bg-white/10 px-2.5 py-1 text-white/75 backdrop-blur">
+                {e.e} {e.l}
+              </span>
+            ))}
+          </div>
+
           {/* Contacto */}
-          <div
-            style={{
-              marginLeft: "auto",
-              display: "flex",
-              alignItems: "center",
-              gap: 34,
-              flexWrap: "wrap",
-              fontSize: 14.5,
-            }}
-          >
-            <div style={{ display: "grid", gap: 8 }}>
+          {(config?.direccion || config?.telefono || config?.email || config?.whatsapp) && (
+            <div className="mn-in mt-3 flex flex-wrap items-center gap-2 text-xs" style={{ animationDelay: "140ms" }}>
               {config?.direccion && (
-                <ContactLine icon="pin">{config.direccion}</ContactLine>
+                <Chip
+                  icon="pin"
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(config.direccion)}`}
+                >
+                  {config.direccion}
+                </Chip>
               )}
-              {tieneHorarios(config?.horarios_config) ? (
-                <ContactLine icon="clock">
-                  {t("today")}:{" "}
-                  {horarioHoy(config?.horarios_config) || t("closedToday")}
-                </ContactLine>
-              ) : (
-                config?.horarios && (
-                  <ContactLine icon="clock">{config.horarios}</ContactLine>
-                )
-              )}
-            </div>
-            <div style={{ display: "grid", gap: 8 }}>
               {config?.telefono && (
-                <ContactLine icon="phone">{config.telefono}</ContactLine>
+                <Chip icon="phone" href={`tel:${config.telefono.replace(/\s/g, "")}`}>
+                  {config.telefono}
+                </Chip>
               )}
               {config?.email && (
-                <ContactLine icon="mail">{config.email}</ContactLine>
+                <Chip icon="mail" href={`mailto:${config.email}`}>
+                  {config.email}
+                </Chip>
               )}
-            </div>
-
-            {(config?.whatsapp || config?.telefono) && (
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={{ fontWeight: 800, lineHeight: 1.2, maxWidth: 120 }}>
-                  {t("contactChannels")}
-                </span>
+              {(config?.whatsapp || config?.telefono) && (
                 <a
                   href={waLink(config)}
                   target="_blank"
                   rel="noreferrer"
-                  aria-label="WhatsApp"
-                  style={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: "50%",
-                    background: "#25d366",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#fff",
-                    flexShrink: 0,
-                    boxShadow: "0 4px 14px rgba(0,0,0,.3)",
-                  }}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[#25d366] px-3 py-1 font-semibold text-white shadow-lg shadow-[#25d366]/25 transition-transform hover:-translate-y-0.5"
                 >
-                  <svg width={22} height={22} viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2Zm5.3 14.1c-.2.6-1.2 1.1-1.7 1.2-.4.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.6-2.7-1.2-4.4-3.9-4.6-4.1-.1-.2-1-1.4-1-2.6s.6-1.8.9-2.1c.2-.2.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2.1.4 0 .5l-.4.6c-.1.2-.3.3-.1.6.1.3.6 1 1.3 1.6.9.8 1.6 1 1.9 1.2.2.1.4.1.5-.1l.6-.7c.2-.2.3-.2.6-.1l1.8.9c.3.1.5.2.5.4.1.1.1.7-.1 1.3Z" />
-                  </svg>
+                  <WaIcon size={14} /> WhatsApp
                 </a>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       </header>
 
-      {/* ══ Contenedor blanco (superpuesto al banner) ══ */}
+      {/* ══ Barra fija: buscador + categorías ══ */}
       <div
-        style={{
-          maxWidth: 1180,
-          margin: "-48px auto 0",
-          background: "#fff",
-          borderRadius: 24,
-          boxShadow: "0 -2px 30px rgba(0,0,0,.06)",
-          padding: "26px 26px 40px",
-          position: "relative",
-          zIndex: 5,
-        }}
+        ref={stickyRef}
+        className="sticky top-0 z-40 border-b border-white/[0.06] backdrop-blur-xl"
+        style={{ background: "color-mix(in srgb, var(--mp-bg2, #120604) 78%, transparent)" }}
       >
-        {/* Buscador */}
-        <div style={{ position: "relative", marginBottom: 20 }}>
-          <svg
-            width={20}
-            height={20}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#9ca3af"
-            strokeWidth={2}
-            strokeLinecap="round"
-            style={{ position: "absolute", left: 18, top: 16 }}
-          >
-            <circle cx="11" cy="11" r="7" />
-            <path d="M21 21l-4-4" />
-          </svg>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("searchPlaceholder")}
-            style={{
-              width: "100%",
-              padding: "15px 18px 15px 48px",
-              borderRadius: 14,
-              border: "1.5px solid #ececec",
-              fontSize: 15,
-              fontFamily: "inherit",
-              outline: "none",
-              boxSizing: "border-box",
-              background: "#fcfbfa",
-            }}
-          />
+        <div className="mx-auto max-w-6xl px-4 pt-3 sm:px-6">
+          <label className="flex items-center gap-2.5 rounded-2xl bg-white/[0.07] px-4 py-3 text-sm ring-1 ring-white/10 transition focus-within:ring-2" style={{ ["--tw-ring-color" as string]: PRIMARY_A35 }}>
+            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-white/45" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t("searchPlaceholder")}
+              className="min-w-0 flex-1 bg-transparent text-[15px] text-white outline-none placeholder:text-white/40"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="grid h-6 w-6 cursor-pointer place-items-center rounded-full bg-white/10 text-xs text-white/70 hover:bg-white/20"
+                aria-label="Limpiar"
+              >
+                ✕
+              </button>
+            )}
+          </label>
+
+          {categorias.length > 0 && !q ? (
+            <CategoryBar categorias={categorias} onPick={scrollToCat} active={activeCat} rubro={config?.tipo_rubro} />
+          ) : (
+            <div className="h-3" />
+          )}
         </div>
+      </div>
 
-        {/* Fila de íconos de categoría con flechas next/prev */}
-        {categorias.length > 0 && !q && (
-          <CategoryBar
-            categorias={categorias}
-            onPick={scrollToCat}
-            isDesktop={isDesktop}
-            active={activeCat}
-            rubro={config?.tipo_rubro}
-          />
-        )}
-
-        {/* Secciones de productos */}
+      {/* ══ Productos ══ */}
+      <main className="mx-auto max-w-6xl px-4 pt-6 sm:px-6">
         {porCategoria.length === 0 ? (
           q ? (
-            <div style={{ textAlign: "center", padding: "70px 0", color: "#9ca3af" }}>
-              <div style={{ fontSize: 44, marginBottom: 10 }}>🔍</div>
-              <p style={{ fontSize: 16 }}>{t("noResults")}</p>
+            <div className="py-20 text-center text-white/50">
+              <div className="text-5xl">🔍</div>
+              <p className="mt-3 text-base">{t("noResults")}</p>
             </div>
           ) : (
-            <div style={{ textAlign: "center", padding: "60px 20px 40px" }}>
-              {config?.logo_url ? (
-                <img
-                  src={config.logo_url}
-                  alt={nombre}
-                  style={{ width: 84, height: 84, borderRadius: 20, objectFit: "cover", margin: "0 auto 16px", display: "block", boxShadow: "0 6px 20px rgba(0,0,0,.12)" }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: 84,
-                    height: 84,
-                    borderRadius: 20,
-                    margin: "0 auto 16px",
-                    background: "linear-gradient(135deg,#ff8a5c,#ff5722)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 34,
-                    fontWeight: 800,
-                    color: "#fff",
-                    boxShadow: `0 8px 24px ${PRIMARY_SHADOW}`,
-                  }}
-                >
-                  {nombre.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <h3 style={{ margin: "0 0 6px", fontSize: 20, fontWeight: 800, color: "#1c1917" }}>
-                {nombre}
-              </h3>
-              <p style={{ margin: 0, fontSize: 15, color: "#6b7280" }}>
-                {t("preparingTitle")}
-              </p>
-              <p style={{ margin: "4px 0 0", fontSize: 13, color: "#9ca3af" }}>
-                {t("preparingSubtitle")}
-              </p>
+            <div className="mx-auto max-w-sm py-16 text-center">
+              <div
+                className="mx-auto grid h-20 w-20 place-items-center rounded-3xl text-3xl font-extrabold"
+                style={{ background: PRIMARY_SOFT, color: PRIMARY }}
+              >
+                {nombre.charAt(0).toUpperCase()}
+              </div>
+              <h3 className="mt-5 text-xl font-extrabold">{nombre}</h3>
+              <p className="mt-2 text-white/70">{t("preparingTitle")}</p>
+              <p className="mt-1 text-sm text-white/45">{t("preparingSubtitle")}</p>
             </div>
           )
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 30, marginTop: 22 }}>
+          <div className="flex flex-col gap-10">
             {porCategoria.map(({ cat, prods }) => (
               <section
                 key={cat.id}
@@ -510,18 +412,28 @@ const Menu = () => {
                   sectionRefs.current[cat.id] = el;
                 }}
               >
-                <SectionHeading nombre={cat.nombre} count={prods.length} />
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill,minmax(min(100%,360px),1fr))",
-                    gap: 18,
-                  }}
-                >
-                  {prods.map((prod) => (
+                <div className="mb-4 flex items-center gap-3">
+                  <span
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-xl"
+                    style={{ background: PRIMARY_SOFT, color: PRIMARY }}
+                  >
+                    <CategoriaIcon nombre={cat.nombre} rubro={config?.tipo_rubro} size={19} />
+                  </span>
+                  <h2 className="text-xl font-extrabold tracking-tight sm:text-2xl">{cat.nombre}</h2>
+                  <span
+                    className="rounded-full px-2 py-0.5 text-xs font-bold"
+                    style={{ background: PRIMARY_SOFT, color: PRIMARY }}
+                  >
+                    {prods.length}
+                  </span>
+                  <span className="h-px flex-1 bg-gradient-to-r from-white/15 to-transparent" />
+                </div>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {prods.map((prod, i) => (
                     <ProductCard
                       key={prod.id}
                       prod={prod}
+                      index={i}
                       onOpen={() => setModalProd(prod)}
                       onAdd={() => {
                         // Con variantes hay que elegir opciones → abrir el modal.
@@ -538,38 +450,16 @@ const Menu = () => {
             ))}
           </div>
         )}
-      </div>
+      </main>
 
-      {/* ══ Footer con descripción y datos ══ */}
-      <footer
-        style={{
-          maxWidth: 1180,
-          margin: "34px auto 0",
-          padding: "0 26px",
-        }}
-      >
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: 20,
-            padding: "26px 28px",
-            boxShadow: "0 1px 10px rgba(0,0,0,.05)",
-            display: "grid",
-            gap: 18,
-            gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
-          }}
-        >
+      {/* ══ Footer con datos y horarios ══ */}
+      <footer className="mx-auto mt-14 max-w-6xl px-4 sm:px-6">
+        <div className="grid gap-6 rounded-3xl bg-white/[0.05] p-6 ring-1 ring-white/[0.08] backdrop-blur sm:grid-cols-2 sm:p-8 lg:grid-cols-3">
           <div>
-            <h3 style={{ margin: "0 0 8px", fontSize: 18, fontWeight: 800, color: "#1c1917" }}>
-              {nombre}
-            </h3>
-            {config?.descripcion && (
-              <p style={{ margin: 0, fontSize: 14, color: "#6b7280", lineHeight: 1.6 }}>
-                {config.descripcion}
-              </p>
-            )}
+            <h3 className="text-lg font-extrabold">{nombre}</h3>
+            {config?.descripcion && <p className="mt-2 text-sm leading-relaxed text-white/55">{config.descripcion}</p>}
           </div>
-          <div style={{ display: "grid", gap: 10, fontSize: 14, color: "#4b5563" }}>
+          <div className="grid content-start gap-2.5 text-sm text-white/70">
             {config?.direccion && <FooterLine icon="pin">{config.direccion}</FooterLine>}
             {!tieneHorarios(config?.horarios_config) && config?.horarios && (
               <FooterLine icon="clock">{config.horarios}</FooterLine>
@@ -577,115 +467,71 @@ const Menu = () => {
             {config?.telefono && <FooterLine icon="phone">{config.telefono}</FooterLine>}
             {config?.email && <FooterLine icon="mail">{config.email}</FooterLine>}
           </div>
-          {tieneHorarios(config?.horarios_config) && (
-            <SemanaHorarios hc={config!.horarios_config!} />
-          )}
+          {tieneHorarios(config?.horarios_config) && <SemanaHorarios hc={config!.horarios_config!} />}
         </div>
-        <div style={{ textAlign: "center", margin: "18px 0 30px" }}>
-          <p style={{ fontSize: 12, color: "#c4beba", margin: 0 }}>
-            {t("pricesIncludeTax")}
-          </p>
-          <p style={{ fontSize: 11, color: "#d6d0cc", margin: "6px 0 0", letterSpacing: "0.02em" }}>
-            {t("madeWith")} <span style={{ color: PRIMARY, fontWeight: 700 }}>DinexFlow</span>
+        <div className="my-6 text-center">
+          <p className="text-xs text-white/35">{t("pricesIncludeTax")}</p>
+          <p className="mt-1.5 text-[11px] tracking-wide text-white/30">
+            {t("madeWith")} <span className="font-bold" style={{ color: PRIMARY }}>DinexFlow</span>
           </p>
         </div>
       </footer>
 
-      {/* ══ Botón "ir arriba" (apilado arriba del carrito, misma esquina) ══ */}
+      {/* ══ Botón "ir arriba" ══ */}
       {showTop && (
         <button
+          type="button"
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           aria-label={t("ariaScrollTop")}
           title={t("ariaScrollTop")}
-          style={{
-            position: "fixed",
-            right: 29,
-            bottom: 96,
-            zIndex: 80,
-            width: 48,
-            height: 48,
-            borderRadius: "50%",
-            border: "none",
-            background: PRIMARY,
-            color: "#fff",
-            cursor: "pointer",
-            boxShadow: `0 8px 22px ${PRIMARY_SHADOW}`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            transition: "transform .15s, background .15s",
-            animation: "scrollTopIn .25s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = "translateY(-2px)";
-            e.currentTarget.style.background = PRIMARY_DARK;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = "none";
-            e.currentTarget.style.background = PRIMARY;
-          }}
+          className="mn-in fixed bottom-24 right-4 z-[80] grid h-11 w-11 cursor-pointer place-items-center rounded-full bg-white/10 text-white ring-1 ring-white/15 backdrop-blur-xl transition-transform hover:-translate-y-0.5 sm:right-6"
         >
-          <style>{`@keyframes scrollTopIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}`}</style>
-          <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+          <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 19V5M6 11l6-6 6 6" />
           </svg>
         </button>
       )}
 
-      {/* ══ Botón flotante del carrito ══ */}
-      <button
-        onClick={() => setCartOpen(true)}
-        aria-label={t("ariaViewOrder")}
-        style={{
-          position: "fixed",
-          right: 22,
-          bottom: 22,
-          zIndex: 80,
-          width: 62,
-          height: 62,
-          borderRadius: "50%",
-          border: "none",
-          background: PRIMARY,
-          color: "#fff",
-          cursor: "pointer",
-          boxShadow: `0 10px 30px ${PRIMARY_SHADOW}`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          transition: "transform .15s",
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.06)")}
-        onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-      >
-        <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="9" cy="21" r="1" />
-          <circle cx="18" cy="21" r="1" />
-          <path d="M3 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L23 6H6" />
-        </svg>
-        {cart.count > 0 && (
-          <span
-            style={{
-              position: "absolute",
-              top: -3,
-              right: -3,
-              minWidth: 24,
-              height: 24,
-              padding: "0 6px",
-              borderRadius: 999,
-              background: "#111",
-              color: "#fff",
-              fontSize: 12.5,
-              fontWeight: 800,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              border: "2px solid #fbf7f4",
-            }}
-          >
-            {cart.count}
+      {/* ══ Barra de pedido (con productos) / botón de carrito (vacío) ══ */}
+      {cart.count > 0 ? (
+        <button
+          type="button"
+          onClick={() => setCartOpen(true)}
+          aria-label={t("ariaViewOrder")}
+          className="mn-bar-in fixed bottom-4 left-1/2 z-[80] flex w-[calc(100%-32px)] max-w-md cursor-pointer items-center justify-between rounded-2xl px-4 py-3.5 text-sm font-bold transition-transform hover:-translate-y-0.5"
+          style={{
+            background: PRIMARY,
+            color: PRIMARY_ON,
+            boxShadow: `0 14px 40px -10px ${PRIMARY_SHADOW}`,
+            marginBottom: "env(safe-area-inset-bottom)",
+          }}
+        >
+          <span className="flex items-center gap-2.5">
+            <span key={cart.count} className="mn-bump grid h-7 min-w-7 place-items-center rounded-full bg-black/20 px-1.5 text-xs">
+              {cart.count}
+            </span>
+            {t("viewOrder")}
           </span>
-        )}
-      </button>
+          <span className="flex items-center gap-2">
+            {fmt(cart.total)}
+            <span aria-hidden>→</span>
+          </span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setCartOpen(true)}
+          aria-label={t("ariaViewOrder")}
+          className="fixed bottom-4 right-4 z-[80] grid h-14 w-14 cursor-pointer place-items-center rounded-full transition-transform hover:scale-105 sm:right-6"
+          style={{ background: PRIMARY, color: PRIMARY_ON, boxShadow: `0 10px 30px ${PRIMARY_SHADOW}` }}
+        >
+          <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="9" cy="21" r="1" />
+            <circle cx="18" cy="21" r="1" />
+            <path d="M3 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L23 6H6" />
+          </svg>
+        </button>
+      )}
 
       {/* Modal de producto */}
       {modalProd && (
@@ -709,165 +555,98 @@ const Menu = () => {
   );
 };
 
-// ── Card de producto (texto a la izquierda, imagen a la derecha) ──
+// ── Card de producto (estilo app: imagen a la izquierda) ──
 const ProductCard = ({
   prod,
+  index,
   onOpen,
   onAdd,
 }: {
   prod: Producto;
+  index: number;
   onOpen: () => void;
   onAdd: () => void;
 }) => {
   const { t } = useLang();
-  const [hovered, setHovered] = useState(false);
+  const personalizable = !!prod.variantes && prod.variantes.length > 0;
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={onOpen}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: "flex",
-        background: "#fff",
-        borderRadius: 16,
-        border: "1px solid #f0eeec",
-        overflow: "hidden",
-        cursor: "pointer",
-        minHeight: 132,
-        boxShadow: hovered ? "0 10px 30px rgba(0,0,0,.10)" : "0 1px 4px rgba(0,0,0,.04)",
-        transform: hovered ? "translateY(-2px)" : "none",
-        transition: "box-shadow .2s, transform .2s",
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
       }}
+      className="mn-in group flex cursor-pointer items-center gap-3 rounded-2xl bg-white/[0.055] p-2.5 ring-1 ring-white/[0.08] transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/[0.085] hover:ring-white/15"
+      style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
     >
-      {/* Texto */}
-      <div style={{ flex: 1, minWidth: 0, padding: "16px 16px 14px", display: "flex", flexDirection: "column" }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#1c1917", lineHeight: 1.3 }}>
-          {prod.nombre}
-        </h3>
-        {prod.descripcion && (
-          <p
-            style={{
-              margin: "6px 0 0",
-              fontSize: 13,
-              color: "#6b7280",
-              lineHeight: 1.5,
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-            }}
-          >
-            {prod.descripcion}
-          </p>
-        )}
-        <div style={{ marginTop: "auto", paddingTop: 10, fontSize: 17, fontWeight: 800, color: PRIMARY }}>
-          {fmt(Number(prod.precio))}
-        </div>
+      <div
+        className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl sm:h-28 sm:w-28"
+        style={{ background: `linear-gradient(135deg, ${PRIMARY_A35}, ${PRIMARY_SOFT})` }}
+      >
+        <ProductImage
+          url={prod.imagen_url}
+          alt={prod.nombre}
+          w={224}
+          h={224}
+          fill
+          style={{ width: "100%", height: "100%", transition: "transform .4s" }}
+        />
       </div>
 
-      {/* Imagen + botón agregar */}
-      <div style={{ position: "relative", width: 132, flexShrink: 0, background: "#f4f2f0" }}>
-        <ProductImage url={prod.imagen_url} alt={prod.nombre} w={264} h={264} fill style={{ width: "100%", height: "100%" }} />
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onAdd();
-          }}
-          aria-label={t("ariaAddToOrder")}
-          style={{
-            position: "absolute",
-            right: 8,
-            bottom: 8,
-            width: 34,
-            height: 34,
-            borderRadius: "50%",
-            border: "none",
-            background: PRIMARY,
-            color: "#fff",
-            fontSize: 22,
-            fontWeight: 700,
-            lineHeight: 1,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            boxShadow: `0 4px 12px ${PRIMARY_SHADOW}`,
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = PRIMARY_DARK)}
-          onMouseLeave={(e) => (e.currentTarget.style.background = PRIMARY)}
-        >
-          +
-        </button>
+      <div className="flex min-w-0 flex-1 flex-col self-stretch py-1">
+        <div className="flex items-start gap-1.5">
+          <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug">{prod.nombre}</h3>
+          {personalizable && (
+            <span
+              className="mt-0.5 shrink-0 rounded px-1.5 py-px text-[9px] font-bold uppercase tracking-wide"
+              style={{ background: PRIMARY_SOFT, color: PRIMARY }}
+            >
+              {t("customizable")}
+            </span>
+          )}
+        </div>
+        {prod.descripcion && (
+          <p className="mt-1 line-clamp-2 text-[12.5px] leading-snug text-white/50">{prod.descripcion}</p>
+        )}
+        <div className="mt-auto flex items-end justify-between gap-2 pt-2">
+          <span className="text-base font-extrabold" style={{ color: PRIMARY }}>
+            {fmt(Number(prod.precio))}
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAdd();
+            }}
+            aria-label={t("ariaAddToOrder")}
+            className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full text-xl font-bold leading-none transition-transform hover:scale-110 active:scale-95"
+            style={{ background: PRIMARY, color: PRIMARY_ON, boxShadow: `0 6px 16px -4px ${PRIMARY_SHADOW}` }}
+          >
+            +
+          </button>
+        </div>
       </div>
     </div>
   );
 };
 
-// ── Título de sección: subrayado degradado en color de marca + contador ──
-const SectionHeading = ({ nombre, count }: { nombre: string; count: number }) => (
-  <div style={{ display: "flex", alignItems: "center", gap: 14, margin: "0 0 18px" }}>
-    <h2
-      style={{
-        margin: 0,
-        fontSize: 24,
-        fontWeight: 800,
-        color: "#1c1917",
-        letterSpacing: "-0.02em",
-        position: "relative",
-        paddingBottom: 9,
-        display: "inline-block",
-      }}
-    >
-      {nombre}
-      <span
-        style={{
-          position: "absolute",
-          left: 0,
-          bottom: 0,
-          height: 3,
-          width: "100%",
-          borderRadius: 99,
-          background: `linear-gradient(90deg, ${PRIMARY}, transparent)`,
-        }}
-      />
-    </h2>
-    <span
-      style={{
-        fontSize: 12.5,
-        fontWeight: 700,
-        color: PRIMARY,
-        background: PRIMARY_SOFT,
-        borderRadius: 999,
-        padding: "3px 10px",
-        flexShrink: 0,
-      }}
-    >
-      {count}
-    </span>
-    <span
-      style={{
-        flex: 1,
-        height: 1,
-        background: "linear-gradient(90deg,#ece9e7,transparent)",
-      }}
-    />
-  </div>
-);
-
-// ── Barra de categorías con flechas next/prev (desktop) ──
+// ── Barra de categorías (chips) con flechas en escritorio ──
 const CategoryBar = ({
   categorias,
   onPick,
-  isDesktop,
   active,
   rubro,
 }: {
   categorias: Categoria[];
   onPick: (id: number) => void;
-  isDesktop: boolean;
   active: number | null;
   rubro?: string | null;
 }) => {
+  const { t } = useLang();
   const rowRef = useRef<HTMLDivElement>(null);
   const btnRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const [atStart, setAtStart] = useState(true);
@@ -884,17 +663,14 @@ const CategoryBar = ({
     }
   }, [active]);
 
-  const update = () => {
-    const el = rowRef.current;
-    if (!el) return;
-    setAtStart(el.scrollLeft <= 2);
-    setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 2);
-  };
-
   useEffect(() => {
-    update();
     const el = rowRef.current;
     if (!el) return;
+    const update = () => {
+      setAtStart(el.scrollLeft <= 2);
+      setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 2);
+    };
+    update();
     el.addEventListener("scroll", update, { passive: true });
     const ro = new ResizeObserver(update);
     ro.observe(el);
@@ -904,167 +680,60 @@ const CategoryBar = ({
     };
   }, [categorias]);
 
-  const scroll = (dir: "prev" | "next") => {
-    rowRef.current?.scrollBy({
-      left: dir === "next" ? 280 : -280,
-      behavior: "smooth",
-    });
-  };
+  const scroll = (dir: "prev" | "next") =>
+    rowRef.current?.scrollBy({ left: dir === "next" ? 280 : -280, behavior: "smooth" });
+
+  const arrow = (dir: "prev" | "next", disabled: boolean) => (
+    <button
+      type="button"
+      onClick={() => scroll(dir)}
+      disabled={disabled}
+      aria-label={dir === "prev" ? t("ariaPrevCat") : t("ariaNextCat")}
+      className={`absolute top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-white/10 text-white ring-1 ring-white/15 backdrop-blur transition md:grid ${
+        dir === "prev" ? "left-0" : "right-0"
+      } ${disabled ? "pointer-events-none opacity-0" : "hover:bg-white/20"}`}
+    >
+      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+        {dir === "prev" ? <path d="M15 18l-6-6 6-6" /> : <path d="M9 18l6-6-6-6" />}
+      </svg>
+    </button>
+  );
 
   return (
-    <div
-      style={{
-        position: "relative",
-        borderBottom: "1px solid #f1efed",
-        marginBottom: 6,
-      }}
-    >
+    <div className="relative -mx-4 sm:mx-0">
+      {arrow("prev", atStart)}
       <div
         ref={rowRef}
+        className="mn-scroll flex gap-2 overflow-x-auto px-4 py-3 sm:px-0 md:px-10"
         style={{
-          display: "flex",
-          gap: 6,
-          overflowX: "auto",
-          paddingBottom: 14,
-          paddingLeft: isDesktop ? 42 : 0,
-          paddingRight: isDesktop ? 42 : 0,
-          scrollbarWidth: "none",
+          maskImage: "linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent)",
+          WebkitMaskImage: "linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent)",
         }}
       >
-        <style>{`::-webkit-scrollbar{display:none}`}</style>
         {categorias.map((c) => {
           const isActive = c.id === active;
           return (
             <button
               key={c.id}
+              type="button"
               ref={(el) => {
                 btnRefs.current[c.id] = el;
               }}
               onClick={() => onPick(c.id)}
-              style={{
-                flexShrink: 0,
-                width: 104,
-                padding: "8px 4px 7px",
-                border: "none",
-                background: isActive ? PRIMARY_SOFT : "none",
-                borderRadius: 14,
-                cursor: "pointer",
-                color: PRIMARY,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 7,
-                fontFamily: "inherit",
-                transition: "background .25s ease",
-              }}
+              aria-current={isActive ? "true" : undefined}
+              className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-semibold transition-all duration-300 ${
+                isActive ? "shadow-lg" : "bg-white/[0.07] text-white/70 ring-1 ring-white/10 hover:bg-white/[0.12] hover:text-white"
+              }`}
+              style={isActive ? { background: PRIMARY, color: PRIMARY_ON, boxShadow: `0 8px 20px -8px ${PRIMARY_SHADOW}` } : undefined}
             >
-              <CategoriaIcon
-                nombre={c.nombre}
-                rubro={rubro}
-                size={28}
-                style={{ opacity: isActive ? 1 : 0.7, transition: "opacity .25s" }}
-              />
-              <span
-                style={{
-                  fontSize: 11.5,
-                  fontWeight: isActive ? 800 : 600,
-                  color: isActive ? PRIMARY : "#3f3f46",
-                  lineHeight: 1.25,
-                  textAlign: "center",
-                  transition: "color .2s",
-                }}
-              >
-                {c.nombre}
-              </span>
+              <CategoriaIcon nombre={c.nombre} rubro={rubro} size={16} />
+              {c.nombre}
             </button>
           );
         })}
       </div>
-
-      {isDesktop && (
-        <>
-          <div
-            style={{
-              position: "absolute",
-              left: 0,
-              top: 0,
-              bottom: 14,
-              display: "flex",
-              alignItems: "center",
-              background:
-                "linear-gradient(to right,#fff 55%,rgba(255,255,255,0))",
-              paddingRight: 12,
-            }}
-          >
-            <CatArrow dir="prev" disabled={atStart} onClick={() => scroll("prev")} />
-          </div>
-          <div
-            style={{
-              position: "absolute",
-              right: 0,
-              top: 0,
-              bottom: 14,
-              display: "flex",
-              alignItems: "center",
-              background:
-                "linear-gradient(to left,#fff 55%,rgba(255,255,255,0))",
-              paddingLeft: 12,
-            }}
-          >
-            <CatArrow dir="next" disabled={atEnd} onClick={() => scroll("next")} />
-          </div>
-        </>
-      )}
+      {arrow("next", atEnd)}
     </div>
-  );
-};
-
-// ── Flecha circular reutilizable ──
-const CatArrow = ({
-  dir,
-  disabled,
-  onClick,
-}: {
-  dir: "prev" | "next";
-  disabled: boolean;
-  onClick: () => void;
-}) => {
-  const { t } = useLang();
-  return (
-  <button
-    onClick={onClick}
-    disabled={disabled}
-    aria-label={dir === "prev" ? t("ariaPrevCat") : t("ariaNextCat")}
-    style={{
-      width: 34,
-      height: 34,
-      borderRadius: "50%",
-      border: "1.5px solid #ececec",
-      background: "#fff",
-      color: disabled ? "#d4d4d4" : PRIMARY,
-      cursor: disabled ? "default" : "pointer",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      transition: "all .15s",
-    }}
-    onMouseEnter={(e) => {
-      if (!disabled) {
-        e.currentTarget.style.background = PRIMARY;
-        e.currentTarget.style.color = "#fff";
-        e.currentTarget.style.borderColor = PRIMARY;
-      }
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.background = "#fff";
-      e.currentTarget.style.color = disabled ? "#d4d4d4" : PRIMARY;
-      e.currentTarget.style.borderColor = "#ececec";
-    }}
-  >
-    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-      {dir === "prev" ? <path d="M15 18l-6-6 6-6" /> : <path d="M9 18l6-6-6-6" />}
-    </svg>
-  </button>
   );
 };
 
@@ -1075,7 +744,15 @@ function waLink(config: Configuracion | null) {
   return num ? `https://wa.me/${num}` : "#";
 }
 
-const contactIcons: Record<string, React.ReactNode> = {
+function WaIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2Zm5.3 14.1c-.2.6-1.2 1.1-1.7 1.2-.4.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.6-2.7-1.2-4.4-3.9-4.6-4.1-.1-.2-1-1.4-1-2.6s.6-1.8.9-2.1c.2-.2.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2.1.4 0 .5l-.4.6c-.1.2-.3.3-.1.6.1.3.6 1 1.3 1.6.9.8 1.6 1 1.9 1.2.2.1.4.1.5-.1l.6-.7c.2-.2.3-.2.6-.1l1.8.9c.3.1.5.2.5.4.1.1.1.7-.1 1.3Z" />
+    </svg>
+  );
+}
+
+const contactIcons: Record<string, ReactNode> = {
   pin: (
     <>
       <path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11Z" />
@@ -1088,9 +765,7 @@ const contactIcons: Record<string, React.ReactNode> = {
       <path d="M12 7v5l3 2" />
     </>
   ),
-  phone: (
-    <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" />
-  ),
+  phone: <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" />,
   mail: (
     <>
       <rect x="3" y="5" width="18" height="14" rx="2" />
@@ -1099,14 +774,27 @@ const contactIcons: Record<string, React.ReactNode> = {
   ),
 };
 
-function ContactLine({ icon, children }: { icon: string; children: React.ReactNode }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-      <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.9, flexShrink: 0 }}>
-        {contactIcons[icon]}
-      </svg>
-      <span>{children}</span>
-    </div>
+const CIcon = ({ icon, size = 14 }: { icon: string; size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+    {contactIcons[icon]}
+  </svg>
+);
+
+function Chip({ icon, href, children }: { icon: string; href?: string; children: ReactNode }) {
+  const cls =
+    "inline-flex max-w-full items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-white/80 backdrop-blur";
+  const body = (
+    <>
+      <CIcon icon={icon} />
+      <span className="truncate">{children}</span>
+    </>
+  );
+  return href ? (
+    <a href={href} target={href.startsWith("http") ? "_blank" : undefined} rel="noreferrer" className={`${cls} transition-colors hover:bg-white/20`}>
+      {body}
+    </a>
+  ) : (
+    <span className={cls}>{body}</span>
   );
 }
 
@@ -1115,32 +803,22 @@ function SemanaHorarios({ hc }: { hc: HorariosConfig }) {
   const hoy = hoyIndex();
   return (
     <div>
-      <div style={{ fontSize: 13, fontWeight: 700, color: "#1c1917", marginBottom: 8 }}>
-        {t("schedule")}
-      </div>
-      <div style={{ display: "grid", gap: 5 }}>
-        {DIAS_SEMANA.map((_, i) => {
+      <div className="mb-2.5 text-sm font-bold">{t("schedule")}</div>
+      <div className="grid gap-1.5">
+        {Array.from({ length: 7 }, (_, i) => {
           const txt = franjasTxt(hc[i]);
           const esHoy = i === hoy;
           return (
             <div
               key={i}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 12,
-                fontSize: 12.5,
-                color: esHoy ? "#1c1917" : "#6b7280",
-                fontWeight: esHoy ? 700 : 400,
-              }}
+              className={`flex justify-between gap-3 rounded-lg px-2 py-1 text-[12.5px] ${esHoy ? "font-bold text-white" : "text-white/55"}`}
+              style={esHoy ? { background: PRIMARY_SOFT } : undefined}
             >
               <span>
                 {t(`day${i}`)}
                 {esHoy ? ` · ${t("todaySuffix")}` : ""}
               </span>
-              <span style={{ color: txt ? "#4b5563" : "#c0392b" }}>
-                {txt || t("closed")}
-              </span>
+              <span className={txt ? "" : "text-red-300"}>{txt || t("closed")}</span>
             </div>
           );
         })}
@@ -1149,12 +827,12 @@ function SemanaHorarios({ hc }: { hc: HorariosConfig }) {
   );
 }
 
-function FooterLine({ icon, children }: { icon: string; children: React.ReactNode }) {
+function FooterLine({ icon, children }: { icon: string; children: ReactNode }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#4b5563" }}>
-      <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={PRIMARY} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-        {contactIcons[icon]}
-      </svg>
+    <div className="flex items-center gap-2.5">
+      <span style={{ color: PRIMARY }}>
+        <CIcon icon={icon} size={16} />
+      </span>
       <span>{children}</span>
     </div>
   );

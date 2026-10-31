@@ -26,17 +26,33 @@ const darken = (hex: string, amt = 0.15) => {
   return `rgb(${f(r)},${f(g)},${f(b)})`;
 };
 
+// Texto legible sobre el color de marca (negro sobre colores claros).
+const onColor = (hex: string) => {
+  const { r, g, b } = hexToRgb(hex);
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.6 ? "#0b0b0b" : "#ffffff";
+};
+
 // Devuelve las variables CSS de la paleta a partir de un color primario.
+// --mp-bg1/--mp-bg2: fondo oscuro teñido con el color de marca (estilo app).
 export const paletteVars = (hex?: string | null): CSSProperties => {
   const color = hex || "#ff5722";
   const { r, g, b } = hexToRgb(color);
   return {
     ["--mp" as string]: color,
     ["--mp-dark" as string]: darken(color, 0.15),
-    ["--mp-soft" as string]: `rgba(${r},${g},${b},0.10)`,
-    ["--mp-shadow" as string]: `rgba(${r},${g},${b},0.4)`,
+    ["--mp-soft" as string]: `rgba(${r},${g},${b},0.14)`,
+    ["--mp-shadow" as string]: `rgba(${r},${g},${b},0.45)`,
+    ["--mp-a20" as string]: `rgba(${r},${g},${b},0.2)`,
+    ["--mp-a35" as string]: `rgba(${r},${g},${b},0.35)`,
+    ["--mp-on" as string]: onColor(color),
+    ["--mp-bg1" as string]: darken(color, 0.8),
+    ["--mp-bg2" as string]: darken(color, 0.93),
   } as CSSProperties;
 };
+export const PRIMARY_ON = "var(--mp-on, #fff)";
+export const PRIMARY_A20 = "var(--mp-a20, rgba(255,87,34,.2))";
+export const PRIMARY_A35 = "var(--mp-a35, rgba(255,87,34,.35))";
 
 // Paletas sugeridas para el panel de administración.
 export const PALETAS = [
@@ -377,7 +393,7 @@ export function DefaultFoodImage({ style }: { style?: CSSProperties }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "linear-gradient(135deg,#fbe9e2,#f6d9cd)",
+        background: `linear-gradient(135deg, ${PRIMARY_A35}, ${PRIMARY_SOFT})`,
         color: PRIMARY,
         ...style,
       }}
