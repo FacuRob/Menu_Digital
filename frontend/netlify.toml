@@ -18,12 +18,14 @@
 # ── Cabeceras de seguridad ───────────────────────────────────
 # CSP estricta. connect-src DEBE listar la URL del backend (cross-origin);
 # img-src permite https: para las imágenes de productos (Cloudinary u otros).
-# Si querés embeber el menú en otra web (iframe), cambiá frame-ancestors.
+# frame-ancestors: sólo el panel admin puede embeber el menú (vista previa
+# /menu/:slug del admin). Si el admin tiene dominio propio, reemplazá
+# https://*.netlify.app por esa URL exacta. (Sin X-Frame-Options: DENY
+# bloquearía la vista previa; frame-ancestors ya cubre el clickjacking.)
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://backend-menu-digital.onrender.com https://menu-digital-backend.onrender.com; upgrade-insecure-requests"
-    X-Frame-Options = "DENY"
+    Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self' https://*.netlify.app https://menu-digital-admin.onrender.com; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://backend-menu-digital.onrender.com https://menu-digital-backend.onrender.com; upgrade-insecure-requests"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "no-referrer"
     Strict-Transport-Security = "max-age=31536000; includeSubDomains"
