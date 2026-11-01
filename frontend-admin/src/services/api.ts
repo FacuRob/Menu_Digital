@@ -528,4 +528,37 @@ export const whatsappService = {
     (await api.post<{ message: string }>("/whatsapp/prueba", { telefono })).data,
 };
 
+// ── Chats de WhatsApp (Fase 2) ─────────────────────────────────
+export interface ChatWhatsapp {
+  id: number;
+  telefono: string;
+  nombre: string | null;
+  ultimo_texto: string | null;
+  ultimo_at: string | null;
+  ultimo_entrante_at: string | null;
+  no_leidos: number;
+  puede_responder: boolean;
+}
+
+export interface MensajeChat {
+  id: number;
+  direccion: "entrante" | "saliente";
+  texto: string | null;
+  aviso: EstadoAviso | "prueba" | null;
+  plantilla: string | null;
+  estado: "enviado" | "entregado" | "leido" | "fallido" | "recibido";
+  error: string | null;
+  pedido_id: number | null;
+  created_at: string;
+}
+
+export const chatsService = {
+  listar: async () =>
+    (await api.get<{ conectado: boolean; chats: ChatWhatsapp[] }>("/whatsapp/chats")).data,
+  mensajes: async (id: number) =>
+    (await api.get<{ chat: ChatWhatsapp; mensajes: MensajeChat[] }>(`/whatsapp/chats/${id}/mensajes`)).data,
+  enviar: async (id: number, texto: string) =>
+    (await api.post<MensajeChat>(`/whatsapp/chats/${id}/mensajes`, { texto })).data,
+};
+
 export default api;

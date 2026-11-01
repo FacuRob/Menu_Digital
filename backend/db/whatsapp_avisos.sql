@@ -1,4 +1,4 @@
--- Migración: avisos de pedido por WhatsApp (Fase 1). Idempotente.
+-- Migración: WhatsApp (Fase 1 avisos + Fase 2 chats). Idempotente: se puede correr más de una vez.
 --
 -- 1) pedidos.acepta_whatsapp → el cliente marcó "avisarme por WhatsApp" (opt-in
 --    que exige Meta para mensajes iniciados por el negocio).
@@ -41,3 +41,32 @@ CREATE INDEX IF NOT EXISTS idx_wa_mensajes_meta_id ON whatsapp_mensajes(meta_id)
 -- de las tablas. Se habilita RLS sin políticas para que nadie más las lea.
 ALTER TABLE whatsapp_avisos   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE whatsapp_mensajes ENABLE ROW LEVEL SECURITY;
+
+-- ── Fase 2: chats (mensajes entrantes y respuestas desde el panel) ──
+-- 4) whatsapp_chats → una conversación por negocio y teléfono.
+-- 5) whatsapp_mensajes pasa a guardar también los mensajes que escribe el
+--    cliente (direccion = 'entrante') y el texto de cada mensaje.
+
+CREATE TABLE IF NOT EXISTS whatsapp_chats (
+    id                 BIGSERIAL PRIMARY KEY,
+    negocio_id         INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+    telefono           VARCHAR(30) NOT NULL,     -- normalizado: 54 + 10 dígitos
+    nombre             VARCHAR(120),             -- nombre del perfil de WhatsApp o del pedido
+    ultimo_texto       TEXT,
+    ultimo_at          TIMESTAMPTZ,
+    ultimo_entrante_at TIMESTAMPTZ,              -- abre la ventana de 24 h para responder
+    no_leidos          INTEGER NOT NULL DEFAULT 0,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (negocio_id, telefono)
+);
+
+CREATE INDEX IF NOT EXISTS idx_wa_chats_negocio ON whatsapp_chats(negocio_id, ultimo_at DESC);
+CREATE INDEX IF NOT EXISTS idx_wa_chats_telefono ON whatsapp_chats(telefono);
+
+ALTER TABLE whatsapp_mensajes ADD COLUMN IF NOT EXISTS chat_id   BIGINT REFERENCES whatsapp_chats(id) ON DELETE CASCADE;
+ALTER TABLE whatsapp_mensajes ADD COLUMN IF NOT EXISTS direccion VARCHAR(10) NOT NULL DEFAULT 'saliente'; -- saliente|entrante
+ALTER TABLE whatsapp_mensajes ADD COLUMN IF NOT EXISTS texto     TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_wa_mensajes_chat ON whatsapp_mensajes(chat_id, created_at);
+
+ALTER TABLE whatsapp_chats ENABLE ROW LEVEL SECURITY;

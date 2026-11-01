@@ -52,6 +52,10 @@ function createSupabaseMock() {
           q.filters[col] = val;
           return b;
         },
+        not(col, op, val) {
+          q.nots = [...(q.nots || []), { col, op, val }];
+          return b;
+        },
         in(col, vals) {
           q.inList = { col, vals };
           return b;

@@ -200,6 +200,17 @@ app.use(
   analiticasRoutes,
 );
 
+// Chats de WhatsApp con clientes (quien atiende pedidos). Va antes que
+// /api/whatsapp para no pasar por el permiso de configuración.
+app.use(
+  "/api/whatsapp/chats",
+  authMiddleware,
+  scopeNegocio,
+  checkSuscripcion,
+  checkPermiso("pedidos"),
+  whatsappRoutes.chatsRouter,
+);
+
 // Avisos de pedido por WhatsApp (configuración del negocio).
 app.use(
   "/api/whatsapp",

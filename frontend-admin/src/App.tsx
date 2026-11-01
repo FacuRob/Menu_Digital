@@ -24,6 +24,7 @@ const Plataforma = lazy(() => import("./pages/admin/Plataforma"));
 const Suscripcion = lazy(() => import("./pages/admin/Suscripcion"));
 const MenuPreview = lazy(() => import("./pages/MenuPreview"));
 const WhatsApp = lazy(() => import("./pages/admin/WhatsApp"));
+const Chats = lazy(() => import("./pages/admin/Chats"));
 
 // Mientras llega el código de la pantalla: fondo del tema (sin flash blanco).
 function Cargando() {
@@ -117,6 +118,14 @@ function App() {
             element={
               <ProtectedRoute permiso="configuracion">
                 <Configuracion />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/chats"
+            element={
+              <ProtectedRoute permiso="pedidos">
+                <Chats />
               </ProtectedRoute>
             }
           />

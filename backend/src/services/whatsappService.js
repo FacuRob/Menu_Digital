@@ -96,4 +96,17 @@ async function enviarPlantilla(telefono, { nombre, idioma, parametros = [] }) {
   });
 }
 
-module.exports = { enviarPlantilla, normalizarTelefono, estaConfigurado };
+// Texto libre: solo se permite dentro de las 24 h desde el último mensaje
+// que nos escribió el cliente (respuestas desde el chat del panel).
+async function enviarTexto(telefono, texto) {
+  const to = normalizarTelefono(telefono);
+  if (!to) return { ok: false, error: "Teléfono inválido" };
+  return enviarPayload({
+    messaging_product: "whatsapp",
+    to,
+    type: "text",
+    text: { body: String(texto), preview_url: false },
+  });
+}
+
+module.exports = { enviarPlantilla, enviarTexto, normalizarTelefono, estaConfigurado };

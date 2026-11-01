@@ -6,6 +6,7 @@
 // o al cliente; si algo falla, queda registrado en whatsapp_mensajes.
 const supabase = require("../config/database");
 const { enviarPlantilla, estaConfigurado } = require("./whatsappService");
+const { asegurarChat, tocarChat } = require("./chatsService");
 
 // Un aviso por estado del pedido. `texto` es el cuerpo EXACTO que hay que
 // cargar como plantilla en Meta (categoría "Utility", idioma es_AR):
@@ -113,12 +114,28 @@ async function nombreNegocio(negocioId) {
 }
 
 // Envía la plantilla y deja el registro. Devuelve { ok, error? }.
-async function enviarYRegistrar({ negocioId, pedidoId, telefono, aviso, etiqueta, params }) {
+// Texto final de la plantilla con sus parámetros ({{1}}, {{2}}, …).
+const renderizar = (texto, params) =>
+  texto.replace(/\{\{(\d+)\}\}/g, (m, n) => (params[n - 1] !== undefined ? String(params[n - 1]) : m));
+
+async function enviarYRegistrar({ negocioId, pedidoId, telefono, aviso, etiqueta, params, nombre }) {
   const res = await enviarPlantilla(telefono, { nombre: aviso.plantilla, parametros: params });
+  const texto = renderizar(aviso.texto, params);
   try {
+    // El aviso también queda en el chat de ese cliente (Fase 2).
+    let chat = null;
+    try {
+      chat = await asegurarChat(negocioId, telefono, { nombre });
+      if (chat && res.ok) await tocarChat(chat, { texto, entrante: false });
+    } catch {
+      chat = null; // sin migración de chats: se registra igual, sin chat
+    }
     await supabase.from("whatsapp_mensajes").insert([
       {
         negocio_id: negocioId,
+        chat_id: chat?.id || null,
+        direccion: "saliente",
+        texto,
         pedido_id: pedidoId || null,
         telefono: String(telefono).slice(0, 30),
         aviso: etiqueta,
@@ -155,6 +172,7 @@ async function notificarPedido(pedido, estado = pedido?.estado) {
       telefono: pedido.telefono_cliente,
       aviso,
       etiqueta: estado,
+      nombre: (pedido.cliente || "").trim() || null,
       params: [(pedido.cliente || "").trim() || "cliente", local, pedido.id],
     });
   } catch (err) {

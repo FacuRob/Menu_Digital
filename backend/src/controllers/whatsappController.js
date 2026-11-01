@@ -10,6 +10,7 @@ const {
   enviarPrueba,
   registrarEstadosMeta,
 } = require("../services/avisosPedidoService");
+const chats = require("../services/chatsService");
 
 // ── Panel: configuración de avisos ─────────────────────────────
 // GET /api/whatsapp/avisos
@@ -54,6 +55,8 @@ const getMensajes = async (req, res) => {
       .from("whatsapp_mensajes")
       .select("id, pedido_id, telefono, aviso, estado, error, created_at")
       .eq("negocio_id", negocioId)
+      .eq("direccion", "saliente")
+      .not("aviso", "is", null)
       .order("created_at", { ascending: false })
       .limit(50);
     // Sin migración todavía → lista vacía en vez de error.
@@ -75,6 +78,38 @@ const postPrueba = async (req, res) => {
     const r = await enviarPrueba(negocioId, telefono);
     if (!r.ok) return res.status(502).json({ message: r.error || "No se pudo enviar" });
     res.json({ message: "Mensaje de prueba enviado" });
+  } catch (error) {
+    return respondError(res, error, "whatsapp");
+  }
+};
+
+// ── Panel: chats (Fase 2) ──────────────────────────────────────
+// GET /api/whatsapp/chats
+const getChats = async (req, res) => {
+  try {
+    res.json({ conectado: estaConfigurado(), chats: await chats.listarChats(getNegocioId(req)) });
+  } catch (error) {
+    return respondError(res, error, "whatsapp");
+  }
+};
+
+// GET /api/whatsapp/chats/:id/mensajes
+const getMensajesChat = async (req, res) => {
+  try {
+    const r = await chats.mensajesDelChat(getNegocioId(req), req.params.id);
+    if (!r) return res.status(404).json({ message: "Chat no encontrado." });
+    res.json(r);
+  } catch (error) {
+    return respondError(res, error, "whatsapp");
+  }
+};
+
+// POST /api/whatsapp/chats/:id/mensajes  { texto }
+const postMensajeChat = async (req, res) => {
+  try {
+    const r = await chats.responder(getNegocioId(req), req.params.id, req.body?.texto);
+    if (!r.ok) return res.status(r.status || 500).json({ message: r.error, mensaje: r.mensaje || null });
+    res.status(201).json(r.mensaje);
   } catch (error) {
     return respondError(res, error, "whatsapp");
   }
@@ -110,7 +145,7 @@ const firmaValida = (raw, header) => {
 };
 
 // POST /api/webhooks/whatsapp → estados de los mensajes (enviado/entregado/
-// leído/fallido). Los mensajes entrantes se usarán en la Fase 2 (chats).
+// leído/fallido) y mensajes que escriben los clientes (chats).
 const recibirWebhook = async (req, res) => {
   const raw = Buffer.isBuffer(req.body) ? req.body : Buffer.from(JSON.stringify(req.body || {}));
   if (!firmaValida(raw, req.headers["x-hub-signature-256"])) {
@@ -124,9 +159,16 @@ const recibirWebhook = async (req, res) => {
   }
   // Meta espera un 200 rápido; se procesa después de responder.
   res.sendStatus(200);
-  const statuses = (payload?.entry || [])
+  const values = (payload?.entry || [])
     .flatMap((e) => e?.changes || [])
-    .flatMap((c) => c?.value?.statuses || []);
+    .map((c) => c?.value)
+    .filter(Boolean);
+  for (const v of values) {
+    if (v.messages?.length) {
+      chats.registrarEntrantes(v).catch((e) => console.error("[WhatsApp] entrantes:", e.message));
+    }
+  }
+  const statuses = values.flatMap((v) => v.statuses || []);
   if (statuses.length) {
     registrarEstadosMeta(statuses).catch((e) =>
       console.error("[WhatsApp] webhook:", e.message),
@@ -139,6 +181,9 @@ module.exports = {
   updateAvisos,
   getMensajes,
   postPrueba,
+  getChats,
+  getMensajesChat,
+  postMensajeChat,
   verificarWebhook,
   recibirWebhook,
 };
