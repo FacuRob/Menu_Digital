@@ -67,19 +67,16 @@ const IcStore = () => (
 );
 
 function BrandMark({ size = 40 }: { size?: number }) {
-  // El PNG trae mucho margen: lo recortamos dentro de un cuadrado.
   return (
-    <span
-      className="relative inline-block shrink-0 overflow-hidden rounded-xl bg-white/95 shadow-lg shadow-cyan-500/10"
+    <img
+      src={BRAND_LOGO}
+      alt=""
+      width={size}
+      height={size}
+      decoding="async"
+      className="inline-block shrink-0 rounded-xl bg-white shadow-lg shadow-cyan-500/10"
       style={{ width: size, height: size }}
-    >
-      <img
-        src={BRAND_LOGO}
-        alt=""
-        className="absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2"
-        style={{ height: size * 1.9 }}
-      />
-    </span>
+    />
   );
 }
 
@@ -364,10 +361,14 @@ export default function Login() {
     <div className="relative min-h-screen overflow-hidden bg-[#060912] font-[Inter,system-ui,sans-serif] text-slate-200 antialiased">
       {/* Fondo */}
       <div className="auth-grid-bg pointer-events-none fixed inset-0" />
-      <div className="auth-blob pointer-events-none fixed -left-40 top-0 h-[480px] w-[480px] rounded-full bg-cyan-500/20 blur-[120px]" />
+      {/* Manchas de luz con degradado radial (sin filtro blur: liviano en celulares). */}
       <div
-        className="auth-blob pointer-events-none fixed -right-32 bottom-0 h-[520px] w-[520px] rounded-full bg-amber-500/15 blur-[130px]"
-        style={{ animationDelay: "-7s" }}
+        className="auth-blob auth-glow pointer-events-none fixed -left-64 -top-24 h-[720px] w-[720px]"
+        style={{ ["--glow" as string]: "rgba(6,182,212,0.22)" }}
+      />
+      <div
+        className="auth-blob auth-glow pointer-events-none fixed -bottom-32 -right-56 h-[760px] w-[760px]"
+        style={{ ["--glow" as string]: "rgba(245,158,11,0.16)", animationDelay: "-7s" }}
       />
 
       {/* Barra superior */}
@@ -389,7 +390,7 @@ export default function Login() {
 
       <main className="relative z-10 flex items-center justify-center px-4 pb-12 pt-2 sm:px-6 min-[900px]:min-h-[calc(100vh-88px)] min-[900px]:pb-16">
         <div
-          className={`auth-shell w-full max-w-[460px] rounded-[28px] border border-white/10 bg-[#0a0f1c]/85 shadow-[0_40px_120px_-30px_rgba(0,0,0,0.8)] backdrop-blur-xl min-[900px]:max-w-[1000px] ${
+          className={`auth-shell w-full max-w-[460px] rounded-[28px] border border-white/10 bg-[#0a0f1c]/95 shadow-[0_40px_120px_-30px_rgba(0,0,0,0.8)] min-[900px]:max-w-[1000px] min-[900px]:bg-[#0a0f1c]/85 min-[900px]:backdrop-blur-xl ${
             isSignup ? "is-signup" : ""
           }`}
         >
@@ -607,10 +608,13 @@ export default function Login() {
           <div className="auth-overlay">
             <div className="auth-overlay-inner bg-gradient-to-br from-cyan-500 via-teal-600 to-indigo-700">
               <div className="auth-grid-bg pointer-events-none absolute inset-0 opacity-70" />
-              <div className="auth-blob pointer-events-none absolute -left-24 top-10 h-80 w-80 rounded-full bg-cyan-300/40 blur-3xl" />
               <div
-                className="auth-blob pointer-events-none absolute -bottom-20 right-1/4 h-80 w-80 rounded-full bg-amber-300/35 blur-3xl"
-                style={{ animationDelay: "-9s" }}
+                className="auth-blob auth-glow pointer-events-none absolute -left-40 -top-6 h-[30rem] w-[30rem]"
+                style={{ ["--glow" as string]: "rgba(103,232,249,0.40)" }}
+              />
+              <div
+                className="auth-blob auth-glow pointer-events-none absolute -bottom-40 right-[10%] h-[30rem] w-[30rem]"
+                style={{ ["--glow" as string]: "rgba(252,211,77,0.35)", animationDelay: "-9s" }}
               />
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-slate-950/10 to-slate-950/40" />
 

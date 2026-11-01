@@ -134,6 +134,8 @@ const CARDS = [
 const ESTADO: Record<Pedido["estado"], { key: string; color: string }> = {
   pendiente: { key: "pedStatePendiente", color: "#f59e0b" },
   preparando: { key: "pedStatePreparando", color: "#0ea5e9" },
+  listo: { key: "pedStateListo", color: "#8b5cf6" },
+  en_camino: { key: "pedStateEnCamino", color: "#06b6d4" },
   entregado: { key: "pedStateEntregado", color: "#10b981" },
   cancelado: { key: "pedStateCancelado", color: "#ef4444" },
 };
@@ -244,7 +246,7 @@ export default function Dashboard() {
     const delDia = pedidos.filter((p) => isToday(p.created_at) && p.estado !== "cancelado");
     return {
       count: delDia.length,
-      pendientes: pedidos.filter((p) => p.estado === "pendiente" || p.estado === "preparando").length,
+      pendientes: pedidos.filter((p) => ["pendiente", "preparando", "listo", "en_camino"].includes(p.estado)).length,
     };
   }, [pedidos]);
 
@@ -271,15 +273,18 @@ export default function Dashboard() {
         {/* ── Hero ── */}
         <section className="dash-in relative overflow-hidden rounded-3xl bg-gradient-to-br from-cyan-500 via-teal-600 to-indigo-700 p-6 text-white shadow-[0_20px_60px_-25px_rgba(8,145,178,0.6)] sm:p-8">
           <div className="auth-grid-bg pointer-events-none absolute inset-0 opacity-60" />
-          <div className="auth-blob pointer-events-none absolute -left-16 -top-24 h-72 w-72 rounded-full bg-cyan-300/40 blur-3xl" />
           <div
-            className="auth-blob pointer-events-none absolute -bottom-28 right-1/3 h-72 w-72 rounded-full bg-amber-300/30 blur-3xl"
-            style={{ animationDelay: "-8s" }}
+            className="auth-blob auth-glow pointer-events-none absolute -left-32 -top-40 h-[26rem] w-[26rem]"
+            style={{ ["--glow" as string]: "rgba(103,232,249,0.40)" }}
+          />
+          <div
+            className="auth-blob auth-glow pointer-events-none absolute -bottom-44 right-[20%] h-[26rem] w-[26rem]"
+            style={{ ["--glow" as string]: "rgba(252,211,77,0.30)", animationDelay: "-8s" }}
           />
 
           <div className="relative grid items-center gap-6 lg:grid-cols-[1fr_auto]">
             <div>
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium capitalize ring-1 ring-white/20 backdrop-blur">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium capitalize ring-1 ring-white/20">
                 {new Date().toLocaleDateString(LOCALE[lang], { weekday: "long", day: "numeric", month: "long" })}
               </span>
               <h1 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">{t(greetKey, { name })} 👋</h1>
@@ -299,7 +304,7 @@ export default function Dashboard() {
                   <button
                     type="button"
                     onClick={() => navigate("/admin/qr")}
-                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold ring-1 ring-white/25 backdrop-blur transition-colors hover:bg-white/25"
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold ring-1 ring-white/25 transition-colors hover:bg-white/25"
                   >
                     {I.qrSmall} {t("dashShareQr")}
                   </button>
@@ -308,7 +313,7 @@ export default function Dashboard() {
                   <button
                     type="button"
                     onClick={() => navigate("/admin/productos")}
-                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold ring-1 ring-white/25 backdrop-blur transition-colors hover:bg-white/25"
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold ring-1 ring-white/25 transition-colors hover:bg-white/25"
                   >
                     {I.plus} {t("dashNewProduct")}
                   </button>
@@ -317,7 +322,7 @@ export default function Dashboard() {
             </div>
 
             {/* Tarjeta del negocio */}
-            <div className="w-full rounded-2xl bg-slate-950/25 p-4 ring-1 ring-white/20 backdrop-blur-xl lg:w-[320px]">
+            <div className="w-full rounded-2xl bg-slate-950/30 p-4 ring-1 ring-white/20 lg:w-[320px]">
               <div className="flex items-center gap-3">
                 {cfg?.logo ? (
                   <img src={cfg.logo} alt="" className="h-12 w-12 rounded-xl bg-white object-cover" />
@@ -520,8 +525,8 @@ export default function Dashboard() {
                 style={delay(9 + i)}
               >
                 <span
-                  className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full opacity-40 blur-2xl transition-opacity group-hover:opacity-90"
-                  style={{ background: card.accent }}
+                  className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full opacity-50 transition-opacity group-hover:opacity-100"
+                  style={{ background: `radial-gradient(closest-side, ${card.accent}aa, transparent)` }}
                 />
                 <span
                   className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl transition-transform group-hover:scale-110"

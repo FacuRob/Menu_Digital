@@ -105,6 +105,26 @@ const NAV = [
     ),
   },
   {
+    permiso: "configuracion",
+    ruta: "/admin/whatsapp",
+    labelKey: "navWhatsapp",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.7}
+        className="w-[18px] h-[18px] flex-shrink-0"
+      >
+        <path
+          d="M3.5 20.5l1.3-4.2A8.5 8.5 0 1 1 8 19.4l-4.5 1.1z"
+          strokeLinejoin="round"
+        />
+        <path d="M9 9.5c.3 2 2.5 4.2 4.5 4.5l1.2-1.2 1.8.9-.3 1.3c-3.6.4-7.7-3.7-7.3-7.3l1.3-.3.9 1.8L9 9.5z" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
     permiso: "qr",
     ruta: "/admin/qr",
     labelKey: "navQr",
@@ -589,10 +609,12 @@ export default function AdminLayout({
           <img
             src={BRAND_LOGO}
             alt={BRAND_NAME}
+            width={32}
+            height={32}
             style={{
               width: 32,
               height: 32,
-              objectFit: "contain",
+              borderRadius: 8,
               flexShrink: 0,
             }}
           />

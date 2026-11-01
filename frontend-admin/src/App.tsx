@@ -1,24 +1,43 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
-import { ThemeProvider } from "./context/ThemeContext";
+import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import { NegocioProvider } from "./context/NegocioContext";
 import { LanguageProvider, useLang } from "./lib/i18n";
 import ProtectedRoute from "./components/ProtectedRoute";
-import Login from "./pages/admin/Login";
-import ResetPassword from "./pages/admin/ResetPassword";
-import CambiarPassword from "./pages/admin/CambiarPassword";
-import Onboarding from "./pages/admin/Onboarding";
-import Dashboard from "./pages/admin/Dashboard";
-import Categorias from "./pages/admin/Categorias";
-import Productos from "./pages/admin/Productos";
-import QRCode from "./pages/admin/QRCode";
-import Usuarios from "./pages/admin/Usuarios";
-import Configuracion from "./pages/admin/Configuracion";
-import Pedidos from "./pages/admin/Pedidos";
-import Negocios from "./pages/admin/Negocios";
-import Plataforma from "./pages/admin/Plataforma";
-import Suscripcion from "./pages/admin/Suscripcion";
-import MenuPreview from "./pages/MenuPreview";
+
+// Cada pantalla se descarga recién cuando se visita: el login no baja el
+// código de pedidos, productos, QR, etc.
+const Login = lazy(() => import("./pages/admin/Login"));
+const ResetPassword = lazy(() => import("./pages/admin/ResetPassword"));
+const CambiarPassword = lazy(() => import("./pages/admin/CambiarPassword"));
+const Onboarding = lazy(() => import("./pages/admin/Onboarding"));
+const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
+const Categorias = lazy(() => import("./pages/admin/Categorias"));
+const Productos = lazy(() => import("./pages/admin/Productos"));
+const QRCode = lazy(() => import("./pages/admin/QRCode"));
+const Usuarios = lazy(() => import("./pages/admin/Usuarios"));
+const Configuracion = lazy(() => import("./pages/admin/Configuracion"));
+const Pedidos = lazy(() => import("./pages/admin/Pedidos"));
+const Negocios = lazy(() => import("./pages/admin/Negocios"));
+const Plataforma = lazy(() => import("./pages/admin/Plataforma"));
+const Suscripcion = lazy(() => import("./pages/admin/Suscripcion"));
+const MenuPreview = lazy(() => import("./pages/MenuPreview"));
+const WhatsApp = lazy(() => import("./pages/admin/WhatsApp"));
+
+// Mientras llega el código de la pantalla: fondo del tema (sin flash blanco).
+function Cargando() {
+  const { isDark } = useTheme();
+  const enLogin = /\/admin\/(login|reset-password)/.test(window.location.pathname);
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: enLogin ? "#060912" : isDark ? "#0f1117" : "#f0f2f5",
+      }}
+    />
+  );
+}
 
 function App() {
   return (
@@ -27,6 +46,7 @@ function App() {
       <AuthProvider>
         <NegocioProvider>
         <BrowserRouter>
+        <Suspense fallback={<Cargando />}>
         <Routes>
           <Route path="/" element={<Navigate to="/admin/login" replace />} />
           <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
@@ -101,6 +121,14 @@ function App() {
             }
           />
           <Route
+            path="/admin/whatsapp"
+            element={
+              <ProtectedRoute permiso="configuracion">
+                <WhatsApp />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/admin/usuarios"
             element={
               <ProtectedRoute permiso="usuarios">
@@ -143,6 +171,7 @@ function App() {
 
           <Route path="*" element={<NotFound />} />
           </Routes>
+        </Suspense>
         </BrowserRouter>
         </NegocioProvider>
       </AuthProvider>

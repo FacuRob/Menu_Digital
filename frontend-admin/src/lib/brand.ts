@@ -1,15 +1,14 @@
 import type { CSSProperties } from "react";
-import logoIcon from "../assets/Imagen/Logo.png";
-import logoLockup from "../assets/Imagen/Logo-Titulo.png";
+import logoIcon from "../assets/Imagen/logo-icon.jpg";
 
 // Identidad del SaaS. Un solo lugar para el nombre, los colores y el logo.
 export const BRAND_NAME = "DinexFlow";
 
-// Logos de marca (con fondo transparente).
-//   BRAND_LOGO       → solo el ícono (para badges/favicon).
-//   BRAND_LOGO_FULL  → ícono + nombre (lockup para pantallas de marca).
+// Ícono de marca: cuadrado, ya recortado, sobre fondo blanco (6 KB).
+// Mostrarlo con bordes redondeados. Los originales en alta (Logo.png y
+// Logo-Titulo.png, ~70 KB c/u) quedan en assets/Imagen para material
+// gráfico, pero no se usan en la app para que cargue rápido.
 export const BRAND_LOGO = logoIcon;
-export const BRAND_LOGO_FULL = logoLockup;
 
 // Dos colores de marca → degradado (indigo → cyan).
 export const BRAND_C1 = "#6366f1";

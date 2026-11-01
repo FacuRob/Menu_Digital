@@ -3,7 +3,7 @@ import type { ComponentType } from "react";
 import { useNavigate } from "react-router-dom";
 import { configuracionService, type TipoRubro } from "../../services/api";
 import { useLang } from "../../lib/i18n";
-import { BRAND_NAME, BRAND_GRADIENT, BRAND_LOGO_FULL } from "../../lib/brand";
+import { BRAND_NAME, BRAND_GRADIENT, BRAND_LOGO, brandTextStyle } from "../../lib/brand";
 import {
   IconUtensils,
   IconBag,
@@ -157,11 +157,19 @@ export default function Onboarding() {
       <div style={{ width: "100%", maxWidth: 560, position: "relative" }}>
         {/* Marca + progreso */}
         <div style={{ textAlign: "center", marginBottom: 22 }}>
-          <img
-            src={BRAND_LOGO_FULL}
-            alt={BRAND_NAME}
-            style={{ width: 170, maxWidth: "60%", height: "auto", margin: "0 auto 10px", display: "block" }}
-          />
+          {/* Ícono + nombre (liviano: el lockup en PNG pesaba ~70 KB). */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 10 }}>
+            <img
+              src={BRAND_LOGO}
+              alt=""
+              width={44}
+              height={44}
+              style={{ width: 44, height: 44, borderRadius: 12, display: "block" }}
+            />
+            <span style={{ ...brandTextStyle, fontSize: 28, fontWeight: 800, letterSpacing: "-0.02em" }}>
+              {BRAND_NAME}
+            </span>
+          </div>
           <p style={{ color: "#94a3b8", fontSize: 13.5, margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
             <IconSparkle size={14} /> {t("obWelcome")}
           </p>

@@ -94,7 +94,9 @@ export default function ResetPassword() {
           <img
             src={BRAND_LOGO}
             alt={BRAND_NAME}
-            style={{ width: 56, height: 56, objectFit: "contain", margin: "0 auto 14px", display: "block" }}
+            width={56}
+            height={56}
+            style={{ width: 56, height: 56, borderRadius: 14, margin: "0 auto 14px", display: "block" }}
           />
           <h1
             style={{
