@@ -855,6 +855,9 @@ function Footer() {
           <a href={ADMIN_LOGIN_URL} className="hover:text-white">
             Panel admin
           </a>
+          <a href="/privacidad" className="hover:text-white">
+            Privacidad
+          </a>
         </div>
         <div className="text-xs text-slate-500">© {new Date().getFullYear()} {BRAND}</div>
       </div>

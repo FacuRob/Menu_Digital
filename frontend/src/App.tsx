@@ -6,6 +6,7 @@ import { LanguageProvider, useLang } from "./lib/i18n";
 // código del menú/carrito (ni axios), y el menú no carga la landing.
 const Landing = lazy(() => import("./pages/Landing"));
 const Menu = lazy(() => import("./pages/Menu"));
+const Privacidad = lazy(() => import("./pages/Privacidad"));
 
 // Mientras llega el código de la página: fondo oscuro (sin flash blanco).
 const Cargando = () => <div style={{ minHeight: "100vh", background: "#060912" }} />;
@@ -40,6 +41,7 @@ function App() {
       <Routes>
         {/* Página informativa del producto (landing). */}
         <Route path="/" element={<Landing />} />
+        <Route path="/privacidad" element={<Privacidad />} />
         <Route path="/menu" element={<Menu />} />
         {/* Menú por negocio (multi-tenant): /menu/:slug */}
         <Route path="/menu/:slug" element={<Menu />} />
