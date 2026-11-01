@@ -33,29 +33,45 @@
 
 .lp-float { animation: lp-float 6s ease-in-out infinite; }
 .lp-float-slow { animation: lp-float 8s ease-in-out infinite; }
-.lp-blob { animation: lp-blob 18s ease-in-out infinite; }
-.lp-marquee { animation: lp-marquee 40s linear infinite; }
+/* Las manchas de luz sólo se mueven en pantallas grandes: en el celular
+   quedan quietas (animar elementos tan grandes consume GPU y batería). */
+.lp-blob { will-change: auto; }
+@media (min-width: 1024px) {
+  .lp-blob { animation: lp-blob 18s ease-in-out infinite; will-change: transform; }
+}
+/* Mancha de luz liviana: degradado radial en vez de filter: blur(). */
+.lp-glow {
+  border-radius: 9999px;
+  background: radial-gradient(closest-side, var(--glow, rgba(6, 182, 212, 0.2)), transparent);
+}
+.lp-marquee { animation: lp-marquee 40s linear infinite; will-change: transform; }
 .lp-marquee:hover { animation-play-state: paused; }
-.lp-rise { animation: lp-rise 0.8s cubic-bezier(.2,.7,.2,1) both; }
+/* Entrada animada del hero: sólo en computadora. En el celular el título y
+   los botones se ven al instante (no dependen de que corra la animación). */
+@media (min-width: 1024px) {
+  .lp-rise { animation: lp-rise 0.8s cubic-bezier(.2,.7,.2,1) both; }
+}
 .lp-ping-soft { animation: lp-ping-soft 2s cubic-bezier(0,0,.2,1) infinite; }
-.lp-shine {
-  background-size: 200% auto;
-  animation: lp-shine 6s linear infinite;
+.lp-shine { background-size: 200% auto; }
+/* El brillo que recorre el título repinta el texto en cada cuadro: sólo en
+   computadoras con mouse. */
+@media (min-width: 1024px) and (hover: hover) {
+  .lp-shine { animation: lp-shine 6s linear infinite; }
 }
 .lp-progress {
   transform-origin: left;
   animation: lp-progress linear forwards;
 }
 
-/* Revelado al hacer scroll (lo activa un IntersectionObserver). */
+/* Revelado al hacer scroll. Mejora progresiva: el contenido sólo arranca
+   oculto cuando el JS ya está listo para mostrarlo (clase lp-js en <html>);
+   si el JS tarda o falla, todo se ve igual. */
 .lp-reveal {
+  transition: opacity 0.7s cubic-bezier(.2,.7,.2,1), transform 0.7s cubic-bezier(.2,.7,.2,1);
+}
+.lp-js .lp-reveal:not(.is-visible) {
   opacity: 0;
   transform: translateY(24px);
-  transition: opacity 0.8s cubic-bezier(.2,.7,.2,1), transform 0.8s cubic-bezier(.2,.7,.2,1);
-}
-.lp-reveal.is-visible {
-  opacity: 1;
-  transform: none;
 }
 
 .lp-grid-bg {

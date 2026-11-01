@@ -209,15 +209,16 @@ export default function PhoneCarousel({
                 transform: `translate(-50%, -50%) translateX(${o * 62}%) scale(${o === 0 ? 1 : 0.8}) rotateY(${o * -22}deg)`,
                 opacity: visible ? (o === 0 ? 1 : 0.45) : 0,
                 zIndex: 10 - abs,
-                filter: o === 0 ? "none" : "blur(1px) saturate(0.7)",
+                // Las que no se ven no se pintan (menos trabajo para el celular).
+                visibility: visible ? "visible" : "hidden",
                 pointerEvents: visible ? "auto" : "none",
               }}
             >
               <Phone d={d} />
               {o === 0 && (
                 <div
-                  className="pointer-events-none absolute -inset-10 -z-10 rounded-full opacity-50 blur-3xl transition-colors duration-700"
-                  style={{ background: d.accent }}
+                  className="pointer-events-none absolute -inset-24 -z-10 rounded-full transition-colors duration-700"
+                  style={{ background: `radial-gradient(closest-side, ${d.accent}66, transparent)` }}
                 />
               )}
             </button>

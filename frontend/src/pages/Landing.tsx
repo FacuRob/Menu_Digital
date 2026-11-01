@@ -2,7 +2,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import PhoneCarousel from "../components/landing/PhoneCarousel";
 import { DEMOS } from "../components/landing/demos";
 import { ADMIN_LOGIN_URL, ADMIN_SIGNUP_URL } from "../lib/links";
-import logo from "../assets/brand/Logo.png";
+// Ícono ya recortado y chico (6 KB) en vez del PNG completo (75 KB).
+import logo from "../assets/brand/logo-icon.jpg";
 
 const BRAND = "DinexFlow";
 const TRIAL_DIAS = 14;
@@ -10,42 +11,50 @@ const TRIAL_DIAS = 14;
 // ── Utilidades ───────────────────────────────────────────────
 
 // Revela con animación los elementos `.lp-reveal` al entrar en pantalla.
+// Lo que ya está a la vista se muestra al instante, y lo que viene se anima
+// un poco antes de llegar (así nunca se ve un hueco vacío al scrollear).
 function useReveal() {
   useEffect(() => {
-    const els = document.querySelectorAll<HTMLElement>(".lp-reveal");
+    const els = Array.from(document.querySelectorAll<HTMLElement>(".lp-reveal"));
+    const mostrar = (el: Element) => el.classList.add("is-visible");
     if (!("IntersectionObserver" in window)) {
-      els.forEach((el) => el.classList.add("is-visible"));
+      els.forEach(mostrar);
       return;
     }
+    const altura = window.innerHeight;
+    els.filter((el) => el.getBoundingClientRect().top < altura).forEach(mostrar);
+
     const io = new IntersectionObserver(
       (entries) =>
         entries.forEach((e) => {
           if (e.isIntersecting) {
-            e.target.classList.add("is-visible");
+            mostrar(e.target);
             io.unobserve(e.target);
           }
         }),
-      { threshold: 0.12, rootMargin: "0px 0px -40px 0px" },
+      { threshold: 0, rootMargin: "0px 0px 15% 0px" },
     );
-    els.forEach((el) => io.observe(el));
-    return () => io.disconnect();
+    els.filter((el) => !el.classList.contains("is-visible")).forEach((el) => io.observe(el));
+    // Recién ahora el CSS oculta lo pendiente (si el JS no corre, todo se ve).
+    document.documentElement.classList.add("lp-js");
+    return () => {
+      io.disconnect();
+      document.documentElement.classList.remove("lp-js");
+    };
   }, []);
 }
 
 function Logo({ size = 40 }: { size?: number }) {
-  // El PNG trae mucho margen: lo recortamos dentro de un cuadrado.
   return (
-    <span
-      className="relative inline-block shrink-0 overflow-hidden rounded-xl bg-white/95 shadow-lg shadow-cyan-500/10"
+    <img
+      src={logo}
+      alt=""
+      width={size}
+      height={size}
+      decoding="async"
+      className="inline-block shrink-0 rounded-xl bg-white shadow-lg shadow-cyan-500/10"
       style={{ width: size, height: size }}
-    >
-      <img
-        src={logo}
-        alt=""
-        className="absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2"
-        style={{ height: size * 1.9 }}
-      />
-    </span>
+    />
   );
 }
 
@@ -106,7 +115,7 @@ function Navbar() {
     <header
       className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
         scrolled || open
-          ? "border-b border-white/10 bg-[#060912]/80 backdrop-blur-xl"
+          ? "border-b border-white/10 bg-[#060912]/95 md:bg-[#060912]/80 md:backdrop-blur-xl"
           : "border-b border-transparent"
       }`}
     >
@@ -201,17 +210,21 @@ function Hero() {
     <section id="top" className="relative overflow-hidden pt-28 pb-16 sm:pt-32 lg:pt-36 lg:pb-24">
       {/* Fondo */}
       <div className="lp-grid-bg pointer-events-none absolute inset-0" />
-      <div className="lp-blob pointer-events-none absolute -left-40 top-10 h-[480px] w-[480px] rounded-full bg-cyan-500/20 blur-[120px]" />
+      {/* Manchas de luz con degradado radial (sin filtro blur: mucho más liviano en iPhone). */}
       <div
-        className="lp-blob pointer-events-none absolute -right-32 top-40 h-[520px] w-[520px] rounded-full blur-[130px] transition-colors duration-1000"
-        style={{ background: `${accent}33`, animationDelay: "-6s" }}
+        className="lp-blob lp-glow pointer-events-none absolute -left-64 -top-16 h-[720px] w-[720px]"
+        style={{ ["--glow" as string]: "rgba(6,182,212,0.22)" }}
+      />
+      <div
+        className="lp-blob lp-glow pointer-events-none absolute -right-56 top-20 h-[760px] w-[760px]"
+        style={{ ["--glow" as string]: `${accent}3d`, animationDelay: "-6s" }}
       />
 
       <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:gap-8 lg:px-8">
         <div className="text-center lg:text-left">
           <a
             href="#producto"
-            className="lp-rise inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 py-1 pl-1 pr-3 text-xs text-slate-300 backdrop-blur transition-colors hover:border-white/20"
+            className="lp-rise inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 py-1 pl-1 pr-3 text-xs text-slate-300 transition-colors hover:border-white/20"
           >
             <span className="rounded-full bg-gradient-to-r from-amber-300 to-orange-400 px-2 py-0.5 font-semibold text-slate-950">
               Nuevo
@@ -252,7 +265,7 @@ function Hero() {
             </a>
             <a
               href="#precios"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-7 py-4 text-base font-semibold text-white backdrop-blur transition-colors hover:bg-white/10 sm:w-auto"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-7 py-4 text-base font-semibold text-white transition-colors hover:bg-white/10 sm:w-auto"
             >
               Ver planes
             </a>
@@ -432,7 +445,7 @@ function Features() {
               style={{ transitionDelay: `${(i % 4) * 70}ms` }}
             >
               <div
-                className={`pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-gradient-to-br ${f.accent} to-transparent opacity-60 blur-2xl transition-opacity group-hover:opacity-100`}
+                className={`pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-radial ${f.accent} to-transparent to-70% opacity-70 transition-opacity group-hover:opacity-100`}
               />
               <div className="relative">
                 <div className="grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-white/5 text-2xl">
@@ -471,7 +484,7 @@ const STEPS = [
 function HowItWorks() {
   return (
     <section id="como-funciona" className="relative scroll-mt-20 py-24 sm:py-32">
-      <div className="pointer-events-none absolute inset-x-0 top-1/2 h-[500px] -translate-y-1/2 bg-gradient-to-r from-cyan-500/5 via-teal-500/10 to-amber-500/5 blur-3xl" />
+      <div className="pointer-events-none absolute inset-x-0 top-1/2 h-[600px] -translate-y-1/2 bg-[radial-gradient(ellipse_at_center,rgba(20,184,166,0.10),transparent_70%)]" />
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionTitle
           eyebrow="Cómo funciona"
@@ -487,7 +500,7 @@ function HowItWorks() {
           {STEPS.map((s, i) => (
             <div
               key={s.n}
-              className="lp-reveal relative rounded-3xl border border-white/10 bg-[#0a0f1c]/80 p-7 text-center backdrop-blur"
+              className="lp-reveal relative rounded-3xl border border-white/10 bg-[#0a0f1c]/90 p-7 text-center"
               style={{ transitionDelay: `${i * 120}ms` }}
             >
               <div className="mx-auto grid h-20 w-20 place-items-center rounded-full border border-cyan-400/30 bg-gradient-to-br from-cyan-400/20 to-teal-400/5 text-2xl font-extrabold text-cyan-200 shadow-[0_0_40px_-10px] shadow-cyan-400/50">
@@ -789,10 +802,13 @@ function FinalCta() {
     <section className="px-4 pb-24 sm:px-6 lg:px-8">
       <div className="lp-reveal relative mx-auto max-w-6xl overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-cyan-500/20 via-teal-500/10 to-amber-500/20 px-6 py-16 text-center sm:px-12 sm:py-20">
         <div className="lp-grid-bg pointer-events-none absolute inset-0 opacity-60" />
-        <div className="lp-blob pointer-events-none absolute -left-20 -top-20 h-72 w-72 rounded-full bg-cyan-400/30 blur-3xl" />
         <div
-          className="lp-blob pointer-events-none absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-amber-400/25 blur-3xl"
-          style={{ animationDelay: "-8s" }}
+          className="lp-blob lp-glow pointer-events-none absolute -left-32 -top-32 h-[26rem] w-[26rem]"
+          style={{ ["--glow" as string]: "rgba(34,211,238,0.30)" }}
+        />
+        <div
+          className="lp-blob lp-glow pointer-events-none absolute -bottom-36 -right-28 h-[26rem] w-[26rem]"
+          style={{ ["--glow" as string]: "rgba(251,191,36,0.25)", animationDelay: "-8s" }}
         />
         <div className="relative">
           <h2 className="mx-auto max-w-3xl text-3xl font-extrabold tracking-tight text-white sm:text-5xl">

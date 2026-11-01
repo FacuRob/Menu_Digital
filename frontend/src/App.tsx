@@ -1,7 +1,14 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Menu from "./pages/Menu";
-import Landing from "./pages/Landing";
 import { LanguageProvider, useLang } from "./lib/i18n";
+
+// Cada página se descarga sólo cuando se visita: la landing no carga el
+// código del menú/carrito (ni axios), y el menú no carga la landing.
+const Landing = lazy(() => import("./pages/Landing"));
+const Menu = lazy(() => import("./pages/Menu"));
+
+// Mientras llega el código de la página: fondo oscuro (sin flash blanco).
+const Cargando = () => <div style={{ minHeight: "100vh", background: "#060912" }} />;
 
 function NotFound() {
   const { t } = useLang();
@@ -29,6 +36,7 @@ function App() {
   return (
     <LanguageProvider>
       <BrowserRouter>
+      <Suspense fallback={<Cargando />}>
       <Routes>
         {/* Página informativa del producto (landing). */}
         <Route path="/" element={<Landing />} />
@@ -38,6 +46,7 @@ function App() {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
       </BrowserRouter>
     </LanguageProvider>
   );
