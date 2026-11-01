@@ -1,6 +1,14 @@
 const supabase = require("../config/database");
 const { getNegocioId } = require("../utils/negocio");
 const { respondError } = require("../utils/respondError");
+const { notificarPedido } = require("../services/avisosPedidoService");
+
+// Dispara el aviso de WhatsApp en segundo plano (nunca bloquea la respuesta).
+const avisarEnSegundoPlano = (pedido, estado) => {
+  notificarPedido(pedido, estado).catch((e) =>
+    console.error("[Avisos] fallo en segundo plano:", e.message),
+  );
+};
 
 // ── Crear un pedido (público, desde el menú del cliente) ──
 const createPedido = async (req, res) => {
@@ -14,6 +22,7 @@ const createPedido = async (req, res) => {
       tipo_entrega,
       direccion_entrega,
       telefono_cliente,
+      acepta_whatsapp,
     } = req.body;
 
     if (!Array.isArray(items) || items.length === 0) {
@@ -133,6 +142,19 @@ const createPedido = async (req, res) => {
       }),
     );
 
+    // Consentimiento para avisos por WhatsApp. Se guarda aparte para que el
+    // pedido no falle si la migración db/whatsapp_avisos.sql aún no corrió.
+    if (acepta_whatsapp === true && pedido.telefono_cliente) {
+      const { error: optErr } = await supabase
+        .from("pedidos")
+        .update({ acepta_whatsapp: true })
+        .eq("id", pedido.id);
+      if (!optErr) {
+        pedido.acepta_whatsapp = true;
+        avisarEnSegundoPlano(pedido, "pendiente"); // "Recibimos tu pedido"
+      }
+    }
+
     res.status(201).json({ ...pedido, items: itemsData });
   } catch (error) {
     return respondError(res, error, "pedidos");
@@ -192,7 +214,16 @@ const getPedidoById = async (req, res) => {
 };
 
 // ── Actualizar estado (protegida) ──
-const ESTADOS_VALIDOS = ["pendiente", "preparando", "entregado", "cancelado"];
+//   pendiente → preparando → (listo: para retirar | en_camino: delivery) → entregado
+//   cancelado en cualquier momento.
+const ESTADOS_VALIDOS = [
+  "pendiente",
+  "preparando",
+  "listo",
+  "en_camino",
+  "entregado",
+  "cancelado",
+];
 
 const updateEstadoPedido = async (req, res) => {
   try {
@@ -209,6 +240,15 @@ const updateEstadoPedido = async (req, res) => {
     const patch = { estado, updated_at: new Date().toISOString() };
     patch.entregado_at = estado === "entregado" ? new Date().toISOString() : null;
 
+    // Estado previo: sólo se avisa si realmente cambió (evita mensajes
+    // repetidos si el admin toca dos veces el mismo botón).
+    const { data: previo } = await supabase
+      .from("pedidos")
+      .select("estado")
+      .eq("id", id)
+      .eq("negocio_id", negocioId)
+      .maybeSingle();
+
     const { data, error } = await supabase
       .from("pedidos")
       .update(patch)
@@ -220,6 +260,8 @@ const updateEstadoPedido = async (req, res) => {
     if (error || !data) {
       return res.status(404).json({ message: "Pedido no encontrado" });
     }
+
+    if (previo && previo.estado !== estado) avisarEnSegundoPlano(data, estado);
 
     res.json(data);
   } catch (error) {

@@ -134,6 +134,8 @@ const createPedidoSchema = z.object({
   tipo_entrega: z.enum(["mesa", "retiro", "delivery"]).optional().nullable(),
   direccion_entrega: z.string().trim().max(300).optional().nullable(),
   telefono_cliente: z.string().trim().max(40).optional().nullable(),
+  // Opt-in del cliente para recibir avisos del pedido por WhatsApp.
+  acepta_whatsapp: z.boolean().optional(),
 });
 
 module.exports = {

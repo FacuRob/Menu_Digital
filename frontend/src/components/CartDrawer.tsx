@@ -41,6 +41,8 @@ export default function CartDrawer({
   const [nota, setNota] = useState("");
   const [direccion, setDireccion] = useState("");
   const [telefono, setTelefono] = useState("");
+  // Opt-in para avisos del pedido por WhatsApp (solo si el local los activó).
+  const [avisoWa, setAvisoWa] = useState(false);
   const [tipo, setTipo] = useState<TipoEntrega | null>(null);
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
@@ -63,6 +65,7 @@ export default function CartDrawer({
     setNota("");
     setDireccion("");
     setTelefono("");
+    setAvisoWa(false);
     setMesa("");
     setTipo(null);
     setStep("datos");
@@ -88,6 +91,10 @@ export default function CartDrawer({
       tipoEntrega === "retiro" || tipoEntrega === "delivery"
         ? telefono.trim() || null
         : null,
+    acepta_whatsapp:
+      !!config?.avisos_whatsapp &&
+      avisoWa &&
+      (tipoEntrega === "retiro" || tipoEntrega === "delivery"),
     items: lines.map((l) => ({
       producto_id: l.producto.id,
       nombre: l.producto.nombre,
@@ -468,6 +475,37 @@ export default function CartDrawer({
                     style={inputStyle}
                   />
                 </div>
+              )}
+              {requierePhone && config?.avisos_whatsapp && (
+                <label
+                  style={{
+                    marginTop: 14,
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 11,
+                    padding: "12px 14px",
+                    borderRadius: 14,
+                    cursor: "pointer",
+                    border: `1.5px solid ${avisoWa ? "#25d366" : "rgba(255,255,255,0.12)"}`,
+                    background: avisoWa ? "rgba(37,211,102,0.10)" : "rgba(255,255,255,0.04)",
+                    transition: "all .15s",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={avisoWa}
+                    onChange={(e) => setAvisoWa(e.target.checked)}
+                    style={{ width: 18, height: 18, marginTop: 1, accentColor: "#25d366", flexShrink: 0 }}
+                  />
+                  <span>
+                    <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#fff" }}>
+                      {t("notifyWhatsapp")}
+                    </span>
+                    <span style={{ display: "block", fontSize: 12.5, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>
+                      {t("notifyWhatsappSub")}
+                    </span>
+                  </span>
+                </label>
               )}
             </div>
 

@@ -230,6 +230,8 @@ export interface Configuracion {
   direccion: string | null;
   telefono: string | null;
   whatsapp: string | null;
+  // El local tiene activos los avisos de pedido por WhatsApp.
+  avisos_whatsapp?: boolean;
   email: string | null;
   horarios: string | null;
   logo_url: string | null;
@@ -292,6 +294,7 @@ export const pedidosService = {
     tipo_entrega?: TipoEntrega | null;
     direccion_entrega?: string | null;
     telefono_cliente?: string | null;
+    acepta_whatsapp?: boolean;
     items: NuevoPedidoItem[];
   }) => (await api.post<Pedido>("/pedidos", payload)).data,
   getAll: async (params?: { estado?: string; mesa?: string }) =>

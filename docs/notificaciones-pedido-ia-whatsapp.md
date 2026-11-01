@@ -1,7 +1,8 @@
 # Notificaciones de pedido al cliente (IA + WhatsApp)
 
-> **Estado: NO implementado (revertido).** Este documento guarda el diseño y el
-> código completo para retomarlo a futuro. Fecha del análisis: julio 2026.
+> **Estado: reemplazado.** Los avisos por plantilla ya están implementados:
+> ver [whatsapp-avisos.md](whatsapp-avisos.md). Este documento queda como
+> referencia del diseño original con IA (OpenRouter) para la Fase 3.
 
 ## Objetivo
 

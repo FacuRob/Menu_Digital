@@ -1,6 +1,7 @@
 const supabase = require("../config/database");
 const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
+const { avisosDisponibles } = require("../services/avisosPedidoService");
 
 // Rubros soportados (multi-rubro). Debe coincidir con el CHECK de la BD
 // (db/multirubro.sql → chk_tipo_rubro).
@@ -30,7 +31,7 @@ const DEFAULTS = (negocioId) => ({
 const getConfiguracion = async (req, res) => {
   try {
     const negocioId = getNegocioId(req);
-    const [cfgRes, negRes] = await Promise.all([
+    const [cfgRes, negRes, avisosWhatsapp] = await Promise.all([
       supabase
         .from("configuracion")
         .select("*")
@@ -43,6 +44,8 @@ const getConfiguracion = async (req, res) => {
         .select("slug, tipo_rubro, config_campos")
         .eq("id", negocioId)
         .maybeSingle(),
+      // ¿El menú ofrece "avisarme por WhatsApp"? (nunca rompe la carga)
+      avisosDisponibles(negocioId).catch(() => false),
     ]);
 
     if (cfgRes.error) throw cfgRes.error;
@@ -53,6 +56,7 @@ const getConfiguracion = async (req, res) => {
       slug: negRes.data?.slug || null,
       tipo_rubro: negRes.data?.tipo_rubro || "gastronomia",
       config_campos: negRes.data?.config_campos || {},
+      avisos_whatsapp: avisosWhatsapp === true,
     });
   } catch (error) {
     return respondError(res, error, "configuracion");

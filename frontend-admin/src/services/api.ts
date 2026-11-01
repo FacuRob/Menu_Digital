@@ -321,10 +321,11 @@ export interface Pedido {
   cliente: string | null;
   nota: string | null;
   total: number;
-  estado: "pendiente" | "preparando" | "entregado" | "cancelado";
+  estado: "pendiente" | "preparando" | "listo" | "en_camino" | "entregado" | "cancelado";
   tipo_entrega?: TipoEntrega | null;
   direccion_entrega?: string | null;
   telefono_cliente?: string | null;
+  acepta_whatsapp?: boolean;
   created_at?: string;
   updated_at?: string;
   items?: PedidoItem[];
@@ -496,6 +497,35 @@ export const suscripcionService = {
       })
     ).data,
   portal: async () => (await api.get<{ url: string }>("/suscripcion/portal")).data,
+};
+
+// ── Avisos de pedido por WhatsApp ──────────────────────────────
+export type EstadoAviso = "pendiente" | "preparando" | "en_camino" | "listo" | "entregado" | "cancelado";
+
+export interface AvisosWhatsapp {
+  conectado: boolean;
+  activo: boolean;
+  estados: Record<EstadoAviso, boolean>;
+  avisos: { estado: EstadoAviso; plantilla: string; texto: string }[];
+}
+
+export interface MensajeWhatsapp {
+  id: number;
+  pedido_id: number | null;
+  telefono: string;
+  aviso: EstadoAviso | "prueba" | null;
+  estado: "enviado" | "entregado" | "leido" | "fallido";
+  error: string | null;
+  created_at: string;
+}
+
+export const whatsappService = {
+  getAvisos: async () => (await api.get<AvisosWhatsapp>("/whatsapp/avisos")).data,
+  updateAvisos: async (p: { activo?: boolean; estados?: Partial<Record<EstadoAviso, boolean>> }) =>
+    (await api.put<Pick<AvisosWhatsapp, "activo" | "estados">>("/whatsapp/avisos", p)).data,
+  getMensajes: async () => (await api.get<MensajeWhatsapp[]>("/whatsapp/mensajes")).data,
+  prueba: async (telefono: string) =>
+    (await api.post<{ message: string }>("/whatsapp/prueba", { telefono })).data,
 };
 
 export default api;

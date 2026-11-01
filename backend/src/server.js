@@ -25,6 +25,11 @@ const checkSuscripcion = require("./middleware/checkSuscripcion");
 const {
   lemonSqueezyWebhook,
 } = require("./controllers/lemonSqueezyController");
+const whatsappRoutes = require("./routes/whatsapp");
+const {
+  verificarWebhook: verificarWebhookWhatsapp,
+  recibirWebhook: recibirWebhookWhatsapp,
+} = require("./controllers/whatsappController");
 
 // Importar controllers directamente para rutas públicas
 const {
@@ -89,6 +94,14 @@ app.post(
   "/api/webhooks/lemonsqueezy",
   express.raw({ type: "*/*" }),
   lemonSqueezyWebhook,
+);
+
+// ── Webhook WhatsApp (Meta) — también con body CRUDO para la firma ──
+app.get("/api/webhooks/whatsapp", verificarWebhookWhatsapp);
+app.post(
+  "/api/webhooks/whatsapp",
+  express.raw({ type: "*/*" }),
+  recibirWebhookWhatsapp,
 );
 
 app.use(express.json());
@@ -185,6 +198,16 @@ app.use(
   checkSuscripcion,
   checkPermiso("analiticas"),
   analiticasRoutes,
+);
+
+// Avisos de pedido por WhatsApp (configuración del negocio).
+app.use(
+  "/api/whatsapp",
+  authMiddleware,
+  scopeNegocio,
+  checkSuscripcion,
+  checkPermiso("configuracion"),
+  whatsappRoutes,
 );
 
 // Panel de plataforma (dueño del SaaS). Sin scopeNegocio: es cross-cuenta.

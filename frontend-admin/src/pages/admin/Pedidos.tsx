@@ -65,6 +65,8 @@ const ESTADOS: {
   { key: "todos", labelKey: "pedAll", color: "#64748b" },
   { key: "pendiente", labelKey: "pedPending", color: "#f59e0b" },
   { key: "preparando", labelKey: "pedPreparing", color: "#3b82f6" },
+  { key: "listo", labelKey: "pedReadyTab", color: "#8b5cf6" },
+  { key: "en_camino", labelKey: "pedOnTheWayTab", color: "#06b6d4" },
   { key: "entregado", labelKey: "pedDelivered", color: "#10b981" },
   { key: "cancelado", labelKey: "pedCancelled", color: "#ef4444" },
 ];
@@ -72,6 +74,8 @@ const ESTADOS: {
 const estadoColor: Record<Pedido["estado"], string> = {
   pendiente: "#f59e0b",
   preparando: "#3b82f6",
+  listo: "#8b5cf6",
+  en_camino: "#06b6d4",
   entregado: "#10b981",
   cancelado: "#ef4444",
 };
@@ -86,6 +90,8 @@ export default function Pedidos() {
       {
         pendiente: "pedStatePendiente",
         preparando: "pedStatePreparando",
+        listo: "pedStateListo",
+        en_camino: "pedStateEnCamino",
         entregado: "pedStateEntregado",
         cancelado: "pedStateCancelado",
       }[e],
@@ -445,12 +451,31 @@ export default function Pedidos() {
                     {t("pedPrepare")}
                   </EstadoBtn>
                 )}
-                {p.estado === "preparando" && (
+                {/* Preparando → según el tipo: delivery sale "en camino", retiro
+                    queda "listo para retirar"; mesa se entrega directo. */}
+                {p.estado === "preparando" && p.tipo_entrega === "delivery" && (
+                  <EstadoBtn color="#06b6d4" onClick={() => cambiarEstado(p.id, "en_camino")}>
+                    🛵 {t("pedSend")}
+                  </EstadoBtn>
+                )}
+                {p.estado === "preparando" && p.tipo_entrega === "retiro" && (
+                  <EstadoBtn color="#8b5cf6" onClick={() => cambiarEstado(p.id, "listo")}>
+                    {t("pedMarkReady")}
+                  </EstadoBtn>
+                )}
+                {(p.estado === "listo" ||
+                  p.estado === "en_camino" ||
+                  (p.estado === "preparando" &&
+                    p.tipo_entrega !== "delivery" &&
+                    p.tipo_entrega !== "retiro")) && (
                   <EstadoBtn color="#10b981" onClick={() => entregar(p)}>
                     {t("pedDeliver")}
                   </EstadoBtn>
                 )}
-                {(p.estado === "pendiente" || p.estado === "preparando") && (
+                {(p.estado === "pendiente" ||
+                  p.estado === "preparando" ||
+                  p.estado === "listo" ||
+                  p.estado === "en_camino") && (
                   <EstadoBtn color="#ef4444" ghost onClick={() => cambiarEstado(p.id, "cancelado")}>
                     {t("actionCancel")}
                   </EstadoBtn>
