@@ -132,7 +132,7 @@ const verificarWebhook = (req, res) => {
 };
 
 const firmaValida = (raw, header) => {
-  const secret = process.env.WHATSAPP_APP_SECRET;
+  const secret = (process.env.WHATSAPP_APP_SECRET || "").trim();
   if (!secret || !header || !String(header).startsWith("sha256=")) return false;
   try {
     const digest = crypto.createHmac("sha256", secret).update(raw).digest("hex");
@@ -149,6 +149,12 @@ const firmaValida = (raw, header) => {
 const recibirWebhook = async (req, res) => {
   const raw = Buffer.isBuffer(req.body) ? req.body : Buffer.from(JSON.stringify(req.body || {}));
   if (!firmaValida(raw, req.headers["x-hub-signature-256"])) {
+    // Visible en los logs: casi siempre es WHATSAPP_APP_SECRET mal copiado.
+    console.warn(
+      process.env.WHATSAPP_APP_SECRET
+        ? "[WhatsApp] webhook rechazado: la firma no coincide (revisar WHATSAPP_APP_SECRET)"
+        : "[WhatsApp] webhook rechazado: falta WHATSAPP_APP_SECRET",
+    );
     return res.sendStatus(401);
   }
   let payload;
@@ -169,6 +175,8 @@ const recibirWebhook = async (req, res) => {
     }
   }
   const statuses = values.flatMap((v) => v.statuses || []);
+  const entrantes = values.reduce((n, v) => n + (v.messages?.length || 0), 0);
+  console.log(`[WhatsApp] webhook OK: ${entrantes} mensaje(s), ${statuses.length} estado(s)`);
   if (statuses.length) {
     registrarEstadosMeta(statuses).catch((e) =>
       console.error("[WhatsApp] webhook:", e.message),
