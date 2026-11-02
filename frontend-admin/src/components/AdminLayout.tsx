@@ -9,6 +9,7 @@ import { useLang, LangSelector } from "../lib/i18n";
 import { BRAND_NAME, BRAND_LOGO, brandTextStyle } from "../lib/brand";
 import { IconBell } from "../lib/icons";
 import { menuPath } from "../lib/menuUrl";
+import { useIsMobile } from "../lib/useIsMobile";
 
 const SunIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} style={{ width: 16, height: 16 }}>
@@ -391,7 +392,32 @@ export default function AdminLayout({
   children: React.ReactNode;
   title: string;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const isMobile = useIsMobile();
+  // Computadora: el menú se puede achicar a íconos (se recuerda la elección).
+  // Celular: el menú es un cajón que se abre con ☰ y se cierra al elegir.
+  const [collapsedPref, setCollapsedPref] = useState(() => {
+    try {
+      return localStorage.getItem("sidebar_collapsed") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const collapsed = !isMobile && collapsedPref;
+  const toggleMenu = () => {
+    if (isMobile) {
+      setDrawerOpen((v) => !v);
+      return;
+    }
+    setCollapsedPref((v) => {
+      try {
+        localStorage.setItem("sidebar_collapsed", v ? "0" : "1");
+      } catch {
+        /* sin almacenamiento */
+      }
+      return !v;
+    });
+  };
   const { user, logout, hasPermiso, isSuperAdmin, isPlataforma, isAuthenticated } = useAuth();
   const { t } = useLang();
   const { negocioId, negocios, slug, setNegocioId } = useNegocio();
@@ -615,6 +641,32 @@ export default function AdminLayout({
     return () => document.removeEventListener("mousedown", onClick);
   }, [configOpen]);
 
+  // Celular: el cajón se cierra al cambiar de página, al pasar a pantalla
+  // grande y con la tecla Escape. Mientras está abierto, la página de atrás
+  // no se desplaza.
+  useEffect(() => {
+    setDrawerOpen(false);
+    setConfigOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!isMobile) setDrawerOpen(false);
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDrawerOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [drawerOpen]);
+
   const visible = NAV.filter((n) =>
     n.permiso === "any"
       ? true
@@ -637,27 +689,121 @@ export default function AdminLayout({
   const navHoverBg = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)";
   const navHoverColor = isDark ? "#e2e8f0" : "#1e293b";
 
+  // Desplegables del topbar: en computadora cuelgan del botón; en el celular
+  // ocupan el ancho de la pantalla para no salirse por los costados.
+  const dropdownPos = (gap: number): React.CSSProperties =>
+    isMobile
+      ? { position: "fixed", top: 52 + gap, left: 8, right: 8 }
+      : { position: "absolute", top: `calc(100% + ${gap}px)`, right: 0 };
+
+  // Selector Sol/Luna (topbar en computadora, menú lateral en celular).
+  const themeToggle = (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 2,
+        padding: 3,
+        borderRadius: 999,
+        background: isDark ? "#0f1117" : "#e2e8f0",
+      }}
+    >
+      <button
+        onClick={() => {
+          if (isDark) toggleTheme();
+        }}
+        title="Modo claro"
+        style={{
+          width: 28,
+          height: 24,
+          borderRadius: 999,
+          border: "none",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: !isDark ? "#ffffff" : "transparent",
+          color: !isDark ? "#f59e0b" : textMuted,
+          boxShadow: !isDark ? "0 1px 2px rgba(0,0,0,0.15)" : "none",
+        }}
+      >
+        <SunIcon />
+      </button>
+      <button
+        onClick={() => {
+          if (!isDark) toggleTheme();
+        }}
+        title="Modo oscuro"
+        style={{
+          width: 28,
+          height: 24,
+          borderRadius: 999,
+          border: "none",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: isDark ? "#1a1d27" : "transparent",
+          color: isDark ? "#818cf8" : textMuted,
+        }}
+      >
+        <MoonIcon />
+      </button>
+    </div>
+  );
+
   return (
     <div
       style={{
         display: "flex",
-        height: "100vh",
+        height: "100dvh",
         background: bg,
         overflow: "hidden",
         fontFamily: "'Inter', system-ui, sans-serif",
       }}
     >
+      {/* Celular: fondo oscuro detrás del cajón; tocarlo lo cierra. */}
+      {isMobile && (
+        <div
+          onClick={() => setDrawerOpen(false)}
+          aria-hidden
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 90,
+            background: "rgba(0,0,0,0.5)",
+            opacity: drawerOpen ? 1 : 0,
+            pointerEvents: drawerOpen ? "auto" : "none",
+            transition: "opacity 0.25s ease",
+          }}
+        />
+      )}
+
       {/* ── Sidebar ── */}
       <aside
+        aria-label={t("brandSubtitle")}
         style={{
-          width: collapsed ? 56 : 220,
-          transition: "width 0.25s cubic-bezier(.4,0,.2,1)",
+          width: isMobile ? "min(280px, 84vw)" : collapsed ? 56 : 220,
+          transition: isMobile
+            ? "transform 0.28s cubic-bezier(.4,0,.2,1), visibility 0.28s"
+            : "width 0.25s cubic-bezier(.4,0,.2,1)",
           background: sidebarBg,
           borderRight: `1px solid ${sidebarBorder}`,
           display: "flex",
           flexDirection: "column",
           flexShrink: 0,
           overflow: "hidden",
+          ...(isMobile && {
+            position: "fixed",
+            top: 0,
+            bottom: 0,
+            left: 0,
+            zIndex: 100,
+            transform: drawerOpen ? "translateX(0)" : "translateX(-100%)",
+            visibility: drawerOpen ? "visible" : "hidden",
+            boxShadow: drawerOpen ? "8px 0 30px rgba(0,0,0,0.25)" : "none",
+            paddingBottom: "env(safe-area-inset-bottom)",
+          }),
         }}
       >
         {/* Brand */}
@@ -703,6 +849,30 @@ export default function AdminLayout({
               </div>
             </div>
           )}
+          {isMobile && (
+            <button
+              onClick={() => setDrawerOpen(false)}
+              aria-label={t("closeMenu")}
+              style={{
+                marginLeft: "auto",
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                border: "none",
+                background: "transparent",
+                color: textSecondary,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          )}
         </div>
 
         {/* Nav */}
@@ -734,7 +904,7 @@ export default function AdminLayout({
                   display: "flex",
                   alignItems: "center",
                   gap: 10,
-                  padding: collapsed ? "9px 0" : "9px 11px",
+                  padding: collapsed ? "9px 0" : isMobile ? "12px 12px" : "9px 11px",
                   justifyContent: collapsed ? "center" : "flex-start",
                   borderRadius: 8,
                   border: "none",
@@ -742,7 +912,7 @@ export default function AdminLayout({
                   width: "100%",
                   background: active ? navBgActive : "transparent",
                   color: active ? navActiveColor : navColor,
-                  fontSize: 13,
+                  fontSize: isMobile ? 14.5 : 13,
                   fontWeight: active ? 500 : 400,
                   transition: "all 0.15s ease",
                   position: "relative",
@@ -863,6 +1033,26 @@ export default function AdminLayout({
             gap: 2,
           }}
         >
+          {/* Celular: idioma y tema (en computadora están en el topbar). */}
+          {isMobile && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 10,
+                padding: "6px 8px 10px",
+                marginBottom: 4,
+                borderBottom: `1px solid ${sidebarBorder}`,
+              }}
+            >
+              <span style={{ fontSize: 12, color: textMuted }}>{t("appearance")}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <LangSelector isDark={isDark} />
+                {themeToggle}
+              </div>
+            </div>
+          )}
           {/* Configuración: abre un panel flotante hacia el costado (agrupa
               perfil personal y config del menú del negocio). Se ubica arriba
               del bloque del usuario. */}
@@ -1046,23 +1236,27 @@ export default function AdminLayout({
             borderBottom: `1px solid ${sidebarBorder}`,
             display: "flex",
             alignItems: "center",
-            gap: 12,
-            padding: "0 20px",
+            gap: isMobile ? 8 : 12,
+            padding: isMobile ? "0 8px 0 4px" : "0 20px",
             flexShrink: 0,
           }}
         >
           <button
-            onClick={() => setCollapsed(!collapsed)}
+            onClick={toggleMenu}
+            aria-label={t(isMobile && drawerOpen ? "closeMenu" : "openMenu")}
+            aria-expanded={isMobile ? drawerOpen : !collapsed}
             style={{
+              position: "relative",
               background: "none",
               border: "none",
               cursor: "pointer",
-              color: textMuted,
-              padding: 6,
+              color: isMobile ? textSecondary : textMuted,
+              padding: isMobile ? 10 : 6,
               borderRadius: 6,
               display: "flex",
               alignItems: "center",
               transition: "color 0.15s",
+              flexShrink: 0,
             }}
             onMouseEnter={(e) => (e.currentTarget.style.color = textSecondary)}
             onMouseLeave={(e) => (e.currentTarget.style.color = textMuted)}
@@ -1076,6 +1270,22 @@ export default function AdminLayout({
             >
               <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
             </svg>
+            {/* Celular: con el menú cerrado, un punto avisa que hay chats. */}
+            {isMobile && (chatsAviso.atender > 0 || chatsAviso.no_leidos > 0) && (
+              <span
+                className={chatsAviso.atender > 0 ? "chat-alerta" : undefined}
+                style={{
+                  position: "absolute",
+                  top: 7,
+                  right: 6,
+                  width: 9,
+                  height: 9,
+                  borderRadius: 999,
+                  background: chatsAviso.atender > 0 ? "#f59e0b" : "#10b981",
+                  border: `2px solid ${topbarBg}`,
+                }}
+              />
+            )}
           </button>
           <h1
             style={{
@@ -1083,6 +1293,10 @@ export default function AdminLayout({
               fontSize: 15,
               fontWeight: 600,
               margin: 0,
+              minWidth: 0,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
             }}
           >
             {title}
@@ -1092,7 +1306,8 @@ export default function AdminLayout({
               marginLeft: "auto",
               display: "flex",
               alignItems: "center",
-              gap: 14,
+              gap: isMobile ? 6 : 14,
+              flexShrink: 0,
             }}
           >
             {/* Selector de negocio (multi-tenant): dueño (SuperAdmin) y
@@ -1113,7 +1328,7 @@ export default function AdminLayout({
                     fontSize: 12.5,
                     fontWeight: 600,
                     cursor: "pointer",
-                    maxWidth: 200,
+                    maxWidth: isMobile ? 130 : 200,
                   }}
                 >
                   <span
@@ -1148,9 +1363,7 @@ export default function AdminLayout({
                 {negOpen && (
                   <div
                     style={{
-                      position: "absolute",
-                      top: "calc(100% + 6px)",
-                      right: 0,
+                      ...dropdownPos(6),
                       minWidth: 220,
                       background: isDark ? "#1a1d27" : "#fff",
                       border: `1px solid ${sidebarBorder}`,
@@ -1222,62 +1435,9 @@ export default function AdminLayout({
               </div>
             )}
 
-            {/* Selector de idioma */}
-            <LangSelector isDark={isDark} />
-
-            {/* Toggle de tema Sol/Luna */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 2,
-                padding: 3,
-                borderRadius: 999,
-                background: isDark ? "#0f1117" : "#e2e8f0",
-              }}
-            >
-              <button
-                onClick={() => {
-                  if (isDark) toggleTheme();
-                }}
-                title="Modo claro"
-                style={{
-                  width: 28,
-                  height: 24,
-                  borderRadius: 999,
-                  border: "none",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: !isDark ? "#ffffff" : "transparent",
-                  color: !isDark ? "#f59e0b" : textMuted,
-                  boxShadow: !isDark ? "0 1px 2px rgba(0,0,0,0.15)" : "none",
-                }}
-              >
-                <SunIcon />
-              </button>
-              <button
-                onClick={() => {
-                  if (!isDark) toggleTheme();
-                }}
-                title="Modo oscuro"
-                style={{
-                  width: 28,
-                  height: 24,
-                  borderRadius: 999,
-                  border: "none",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: isDark ? "#1a1d27" : "transparent",
-                  color: isDark ? "#818cf8" : textMuted,
-                }}
-              >
-                <MoonIcon />
-              </button>
-            </div>
+            {/* Idioma y tema: en el celular van dentro del menú lateral */}
+            {!isMobile && <LangSelector isDark={isDark} />}
+            {!isMobile && themeToggle}
 
             {/* Campana de notificaciones */}
             {hasPermiso("pedidos") && (
@@ -1371,10 +1531,8 @@ export default function AdminLayout({
                 {stockOpen && (
                   <div
                     style={{
-                      position: "absolute",
-                      top: "calc(100% + 8px)",
-                      right: 0,
-                      width: 270,
+                      ...dropdownPos(8),
+                      width: isMobile ? "auto" : 270,
                       background: isDark ? "#1a1d27" : "#fff",
                       border: `1px solid ${sidebarBorder}`,
                       borderRadius: 10,
@@ -1432,7 +1590,7 @@ export default function AdminLayout({
 
             <div
               style={{
-                display: "flex",
+                display: isMobile ? "none" : "flex",
                 alignItems: "center",
                 gap: 6,
                 fontSize: 12,
@@ -1457,7 +1615,9 @@ export default function AdminLayout({
           style={{
             flex: 1,
             overflowY: "auto",
-            padding: "20px 24px",
+            padding: isMobile
+              ? "14px 12px calc(20px + env(safe-area-inset-bottom))"
+              : "20px 24px",
             background: bg,
           }}
         >
@@ -1471,9 +1631,11 @@ export default function AdminLayout({
           ref={configPanelRef}
           style={{
             position: "fixed",
-            left: configPos.left,
-            bottom: configPos.bottom,
-            width: 252,
+            // Celular: el panel se muestra abajo, a todo lo ancho y por
+            // encima del menú lateral.
+            ...(isMobile
+              ? { left: 10, right: 10, bottom: "calc(10px + env(safe-area-inset-bottom))" }
+              : { left: configPos.left, bottom: configPos.bottom, width: 252 }),
             background: isDark ? "#1a1d27" : "#ffffff",
             border: `1px solid ${sidebarBorder}`,
             borderRadius: 12,
@@ -1555,6 +1717,7 @@ export default function AdminLayout({
                   label={t("configModalTitle")}
                   onClick={() => {
                     setConfigOpen(false);
+                    setDrawerOpen(false);
                     setShowConfigModal(true);
                   }}
                   accent="#8b5cf6"
@@ -1574,8 +1737,9 @@ export default function AdminLayout({
           onClick={irAlToast}
           style={{
             position: "fixed",
-            bottom: 22,
-            right: 22,
+            ...(isMobile
+              ? { left: 10, right: 10, bottom: "calc(12px + env(safe-area-inset-bottom))" }
+              : { bottom: 22, right: 22 }),
             zIndex: 200,
             display: "flex",
             alignItems: "center",
@@ -1615,7 +1779,7 @@ export default function AdminLayout({
             display: "flex",
             alignItems: "flex-start",
             justifyContent: "center",
-            padding: "40px 16px",
+            padding: isMobile ? "12px 8px" : "40px 16px",
             overflowY: "auto",
           }}
         >
@@ -1626,7 +1790,7 @@ export default function AdminLayout({
               maxWidth: 820,
               background: bg,
               borderRadius: 16,
-              padding: 24,
+              padding: isMobile ? 14 : 24,
               boxShadow: "0 24px 70px rgba(0,0,0,0.4)",
             }}
           >

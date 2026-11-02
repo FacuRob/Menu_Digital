@@ -58,10 +58,11 @@ export default function TicketModal({ pedido, config, onClose }: Props) {
         inset: 0,
         background: "rgba(0,0,0,0.55)",
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-start",
         justifyContent: "center",
         zIndex: 1000,
         padding: 16,
+        overflowY: "auto",
       }}
     >
       <div
@@ -69,6 +70,7 @@ export default function TicketModal({ pedido, config, onClose }: Props) {
         style={{
           width: "100%",
           maxWidth: 420,
+          margin: "auto",
           background: cardBg,
           border: `1px solid ${cardBorder}`,
           borderRadius: 16,

@@ -4,6 +4,7 @@ import { useStyles } from "../../components/sharedStyles";
 import { useTheme } from "../../context/ThemeContext";
 import { useLang, LOCALE } from "../../lib/i18n";
 import { IconAlert } from "../../lib/icons";
+import { useIsMobile } from "../../lib/useIsMobile";
 import {
   suscripcionService,
   getApiErrorMessage,
@@ -40,6 +41,7 @@ const FALLBACK_PLANES: PlanCatalogo[] = [
 export default function Suscripcion() {
   const S = useStyles();
   const { isDark } = useTheme();
+  const isMobile = useIsMobile();
   const { t, lang } = useLang();
   const [data, setData] = useState<SuscripcionEstado | null>(null);
   const [loading, setLoading] = useState(true);
@@ -149,7 +151,7 @@ export default function Suscripcion() {
               marginBottom: 18,
               display: "grid",
               gap: 20,
-              gridTemplateColumns: "minmax(260px,1fr) auto",
+              gridTemplateColumns: isMobile ? "1fr" : "minmax(260px,1fr) auto",
               alignItems: "center",
             }}
           >

@@ -226,7 +226,7 @@ export default function Pedidos() {
             alignItems: "flex-end",
           }}
         >
-          <div style={{ flex: 1, minWidth: 240 }}>
+          <div style={{ flex: "1 1 240px", minWidth: 0 }}>
             <GroupLabel color={textMuted}>{t("colStatus")}</GroupLabel>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {ESTADOS.map((e) => {
@@ -298,7 +298,7 @@ export default function Pedidos() {
           style={{
             display: "grid",
             gap: 14,
-            gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))",
+            gridTemplateColumns: "repeat(auto-fill,minmax(min(300px,100%),1fr))",
           }}
         >
           {visibles.map((p) => (

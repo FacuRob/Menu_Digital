@@ -316,8 +316,8 @@ export default function Categorias() {
         </div>
       ) : (
         /* ── Vista Lista (tabla) ── */
-        <div style={S.card}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div style={{ ...S.card, overflowX: "auto" }}>
+          <table style={{ width: "100%", minWidth: 420, borderCollapse: "collapse" }}>
             <thead style={S.thead}>
               <tr>
                 {[t("colName"), t("colOrder"), t("colStatus"), t("colActions")].map((h) => (

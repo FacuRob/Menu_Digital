@@ -199,6 +199,19 @@
   50% { box-shadow: 0 0 0 5px rgba(245, 158, 11, 0); }
 }
 .chat-alerta { animation: chat-alerta 1.6s ease-in-out infinite; }
+
+/* ── Celular ───────────────────────────────────────────────── */
+html { -webkit-text-size-adjust: 100%; }
+button, a, select, label { -webkit-tap-highlight-color: transparent; }
+/* iPhone agranda la pantalla al tocar un campo con letra < 16px.
+   Con 16px el panel queda quieto al escribir. */
+@media (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .chat-alerta { animation: none; }
 }

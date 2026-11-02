@@ -144,9 +144,12 @@ export const lightS = {
     background: "rgba(0,0,0,0.4)",
     backdropFilter: "blur(4px)",
     display: "flex",
-    alignItems: "center",
+    // flex-start + margin:auto en el modal: se centra si entra en la
+    // pantalla y, si es más alto (celular), se puede desplazar sin cortarse.
+    alignItems: "flex-start",
     justifyContent: "center",
     padding: 16,
+    overflowY: "auto" as const,
     zIndex: 50,
   },
   modal: {
@@ -155,6 +158,7 @@ export const lightS = {
     borderRadius: 14,
     width: "100%",
     maxWidth: 480,
+    margin: "auto",
     boxShadow: "0 20px 60px rgba(0,0,0,0.12)",
   } as React.CSSProperties,
   modalHeader: {
@@ -316,9 +320,12 @@ export const darkS: typeof lightS = {
     background: "rgba(0,0,0,0.7)",
     backdropFilter: "blur(4px)",
     display: "flex",
-    alignItems: "center",
+    // flex-start + margin:auto en el modal: se centra si entra en la
+    // pantalla y, si es más alto (celular), se puede desplazar sin cortarse.
+    alignItems: "flex-start",
     justifyContent: "center",
     padding: 16,
+    overflowY: "auto" as const,
     zIndex: 50,
   },
   modal: {
@@ -327,6 +334,7 @@ export const darkS: typeof lightS = {
     borderRadius: 14,
     width: "100%",
     maxWidth: 480,
+    margin: "auto",
   } as React.CSSProperties,
   modalHeader: {
     padding: "18px 20px",

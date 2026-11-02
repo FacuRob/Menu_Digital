@@ -185,7 +185,7 @@ export default function Negocios() {
           style={{
             display: "grid",
             gap: 12,
-            gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))",
+            gridTemplateColumns: "repeat(auto-fill,minmax(min(260px,100%),1fr))",
           }}
         >
           {negocios.map((n) => {
