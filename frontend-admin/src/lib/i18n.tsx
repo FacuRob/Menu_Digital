@@ -323,6 +323,9 @@ const es: Dict = {
   chIaAuthor: "Asistente IA",
   chNeedsHuman: "La IA pasó este chat a una persona: respondé vos.",
   chAttend: "Atender",
+  chToastAttend: "Un cliente necesita que lo atiendas",
+  chToastTap: "Tocá para abrir Chats",
+  chUnreadN: "{n} mensajes sin leer",
   pedReopen: "Reabrir",
   // ── Facturación / Ticket ──
   ticketAsk: "¿Generar ticket?",
@@ -968,6 +971,9 @@ const en: Dict = {
   chIaAuthor: "AI assistant",
   chNeedsHuman: "The AI handed this chat over to a person: please reply.",
   chAttend: "Attend",
+  chToastAttend: "A customer needs your attention",
+  chToastTap: "Tap to open Chats",
+  chUnreadN: "{n} unread messages",
   pedReopen: "Reopen",
   // ── Billing / Ticket ──
   ticketAsk: "Generate ticket?",
@@ -1613,6 +1619,9 @@ const pt: Dict = {
   chIaAuthor: "Assistente IA",
   chNeedsHuman: "A IA passou este chat para uma pessoa: responda você.",
   chAttend: "Atender",
+  chToastAttend: "Um cliente precisa que você o atenda",
+  chToastTap: "Toque para abrir os Chats",
+  chUnreadN: "{n} mensagens não lidas",
   pedReopen: "Reabrir",
   // ── Faturamento / Ticket ──
   ticketAsk: "Gerar ticket?",

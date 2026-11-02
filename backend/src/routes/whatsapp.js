@@ -6,6 +6,7 @@ const {
   postPrueba,
   getChats,
   getMensajesChat,
+  getResumenChats,
   postMensajeChat,
   patchIAChat,
   getIA,
@@ -26,6 +27,7 @@ router.put("/ia", updateIA);
 // quien atiende los pedidos, no solo quien configura.
 const chatsRouter = express.Router();
 chatsRouter.get("/", getChats);
+chatsRouter.get("/resumen", getResumenChats);
 chatsRouter.get("/:id/mensajes", getMensajesChat);
 chatsRouter.post("/:id/mensajes", postMensajeChat);
 chatsRouter.patch("/:id/ia", patchIAChat);

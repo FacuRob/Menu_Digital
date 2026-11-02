@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useNegocio } from "../context/NegocioContext";
-import { pedidosService, productosService } from "../services/api";
+import { chatsService, pedidosService, productosService } from "../services/api";
 import ConfiguracionEditor from "./ConfiguracionEditor";
 import { useLang, LangSelector } from "../lib/i18n";
 import { BRAND_NAME, BRAND_LOGO, brandTextStyle } from "../lib/brand";
@@ -405,7 +405,10 @@ export default function AdminLayout({
 
   // ── Notificaciones de pedidos nuevos ──
   const [nuevosPedidos, setNuevosPedidos] = useState(0);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ texto: string; ruta: string; chat?: boolean } | null>(null);
+  // Chats de WhatsApp: mensajes sin leer y chats que la IA pasó a una persona.
+  const [chatsAviso, setChatsAviso] = useState({ no_leidos: 0, atender: 0 });
+  const atenderRef = useRef<number | null>(null);
   const [negOpen, setNegOpen] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
@@ -461,11 +464,12 @@ export default function AdminLayout({
           const nuevos = pend.filter((p) => p.id > lastPedidoRef.current).length;
           if (nuevos > 0) {
             setNuevosPedidos((n) => n + nuevos);
-            setToast(
-              t(nuevos > 1 ? "toastNewOrders_other" : "toastNewOrders_one", {
+            setToast({
+              texto: t(nuevos > 1 ? "toastNewOrders_other" : "toastNewOrders_one", {
                 n: nuevos,
               }),
-            );
+              ruta: "/admin/pedidos",
+            });
             beep();
           }
         }
@@ -487,6 +491,44 @@ export default function AdminLayout({
   }, [isAuthenticated, negocioId]);
 
   useEffect(() => {
+    if (!isAuthenticated || !hasPermiso("pedidos")) return;
+    let active = true;
+    atenderRef.current = null;
+    const check = async () => {
+      if (document.hidden && atenderRef.current !== null) return;
+      try {
+        const r = await chatsService.resumen();
+        if (!active) return;
+        setChatsAviso(r);
+        // Un chat nuevo para atender: aviso con sonido (no en la primera carga).
+        if (atenderRef.current !== null && r.atender > atenderRef.current) {
+          setToast({ texto: t("chToastAttend"), ruta: "/admin/chats", chat: true });
+          beep();
+        }
+        atenderRef.current = r.atender;
+      } catch {
+        /* sin WhatsApp o sin migración: no se muestra nada */
+      }
+    };
+    check();
+    const intervalId = setInterval(check, 15000);
+    window.addEventListener("chats-cambio", check);
+    return () => {
+      active = false;
+      clearInterval(intervalId);
+      window.removeEventListener("chats-cambio", check);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, negocioId]);
+
+  // Número en la pestaña del navegador: "(2) DinexFlow · Admin".
+  useEffect(() => {
+    const n = chatsAviso.atender + chatsAviso.no_leidos;
+    const base = document.title.replace(/^\(\d+\) /, "");
+    document.title = n > 0 ? `(${n}) ${base}` : base;
+  }, [chatsAviso]);
+
+  useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 4500);
     return () => clearTimeout(t);
@@ -505,6 +547,12 @@ export default function AdminLayout({
   const irAPedidos = () => {
     setNuevosPedidos(0);
     navigate("/admin/pedidos");
+  };
+  const irAlToast = () => {
+    if (!toast) return;
+    if (toast.ruta === "/admin/pedidos") irAPedidos();
+    else navigate(toast.ruta);
+    setToast(null);
   };
 
   // ── Alerta de stock (candado + burbuja) ──
@@ -670,6 +718,9 @@ export default function AdminLayout({
         >
           {visible.map((item) => {
             const active = isActive(item.ruta);
+            const esChats = item.ruta === "/admin/chats";
+            const atender = esChats ? chatsAviso.atender : 0;
+            const sinLeer = esChats ? chatsAviso.no_leidos : 0;
             return (
               <div key={item.ruta} style={{ position: "relative" }}>
               <button
@@ -722,8 +773,23 @@ export default function AdminLayout({
                     }}
                   />
                 )}
-                <span style={{ color: active ? navActiveColor : "inherit" }}>
+                <span style={{ color: active ? navActiveColor : "inherit", position: "relative", display: "flex" }}>
                   {item.icon}
+                  {collapsed && (atender > 0 || sinLeer > 0) && (
+                    <span
+                      className={atender > 0 ? "chat-alerta" : undefined}
+                      style={{
+                        position: "absolute",
+                        top: -3,
+                        right: -4,
+                        width: 9,
+                        height: 9,
+                        borderRadius: 999,
+                        background: atender > 0 ? "#f59e0b" : "#10b981",
+                        border: `2px solid ${sidebarBg}`,
+                      }}
+                    />
+                  )}
                 </span>
                 {!collapsed && (
                   <span
@@ -734,6 +800,30 @@ export default function AdminLayout({
                     }}
                   >
                     {t(item.labelKey)}
+                  </span>
+                )}
+                {!collapsed && (atender > 0 || sinLeer > 0) && (
+                  <span
+                    className={atender > 0 ? "chat-alerta" : undefined}
+                    title={atender > 0 ? t("chNeedsHuman") : t("chUnreadN", { n: sinLeer })}
+                    style={{
+                      marginLeft: "auto",
+                      minWidth: 20,
+                      height: 20,
+                      padding: "0 7px",
+                      borderRadius: 999,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 3,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      flexShrink: 0,
+                      color: "#fff",
+                      background: atender > 0 ? "#f59e0b" : "#10b981",
+                    }}
+                  >
+                    {atender > 0 ? `👋 ${atender}` : sinLeer > 99 ? "99+" : sinLeer}
                   </span>
                 )}
                 {!collapsed && item.external && (
@@ -1478,10 +1568,10 @@ export default function AdminLayout({
         </div>
       )}
 
-      {/* Toast de pedido nuevo */}
+      {/* Toast: pedido nuevo o chat para atender */}
       {toast && (
         <div
-          onClick={irAPedidos}
+          onClick={irAlToast}
           style={{
             position: "fixed",
             bottom: 22,
@@ -1500,11 +1590,13 @@ export default function AdminLayout({
           }}
         >
           <style>{`@keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}`}</style>
-          <span style={{ display: "flex", color: "#fbbf24" }}><IconBell size={20} /></span>
+          <span style={{ display: "flex", color: "#fbbf24", fontSize: 20 }}>
+            {toast.chat ? "👋" : <IconBell size={20} />}
+          </span>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>{toast}</div>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>{toast.texto}</div>
             <div style={{ fontSize: 12, color: "#9ca3af" }}>
-              {t("toastTapToView")}
+              {toast.chat ? t("chToastTap") : t("toastTapToView")}
             </div>
           </div>
         </div>

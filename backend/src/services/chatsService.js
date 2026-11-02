@@ -179,6 +179,20 @@ async function listarChats(negocioId) {
   return (data || []).map((c) => ({ ...c, puede_responder: ventanaAbierta(c), ia_pausada: iaPausada(c) }));
 }
 
+// Para el aviso del menú lateral: mensajes sin leer y chats que la IA
+// derivó a una persona.
+async function resumenChats(negocioId) {
+  const { data, error } = await supabase
+    .from("whatsapp_chats")
+    .select("no_leidos, necesita_humano")
+    .eq("negocio_id", negocioId);
+  if (error || !data) return { no_leidos: 0, atender: 0 };
+  return {
+    no_leidos: data.reduce((n, c) => n + (Number(c.no_leidos) || 0), 0),
+    atender: data.filter((c) => c.necesita_humano).length,
+  };
+}
+
 async function chatDelNegocio(negocioId, chatId) {
   const id = Number(chatId);
   if (!Number.isInteger(id) || id <= 0) return null;
@@ -296,6 +310,7 @@ module.exports = {
   tocarChat,
   registrarEntrantes,
   listarChats,
+  resumenChats,
   mensajesDelChat,
   responder,
   enviarSaliente,

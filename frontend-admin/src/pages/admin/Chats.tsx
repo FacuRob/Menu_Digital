@@ -105,6 +105,8 @@ export default function Chats() {
         setMensajes(r.mensajes);
         // La lista refleja que ya se leyó.
         setChats((cs) => cs?.map((c) => (c.id === id ? { ...c, no_leidos: 0 } : c)) ?? cs);
+        // El aviso del menú lateral se actualiza al toque.
+        window.dispatchEvent(new Event("chats-cambio"));
       })
       .catch(() => {});
   }, []);
@@ -176,6 +178,7 @@ export default function Chats() {
     try {
       const c = await chatsService.cambiarIA(chat.id, !!chat.ia_pausada);
       setChat(c);
+      window.dispatchEvent(new Event("chats-cambio"));
       setChats(
         (cs) => cs?.map((x) => (x.id === c.id ? { ...x, ia_pausada: c.ia_pausada, necesita_humano: c.necesita_humano } : x)) ?? cs,
       );

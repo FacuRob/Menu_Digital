@@ -177,3 +177,13 @@ test("webhook: los mensajes entrantes se guardan en el chat", async () => {
   assert.strictEqual(tablas.whatsapp_mensajes.length, 1);
   assert.strictEqual(tablas.whatsapp_mensajes[0].chat_id, 1);
 });
+
+test("resumenChats: suma no leídos y cuenta los chats para atender", async () => {
+  tablas.whatsapp_chats.push(
+    { id: 1, negocio_id: 5, telefono: "1", no_leidos: 2, necesita_humano: true },
+    { id: 2, negocio_id: 5, telefono: "2", no_leidos: 1, necesita_humano: false },
+  );
+  db.setHandler((q) => ({ data: tablas[q.table].filter((f) => f.negocio_id === q.filters.negocio_id), error: null }));
+  assert.deepStrictEqual(await chats.resumenChats(5), { no_leidos: 3, atender: 1 });
+  assert.deepStrictEqual(await chats.resumenChats(9), { no_leidos: 0, atender: 0 });
+});

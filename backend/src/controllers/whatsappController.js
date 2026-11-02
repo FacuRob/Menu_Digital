@@ -96,6 +96,15 @@ const getChats = async (req, res) => {
   }
 };
 
+// GET /api/whatsapp/chats/resumen → { no_leidos, atender } (aviso del menú)
+const getResumenChats = async (req, res) => {
+  try {
+    res.json(await chats.resumenChats(getNegocioId(req)));
+  } catch (error) {
+    return respondError(res, error, "whatsapp");
+  }
+};
+
 // GET /api/whatsapp/chats/:id/mensajes
 const getMensajesChat = async (req, res) => {
   try {
@@ -235,6 +244,7 @@ module.exports = {
   postPrueba,
   getChats,
   getMensajesChat,
+  getResumenChats,
   postMensajeChat,
   patchIAChat,
   getIA,

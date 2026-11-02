@@ -564,6 +564,8 @@ export const chatsService = {
     (await api.get<{ chat: ChatWhatsapp; mensajes: MensajeChat[] }>(`/whatsapp/chats/${id}/mensajes`)).data,
   enviar: async (id: number, texto: string) =>
     (await api.post<MensajeChat>(`/whatsapp/chats/${id}/mensajes`, { texto })).data,
+  resumen: async () =>
+    (await api.get<{ no_leidos: number; atender: number }>("/whatsapp/chats/resumen")).data,
   cambiarIA: async (id: number, activa: boolean) =>
     (await api.patch<ChatWhatsapp>(`/whatsapp/chats/${id}/ia`, { activa })).data,
 };
