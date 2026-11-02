@@ -200,6 +200,125 @@
 }
 .chat-alerta { animation: chat-alerta 1.6s ease-in-out infinite; }
 
+/* ── Pantalla de carga del panel (LoadingScreen.tsx) ───────────
+   Todas las animaciones arrancan en var(--dx-t) (tiempo negativo), para
+   que al pasar de una pantalla de carga a otra no se reinicien. */
+.dx-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  font-family: 'Inter', system-ui, sans-serif;
+  /* Aparece de golpe (si entrara con fundido, al pasar de una pantalla de
+     carga a la siguiente se vería la página por un instante) y se va con
+     fundido. */
+  opacity: 1;
+  transition: opacity 0.35s ease;
+}
+.dx-loader.is-leaving { opacity: 0; pointer-events: none; }
+
+.dx-loader-mark {
+  position: relative;
+  width: 124px;
+  height: 124px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 4px;
+}
+/* Resplandor que "respira" detrás del logo. */
+.dx-loader-glow {
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(99, 102, 241, 0.45), rgba(6, 182, 212, 0.18) 60%, transparent);
+  animation: dx-glow 2.4s ease-in-out infinite;
+  animation-delay: var(--dx-t, 0s);
+}
+@keyframes dx-glow {
+  0%, 100% { transform: scale(0.85); opacity: 0.55; }
+  50% { transform: scale(1.12); opacity: 1; }
+}
+/* Aro con degradado de marca que gira alrededor del logo. */
+.dx-loader-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0deg, #6366f1 120deg, #06b6d4 230deg, transparent 300deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  animation: dx-spin 1.1s linear infinite;
+  animation-delay: var(--dx-t, 0s);
+}
+@keyframes dx-spin { to { transform: rotate(360deg); } }
+.dx-loader-logo {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.35);
+  animation: dx-float 2.4s ease-in-out infinite;
+  animation-delay: var(--dx-t, 0s);
+}
+@keyframes dx-float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-5px) scale(1.04); }
+}
+
+.dx-loader-name {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.dx-loader-text {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+/* Los tres puntos de "Cargando..." saltan uno detrás del otro. */
+.dx-loader-dots span {
+  display: inline-block;
+  animation: dx-dot 1.2s ease-in-out infinite;
+  animation-delay: var(--dx-t, 0s);
+}
+.dx-loader-dots span:nth-child(2) { animation-delay: calc(var(--dx-t, 0s) + 0.15s); }
+.dx-loader-dots span:nth-child(3) { animation-delay: calc(var(--dx-t, 0s) + 0.3s); }
+@keyframes dx-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+/* Barra de progreso indeterminada. */
+.dx-loader-bar {
+  position: relative;
+  width: 140px;
+  height: 3px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.dx-loader-bar span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 45%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #6366f1, #06b6d4);
+  animation: dx-bar 1.3s ease-in-out infinite;
+  animation-delay: var(--dx-t, 0s);
+}
+@keyframes dx-bar {
+  0% { left: -45%; }
+  100% { left: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dx-loader-ring { animation-duration: 3s; }
+  .dx-loader-glow, .dx-loader-logo, .dx-loader-dots span { animation: none; }
+  .dx-loader-bar span { animation-duration: 2.6s; }
+}
+
 /* ── Celular ───────────────────────────────────────────────── */
 html { -webkit-text-size-adjust: 100%; }
 button, a, select, label { -webkit-tap-highlight-color: transparent; }

@@ -5,6 +5,7 @@ import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import { NegocioProvider } from "./context/NegocioContext";
 import { LanguageProvider, useLang } from "./lib/i18n";
 import ProtectedRoute from "./components/ProtectedRoute";
+import LoadingScreen from "./components/LoadingScreen";
 
 // Cada pantalla se descarga recién cuando se visita: el login no baja el
 // código de pedidos, productos, QR, etc.
@@ -26,10 +27,14 @@ const MenuPreview = lazy(() => import("./pages/MenuPreview"));
 const WhatsApp = lazy(() => import("./pages/admin/WhatsApp"));
 const Chats = lazy(() => import("./pages/admin/Chats"));
 
-// Mientras llega el código de la pantalla: fondo del tema (sin flash blanco).
+// Mientras llega el código de la pantalla. En las secciones del panel se ve la
+// pantalla de carga animada; en el login y el menú público, solo el fondo
+// (sin flash blanco).
 function Cargando() {
   const { isDark } = useTheme();
-  const enLogin = /\/admin\/(login|reset-password)/.test(window.location.pathname);
+  const path = window.location.pathname;
+  const enLogin = /\/admin\/(login|reset-password)/.test(path);
+  if (path.startsWith("/admin/") && !enLogin) return <LoadingScreen />;
   return (
     <div
       style={{

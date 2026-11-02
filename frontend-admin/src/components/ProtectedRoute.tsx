@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { IconLock } from "../lib/icons";
+import LoadingScreen from "./LoadingScreen";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -13,31 +14,8 @@ const ProtectedRoute = ({ children, permiso, plataforma }: ProtectedRouteProps) 
     useAuth();
   const location = useLocation();
 
-  if (isLoading) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "100vh",
-          background: "#0f1117",
-        }}
-      >
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            border: "2px solid #3b82f6",
-            borderTopColor: "transparent",
-            borderRadius: "50%",
-            animation: "spin 0.7s linear infinite",
-          }}
-        />
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-      </div>
-    );
-  }
+  // Verificando la sesión guardada (al abrir o recargar el panel).
+  if (isLoading) return <LoadingScreen />;
 
   if (!isAuthenticated) {
     return <Navigate to="/admin/login" replace />;

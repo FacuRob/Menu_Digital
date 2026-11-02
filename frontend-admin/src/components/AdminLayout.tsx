@@ -3,7 +3,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useNegocio } from "../context/NegocioContext";
-import { chatsService, pedidosService, productosService } from "../services/api";
+import { apiPendientes, chatsService, pedidosService, productosService } from "../services/api";
+import LoadingScreen from "./LoadingScreen";
 import ConfiguracionEditor from "./ConfiguracionEditor";
 import { useLang, LangSelector } from "../lib/i18n";
 import { BRAND_NAME, BRAND_LOGO, brandTextStyle } from "../lib/brand";
@@ -642,6 +643,42 @@ export default function AdminLayout({
     if (configOpen) document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, [configOpen]);
+
+  // ── Pantalla de carga ──
+  // Cada sección arma su propio AdminLayout, así que esto corre al entrar
+  // (después del login) y en cada cambio de sección. Se muestra un mínimo
+  // para que se vea la animación y hasta que terminen los pedidos al servidor
+  // de la sección (con un tope, por si alguno tarda demasiado).
+  const [carga, setCarga] = useState<"on" | "saliendo" | "off">("on");
+  useEffect(() => {
+    const MINIMO = 650;
+    const TOPE = 4000;
+    const inicio = Date.now();
+    let libreDesde = 0;
+    let fin: ReturnType<typeof setTimeout> | undefined;
+    const terminar = () => {
+      clearInterval(revisar);
+      clearTimeout(tope);
+      setCarga("saliendo");
+      fin = setTimeout(() => setCarga("off"), 350);
+    };
+    const revisar = setInterval(() => {
+      if (apiPendientes() > 0) {
+        libreDesde = 0;
+        return;
+      }
+      if (!libreDesde) libreDesde = Date.now();
+      // Sin pedidos durante 150 ms seguidos (por si la sección encadena
+      // uno detrás de otro) y pasado el mínimo.
+      if (Date.now() - libreDesde >= 150 && Date.now() - inicio >= MINIMO) terminar();
+    }, 50);
+    const tope = setTimeout(terminar, TOPE);
+    return () => {
+      clearInterval(revisar);
+      clearTimeout(tope);
+      clearTimeout(fin);
+    };
+  }, []);
 
   // Celular: el cajón se cierra al cambiar de página, al pasar a pantalla
   // grande y con la tecla Escape. Mientras está abierto, la página de atrás
@@ -1732,6 +1769,8 @@ export default function AdminLayout({
           )}
         </div>
       )}
+
+      {carga !== "off" && <LoadingScreen leaving={carga === "saliendo"} />}
 
       {/* Toast: pedido nuevo o chat para atender */}
       {toast && (

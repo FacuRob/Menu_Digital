@@ -11,8 +11,17 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+// Pedidos al servidor en curso. La pantalla de carga del panel espera a que
+// lleguen en 0 para mostrar la sección con sus datos ya cargados.
+let pendientes = 0;
+export const apiPendientes = () => pendientes;
+const terminar = () => {
+  pendientes = Math.max(0, pendientes - 1);
+};
+
 api.interceptors.request.use(
   (config) => {
+    pendientes++;
     const token = localStorage.getItem("token");
     if (token) config.headers.Authorization = `Bearer ${token}`;
     // Negocio activo (multi-tenant). Por defecto 1.
@@ -26,8 +35,12 @@ api.interceptors.request.use(
 // Suscripción vencida (402): el backend bloquea los datos del panel. Redirigir
 // a la página de suscripción para que el usuario elija/renueve un plan.
 api.interceptors.response.use(
-  (r) => r,
+  (r) => {
+    terminar();
+    return r;
+  },
   (error) => {
+    terminar();
     const data = error?.response?.data as { error?: string } | undefined;
     if (
       error?.response?.status === 402 &&
