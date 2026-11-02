@@ -252,8 +252,20 @@ const HERRAMIENTAS = [
   },
 ];
 
-// Llama a OpenRouter. Devuelve { texto, derivar?: { motivo, mensaje } }.
-async function consultarModelo(system, historial) {
+// Texto del error de OpenRouter, con el detalle del proveedor si viene.
+function detalleError(json, status) {
+  const e = json?.error || {};
+  const raw = e.metadata?.raw;
+  return [
+    e.message || `OpenRouter HTTP ${status}`,
+    e.metadata?.provider_name && `(${e.metadata.provider_name})`,
+    raw && String(typeof raw === "string" ? raw : JSON.stringify(raw)).slice(0, 300),
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+async function llamarOpenRouter(body) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 30000);
   try {
@@ -266,34 +278,71 @@ async function consultarModelo(system, historial) {
         "HTTP-Referer": MENU_URL(),
         "X-Title": "DinexFlow",
       },
-      body: JSON.stringify({
-        model: MODELO(),
-        messages: [{ role: "system", content: system }, ...historial],
-        tools: HERRAMIENTAS,
-        max_tokens: 500,
-        temperature: 0.3,
-      }),
+      body: JSON.stringify({ model: MODELO(), max_tokens: 500, temperature: 0.3, ...body }),
     });
     const json = await resp.json().catch(() => ({}));
-    if (!resp.ok) throw new Error(json?.error?.message || `OpenRouter HTTP ${resp.status}`);
-    const msg = json?.choices?.[0]?.message || {};
-    const llamada = (msg.tool_calls || []).find((t) => t?.function?.name === "derivar_a_humano");
-    if (llamada) {
-      let args = {};
-      try {
-        args = JSON.parse(llamada.function.arguments || "{}");
-      } catch {
-        /* argumentos inválidos: se usan los textos por defecto */
-      }
-      return {
-        texto: (msg.content || "").trim(),
-        derivar: { motivo: args.motivo || "", mensaje: args.mensaje_al_cliente || "" },
-      };
+    // OpenRouter a veces responde 200 con un error adentro.
+    if (!resp.ok || json?.error) {
+      const err = new Error(detalleError(json, resp.status));
+      err.status = json?.error?.code || resp.status;
+      throw err;
     }
-    return { texto: (msg.content || "").trim() };
+    return json?.choices?.[0]?.message || {};
   } finally {
     clearTimeout(timer);
   }
+}
+
+// Modo simple: para modelos que no aceptan instrucciones de sistema ni
+// herramientas (p. ej. algunos gratis). La derivación se marca con texto.
+const MARCA_DERIVAR = "[DERIVAR]";
+const REGLA_SIMPLE = `
+
+IMPORTANTE: si corresponde pasar la conversación a una persona (regla 5), empezá tu respuesta exactamente con ${MARCA_DERIVAR} y seguí con un mensaje corto para el cliente avisando que alguien del local le va a responder.`;
+
+// Llama al modelo. Devuelve { texto, derivar?: { motivo, mensaje } }.
+async function consultarModelo(system, historial) {
+  let msg;
+  try {
+    msg = await llamarOpenRouter({
+      messages: [{ role: "system", content: system }, ...historial],
+      tools: HERRAMIENTAS,
+    });
+  } catch (err) {
+    // Clave inválida, sin crédito o límite alcanzado: reintentar no sirve.
+    if ([401, 402, 429].includes(Number(err.status))) throw err;
+    console.warn(`[IA] Falló el modo completo (${err.message}); reintento en modo simple.`);
+    const [primero, ...resto] = historial;
+    const m = await llamarOpenRouter({
+      messages: [
+        { role: "user", content: `${system}${REGLA_SIMPLE}
+
+--- MENSAJE DEL CLIENTE ---
+${primero.content}` },
+        ...resto,
+      ],
+    });
+    const texto = String(m.content || "").trim();
+    if (texto.startsWith(MARCA_DERIVAR)) {
+      return { texto: "", derivar: { motivo: "", mensaje: texto.slice(MARCA_DERIVAR.length).trim() } };
+    }
+    return { texto };
+  }
+
+  const llamada = (msg.tool_calls || []).find((t) => t?.function?.name === "derivar_a_humano");
+  if (llamada) {
+    let args = {};
+    try {
+      args = JSON.parse(llamada.function.arguments || "{}");
+    } catch {
+      /* argumentos inválidos: se usan los textos por defecto */
+    }
+    return {
+      texto: String(msg.content || "").trim(),
+      derivar: { motivo: args.motivo || "", mensaje: args.mensaje_al_cliente || "" },
+    };
+  }
+  return { texto: String(msg.content || "").trim() };
 }
 
 // Últimos mensajes del chat, en el formato del modelo.
@@ -310,7 +359,15 @@ async function historialDelChat(chatId) {
     .map((m) => ({ role: m.direccion === "entrante" ? "user" : "assistant", content: m.texto }));
   // El modelo espera que la conversación empiece con el cliente.
   while (lista.length && lista[0].role !== "user") lista.shift();
-  return lista;
+  // Y que los turnos se alternen: se unen los mensajes seguidos del mismo lado.
+  const unida = [];
+  for (const m of lista) {
+    const ultimo = unida[unida.length - 1];
+    if (ultimo && ultimo.role === m.role) ultimo.content += `
+${m.content}`;
+    else unida.push({ ...m });
+  }
+  return unida;
 }
 
 const DERIVAR_POR_DEFECTO = "Le paso tu consulta a alguien del local, en un ratito te responden por acá. 🙌";

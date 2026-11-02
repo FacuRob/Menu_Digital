@@ -192,3 +192,83 @@ test("abiertoAhora: franjas que cruzan la medianoche", () => {
   assert.strictEqual(ia.abiertoAhora(null), null);
   delete process.env.NEGOCIO_TZ;
 });
+
+test("modo simple: si el modelo rechaza sistema/herramientas, reintenta sin ellos", async () => {
+  let intento = 0;
+  global.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    if (String(url).includes("openrouter")) {
+      llamadas.push(body);
+      intento++;
+      if (intento === 1) {
+        return { ok: false, status: 400, json: async () => ({ error: { message: "Provider returned error", code: 400 } }) };
+      }
+      return { ok: true, json: async () => ({ choices: [{ message: { content: "Abrimos a las 20 hs." } }] }) };
+    }
+    enviados.push(body);
+    return { ok: true, json: async () => ({ messages: [{ id: "wamid.1" }] }) };
+  };
+  const warn = console.warn;
+  console.warn = () => {};
+  const r = await ia.responderConIA(1);
+  console.warn = warn;
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(llamadas.length, 2);
+  assert.strictEqual(llamadas[1].tools, undefined);
+  assert.ok(llamadas[1].messages.every((m) => m.role !== "system"));
+  assert.match(llamadas[1].messages[0].content, /Bar la Esquina[\s\S]*¿A qué hora abren\?/);
+  assert.strictEqual(enviados[0].text.body, "Abrimos a las 20 hs.");
+});
+
+test("modo simple: la marca [DERIVAR] pasa el chat a una persona", async () => {
+  let intento = 0;
+  global.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    if (String(url).includes("openrouter")) {
+      intento++;
+      if (intento === 1) return { ok: false, status: 400, json: async () => ({ error: { message: "x" } }) };
+      return { ok: true, json: async () => ({ choices: [{ message: { content: "[DERIVAR] Ya le aviso al local." } }] }) };
+    }
+    enviados.push(body);
+    return { ok: true, json: async () => ({ messages: [{ id: "wamid.1" }] }) };
+  };
+  const warn = console.warn;
+  const log = console.log;
+  console.warn = () => {};
+  console.log = () => {};
+  const r = await ia.responderConIA(1);
+  console.warn = warn;
+  console.log = log;
+  assert.strictEqual(r.derivado, true);
+  assert.strictEqual(enviados[0].text.body, "Ya le aviso al local.");
+  assert.strictEqual(tablas.whatsapp_chats[0].necesita_humano, true);
+});
+
+test("sin crédito o clave inválida no reintenta", async () => {
+  global.fetch = async (url, init) => {
+    llamadas.push(JSON.parse(init.body));
+    return { ok: false, status: 402, json: async () => ({ error: { message: "Insufficient credits", code: 402 } }) };
+  };
+  const err = console.error;
+  console.error = () => {};
+  const r = await ia.responderConIA(1);
+  console.error = err;
+  assert.strictEqual(r.ok, false);
+  assert.match(r.error, /Insufficient credits/);
+  assert.strictEqual(llamadas.length, 1);
+});
+
+test("historial: une mensajes seguidos del mismo lado (turnos alternados)", async () => {
+  const t0 = Date.now();
+  tablas.whatsapp_mensajes = [
+    { id: 1, chat_id: 1, direccion: "entrante", texto: "Hola", created_at: new Date(t0 - 5000).toISOString() },
+    { id: 2, chat_id: 1, direccion: "saliente", texto: "hola", created_at: new Date(t0 - 4000).toISOString() },
+    { id: 3, chat_id: 1, direccion: "saliente", texto: "¿qué tal?", created_at: new Date(t0 - 3000).toISOString() },
+    { id: 4, chat_id: 1, direccion: "entrante", texto: "Bien", created_at: new Date(t0 - 2000).toISOString() },
+    { id: 5, chat_id: 1, direccion: "entrante", texto: "¿A qué hora abren?", created_at: new Date(t0 - 1000).toISOString() },
+  ];
+  await ia.responderConIA(1);
+  const roles = llamadas[0].messages.slice(1).map((m) => m.role);
+  assert.deepStrictEqual(roles, ["user", "assistant", "user"]);
+  assert.strictEqual(llamadas[0].messages[3].content, "Bien\n¿A qué hora abren?");
+});
