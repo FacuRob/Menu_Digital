@@ -3,7 +3,8 @@
 //
 // Hoy hay un único número de la plataforma para todos los negocios, así que
 // un mensaje entrante se asigna al negocio con el que ese teléfono ya habló
-// (un aviso o un chat previo) o, si no, al del último pedido con ese teléfono.
+// (un aviso o un chat previo), si no al del último pedido con ese teléfono y,
+// si es un número nuevo, al negocio de WHATSAPP_NEGOCIO_DEFECTO (si está).
 //
 // Regla de Meta: el texto libre solo se puede mandar dentro de las 24 h desde
 // el último mensaje del cliente. Pasado ese plazo, solo plantillas.
@@ -104,7 +105,12 @@ async function negocioDelTelefono(tel) {
     .order("created_at", { ascending: false })
     .limit(300);
   const p = (pedidos || []).find((x) => x.telefono_cliente && normalizarTelefono(x.telefono_cliente) === tel);
-  return p ? { negocioId: p.negocio_id, nombre: p.cliente || null } : null;
+  if (p) return { negocioId: p.negocio_id, nombre: p.cliente || null };
+
+  // Número que nunca habló ni pidió: va al negocio por defecto, si hay uno
+  // configurado (útil mientras todos comparten el número de la plataforma).
+  const porDefecto = Number(process.env.WHATSAPP_NEGOCIO_DEFECTO);
+  return Number.isInteger(porDefecto) && porDefecto > 0 ? { negocioId: porDefecto } : null;
 }
 
 // Guarda los mensajes entrantes de un evento del webhook (`change.value`).
@@ -129,7 +135,7 @@ async function registrarEntrantes(value) {
 
       const destino = await negocioDelTelefono(tel);
       if (!destino) {
-        console.warn(`[Chats] Mensaje de ${tel} sin negocio asociado: se descarta.`);
+        console.warn(`[Chats] Mensaje de ${tel} sin negocio asociado (sin pedidos ni WHATSAPP_NEGOCIO_DEFECTO): se descarta.`);
         continue;
       }
       const chat = await asegurarChat(destino.negocioId, tel, {

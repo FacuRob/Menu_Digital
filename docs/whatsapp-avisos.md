@@ -106,7 +106,7 @@ escribió son gratis.
 
 - Pantalla **Chats** (`/admin/chats`, permiso `pedidos`): lista de conversaciones y respuesta con texto libre.
 - Los mensajes del cliente llegan por el mismo webhook (`/api/webhooks/whatsapp`, campo `messages` en Meta).
-- Un mensaje entrante se asigna al negocio con el que ese teléfono ya habló (aviso o chat) o al de su último pedido. Si no hay ninguno, se descarta.
+- Un mensaje entrante se asigna al negocio con el que ese teléfono ya habló (aviso o chat) o al de su último pedido. Si es un número nuevo, va al negocio de `WHATSAPP_NEGOCIO_DEFECTO` (id); sin esa variable, se descarta.
 - Regla de Meta: solo se puede responder hasta **24 h** después del último mensaje del cliente. Pasado ese plazo, el panel bloquea el envío.
 - Base de datos: correr de nuevo `backend/db/whatsapp_avisos.sql` (es idempotente; agrega `whatsapp_chats` y columnas nuevas en `whatsapp_mensajes`).
 

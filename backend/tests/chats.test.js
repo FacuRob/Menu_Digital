@@ -187,3 +187,12 @@ test("resumenChats: suma no leídos y cuenta los chats para atender", async () =
   assert.deepStrictEqual(await chats.resumenChats(5), { no_leidos: 3, atender: 1 });
   assert.deepStrictEqual(await chats.resumenChats(9), { no_leidos: 0, atender: 0 });
 });
+
+test("registrarEntrantes: número nuevo va al negocio por defecto si está configurado", async () => {
+  process.env.WHATSAPP_NEGOCIO_DEFECTO = "3";
+  await chats.registrarEntrantes(entrante());
+  delete process.env.WHATSAPP_NEGOCIO_DEFECTO;
+  assert.strictEqual(tablas.whatsapp_chats.length, 1);
+  assert.strictEqual(tablas.whatsapp_chats[0].negocio_id, 3);
+  assert.strictEqual(tablas.whatsapp_mensajes[0].negocio_id, 3);
+});
