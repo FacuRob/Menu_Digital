@@ -68,12 +68,15 @@ function Toggle({
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!on)}
-      className={`relative h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-        on ? "bg-emerald-500" : "bg-slate-400/40"
+      className={`relative block h-6 w-11 shrink-0 cursor-pointer rounded-full p-0 transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+        on ? "bg-emerald-500" : "bg-slate-500/35 ring-1 ring-inset ring-slate-400/40"
       }`}
     >
+      {/* left-0 explícito: sin él, el botón centra la bolita y apagado parece encendido. */}
       <span
-        className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform"
+        className={`absolute left-0 top-0.5 h-5 w-5 rounded-full shadow transition-transform ${
+          on ? "bg-white" : "bg-slate-200"
+        }`}
         style={{ transform: on ? "translateX(22px)" : "translateX(2px)" }}
       />
     </button>
