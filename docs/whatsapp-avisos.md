@@ -117,5 +117,5 @@ escribió son gratis.
 - Si no puede resolver algo (cancelaciones, reclamos, pagos, alergias, pedido de hablar con una persona), **deriva el chat**: lo marca "Atender" en el panel y deja de responder ahí.
 - Cuando una persona responde desde el panel, la IA se pausa en ese chat por 12 h (`IA_PAUSA_HORAS`). También se puede pausar o reactivar a mano desde el chat.
 - Espera unos segundos (`IA_ESPERA_MS`, default 4000) para juntar varios mensajes seguidos del cliente.
-- Variables en Render: `OPENROUTER_API_KEY` (obligatoria), `OPENROUTER_MODEL` (default `anthropic/claude-haiku-5.5`), `NEGOCIO_TZ` (default `America/Argentina/Buenos_Aires`).
+- Variables en Render: `OPENROUTER_API_KEY` (obligatoria), `OPENROUTER_MODEL` (default `anthropic/claude-haiku-5.5`; acepta hasta 3 separados por coma como respaldo), `NEGOCIO_TZ` (default `America/Argentina/Buenos_Aires`).
 - Base de datos: volver a correr `backend/db/whatsapp_avisos.sql` (agrega `whatsapp_ia` y columnas nuevas).

@@ -272,3 +272,11 @@ test("historial: une mensajes seguidos del mismo lado (turnos alternados)", asyn
   assert.deepStrictEqual(roles, ["user", "assistant", "user"]);
   assert.strictEqual(llamadas[0].messages[3].content, "Bien\n¿A qué hora abren?");
 });
+
+test("OPENROUTER_MODEL con varios modelos: los manda como respaldo", async () => {
+  process.env.OPENROUTER_MODEL = "a/uno:free, b/dos:free ,c/tres:free,d/cuatro:free";
+  await ia.responderConIA(1);
+  delete process.env.OPENROUTER_MODEL;
+  assert.strictEqual(llamadas[0].model, "a/uno:free");
+  assert.deepStrictEqual(llamadas[0].models, ["a/uno:free", "b/dos:free", "c/tres:free"]);
+});

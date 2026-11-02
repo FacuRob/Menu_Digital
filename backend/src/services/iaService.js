@@ -7,7 +7,9 @@
 //
 // Proveedor: OpenRouter (API compatible con OpenAI).
 //   OPENROUTER_API_KEY   clave de OpenRouter (obligatoria para activar la IA)
-//   OPENROUTER_MODEL     modelo (default anthropic/claude-haiku-5.5)
+//   OPENROUTER_MODEL     modelo (default anthropic/claude-haiku-5.5). Acepta
+//                        varios separados por coma: si uno falla o está
+//                        saturado, OpenRouter usa el siguiente.
 //   IA_ESPERA_MS         espera antes de responder, para juntar varios
 //                        mensajes seguidos del cliente (default 4000)
 //   NEGOCIO_TZ           zona horaria de los locales (default Argentina)
@@ -16,7 +18,19 @@ const supabase = require("../config/database");
 const { normalizarTelefono } = require("./whatsappService");
 const chats = require("./chatsService");
 
-const MODELO = () => process.env.OPENROUTER_MODEL || "anthropic/claude-haiku-5.5";
+const MODELOS = () => {
+  const lista = String(process.env.OPENROUTER_MODEL || "")
+    .split(",")
+    .map((m) => m.trim())
+    .filter(Boolean);
+  return lista.length ? lista : ["anthropic/claude-haiku-5.5"];
+};
+const MODELO = () => MODELOS()[0];
+// Parámetros de modelo para OpenRouter (con respaldo si hay más de uno).
+const modeloParams = () => {
+  const lista = MODELOS();
+  return lista.length > 1 ? { model: lista[0], models: lista.slice(0, 3) } : { model: lista[0] };
+};
 const ESPERA_MS = () => Number(process.env.IA_ESPERA_MS ?? 4000);
 const TZ = () => process.env.NEGOCIO_TZ || "America/Argentina/Buenos_Aires";
 const MENU_URL = () =>
@@ -278,7 +292,7 @@ async function llamarOpenRouter(body) {
         "HTTP-Referer": MENU_URL(),
         "X-Title": "DinexFlow",
       },
-      body: JSON.stringify({ model: MODELO(), max_tokens: 500, temperature: 0.3, ...body }),
+      body: JSON.stringify({ ...modeloParams(), max_tokens: 500, temperature: 0.3, ...body }),
     });
     const json = await resp.json().catch(() => ({}));
     // OpenRouter a veces responde 200 con un error adentro.
