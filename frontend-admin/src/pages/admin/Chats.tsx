@@ -75,6 +75,7 @@ export default function Chats() {
 
   const [chats, setChats] = useState<ChatWhatsapp[] | null>(null);
   const [conectado, setConectado] = useState(true);
+  const [iaActiva, setIaActiva] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [abiertoId, setAbiertoId] = useState<number | null>(null);
   const [chat, setChat] = useState<ChatWhatsapp | null>(null);
@@ -91,6 +92,7 @@ export default function Chats() {
       .then((r) => {
         setChats(r.chats);
         setConectado(r.conectado);
+        setIaActiva(r.ia_activa);
       })
       .catch(() => setChats((c) => c ?? []));
   }, []);
@@ -165,6 +167,20 @@ export default function Chats() {
       cargarChat(abiertoId);
     } finally {
       setEnviando(false);
+    }
+  };
+
+  // Pausa o reactiva la IA en este chat.
+  const cambiarIA = async () => {
+    if (!chat) return;
+    try {
+      const c = await chatsService.cambiarIA(chat.id, !!chat.ia_pausada);
+      setChat(c);
+      setChats(
+        (cs) => cs?.map((x) => (x.id === c.id ? { ...x, ia_pausada: c.ia_pausada, necesita_humano: c.necesita_humano } : x)) ?? cs,
+      );
+    } catch (err) {
+      setError(getApiErrorMessage(err, t("chSendError")));
     }
   };
 
@@ -246,6 +262,14 @@ export default function Chats() {
                   </span>
                   <span className="mt-0.5 flex items-center justify-between gap-2">
                     <span className={`truncate text-[13px] ${P.text}`}>{c.ultimo_texto || t("chNoMessages")}</span>
+                    {c.necesita_humano && (
+                      <span
+                        className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-500"
+                        title={t("chNeedsHuman")}
+                      >
+                        👋 {t("chAttend")}
+                      </span>
+                    )}
                     {c.no_leidos > 0 && (
                       <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-emerald-500 px-1.5 text-[11px] font-bold text-white">
                         {c.no_leidos}
@@ -293,7 +317,27 @@ export default function Chats() {
               <div className={`truncate font-semibold ${P.title}`}>{chat ? nombreDe(chat) : "…"}</div>
               {chat && <div className={`truncate text-xs ${P.muted}`}>{telefonoLindo(chat.telefono)}</div>}
             </div>
+            {iaActiva && chat && (
+              <button
+                type="button"
+                onClick={cambiarIA}
+                title={chat.ia_pausada ? t("chIaResume") : t("chIaPause")}
+                className={`shrink-0 cursor-pointer rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  chat.ia_pausada
+                    ? `${P.border} ${P.text} ${P.hover}`
+                    : "border-violet-500/30 bg-violet-500/10 text-violet-500 hover:bg-violet-500/15"
+                }`}
+              >
+                🤖 {chat.ia_pausada ? t("chIaPaused") : t("chIaOn")}
+              </button>
+            )}
           </div>
+
+          {iaActiva && chat?.necesita_humano && (
+            <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/[0.08] px-4 py-2 text-sm text-amber-600">
+              👋 {t("chNeedsHuman")}
+            </div>
+          )}
 
           {/* Mensajes */}
           <div className={`min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6 ${P.wall}`}>
@@ -316,6 +360,9 @@ export default function Chats() {
                         sale ? `${P.bubbleOut} rounded-tr-none` : `${P.bubbleIn} rounded-tl-none`
                       }`}
                     >
+                      {m.autor === "ia" && (
+                        <div className="mb-0.5 text-[11px] font-semibold text-violet-500">🤖 {t("chIaAuthor")}</div>
+                      )}
                       {m.aviso && (
                         <div className="mb-0.5 text-[11px] font-semibold opacity-70">
                           🤖 {t("chAutoAviso")}

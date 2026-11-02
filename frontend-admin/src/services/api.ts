@@ -538,11 +538,16 @@ export interface ChatWhatsapp {
   ultimo_entrante_at: string | null;
   no_leidos: number;
   puede_responder: boolean;
+  // Fase 3: la IA no responde en este chat (pausa manual, respondió una
+  // persona o la IA lo derivó).
+  ia_pausada?: boolean;
+  necesita_humano?: boolean;
 }
 
 export interface MensajeChat {
   id: number;
   direccion: "entrante" | "saliente";
+  autor?: "negocio" | "ia" | "aviso" | null;
   texto: string | null;
   aviso: EstadoAviso | "prueba" | null;
   plantilla: string | null;
@@ -554,11 +559,26 @@ export interface MensajeChat {
 
 export const chatsService = {
   listar: async () =>
-    (await api.get<{ conectado: boolean; chats: ChatWhatsapp[] }>("/whatsapp/chats")).data,
+    (await api.get<{ conectado: boolean; ia_activa: boolean; chats: ChatWhatsapp[] }>("/whatsapp/chats")).data,
   mensajes: async (id: number) =>
     (await api.get<{ chat: ChatWhatsapp; mensajes: MensajeChat[] }>(`/whatsapp/chats/${id}/mensajes`)).data,
   enviar: async (id: number, texto: string) =>
     (await api.post<MensajeChat>(`/whatsapp/chats/${id}/mensajes`, { texto })).data,
+  cambiarIA: async (id: number, activa: boolean) =>
+    (await api.patch<ChatWhatsapp>(`/whatsapp/chats/${id}/ia`, { activa })).data,
+};
+
+// ── Asistente con IA (Fase 3) ──────────────────────────────────
+export interface ConfigIA {
+  configurada: boolean; // el servidor tiene la clave de OpenRouter
+  activo: boolean;
+  instrucciones: string;
+}
+
+export const iaService = {
+  get: async () => (await api.get<ConfigIA>("/whatsapp/ia")).data,
+  update: async (p: { activo?: boolean; instrucciones?: string }) =>
+    (await api.put<Pick<ConfigIA, "activo" | "instrucciones">>("/whatsapp/ia", p)).data,
 };
 
 export default api;

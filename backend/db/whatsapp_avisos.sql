@@ -1,4 +1,4 @@
--- Migración: WhatsApp (Fase 1 avisos + Fase 2 chats). Idempotente: se puede correr más de una vez.
+-- Migración: WhatsApp (Fase 1 avisos + Fase 2 chats + Fase 3 IA). Idempotente: se puede correr más de una vez.
 --
 -- 1) pedidos.acepta_whatsapp → el cliente marcó "avisarme por WhatsApp" (opt-in
 --    que exige Meta para mensajes iniciados por el negocio).
@@ -70,3 +70,23 @@ ALTER TABLE whatsapp_mensajes ADD COLUMN IF NOT EXISTS texto     TEXT;
 CREATE INDEX IF NOT EXISTS idx_wa_mensajes_chat ON whatsapp_mensajes(chat_id, created_at);
 
 ALTER TABLE whatsapp_chats ENABLE ROW LEVEL SECURITY;
+
+-- ── Fase 3: asistente con IA que responde los chats ──
+-- 6) whatsapp_ia → si el negocio activó el asistente y sus indicaciones extra.
+-- 7) whatsapp_chats → la IA se pausa en un chat cuando responde una persona
+--    o cuando la IA lo deriva (necesita_humano).
+-- 8) whatsapp_mensajes.autor → quién escribió un mensaje saliente
+--    (negocio | ia | aviso).
+
+CREATE TABLE IF NOT EXISTS whatsapp_ia (
+    negocio_id    INTEGER PRIMARY KEY REFERENCES negocios(id) ON DELETE CASCADE,
+    activo        BOOLEAN NOT NULL DEFAULT false,
+    instrucciones TEXT,
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE whatsapp_chats    ADD COLUMN IF NOT EXISTS ia_pausada_hasta TIMESTAMPTZ;
+ALTER TABLE whatsapp_chats    ADD COLUMN IF NOT EXISTS necesita_humano  BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE whatsapp_mensajes ADD COLUMN IF NOT EXISTS autor            VARCHAR(10);
+
+ALTER TABLE whatsapp_ia ENABLE ROW LEVEL SECURITY;

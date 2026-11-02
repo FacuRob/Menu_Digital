@@ -135,6 +135,7 @@ async function enviarYRegistrar({ negocioId, pedidoId, telefono, aviso, etiqueta
         negocio_id: negocioId,
         chat_id: chat?.id || null,
         direccion: "saliente",
+        autor: "aviso",
         texto,
         pedido_id: pedidoId || null,
         telefono: String(telefono).slice(0, 30),

@@ -7,7 +7,9 @@ import { IconCheck, IconInfo } from "../../lib/icons";
 import {
   configuracionService,
   getApiErrorMessage,
+  iaService,
   whatsappService,
+  type ConfigIA,
   type AvisosWhatsapp,
   type EstadoAviso,
   type MensajeWhatsapp,
@@ -89,6 +91,10 @@ export default function WhatsApp() {
   const [tel, setTel] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [testMsg, setTestMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [ia, setIa] = useState<ConfigIA | null>(null);
+  const [instrucciones, setInstrucciones] = useState("");
+  const [iaMsg, setIaMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [guardandoIa, setGuardandoIa] = useState(false);
 
   const cargarMensajes = () =>
     whatsappService.getMensajes().then(setMensajes).catch(() => setMensajes([]));
@@ -102,6 +108,13 @@ export default function WhatsApp() {
       .get()
       .then((c) => c.nombre && setLocal(c.nombre))
       .catch(() => {});
+    iaService
+      .get()
+      .then((c) => {
+        setIa(c);
+        setInstrucciones(c.instrucciones || "");
+      })
+      .catch(() => setIa(null));
     cargarMensajes();
     const id = window.setInterval(cargarMensajes, 20000);
     return () => window.clearInterval(id);
@@ -123,6 +136,25 @@ export default function WhatsApp() {
     } catch (e) {
       setData(previo);
       setError(getApiErrorMessage(e, t("waSaveError")));
+    }
+  };
+
+  // Asistente con IA: interruptor (optimista) e indicaciones del local.
+  const guardarIa = async (cambio: { activo?: boolean; instrucciones?: string }) => {
+    if (!ia) return;
+    const previo = ia;
+    setIa({ ...ia, ...cambio });
+    setIaMsg(null);
+    setGuardandoIa(true);
+    try {
+      const r = await iaService.update(cambio);
+      setIa({ ...previo, ...r });
+      if (cambio.instrucciones !== undefined) setIaMsg({ ok: true, text: t("iaSaved") });
+    } catch (e) {
+      setIa(previo);
+      setIaMsg({ ok: false, text: getApiErrorMessage(e, t("waSaveError")) });
+    } finally {
+      setGuardandoIa(false);
     }
   };
 
@@ -255,6 +287,64 @@ export default function WhatsApp() {
                 <IconInfo size={14} /> {t("waOptinNote")}
               </p>
             </section>
+
+            {/* Asistente con IA (Fase 3) */}
+            {ia && (
+              <section className={`rounded-2xl p-5 ${P.card}`}>
+                <div className="flex items-center gap-4">
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-violet-500/15 text-2xl">🤖</span>
+                  <div className="min-w-0 flex-1">
+                    <div className={`font-semibold ${P.title}`}>{t("iaTitle")}</div>
+                    <div className={`text-sm ${P.text}`}>{t("iaDesc")}</div>
+                  </div>
+                  <Toggle
+                    on={ia.activo}
+                    disabled={!ia.configurada || guardandoIa}
+                    onChange={(v) => guardarIa({ activo: v })}
+                    label={t("iaTitle")}
+                  />
+                </div>
+                {!ia.configurada && (
+                  <p className="mt-3 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2 text-sm text-amber-600">
+                    <IconInfo size={14} /> {t("iaNotConfigured")}
+                  </p>
+                )}
+                <ul className={`mt-4 grid gap-2 text-sm sm:grid-cols-3 ${P.text}`}>
+                  <li className={`rounded-xl px-3 py-2 ${P.soft}`}>✅ {t("iaDoes1")}</li>
+                  <li className={`rounded-xl px-3 py-2 ${P.soft}`}>🚫 {t("iaDoes2")}</li>
+                  <li className={`rounded-xl px-3 py-2 ${P.soft}`}>👋 {t("iaDoes3")}</li>
+                </ul>
+                <label className={`mt-4 block text-sm font-semibold ${P.title}`} htmlFor="ia-instrucciones">
+                  {t("iaInstrTitle")}
+                </label>
+                <p className={`mt-0.5 text-xs ${P.muted}`}>{t("iaInstrDesc")}</p>
+                <textarea
+                  id="ia-instrucciones"
+                  value={instrucciones}
+                  onChange={(e) => setInstrucciones(e.target.value)}
+                  maxLength={2000}
+                  rows={4}
+                  placeholder={t("iaInstrPh")}
+                  className={`mt-2 w-full resize-y rounded-xl border px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-violet-500/30 ${P.input}`}
+                />
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                  <span className={`text-xs ${P.muted}`}>{instrucciones.length}/2000</span>
+                  <div className="flex items-center gap-3">
+                    {iaMsg && (
+                      <span className={`text-sm ${iaMsg.ok ? "text-emerald-500" : "text-red-500"}`}>{iaMsg.text}</span>
+                    )}
+                    <button
+                      type="button"
+                      disabled={guardandoIa || instrucciones === (ia.instrucciones || "")}
+                      onClick={() => guardarIa({ instrucciones })}
+                      className="cursor-pointer rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+                    >
+                      {t("iaSave")}
+                    </button>
+                  </div>
+                </div>
+              </section>
+            )}
 
             <section className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
               {/* Prueba */}

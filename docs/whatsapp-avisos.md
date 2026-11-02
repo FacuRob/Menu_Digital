@@ -109,3 +109,13 @@ escribió son gratis.
 - Un mensaje entrante se asigna al negocio con el que ese teléfono ya habló (aviso o chat) o al de su último pedido. Si no hay ninguno, se descarta.
 - Regla de Meta: solo se puede responder hasta **24 h** después del último mensaje del cliente. Pasado ese plazo, el panel bloquea el envío.
 - Base de datos: correr de nuevo `backend/db/whatsapp_avisos.sql` (es idempotente; agrega `whatsapp_chats` y columnas nuevas en `whatsapp_mensajes`).
+
+## Fase 3: asistente con IA
+
+- Se activa por negocio en **WhatsApp → Asistente con IA**, con indicaciones extra opcionales del local.
+- Responde solo con los datos del local: menú disponible, precios, horarios, entregas y los pedidos de ese cliente. No toma pedidos: manda el link del menú.
+- Si no puede resolver algo (cancelaciones, reclamos, pagos, alergias, pedido de hablar con una persona), **deriva el chat**: lo marca "Atender" en el panel y deja de responder ahí.
+- Cuando una persona responde desde el panel, la IA se pausa en ese chat por 12 h (`IA_PAUSA_HORAS`). También se puede pausar o reactivar a mano desde el chat.
+- Espera unos segundos (`IA_ESPERA_MS`, default 4000) para juntar varios mensajes seguidos del cliente.
+- Variables en Render: `OPENROUTER_API_KEY` (obligatoria), `OPENROUTER_MODEL` (default `anthropic/claude-haiku-5.5`), `NEGOCIO_TZ` (default `America/Argentina/Buenos_Aires`).
+- Base de datos: volver a correr `backend/db/whatsapp_avisos.sql` (agrega `whatsapp_ia` y columnas nuevas).

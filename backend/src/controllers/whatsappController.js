@@ -11,6 +11,7 @@ const {
   registrarEstadosMeta,
 } = require("../services/avisosPedidoService");
 const chats = require("../services/chatsService");
+const ia = require("../services/iaService");
 
 // ── Panel: configuración de avisos ─────────────────────────────
 // GET /api/whatsapp/avisos
@@ -87,7 +88,9 @@ const postPrueba = async (req, res) => {
 // GET /api/whatsapp/chats
 const getChats = async (req, res) => {
   try {
-    res.json({ conectado: estaConfigurado(), chats: await chats.listarChats(getNegocioId(req)) });
+    const negocioId = getNegocioId(req);
+    const [lista, cfgIA] = await Promise.all([chats.listarChats(negocioId), ia.obtenerConfigIA(negocioId)]);
+    res.json({ conectado: estaConfigurado(), ia_activa: ia.iaConfigurada() && cfgIA.activo, chats: lista });
   } catch (error) {
     return respondError(res, error, "whatsapp");
   }
@@ -110,6 +113,43 @@ const postMensajeChat = async (req, res) => {
     const r = await chats.responder(getNegocioId(req), req.params.id, req.body?.texto);
     if (!r.ok) return res.status(r.status || 500).json({ message: r.error, mensaje: r.mensaje || null });
     res.status(201).json(r.mensaje);
+  } catch (error) {
+    return respondError(res, error, "whatsapp");
+  }
+};
+
+// PATCH /api/whatsapp/chats/:id/ia  { activa: boolean } → pausa/reactiva la IA en un chat
+const patchIAChat = async (req, res) => {
+  try {
+    if (typeof req.body?.activa !== "boolean") return res.status(400).json({ message: "Valor inválido" });
+    const chat = await chats.cambiarIAChat(getNegocioId(req), req.params.id, req.body.activa);
+    if (!chat) return res.status(404).json({ message: "Chat no encontrado." });
+    res.json(chat);
+  } catch (error) {
+    return respondError(res, error, "whatsapp");
+  }
+};
+
+// ── Panel: asistente con IA (Fase 3) ───────────────────────────
+// GET /api/whatsapp/ia
+const getIA = async (req, res) => {
+  try {
+    const cfg = await ia.obtenerConfigIA(getNegocioId(req));
+    res.json({ configurada: ia.iaConfigurada(), ...cfg });
+  } catch (error) {
+    return respondError(res, error, "whatsapp");
+  }
+};
+
+// PUT /api/whatsapp/ia  { activo?: boolean, instrucciones?: string }
+const updateIA = async (req, res) => {
+  try {
+    const { activo, instrucciones } = req.body || {};
+    if (activo !== undefined && typeof activo !== "boolean") return res.status(400).json({ message: "Valor inválido" });
+    if (instrucciones !== undefined && typeof instrucciones !== "string") {
+      return res.status(400).json({ message: "Valor inválido" });
+    }
+    res.json(await ia.guardarConfigIA(getNegocioId(req), { activo, instrucciones }));
   } catch (error) {
     return respondError(res, error, "whatsapp");
   }
@@ -171,7 +211,11 @@ const recibirWebhook = async (req, res) => {
     .filter(Boolean);
   for (const v of values) {
     if (v.messages?.length) {
-      chats.registrarEntrantes(v).catch((e) => console.error("[WhatsApp] entrantes:", e.message));
+      chats
+        .registrarEntrantes(v)
+        // Fase 3: la IA responde (si el negocio la activó y el chat no está pausado).
+        .then((guardados) => guardados.forEach((g) => ia.programarRespuesta(g.chat.id)))
+        .catch((e) => console.error("[WhatsApp] entrantes:", e.message));
     }
   }
   const statuses = values.flatMap((v) => v.statuses || []);
@@ -192,6 +236,9 @@ module.exports = {
   getChats,
   getMensajesChat,
   postMensajeChat,
+  patchIAChat,
+  getIA,
+  updateIA,
   verificarWebhook,
   recibirWebhook,
 };

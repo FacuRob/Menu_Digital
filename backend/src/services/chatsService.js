@@ -171,12 +171,12 @@ async function registrarEntrantes(value) {
 async function listarChats(negocioId) {
   const { data, error } = await supabase
     .from("whatsapp_chats")
-    .select("id, telefono, nombre, ultimo_texto, ultimo_at, ultimo_entrante_at, no_leidos")
+    .select("id, telefono, nombre, ultimo_texto, ultimo_at, ultimo_entrante_at, no_leidos, necesita_humano, ia_pausada_hasta")
     .eq("negocio_id", negocioId)
     .order("ultimo_at", { ascending: false, nullsFirst: false })
     .limit(100);
   if (error) return []; // migración sin correr → lista vacía
-  return (data || []).map((c) => ({ ...c, puede_responder: ventanaAbierta(c) }));
+  return (data || []).map((c) => ({ ...c, puede_responder: ventanaAbierta(c), ia_pausada: iaPausada(c) }));
 }
 
 async function chatDelNegocio(negocioId, chatId) {
@@ -197,7 +197,7 @@ async function mensajesDelChat(negocioId, chatId) {
   if (!chat) return null;
   const { data } = await supabase
     .from("whatsapp_mensajes")
-    .select("id, direccion, texto, aviso, plantilla, estado, error, pedido_id, created_at")
+    .select("id, direccion, autor, texto, aviso, plantilla, estado, error, pedido_id, created_at")
     .eq("chat_id", chat.id)
     .order("created_at", { ascending: false })
     .limit(200);
@@ -205,7 +205,7 @@ async function mensajesDelChat(negocioId, chatId) {
     await supabase.from("whatsapp_chats").update({ no_leidos: 0 }).eq("id", chat.id);
   }
   return {
-    chat: { ...chat, no_leidos: 0, puede_responder: ventanaAbierta(chat) },
+    chat: { ...chat, no_leidos: 0, puede_responder: ventanaAbierta(chat), ia_pausada: iaPausada(chat) },
     mensajes: (data || []).reverse(),
   };
 }
@@ -227,15 +227,28 @@ async function responder(negocioId, chatId, textoRaw) {
     };
   }
 
+  const r = await enviarSaliente(chat, texto, "negocio");
+  if (!r.ok) return { ok: false, status: 502, error: r.error || "No se pudo enviar.", mensaje: r.mensaje };
+  // Respondió una persona: la IA se corre a un lado en este chat por un rato.
+  await supabase
+    .from("whatsapp_chats")
+    .update({ necesita_humano: false, ia_pausada_hasta: new Date(Date.now() + PAUSA_IA_MS()).toISOString() })
+    .eq("id", chat.id);
+  return { ok: true, mensaje: r.mensaje };
+}
+
+// Envía un texto libre a un chat y lo registra. autor: negocio | ia.
+async function enviarSaliente(chat, texto, autor) {
   const res = await enviarTexto(chat.telefono, texto);
   const { data: mensaje } = await supabase
     .from("whatsapp_mensajes")
     .insert([
       {
-        negocio_id: negocioId,
+        negocio_id: chat.negocio_id,
         chat_id: chat.id,
         telefono: chat.telefono,
         direccion: "saliente",
+        autor,
         texto,
         estado: res.ok ? "enviado" : "fallido",
         error: res.ok ? null : String(res.error || "").slice(0, 500),
@@ -244,9 +257,35 @@ async function responder(negocioId, chatId, textoRaw) {
     ])
     .select()
     .single();
-  if (!res.ok) return { ok: false, status: 502, error: res.error || "No se pudo enviar.", mensaje };
-  await tocarChat(chat, { texto, entrante: false });
-  return { ok: true, mensaje };
+  if (res.ok) await tocarChat(chat, { texto, entrante: false });
+  return { ok: res.ok, error: res.error, mensaje };
+}
+
+// ── IA por chat ──
+// Pausa después de que responde una persona (horas, env IA_PAUSA_HORAS).
+const PAUSA_IA_MS = () => (Number(process.env.IA_PAUSA_HORAS) || 12) * 60 * 60 * 1000;
+const SIN_FECHA = "9999-12-31T00:00:00.000Z"; // pausa manual: hasta que la reactiven
+
+const iaPausada = (chat, ahora = Date.now()) =>
+  !!chat?.necesita_humano ||
+  (!!chat?.ia_pausada_hasta && new Date(chat.ia_pausada_hasta).getTime() > ahora);
+
+// Activa o pausa la IA en un chat desde el panel.
+async function cambiarIAChat(negocioId, chatId, activa) {
+  const chat = await chatDelNegocio(negocioId, chatId);
+  if (!chat) return null;
+  const cambios = activa
+    ? { necesita_humano: false, ia_pausada_hasta: null }
+    : { ia_pausada_hasta: SIN_FECHA };
+  await supabase.from("whatsapp_chats").update(cambios).eq("id", chat.id);
+  const nuevo = { ...chat, ...cambios };
+  return { ...nuevo, puede_responder: ventanaAbierta(nuevo), ia_pausada: iaPausada(nuevo) };
+}
+
+// La IA derivó la conversación a una persona del local.
+async function marcarNecesitaHumano(chat) {
+  await supabase.from("whatsapp_chats").update({ necesita_humano: true }).eq("id", chat.id);
+  chat.necesita_humano = true;
 }
 
 module.exports = {
@@ -259,4 +298,8 @@ module.exports = {
   listarChats,
   mensajesDelChat,
   responder,
+  enviarSaliente,
+  iaPausada,
+  cambiarIAChat,
+  marcarNecesitaHumano,
 };
