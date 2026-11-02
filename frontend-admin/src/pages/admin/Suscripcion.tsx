@@ -122,7 +122,7 @@ export default function Suscripcion() {
 
   return (
     <AdminLayout title={t("navSuscripcion")}>
-      <div style={{ maxWidth: 940 }}>
+      <div style={{ width: "100%" }}>
         {error && (
           <div
             style={{

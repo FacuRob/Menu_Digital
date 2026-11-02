@@ -337,6 +337,119 @@
   .dx-loader-bar span { animation-duration: 2.6s; }
 }
 
+/* ── Modales y diálogos (Modal.tsx, Dialogos.tsx) ─────────── */
+.dx-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  /* flex-start + margin:auto en el modal: centrado si entra; si es más alto
+     que la pantalla, se desplaza sin cortarse. */
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 16px;
+  overflow-y: auto;
+  background: rgba(2, 6, 23, 0.45);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  backdrop-filter: blur(8px) saturate(1.1);
+  animation: dx-fade 0.2s ease both;
+}
+.dx-modal-overlay[data-theme="dark"] { background: rgba(0, 0, 0, 0.6); }
+.dx-modal {
+  position: relative;
+  width: 100%;
+  margin: auto;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow:
+    0 30px 80px -12px rgba(2, 6, 23, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+  animation: dx-pop 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
+}
+/* Franja de color de marca arriba. */
+.dx-modal::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, #6366f1, #06b6d4);
+}
+.dx-dialog::before { background: var(--dx-accent, #6366f1); }
+@keyframes dx-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dx-pop {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+.dx-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 20px 16px 22px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.07);
+}
+.dx-modal-overlay[data-theme="dark"] .dx-modal-head { border-bottom-color: rgba(255, 255, 255, 0.06); }
+.dx-modal-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: #6366f1;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.16), rgba(6, 182, 212, 0.14));
+  border: 1px solid rgba(99, 102, 241, 0.22);
+}
+.dx-modal-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: none;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  color: #64748b;
+  background: rgba(15, 23, 42, 0.05);
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+.dx-modal-close:hover { background: rgba(239, 68, 68, 0.12); color: #ef4444; transform: rotate(90deg); }
+.dx-modal-overlay[data-theme="dark"] .dx-modal-close { color: #94a3b8; background: rgba(255, 255, 255, 0.06); }
+
+/* Campos dentro de modales y secciones: anillo de foco con color de marca. */
+.dx-modal :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):focus,
+main :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):focus {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+  outline: none;
+}
+
+/* Botones de los diálogos. */
+.dx-btn {
+  flex: 1;
+  padding: 11px 16px;
+  border-radius: 11px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.1s, background 0.15s;
+}
+.dx-btn:active { transform: scale(0.98); }
+.dx-btn-solid { border: none; color: #fff; box-shadow: 0 8px 20px -8px rgba(59, 130, 246, 0.6); }
+.dx-btn-solid:hover { filter: brightness(1.08); }
+.dx-btn-ghost { border: 1px solid rgba(15, 23, 42, 0.1); background: rgba(15, 23, 42, 0.03); color: #475569; }
+.dx-btn-ghost:hover { background: rgba(15, 23, 42, 0.07); }
+.dx-modal-overlay[data-theme="dark"] .dx-btn-ghost {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #cbd5e1;
+}
+.dx-modal-overlay[data-theme="dark"] .dx-btn-ghost:hover { background: rgba(255, 255, 255, 0.08); }
+
+@media (prefers-reduced-motion: reduce) {
+  .dx-modal-overlay, .dx-modal { animation: none; }
+}
+
 /* ── Celular ───────────────────────────────────────────────── */
 html { -webkit-text-size-adjust: 100%; }
 button, a, select, label { -webkit-tap-highlight-color: transparent; }

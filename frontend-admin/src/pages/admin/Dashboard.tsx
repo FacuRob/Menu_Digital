@@ -269,7 +269,7 @@ export default function Dashboard() {
 
   return (
     <AdminLayout title="Dashboard">
-      <div className="mx-auto max-w-[1400px] space-y-5 pb-6">
+      <div className="w-full space-y-5 pb-6">
         {/* ── Hero ── */}
         <section className="dash-in relative overflow-hidden rounded-3xl bg-gradient-to-br from-cyan-500 via-teal-600 to-indigo-700 p-6 text-white shadow-[0_20px_60px_-25px_rgba(8,145,178,0.6)] sm:p-8">
           <div className="auth-grid-bg pointer-events-none absolute inset-0 opacity-60" />

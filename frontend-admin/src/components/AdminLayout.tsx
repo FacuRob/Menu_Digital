@@ -5,6 +5,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useNegocio } from "../context/NegocioContext";
 import { apiPendientes, chatsService, pedidosService, productosService } from "../services/api";
 import LoadingScreen from "./LoadingScreen";
+import Modal from "./Modal";
 import ConfiguracionEditor from "./ConfiguracionEditor";
 import { useLang, LangSelector } from "../lib/i18n";
 import { BRAND_NAME, BRAND_LOGO, brandTextStyle } from "../lib/brand";
@@ -1809,62 +1810,16 @@ export default function AdminLayout({
 
       {/* Modal: editor de configuración del menú */}
       {showConfigModal && (
-        <div
-          onClick={() => setShowConfigModal(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 300,
-            background: "rgba(0,0,0,0.55)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "center",
-            padding: isMobile ? "12px 8px" : "40px 16px",
-            overflowY: "auto",
-          }}
+        <Modal
+          title={t("configModalTitle")}
+          icon={<GearIcon />}
+          onClose={() => setShowConfigModal(false)}
+          maxWidth={1100}
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: 820,
-              background: bg,
-              borderRadius: 16,
-              padding: isMobile ? 14 : 24,
-              boxShadow: "0 24px 70px rgba(0,0,0,0.4)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 18,
-              }}
-            >
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: textPrimary }}>
-                {t("configModalTitle")}
-              </h2>
-              <button
-                onClick={() => setShowConfigModal(false)}
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: "50%",
-                  border: "none",
-                  cursor: "pointer",
-                  background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-                  color: textSecondary,
-                  fontSize: 16,
-                }}
-              >
-                ✕
-              </button>
-            </div>
+          <div style={{ background: bg, padding: isMobile ? 12 : 22 }}>
             <ConfiguracionEditor />
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

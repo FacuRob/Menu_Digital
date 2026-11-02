@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useDialogos } from "../../lib/dialogos";
 import {
   productosService,
   categoriasService,
@@ -12,6 +13,7 @@ import {
 import AdminLayout from "../../components/AdminLayout";
 import VariantesEditor from "../../components/VariantesEditor";
 import { useStyles } from "../../components/sharedStyles";
+import Modal from "../../components/Modal";
 import { useNegocio } from "../../context/NegocioContext";
 import { useTheme } from "../../context/ThemeContext";
 import { fmtMoney } from "../../lib/money";
@@ -26,6 +28,7 @@ import {
   IconBan,
   IconImage,
   IconAlert,
+  IconBox,
 } from "../../lib/icons";
 
 const PlusIcon = () => (
@@ -37,17 +40,6 @@ const PlusIcon = () => (
     style={{ width: 14, height: 14 }}
   >
     <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-  </svg>
-);
-const CloseIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={2}
-    style={{ width: 16, height: 16 }}
-  >
-    <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" />
   </svg>
 );
 
@@ -69,6 +61,7 @@ export default function Productos() {
   const S = useStyles();
   const { moneda } = useNegocio();
   const { t } = useLang();
+  const { avisar } = useDialogos();
   const { isDark } = useTheme();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
@@ -188,7 +181,7 @@ export default function Productos() {
       });
       fetch_();
     } catch {
-      alert(t("errStatusChange"));
+      void avisar({ mensaje: t("errStatusChange"), tipo: "error" });
     }
   };
 
@@ -305,10 +298,6 @@ export default function Productos() {
   };
 
   const fmt = (n: number) => fmtMoney(n, moneda);
-  const inputFocus = (e: React.FocusEvent<any>) =>
-    (e.target.style.borderColor = "#3b82f6");
-  const inputBlur = (e: React.FocusEvent<any>) =>
-    (e.target.style.borderColor = "rgba(0,0,0,0.1)");
 
   const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
   const textMuted = isDark ? "#94a3b8" : "#94a3b8";
@@ -402,8 +391,6 @@ export default function Productos() {
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("prodSearchPh")}
             style={{ ...S.input, padding: "8px 30px 8px 32px" }}
-            onFocus={inputFocus}
-            onBlur={inputBlur}
           />
           {search && (
             <button
@@ -532,8 +519,6 @@ export default function Productos() {
             fontSize: 12,
             cursor: "pointer",
           }}
-          onFocus={inputFocus}
-          onBlur={inputBlur}
         >
           <option value="all">{t("prodAllCategories")}</option>
           {categorias.map((c) => (
@@ -1020,34 +1005,12 @@ export default function Productos() {
 
       {/* Modal */}
       {showModal && (
-        <div
-          style={{
-            ...S.overlay,
-            alignItems: "flex-start",
-            paddingTop: 20,
-            overflowY: "auto",
-          }}
+        <Modal
+          title={editing ? t("prodEditTitle") : t("prodNew")}
+          onClose={closeModal}
+          maxWidth={580}
+          icon={<IconBox size={19} />}
         >
-          <div style={{ ...S.modal, maxWidth: 560, marginBottom: 20 }}>
-            <div style={S.modalHeader}>
-              <span style={{ color: "#1e293b", fontWeight: 600, fontSize: 15 }}>
-                {editing ? t("prodEditTitle") : t("prodNew")}
-              </span>
-              <button
-                onClick={closeModal}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#94a3b8",
-                  display: "flex",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = "#475569")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
-              >
-                <CloseIcon />
-              </button>
-            </div>
             <form onSubmit={submit}>
               <div
                 style={{
@@ -1067,8 +1030,6 @@ export default function Productos() {
                     onChange={(e) =>
                       setForm({ ...form, nombre: e.target.value })
                     }
-                    onFocus={inputFocus}
-                    onBlur={inputBlur}
                   />
                 </div>
                 <div>
@@ -1087,8 +1048,6 @@ export default function Productos() {
                     onChange={(e) =>
                       setForm({ ...form, descripcion: e.target.value })
                     }
-                    onFocus={inputFocus as any}
-                    onBlur={inputBlur as any}
                   />
                 </div>
                 <div
@@ -1113,8 +1072,6 @@ export default function Productos() {
                           precio: parseFloat(e.target.value) || 0,
                         })
                       }
-                      onFocus={inputFocus}
-                      onBlur={inputBlur}
                     />
                   </div>
                   <div>
@@ -1129,8 +1086,6 @@ export default function Productos() {
                           categoria_id: parseInt(e.target.value),
                         })
                       }
-                      onFocus={inputFocus as any}
-                      onBlur={inputBlur as any}
                     >
                       {categorias.map((c) => (
                         <option key={c.id} value={c.id}>
@@ -1162,8 +1117,6 @@ export default function Productos() {
                           costo: parseFloat(e.target.value) || 0,
                         })
                       }
-                      onFocus={inputFocus}
-                      onBlur={inputBlur}
                     />
                   </div>
                   <div>
@@ -1183,8 +1136,6 @@ export default function Productos() {
                           stock: parseInt(e.target.value) || 0,
                         })
                       }
-                      onFocus={inputFocus}
-                      onBlur={inputBlur}
                     />
                   </div>
                 </div>
@@ -1255,8 +1206,6 @@ export default function Productos() {
                           orden: parseInt(e.target.value) || 0,
                         })
                       }
-                      onFocus={inputFocus}
-                      onBlur={inputBlur}
                     />
                   </div>
                   <div style={{ paddingBottom: 2 }}>
@@ -1463,8 +1412,6 @@ export default function Productos() {
                                 ),
                               )
                             }
-                            onFocus={inputFocus}
-                            onBlur={inputBlur}
                           />
                           <input
                             style={{ ...S.input, flex: 1 }}
@@ -1477,8 +1424,6 @@ export default function Productos() {
                                 ),
                               )
                             }
-                            onFocus={inputFocus}
-                            onBlur={inputBlur}
                           />
                           <button
                             type="button"
@@ -1586,8 +1531,7 @@ export default function Productos() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
       <style>{`
         @keyframes spin{to{transform:rotate(360deg)}}

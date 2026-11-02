@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useDialogos } from "../lib/dialogos";
 import {
   variantesService,
   getApiErrorMessage,
@@ -48,6 +49,7 @@ const inputStyle: React.CSSProperties = {
  */
 export default function VariantesEditor({ productoId }: { productoId: number }) {
   const { t } = useLang();
+  const { confirmar } = useDialogos();
   const [grupos, setGrupos] = useState<EditGrupo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -142,7 +144,7 @@ export default function VariantesEditor({ productoId }: { productoId: number }) 
       setGrupos((gs) => gs.filter((_, i) => i !== idx));
       return;
     }
-    if (!confirm(t("varConfirmDelete", { name: g.nombre }))) return;
+    if (!(await confirmar({ mensaje: t("varConfirmDelete", { name: g.nombre }), peligro: true }))) return;
     try {
       await variantesService.deleteGrupo(g.id);
       setGrupos((gs) => gs.filter((_, i) => i !== idx));

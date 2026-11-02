@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
+import { useDialogos } from "../../lib/dialogos";
 import { categoriasService, type Categoria } from "../../services/api";
 import AdminLayout from "../../components/AdminLayout";
 import { useStyles } from "../../components/sharedStyles";
+import Modal from "../../components/Modal";
 import { useTheme } from "../../context/ThemeContext";
 import { useLang } from "../../lib/i18n";
 import { SearchIcon, ListIcon, GridIcon, Highlight } from "../../lib/listUi";
-import { IconX } from "../../lib/icons";
+import { IconX, IconList } from "../../lib/icons";
 
 type ViewMode = "lista" | "cards";
 
@@ -20,21 +22,11 @@ const PlusIcon = () => (
     <path d="M12 5v14M5 12h14" strokeLinecap="round" />
   </svg>
 );
-const CloseIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={2}
-    style={{ width: 16, height: 16 }}
-  >
-    <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" />
-  </svg>
-);
 
 export default function Categorias() {
   const S = useStyles();
   const { t } = useLang();
+  const { avisar } = useDialogos();
   const { isDark } = useTheme();
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,7 +94,7 @@ export default function Categorias() {
       await fetch_();
       closeModal();
     } catch {
-      alert(t("errSaveGeneric"));
+      void avisar({ mensaje: t("errSaveGeneric"), tipo: "error" });
     } finally {
       setSaving(false);
     }
@@ -118,7 +110,7 @@ export default function Categorias() {
       });
       fetch_();
     } catch {
-      alert(t("errStatusChange"));
+      void avisar({ mensaje: t("errStatusChange"), tipo: "error" });
     }
   };
 
@@ -154,8 +146,6 @@ export default function Categorias() {
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("catSearchPh")}
             style={{ ...S.input, padding: "8px 30px 8px 32px" }}
-            onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
-            onBlur={(e) => (e.target.style.borderColor = "rgba(0,0,0,0.1)")}
           />
           {search && (
             <button
@@ -402,27 +392,12 @@ export default function Categorias() {
 
       {/* Modal */}
       {showModal && (
-        <div style={S.overlay}>
-          <div style={S.modal}>
-            <div style={S.modalHeader}>
-              <span style={{ color: "#1e293b", fontWeight: 600, fontSize: 15 }}>
-                {editing ? t("catEditTitle") : t("catNew")}
-              </span>
-              <button
-                onClick={closeModal}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#94a3b8",
-                  display: "flex",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = "#475569")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
-              >
-                <CloseIcon />
-              </button>
-            </div>
+        <Modal
+          title={editing ? t("catEditTitle") : t("catNew")}
+          onClose={closeModal}
+          maxWidth={460}
+          icon={<IconList />}
+        >
             <form onSubmit={submit}>
               <div
                 style={{
@@ -442,10 +417,6 @@ export default function Categorias() {
                     onChange={(e) =>
                       setForm({ ...form, nombre: e.target.value })
                     }
-                    onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
-                    onBlur={(e) =>
-                      (e.target.style.borderColor = "rgba(0,0,0,0.1)")
-                    }
                   />
                 </div>
                 <div>
@@ -458,10 +429,6 @@ export default function Categorias() {
                     value={form.orden}
                     onChange={(e) =>
                       setForm({ ...form, orden: parseInt(e.target.value) || 0 })
-                    }
-                    onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
-                    onBlur={(e) =>
-                      (e.target.style.borderColor = "rgba(0,0,0,0.1)")
                     }
                   />
                 </div>
@@ -544,8 +511,7 @@ export default function Categorias() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </AdminLayout>

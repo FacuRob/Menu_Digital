@@ -183,7 +183,7 @@ export default function WhatsApp() {
 
   return (
     <AdminLayout title={t("navWhatsapp")}>
-      <div className="mx-auto max-w-[1200px] space-y-5 pb-6">
+      <div className="w-full space-y-5 pb-6">
         {/* Encabezado */}
         <div className="dash-in">
           <h1 className={`text-2xl font-extrabold tracking-tight ${P.title}`}>{t("waTitle")}</h1>

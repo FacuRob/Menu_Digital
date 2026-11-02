@@ -6,6 +6,7 @@ import { NegocioProvider } from "./context/NegocioContext";
 import { LanguageProvider, useLang } from "./lib/i18n";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LoadingScreen from "./components/LoadingScreen";
+import { DialogosProvider } from "./components/Dialogos";
 
 // Cada pantalla se descarga recién cuando se visita: el login no baja el
 // código de pedidos, productos, QR, etc.
@@ -49,6 +50,7 @@ function App() {
   return (
     <LanguageProvider>
     <ThemeProvider>
+      <DialogosProvider>
       <AuthProvider>
         <NegocioProvider>
         <BrowserRouter>
@@ -189,6 +191,7 @@ function App() {
         </BrowserRouter>
         </NegocioProvider>
       </AuthProvider>
+      </DialogosProvider>
     </ThemeProvider>
     </LanguageProvider>
   );

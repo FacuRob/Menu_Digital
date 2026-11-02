@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
+import { useDialogos } from "../../lib/dialogos";
 import AdminLayout from "../../components/AdminLayout";
 import { useStyles } from "../../components/sharedStyles";
+import Modal from "../../components/Modal";
 import { useTheme } from "../../context/ThemeContext";
 import { useNegocio } from "../../context/NegocioContext";
 import type { ComponentType } from "react";
 import { useLang } from "../../lib/i18n";
-import { IconAlert, IconUtensils, IconBag, IconTools, IconBox } from "../../lib/icons";
+import { IconAlert, IconUtensils, IconBag, IconTools, IconBox, IconStore } from "../../lib/icons";
 import {
   negociosService,
   planService,
@@ -32,6 +34,7 @@ export default function Negocios() {
   const s = useStyles();
   const { isDark } = useTheme();
   const { t } = useLang();
+  const { confirmar, avisar } = useDialogos();
   const { negocios, refresh, negocioId, setNegocioId } = useNegocio();
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -103,13 +106,13 @@ export default function Negocios() {
 
   const eliminar = async (n: Negocio) => {
     if (n.id === 1) return;
-    if (!confirm(t("bizConfirmDelete", { name: n.nombre }))) return;
+    if (!(await confirmar({ mensaje: t("bizConfirmDelete", { name: n.nombre }), peligro: true }))) return;
     try {
       await negociosService.delete(n.id);
       await refresh();
     } catch (e) {
       console.error(e);
-      alert(t("bizDeleteError"));
+      void avisar({ mensaje: t("bizDeleteError"), tipo: "error" });
     }
   };
 
@@ -268,19 +271,12 @@ export default function Negocios() {
       )}
 
       {showModal && (
-        <div style={s.overlay} onClick={() => setShowModal(false)}>
-          <div style={s.modal} onClick={(e) => e.stopPropagation()}>
-            <div style={s.modalHeader}>
-              <h3 style={{ margin: 0, fontSize: 16, color: textPrimary }}>
-                {editing ? t("bizEdit") : t("bizNew")}
-              </h3>
-              <button
-                onClick={() => setShowModal(false)}
-                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: textMuted }}
-              >
-                ✕
-              </button>
-            </div>
+        <Modal
+          title={editing ? t("bizEdit") : t("bizNew")}
+          onClose={() => setShowModal(false)}
+          maxWidth={500}
+          icon={<IconStore />}
+        >
             <div style={s.modalBody}>
               <label style={s.label}>{t("bizNameField")}</label>
               <input
@@ -364,8 +360,7 @@ export default function Negocios() {
                 {saving ? t("saving") : t("actionSave")}
               </button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </AdminLayout>
   );

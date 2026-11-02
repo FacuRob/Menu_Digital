@@ -6,7 +6,7 @@ export default function Configuracion() {
   const { t } = useLang();
   return (
     <AdminLayout title={t("pageConfig")}>
-      <div style={{ maxWidth: 780 }}>
+      <div style={{ width: "100%" }}>
         <ConfiguracionEditor />
       </div>
     </AdminLayout>

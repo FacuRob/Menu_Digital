@@ -47,7 +47,8 @@ export default function QRCode() {
     setMenuUrl(url);
     if (ref.current) {
       QRCodeLib.toCanvas(ref.current, url, {
-        width: 240,
+        // Se genera grande (nítido al imprimir) y se muestra más chico.
+        width: 520,
         margin: 2,
         color: { dark: "#1e293b", light: "#ffffff" },
       })
@@ -68,43 +69,99 @@ export default function QRCode() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+
+  const tips = [t("qrTip1"), t("qrTip2"), t("qrTip3")];
+
   return (
     <AdminLayout title={t("navQr")}>
-      {/* Centrado en toda la pantalla */}
+      {/* Dos columnas en pantallas anchas (QR | ajustes); una en el celular. */}
       <div
         style={{
-          minHeight: "calc(100vh - 140px)",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "flex-start",
-          paddingTop: 8,
+          display: "grid",
+          gap: 18,
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(380px, 100%), 1fr))",
+          alignItems: "stretch",
         }}
       >
-        <div style={{ width: "100%", maxWidth: 460, textAlign: "center" }}>
-          <h2 style={{ color: textPrimary, fontSize: 20, fontWeight: 700, margin: "0 0 4px" }}>
-            {t("qrHeading")}
-          </h2>
-          <p style={{ color: textSecondary, fontSize: 13, margin: "0 0 20px", lineHeight: 1.6 }}>
-            {t("qrSubA")}
-            <strong>{negocioNombre}</strong>
-            {t("qrSubB")}
+        {/* ── Vista previa del QR ── */}
+        <div
+          style={{
+            ...S.card,
+            background: isDark
+              ? "radial-gradient(120% 90% at 50% 0%, rgba(99,102,241,0.16), transparent 60%), #1a1d27"
+              : "radial-gradient(120% 90% at 50% 0%, rgba(99,102,241,0.10), transparent 60%), #ffffff",
+            padding: "32px 24px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 18,
+            textAlign: "center",
+          } as React.CSSProperties}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 20,
+              padding: 18,
+              boxShadow: isDark
+                ? "0 18px 50px rgba(0,0,0,0.45)"
+                : "0 18px 50px rgba(15,23,42,0.12)",
+              border: "1px solid rgba(0,0,0,0.06)",
+            }}
+          >
+            {/* El canvas (grande, para descargar) queda oculto; se muestra
+                la imagen a tamaño fijo. */}
+            <canvas ref={ref} style={{ display: "none" }} />
+            {qrUrl ? (
+              <img
+                src={qrUrl}
+                alt={t("qrHeading")}
+                style={{ display: "block", width: "min(280px, 62vw)", height: "auto" }}
+              />
+            ) : (
+              <div style={{ width: "min(280px, 62vw)", aspectRatio: "1" }} />
+            )}
+          </div>
+          <div>
+            <div style={{ color: textPrimary, fontSize: 18, fontWeight: 700 }}>
+              {negocioNombre}
+            </div>
+            <div style={{ color: "#6366f1", fontSize: 13, fontWeight: 600, marginTop: 3 }}>
+              {mesa ? t("pedTableN", { n: mesa }) : t("qrGeneral")}
+            </div>
+          </div>
+          <p style={{ color: textSecondary, fontSize: 12.5, margin: 0, maxWidth: 320, lineHeight: 1.5 }}>
+            {t("qrScanHint")}
           </p>
+        </div>
 
+        {/* ── Ajustes, enlace y acciones ── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <div
             style={{
               ...S.card,
               background: cardBg,
-              padding: 28,
+              padding: 24,
               display: "flex",
               flexDirection: "column",
-              alignItems: "center",
-              gap: 20,
+              gap: 18,
             } as React.CSSProperties}
           >
+            <div>
+              <h2 style={{ color: textPrimary, fontSize: 19, fontWeight: 700, margin: "0 0 6px" }}>
+                {t("qrHeading")}
+              </h2>
+              <p style={{ color: textSecondary, fontSize: 13, margin: 0, lineHeight: 1.6 }}>
+                {t("qrSubA")}
+                <strong>{negocioNombre}</strong>
+                {t("qrSubB")}
+              </p>
+            </div>
+
             {/* Selector de mesa (si el negocio usa mesas) */}
             {mesasCant > 0 && (
-              <div style={{ width: "100%", textAlign: "left" }}>
+              <div>
                 <label style={S.label}>{t("qrTableLabel")}</label>
                 <select
                   value={mesa}
@@ -121,27 +178,14 @@ export default function QRCode() {
               </div>
             )}
 
-            {/* QR */}
-            <div
-              style={{
-                background: "#ffffff",
-                border: "1px solid rgba(0,0,0,0.1)",
-                borderRadius: 12,
-                padding: 20,
-                boxShadow: "0 0 40px rgba(0,0,0,0.06)",
-              }}
-            >
-              <canvas ref={ref} style={{ display: "block" }} />
-            </div>
-
             {/* URL */}
-            <div style={{ width: "100%", textAlign: "left" }}>
+            <div>
               <label style={S.label}>{t("qrUrlLabel")}</label>
               <div style={{ display: "flex", gap: 8 }}>
                 <input
                   readOnly
                   value={menuUrl}
-                  style={{ ...S.input, flex: 1 } as React.CSSProperties}
+                  style={{ ...S.input, flex: 1, minWidth: 0 } as React.CSSProperties}
                 />
                 <button
                   onClick={copy}
@@ -160,10 +204,10 @@ export default function QRCode() {
             </div>
 
             {/* Acciones */}
-            <div style={{ display: "flex", gap: 10, width: "100%" }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button
                 onClick={download}
-                style={{ ...S.btnPrimary, flex: 1, justifyContent: "center" }}
+                style={{ ...S.btnPrimary, flex: "1 1 160px", justifyContent: "center", padding: "11px 16px" }}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} style={{ width: 15, height: 15 }}>
                   <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" />
@@ -172,7 +216,7 @@ export default function QRCode() {
               </button>
               <button
                 onClick={() => window.print()}
-                style={{ ...S.btnGhost, flex: 1, justifyContent: "center" }}
+                style={{ ...S.btnGhost, flex: "1 1 160px", justifyContent: "center", padding: "11px 16px" }}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} style={{ width: 15, height: 15 }}>
                   <path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" strokeLinecap="round" strokeLinejoin="round" />
@@ -180,6 +224,45 @@ export default function QRCode() {
                 {t("ticketPrint")}
               </button>
             </div>
+          </div>
+
+          {/* Consejos */}
+          <div
+            style={{
+              ...S.card,
+              background: cardBg,
+              padding: "20px 24px",
+              flex: 1,
+            } as React.CSSProperties}
+          >
+            <div style={{ color: textPrimary, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>
+              {t("qrTipsTitle")}
+            </div>
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+              {tips.map((tip, i) => (
+                <li key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <span
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: 999,
+                      flexShrink: 0,
+                      display: "grid",
+                      placeItems: "center",
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      color: "#fff",
+                      background: "linear-gradient(135deg,#6366f1,#06b6d4)",
+                    }}
+                  >
+                    {i + 1}
+                  </span>
+                  <span style={{ color: textSecondary, fontSize: 13, lineHeight: 1.55, paddingTop: 2 }}>
+                    {tip}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </div>

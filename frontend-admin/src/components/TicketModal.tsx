@@ -3,6 +3,8 @@
 // también la ganancia del pedido, para uso interno del dueño.
 
 import { useTheme } from "../context/ThemeContext";
+import { useDialogos } from "../lib/dialogos";
+import Modal from "./Modal";
 import { useNegocio } from "../context/NegocioContext";
 import { useLang } from "../lib/i18n";
 import { fmtMoney } from "../lib/money";
@@ -20,6 +22,7 @@ export default function TicketModal({ pedido, config, onClose }: Props) {
   const { isDark } = useTheme();
   const { moneda } = useNegocio();
   const { t } = useLang();
+  const { avisar } = useDialogos();
 
   if (!pedido) return null;
 
@@ -38,81 +41,33 @@ export default function TicketModal({ pedido, config, onClose }: Props) {
   const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
   const textSecondary = isDark ? "#94a3b8" : "#64748b";
   const textMuted = isDark ? "#475569" : "#94a3b8";
-  const cardBg = isDark ? "#1a1d27" : "#ffffff";
   const cardBorder = isDark ? "rgba(255,255,255,0.09)" : "rgba(0,0,0,0.08)";
 
   const imprimir = (formato: FormatoTicket) => {
     const ok = imprimirTicket(pedido, config, moneda, formato, t);
     if (!ok) {
-      alert(t("ticketPopupBlocked"));
+      void avisar({ mensaje: t("ticketPopupBlocked") });
       return;
     }
     onClose();
   };
 
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.55)",
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        zIndex: 1000,
-        padding: 16,
-        overflowY: "auto",
-      }}
+    <Modal
+      title={t("ticketAsk")}
+      subtitle={t("ticketAskDesc", { n: pedido.id })}
+      icon={<IconReceipt size={20} />}
+      onClose={onClose}
+      maxWidth={440}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: "100%",
-          maxWidth: 420,
-          margin: "auto",
-          background: cardBg,
-          border: `1px solid ${cardBorder}`,
-          borderRadius: 16,
-          padding: 22,
-          boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
-        }}
-      >
-        {/* Encabezado */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
-          <div
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: 11,
-              background: "#10b98118",
-              border: "1px solid #10b98130",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#10b981",
-              flexShrink: 0,
-            }}
-          >
-            <IconReceipt size={22} />
-          </div>
-          <div>
-            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: textPrimary }}>
-              {t("ticketAsk")}
-            </h3>
-            <p style={{ margin: "2px 0 0", fontSize: 12.5, color: textSecondary }}>
-              {t("ticketAskDesc", { n: pedido.id })}
-            </p>
-          </div>
-        </div>
-
+      <div style={{ padding: "18px 22px 22px" }}>
         {/* Resumen: total y ganancia */}
         <div
           style={{
             display: "grid",
             gridTemplateColumns: "1fr 1fr",
             gap: 10,
-            margin: "16px 0 18px",
+            margin: "0 0 18px",
           }}
         >
           <div
@@ -195,7 +150,7 @@ export default function TicketModal({ pedido, config, onClose }: Props) {
           {t("ticketNoThanks")}
         </button>
       </div>
-    </div>
+    </Modal>
   );
 }
 

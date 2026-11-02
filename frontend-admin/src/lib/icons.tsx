@@ -147,3 +147,22 @@ export const IconReceipt = ({ size = 16, style }: P) => (
     <path d="M8 8h8M8 12h8" />
   </svg>
 );
+
+// ── Encabezados de modales ──
+export const IconList = ({ size = 19, style }: P) => (
+  <svg {...base(size, style)}>
+    <path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01" />
+  </svg>
+);
+export const IconUser = ({ size = 19, style }: P) => (
+  <svg {...base(size, style)}>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21a8 8 0 0 1 16 0" />
+  </svg>
+);
+export const IconStore = ({ size = 19, style }: P) => (
+  <svg {...base(size, style)}>
+    <path d="M3 21h18M5 21V10M19 21V10M3 10l2-6h14l2 6a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0" />
+    <path d="M10 21v-5h4v5" />
+  </svg>
+);

@@ -437,7 +437,7 @@ export default function Chats() {
 
   return (
     <AdminLayout title={t("navChats")}>
-      <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-3">
+      <div className="flex w-full flex-col gap-3">
         {!conectado && (
           <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-4 py-2.5 text-sm text-amber-600">
             <IconInfo size={16} /> {t("chNotConnected")}

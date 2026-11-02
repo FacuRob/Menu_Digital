@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useDialogos } from "../../lib/dialogos";
 import {
   usuariosService,
   type Usuario,
@@ -7,22 +8,12 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import AdminLayout from "../../components/AdminLayout";
 import { useStyles } from "../../components/sharedStyles";
+import Modal from "../../components/Modal";
 import { useLang, LOCALE } from "../../lib/i18n";
-import { IconEye, IconEyeOff, IconAlert } from "../../lib/icons";
+import { IconEye, IconEyeOff, IconAlert, IconUser } from "../../lib/icons";
 
 type Mode = "crear" | "editar" | "password" | null;
 
-const CloseIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={2}
-    style={{ width: 16, height: 16 }}
-  >
-    <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" />
-  </svg>
-);
 const PlusIcon = () => (
   <svg
     viewBox="0 0 24 24"
@@ -115,14 +106,11 @@ const PERM_KEY: Record<string, string> = {
   plataforma: "navPlataforma",
 };
 
-const inputFocus = (e: React.FocusEvent<any>) =>
-  (e.target.style.borderColor = "#3b82f6");
-const inputBlur = (e: React.FocusEvent<any>) =>
-  (e.target.style.borderColor = "rgba(0,0,0,0.1)");
 
 export default function Usuarios() {
   const S = useStyles();
   const { t, lang } = useLang();
+  const { confirmar, avisar } = useDialogos();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [roles, setRoles] = useState<RolPermiso[]>([]);
   const [loading, setLoading] = useState(true);
@@ -230,12 +218,12 @@ export default function Usuarios() {
   };
 
   const del = async (u: Usuario) => {
-    if (!confirm(t("usrConfirmDelete", { name: u.username }))) return;
+    if (!(await confirmar({ mensaje: t("usrConfirmDelete", { name: u.username }), peligro: true }))) return;
     try {
       await usuariosService.delete(u.id);
       await fetch_();
     } catch (err: any) {
-      alert(err.response?.data?.message || t("usrDeleteError"));
+      void avisar({ mensaje: err.response?.data?.message || t("usrDeleteError"), tipo: "error" });
     }
   };
 
@@ -244,7 +232,7 @@ export default function Usuarios() {
       await usuariosService.update(u.id, { activo: !u.activo });
       await fetch_();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Error");
+      void avisar({ mensaje: err.response?.data?.message || t("dlgErrorTitle"), tipo: "error" });
     }
   };
 
@@ -568,31 +556,16 @@ export default function Usuarios() {
 
       {/* Modal */}
       {mode && (
-        <div style={S.overlay}>
-          <div style={{ ...S.modal, maxWidth: 500 }}>
-            <div style={S.modalHeader}>
-              <span style={{ color: "#1e293b", fontWeight: 600, fontSize: 15 }}>
-                {mode === "crear"
+        <Modal
+          title={mode === "crear"
                   ? t("usrNew")
                   : mode === "editar"
                     ? t("usrEditName", { name: selected?.username || "" })
                     : t("usrPwName", { name: selected?.username || "" })}
-              </span>
-              <button
-                onClick={close}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#94a3b8",
-                  display: "flex",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = "#475569")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
-              >
-                <CloseIcon />
-              </button>
-            </div>
+          onClose={close}
+          maxWidth={520}
+          icon={<IconUser />}
+        >
             <form onSubmit={submit}>
               <div
                 style={{
@@ -614,8 +587,6 @@ export default function Usuarios() {
                         onChange={(e) =>
                           setForm({ ...form, username: e.target.value })
                         }
-                        onFocus={inputFocus}
-                        onBlur={inputBlur}
                       />
                     </div>
                     <div
@@ -634,8 +605,6 @@ export default function Usuarios() {
                           onChange={(e) =>
                             setForm({ ...form, nombre: e.target.value })
                           }
-                          onFocus={inputFocus}
-                          onBlur={inputBlur}
                         />
                       </div>
                       <div>
@@ -650,8 +619,6 @@ export default function Usuarios() {
                           onChange={(e) =>
                             setForm({ ...form, password: e.target.value })
                           }
-                          onFocus={inputFocus}
-                          onBlur={inputBlur}
                         />
                       </div>
                     </div>
@@ -679,8 +646,6 @@ export default function Usuarios() {
                         onChange={(e) =>
                           setForm({ ...form, email: e.target.value })
                         }
-                        onFocus={inputFocus}
-                        onBlur={inputBlur}
                       />
                     </div>
                     <div>
@@ -691,8 +656,6 @@ export default function Usuarios() {
                         onChange={(e) =>
                           setForm({ ...form, rol: e.target.value })
                         }
-                        onFocus={inputFocus as any}
-                        onBlur={inputBlur as any}
                       >
                         {rolesAsignables.map((r) => (
                           <option key={r.rol} value={r.rol}>
@@ -722,8 +685,6 @@ export default function Usuarios() {
                           onChange={(e) =>
                             setForm({ ...form, nombre: e.target.value })
                           }
-                          onFocus={inputFocus}
-                          onBlur={inputBlur}
                         />
                       </div>
                       <div>
@@ -739,8 +700,6 @@ export default function Usuarios() {
                           onChange={(e) =>
                             setForm({ ...form, rol: e.target.value })
                           }
-                          onFocus={inputFocus as any}
-                          onBlur={inputBlur as any}
                         >
                           {rolesAsignables.map((r) => (
                             <option key={r.rol} value={r.rol}>
@@ -774,8 +733,6 @@ export default function Usuarios() {
                         onChange={(e) =>
                           setForm({ ...form, email: e.target.value })
                         }
-                        onFocus={inputFocus}
-                        onBlur={inputBlur}
                       />
                     </div>
                     <div
@@ -833,8 +790,6 @@ export default function Usuarios() {
                         value={newPwd}
                         placeholder={t("min6")}
                         onChange={(e) => setNewPwd(e.target.value)}
-                        onFocus={inputFocus}
-                        onBlur={inputBlur}
                       />
                       <button
                         type="button"
@@ -920,8 +875,7 @@ export default function Usuarios() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </AdminLayout>
