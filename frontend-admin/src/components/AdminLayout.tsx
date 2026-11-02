@@ -393,13 +393,15 @@ export default function AdminLayout({
   title: string;
 }) {
   const isMobile = useIsMobile();
-  // Computadora: el menú se puede achicar a íconos (se recuerda la elección).
+  // Computadora: el menú arranca cerrado (solo íconos). Si alguien lo abre o
+  // lo cierra, se recuerda en este navegador, también después de cerrar
+  // sesión y volver a entrar (el logout solo borra el token).
   // Celular: el menú es un cajón que se abre con ☰ y se cierra al elegir.
   const [collapsedPref, setCollapsedPref] = useState(() => {
     try {
-      return localStorage.getItem("sidebar_collapsed") === "1";
+      return localStorage.getItem("sidebar_collapsed") !== "0";
     } catch {
-      return false;
+      return true;
     }
   });
   const [drawerOpen, setDrawerOpen] = useState(false);
