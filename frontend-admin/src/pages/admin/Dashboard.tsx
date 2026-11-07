@@ -1,177 +1,93 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { useTheme } from "../../context/ThemeContext";
 import AdminLayout from "../../components/AdminLayout";
 import HistorialGanancias from "../../components/HistorialGanancias";
+import { Card, Delta, EmptyState, Segmented } from "../../components/ui";
+import { DatosTabla, GraficoBarras, GraficoLinea, Leyenda, MapaCalor, Ranking, Reparto } from "../../components/charts";
 import { useNegocio } from "../../context/NegocioContext";
 import { fmtMoney } from "../../lib/money";
 import { useLang, LOCALE } from "../../lib/i18n";
-import { IconInfo, IconCheck } from "../../lib/icons";
+import { IconCheck } from "../../lib/icons";
 import { MENU_PUBLIC_BASE, menuPath } from "../../lib/menuUrl";
 import {
   analiticasService,
   configuracionService,
   pedidosService,
-  type Pedido,
+  type Actividad,
   type Resumen,
-  type ResumenMes,
+  type TipoEntrega,
 } from "../../services/api";
 
-// ── Íconos ──────────────────────────────────────────────────
-const ic = (d: ReactNode, size = 22) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={1.7}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    style={{ width: size, height: size }}
-  >
+// ── Íconos ──
+const ic = (d: ReactNode, size = 20) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     {d}
   </svg>
 );
-
-const QR_PATHS = (
-  <>
-    <rect x="3" y="3" width="6" height="6" rx="1" />
-    <rect x="15" y="3" width="6" height="6" rx="1" />
-    <rect x="3" y="15" width="6" height="6" rx="1" />
-    <path d="M15 15h.01M15 18h3M18 15v3M21 15h.01M21 21h.01" />
-  </>
-);
-
 const I = {
-  categorias: ic(<path d="M4 6h16M4 12h16M4 18h10" />),
-  productos: ic(
-    <>
-      <path d="M20 7H4a1 1 0 00-1 1v10a1 1 0 001 1h16a1 1 0 001-1V8a1 1 0 00-1-1z" />
-      <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" />
-    </>,
-  ),
-  pedidos: ic(
-    <>
-      <path d="M6 2h12l1 4H5l1-4z" />
-      <path d="M5 6v14a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6" />
-      <path d="M9 11h6" />
-    </>,
-  ),
-  qr: ic(QR_PATHS),
-  qrSmall: ic(QR_PATHS, 18),
-  usuarios: ic(
-    <>
-      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
-    </>,
-  ),
-  negocios: ic(
-    <>
-      <path d="M3 21h18" />
-      <path d="M5 21V7l7-4 7 4v14" />
-      <path d="M9 21v-6h6v6" />
-    </>,
-  ),
-  plataforma: ic(
-    <>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20M2 12h20" />
-    </>,
-  ),
-  money: ic(
-    <>
-      <path d="M12 2v20" />
-      <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
-    </>,
-  ),
-  trend: ic(
-    <>
-      <path d="M3 17l6-6 4 4 8-8" />
-      <path d="M14 7h7v7" />
-    </>,
-  ),
-  cost: ic(
-    <>
-      <rect x="2" y="5" width="20" height="14" rx="2" />
-      <path d="M2 10h20" />
-    </>,
-  ),
   eye: ic(
     <>
-      <path d="M2.5 12C3.7 8 7.5 5 12 5s8.3 3 9.5 7c-1.2 4-5 7-9.5 7s-8.3-3-9.5-7z" />
+      <path d="M2.5 12C3.7 7.9 7.5 5 12 5s8.3 2.9 9.5 7c-1.2 4.1-5 7-9.5 7s-8.3-2.9-9.5-7z" />
       <circle cx="12" cy="12" r="3" />
+    </>,
+    18,
+  ),
+  qr: ic(
+    <>
+      <rect x="3" y="3" width="6" height="6" rx="1" />
+      <rect x="15" y="3" width="6" height="6" rx="1" />
+      <rect x="3" y="15" width="6" height="6" rx="1" />
+      <path d="M15 15h.01M15 18h3M18 15v3M21 15h.01M21 21h.01" />
     </>,
     18,
   ),
   plus: ic(<path d="M12 5v14M5 12h14" />, 18),
   link: ic(
     <>
-      <path d="M10 13a5 5 0 007.5.5l3-3a5 5 0 00-7-7l-1.7 1.7" />
-      <path d="M14 11a5 5 0 00-7.5-.5l-3 3a5 5 0 007 7l1.7-1.7" />
+      <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
+      <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
     </>,
     16,
   ),
-  arrow: ic(<path d="M5 12h14M12 5l7 7-7 7" />, 14),
-  warn: ic(
+  arrow: ic(<path d="M5 12h14M13 6l6 6-6 6" />, 16),
+  receipt: ic(
     <>
-      <path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" />
-      <path d="M12 9v4M12 17h.01" />
+      <path d="M6 2h12l1 4H5l1-4z" />
+      <path d="M5 6v14a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6M9 11h6M9 15h4" />
     </>,
-    18,
   ),
+  chart: ic(<path d="M3 20h18M6 16l4-5 3 3 5-7" />),
+  clock: ic(
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </>,
+  ),
+  warn: ic(<path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0zM12 9v4M12 17h.01" />, 18),
 };
 
-const CARDS = [
-  { permiso: "categorias", ruta: "/admin/categorias", labelKey: "navCategorias", descKey: "descCategorias", accent: "#3b82f6", icon: I.categorias },
-  { permiso: "productos", ruta: "/admin/productos", labelKey: "navProductos", descKey: "descProductos", accent: "#8b5cf6", icon: I.productos },
-  { permiso: "pedidos", ruta: "/admin/pedidos", labelKey: "navPedidos", descKey: "descPedidos", accent: "#10b981", icon: I.pedidos },
-  { permiso: "qr", ruta: "/admin/qr", labelKey: "navQr", descKey: "descQr", accent: "#06b6d4", icon: I.qr },
-  { permiso: "*", ruta: "/admin/usuarios", labelKey: "navUsuarios", descKey: "descUsuarios", accent: "#f59e0b", icon: I.usuarios },
-  { permiso: "*", ruta: "/admin/negocios", labelKey: "navNegocios", descKey: "descNegocios", accent: "#6366f1", icon: I.negocios },
-  { permiso: "plataforma", ruta: "/admin/plataforma", labelKey: "navPlataforma", descKey: "descPlataforma", accent: "#0ea5e9", icon: I.plataforma },
-];
-
-const ESTADO: Record<Pedido["estado"], { key: string; color: string }> = {
-  pendiente: { key: "pedStatePendiente", color: "#f59e0b" },
-  preparando: { key: "pedStatePreparando", color: "#0ea5e9" },
-  listo: { key: "pedStateListo", color: "#8b5cf6" },
-  en_camino: { key: "pedStateEnCamino", color: "#06b6d4" },
-  entregado: { key: "pedStateEntregado", color: "#10b981" },
-  cancelado: { key: "pedStateCancelado", color: "#ef4444" },
+// Estados de pedido: un solo mapa, con colores de los tokens.
+const ESTADO: Record<string, { key: string; color: string; bg: string }> = {
+  pendiente: { key: "pedStatePendiente", color: "var(--warn)", bg: "var(--warn-bg)" },
+  preparando: { key: "pedStatePreparando", color: "var(--info)", bg: "var(--info-bg)" },
+  listo: { key: "pedStateListo", color: "var(--info)", bg: "var(--info-bg)" },
+  en_camino: { key: "pedStateEnCamino", color: "var(--info)", bg: "var(--info-bg)" },
+  entregado: { key: "pedStateEntregado", color: "var(--ok)", bg: "var(--ok-bg)" },
+  cancelado: { key: "pedStateCancelado", color: "var(--err)", bg: "var(--err-bg)" },
 };
 
-// ── Helpers ─────────────────────────────────────────────────
-
-// Anima un número de 0 al valor (para las métricas).
-function useCountUp(value: number, ms = 900) {
-  const [v, setV] = useState(0);
-  useEffect(() => {
-    let raf = 0;
-    const start = performance.now();
-    const tick = (now: number) => {
-      const p = Math.min(1, (now - start) / ms);
-      setV(value * (1 - Math.pow(1 - p, 3)));
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [value, ms]);
-  return v;
-}
-
-const pctChange = (cur: number, prev: number | undefined) =>
-  prev === undefined || prev === 0 ? null : ((cur - prev) / Math.abs(prev)) * 100;
-
-const isToday = (iso?: string) => {
-  if (!iso) return false;
-  const d = new Date(iso);
-  const n = new Date();
-  return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate();
+const TIPO: Record<TipoEntrega, { key: string; color: string }> = {
+  mesa: { key: "pedTable", color: "var(--chart-1)" },
+  delivery: { key: "pedDelivery", color: "var(--chart-2)" },
+  retiro: { key: "pedPickup", color: "var(--chart-3)" },
 };
 
-function timeAgo(iso: string | undefined, locale: string) {
-  if (!iso) return "";
+type Dias = 7 | 30 | 90;
+
+const pct = (cur: number, prev: number) => (prev > 0 ? ((cur - prev) / prev) * 100 : null);
+
+function hace(iso: string, locale: string) {
   const diff = (new Date(iso).getTime() - Date.now()) / 1000;
   const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto", style: "short" });
   const abs = Math.abs(diff);
@@ -181,52 +97,110 @@ function timeAgo(iso: string | undefined, locale: string) {
   return rtf.format(Math.round(diff / 86400), "day");
 }
 
-// Paleta según tema.
-function usePalette() {
-  const { isDark } = useTheme();
-  return {
-    isDark,
-    card: isDark
-      ? "bg-[#151924] border border-white/[0.07]"
-      : "bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(15,23,42,0.04)]",
-    title: isDark ? "text-slate-100" : "text-slate-900",
-    text: isDark ? "text-slate-300" : "text-slate-600",
-    muted: isDark ? "text-slate-500" : "text-slate-400",
-    soft: isDark ? "bg-white/[0.04]" : "bg-slate-50",
-    divider: isDark ? "border-white/[0.06]" : "border-slate-100",
-    grid: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
-  };
-}
-
-const delay = (i: number): CSSProperties => ({ animationDelay: `${i * 70}ms` });
+// Nombres cortos de lunes a domingo en el idioma del panel.
+const diasSemana = (locale: string) =>
+  Array.from({ length: 7 }, (_, i) =>
+    new Date(Date.UTC(2024, 0, 1 + i, 12)).toLocaleDateString(locale, { weekday: "short", timeZone: "UTC" }).replace(".", ""),
+  );
 
 // ── Página ──────────────────────────────────────────────────
 export default function Dashboard() {
-  const { hasPermiso, isPlataforma, user } = useAuth();
+  const { hasPermiso, user } = useAuth();
   const { moneda, negocioId, slug, negocios } = useNegocio();
   const { t, lang } = useLang();
-  const navigate = useNavigate();
-  const P = usePalette();
-  const fmt = (n: number) => fmtMoney(n, moneda);
+  const locale = LOCALE[lang];
+  const fmt = useCallback((n: number) => fmtMoney(n, moneda), [moneda]);
+  const verAnaliticas = hasPermiso("analiticas");
+  const verPedidos = hasPermiso("pedidos");
 
-  const visible = CARDS.filter((c) => (c.permiso === "plataforma" ? isPlataforma : hasPermiso(c.permiso)));
-  const puedeVerAnaliticas = hasPermiso("analiticas");
-  const puedeVerPedidos = hasPermiso("pedidos");
-
+  const [dias, setDias] = useState<Dias>(() => {
+    try {
+      const g = Number(localStorage.getItem("dash_dias"));
+      return g === 7 || g === 90 ? g : 30;
+    } catch {
+      return 30;
+    }
+  });
+  const [act, setAct] = useState<Actividad | null>(null);
   const [resumen, setResumen] = useState<Resumen | null>(null);
-  const [pedidos, setPedidos] = useState<Pedido[] | null>(null);
+  const [errAct, setErrAct] = useState(false);
+  const [errRes, setErrRes] = useState(false);
+  const error = errAct || errRes;
+  const [recientesSinAnaliticas, setRecientesSinAnaliticas] = useState<Actividad["recientes"] | null>(null);
   const [cfg, setCfg] = useState<{ nombre: string; logo: string | null } | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copiado, setCopiado] = useState(false);
+  const [orden, setOrden] = useState<"ganancia" | "cantidad">("ganancia");
+  const [reintento, setReintento] = useState(0);
 
   useEffect(() => {
-    if (!puedeVerAnaliticas) return;
-    analiticasService.getResumen().then(setResumen).catch((e) => console.error(e));
-  }, [puedeVerAnaliticas, negocioId]);
+    try {
+      localStorage.setItem("dash_dias", String(dias));
+    } catch {
+      /* sin storage */
+    }
+  }, [dias]);
+
+  // Actividad del período (liviana: no baja todos los pedidos).
+  useEffect(() => {
+    if (!verAnaliticas) return;
+    let vivo = true;
+    analiticasService
+      .getActividad(dias)
+      .then((r) => {
+        if (!vivo) return;
+        setAct(r);
+        setErrAct(false);
+      })
+      .catch(() => vivo && setErrAct(true));
+    return () => {
+      vivo = false;
+    };
+  }, [verAnaliticas, negocioId, dias, reintento]);
 
   useEffect(() => {
-    if (!puedeVerPedidos) return;
-    pedidosService.getAll().then(setPedidos).catch(() => setPedidos([]));
-  }, [puedeVerPedidos, negocioId]);
+    if (!verAnaliticas) return;
+    let vivo = true;
+    analiticasService
+      .getResumen()
+      .then((r) => {
+        if (!vivo) return;
+        setResumen(r);
+        setErrRes(false);
+      })
+      .catch(() => {
+        if (!vivo) return;
+        setErrRes(true);
+        // Sin datos: las tarjetas muestran "vacío" en vez de cargar para siempre.
+        setResumen((r) => r ?? { meses: [], mes_actual: { ventas: 0, costo: 0, ganancia: 0, pedidos: 0 }, top_productos: [], stock_bajo: [] });
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [verAnaliticas, negocioId, reintento]);
+
+  // Sin permiso de analíticas (ej.: mozo): sólo los últimos pedidos.
+  useEffect(() => {
+    if (verAnaliticas || !verPedidos) return;
+    pedidosService
+      .getAll()
+      .then((ps) =>
+        setRecientesSinAnaliticas(
+          [...ps]
+            .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""))
+            .slice(0, 6)
+            .map((p) => ({
+            id: p.id,
+            total: p.total,
+            estado: p.estado,
+            tipo_entrega: p.tipo_entrega ?? (p.mesa ? "mesa" : null),
+            mesa: p.mesa,
+            created_at: p.created_at || "",
+            items: (p.items || []).reduce((n, it) => n + it.cantidad, 0),
+          })),
+        ),
+      )
+      .catch(() => setRecientesSinAnaliticas([]));
+  }, [verAnaliticas, verPedidos, negocioId]);
 
   useEffect(() => {
     configuracionService
@@ -237,578 +211,435 @@ export default function Dashboard() {
 
   const bizName = cfg?.nombre || negocios.find((n) => n.id === negocioId)?.nombre || "";
   const publicUrl = `${MENU_PUBLIC_BASE}${menuPath(slug, negocioId)}`;
+  const hora = new Date().getHours();
+  const nombre = (user?.nombre || user?.username || "").split(" ")[0];
+  const saludo = hora < 12 ? "dashMorning" : hora < 20 ? "dashAfternoon" : "dashEvening";
+  const recientes = verAnaliticas ? act?.recientes ?? null : recientesSinAnaliticas;
 
-  const hour = new Date().getHours();
-  const name = user?.nombre || user?.username || "";
-  const greetKey = hour < 12 ? "dashMorning" : hour < 20 ? "dashAfternoon" : "dashEvening";
-
-  const hoy = useMemo(() => {
-    if (!pedidos) return null;
-    const delDia = pedidos.filter((p) => isToday(p.created_at) && p.estado !== "cancelado");
-    return {
-      count: delDia.length,
-      pendientes: pedidos.filter((p) => ["pendiente", "preparando", "listo", "en_camino"].includes(p.estado)).length,
-    };
-  }, [pedidos]);
-
-  const recientes = (pedidos || []).slice(0, 6);
-
-  const copy = async () => {
+  const copiar = async () => {
     try {
       await navigator.clipboard.writeText(publicUrl);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
+      setCopiado(true);
+      window.setTimeout(() => setCopiado(false), 1800);
     } catch {
       window.prompt(t("mpPublicLink"), publicUrl);
     }
   };
 
-  // Mes actual vs. anterior para los "deltas" de las métricas.
-  const prev: ResumenMes | undefined = resumen?.meses[resumen.meses.length - 2];
-  const serie = (k: keyof Pick<ResumenMes, "ventas" | "ganancia" | "costo" | "pedidos">) =>
-    resumen?.meses.map((m) => m[k]) || [];
+  const fechaCorta = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(locale, { day: "numeric", month: "short" });
+  const dSem = useMemo(() => diasSemana(locale), [locale]);
+
+  // Momento más fuerte de la semana (celda con más pedidos).
+  const pico = useMemo(() => {
+    if (!act) return null;
+    let best = { d: 0, h: 0, v: 0 };
+    act.horas.forEach((fila, d) => fila.forEach((v, h) => v > best.v && (best = { d, h, v })));
+    return best.v ? best : null;
+  }, [act]);
+
+  const top = useMemo(() => {
+    const lista = [...(resumen?.top_productos || [])];
+    lista.sort((a, b) => (orden === "ganancia" ? b.ganancia - a.ganancia : b.cantidad - a.cantidad));
+    return lista.slice(0, 5).map((p) => ({ label: p.nombre, valor: orden === "ganancia" ? p.ganancia : p.cantidad }));
+  }, [resumen, orden]);
+
+  const vsPrev = t("dshVsPrevN", { n: dias });
+  const conVentas = !!act && act.totales.pedidos > 0;
+  const pedidosTipo = act ? act.por_tipo.reduce((s, x) => s + x.pedidos, 0) : 0;
 
   return (
-    <AdminLayout title="Dashboard">
-      <div className="w-full space-y-5 pb-6">
-        {/* ── Hero ── */}
-        <section className="dash-in relative overflow-hidden rounded-3xl bg-gradient-to-br from-cyan-500 via-teal-600 to-indigo-700 p-6 text-white shadow-[0_20px_60px_-25px_rgba(8,145,178,0.6)] sm:p-8">
-          <div className="auth-grid-bg pointer-events-none absolute inset-0 opacity-60" />
-          <div
-            className="auth-blob auth-glow pointer-events-none absolute -left-32 -top-40 h-[26rem] w-[26rem]"
-            style={{ ["--glow" as string]: "rgba(103,232,249,0.40)" }}
-          />
-          <div
-            className="auth-blob auth-glow pointer-events-none absolute -bottom-44 right-[20%] h-[26rem] w-[26rem]"
-            style={{ ["--glow" as string]: "rgba(252,211,77,0.30)", animationDelay: "-8s" }}
-          />
-
-          <div className="relative grid items-center gap-6 lg:grid-cols-[1fr_auto]">
-            <div>
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium capitalize ring-1 ring-white/20">
-                {new Date().toLocaleDateString(LOCALE[lang], { weekday: "long", day: "numeric", month: "long" })}
-              </span>
-              <h1 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">{t(greetKey, { name })} 👋</h1>
-              <p className="mt-2 max-w-xl text-[15px] text-white/80">
-                {bizName ? t("dashHeroDesc", { biz: bizName }) : t("dashHeroDescNoBiz")}
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => window.open(menuPath(slug, negocioId), "_blank", "noopener")}
-                  className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-slate-900 shadow-lg transition-transform hover:-translate-y-0.5"
-                >
-                  {I.eye} {t("navVerMenu")}
-                </button>
-                {hasPermiso("qr") && (
-                  <button
-                    type="button"
-                    onClick={() => navigate("/admin/qr")}
-                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold ring-1 ring-white/25 transition-colors hover:bg-white/25"
-                  >
-                    {I.qrSmall} {t("dashShareQr")}
-                  </button>
-                )}
-                {hasPermiso("productos") && (
-                  <button
-                    type="button"
-                    onClick={() => navigate("/admin/productos")}
-                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold ring-1 ring-white/25 transition-colors hover:bg-white/25"
-                  >
-                    {I.plus} {t("dashNewProduct")}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Tarjeta del negocio */}
-            <div className="w-full rounded-2xl bg-slate-950/30 p-4 ring-1 ring-white/20 lg:w-[320px]">
-              <div className="flex items-center gap-3">
-                {cfg?.logo ? (
-                  <img src={cfg.logo} alt="" className="h-12 w-12 rounded-xl bg-white object-cover" />
-                ) : (
-                  <span className="grid h-12 w-12 place-items-center rounded-xl bg-white/20 text-xl font-bold">
-                    {(bizName || "?").charAt(0).toUpperCase()}
-                  </span>
-                )}
-                <div className="min-w-0">
-                  <div className="truncate font-semibold">{bizName || "—"}</div>
-                  <div className="flex items-center gap-1.5 text-xs text-emerald-200">
-                    <span className="relative flex h-2 w-2">
-                      <span className="auth-ping absolute inset-0 rounded-full bg-emerald-300" />
-                      <span className="relative h-2 w-2 rounded-full bg-emerald-300" />
-                    </span>
-                    {t("dashMenuOnline")}
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={copy}
-                title={publicUrl}
-                className="mt-3 flex w-full cursor-pointer items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-left text-xs ring-1 ring-white/15 transition-colors hover:bg-white/20"
+    <AdminLayout title={t("navDashboard")}>
+      <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-4">
+        {/* ── Encabezado: saludo, acciones y el negocio de hoy ── */}
+        <section className="grid gap-5 xl:grid-cols-[1fr_auto] xl:items-end">
+          <div>
+            <p className="text-sm font-medium capitalize text-fg-3">
+              {new Date().toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" })}
+            </p>
+            <h2 className="pn-title mt-1 text-[clamp(1.75rem,3vw,2.5rem)] leading-tight text-fg">{t(saludo, { name: nombre })}</h2>
+            <p className="mt-1.5 text-fg-2">{bizName ? t("dashHeroDesc", { biz: bizName }) : t("dashHeroDescNoBiz")}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={menuPath(slug, negocioId)}
+              target="_blank"
+              rel="noopener"
+              className="inline-flex min-h-11 items-center gap-2 rounded-[var(--r-sm)] border border-line-strong bg-surface px-4 text-sm font-semibold text-fg transition-colors hover:bg-surface-2"
+            >
+              {I.eye} {t("navVerMenu")}
+            </a>
+            {hasPermiso("qr") && (
+              <Link
+                to="/admin/qr"
+                className="inline-flex min-h-11 items-center gap-2 rounded-[var(--r-sm)] border border-line-strong bg-surface px-4 text-sm font-semibold text-fg transition-colors hover:bg-surface-2"
               >
-                <span className="shrink-0 text-white/70">{copied ? <IconCheck size={15} /> : I.link}</span>
-                <span className="min-w-0 flex-1 truncate text-white/85">{publicUrl.replace(/^https?:\/\//, "")}</span>
-                <span className="shrink-0 font-semibold">{copied ? t("dashCopied") : t("dashCopyLink")}</span>
-              </button>
-
-              {hoy && (
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <div className="rounded-xl bg-white/10 px-3 py-2">
-                    <div className="text-xl font-bold">{hoy.count}</div>
-                    <div className="text-[11px] text-white/70">{t("dashOrdersToday")}</div>
-                  </div>
-                  <div className="rounded-xl bg-white/10 px-3 py-2">
-                    <div className="text-xl font-bold text-amber-200">{hoy.pendientes}</div>
-                    <div className="text-[11px] text-white/70">{t("dashPendingNow")}</div>
-                  </div>
-                </div>
-              )}
-            </div>
+                {I.qr} {t("dashShareQr")}
+              </Link>
+            )}
+            {hasPermiso("productos") && (
+              <Link
+                to="/admin/productos"
+                className="inline-flex min-h-11 items-center gap-2 rounded-[var(--r-sm)] bg-accent px-4 text-sm font-bold text-on-accent transition-colors hover:bg-accent-hover"
+              >
+                {I.plus} {t("dashNewProduct")}
+              </Link>
+            )}
           </div>
         </section>
 
-        {/* ── Métricas ── */}
-        {resumen && (
-          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Metric i={1} label={t("metricProfit")} value={resumen.mes_actual.ganancia} format={fmt} accent="#10b981" icon={I.money} delta={pctChange(resumen.mes_actual.ganancia, prev?.ganancia)} serie={serie("ganancia")} highlight />
-            <Metric i={2} label={t("metricSales")} value={resumen.mes_actual.ventas} format={fmt} accent="#06b6d4" icon={I.trend} delta={pctChange(resumen.mes_actual.ventas, prev?.ventas)} serie={serie("ventas")} />
-            <Metric i={3} label={t("metricCost")} value={resumen.mes_actual.costo} format={fmt} accent="#f59e0b" icon={I.cost} delta={pctChange(resumen.mes_actual.costo, prev?.costo)} serie={serie("costo")} inverse />
-            <Metric i={4} label={t("metricOrders")} value={resumen.mes_actual.pedidos} format={(n) => String(Math.round(n))} accent="#8b5cf6" icon={I.pedidos} delta={pctChange(resumen.mes_actual.pedidos, prev?.pedidos)} serie={serie("pedidos")} />
-          </section>
+        {/* Tarjeta del local: link del menú y lo de hoy */}
+        <section className="grid gap-4 rounded-[var(--r-lg)] bg-spot p-5 text-on-spot sm:p-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-center">
+          <div className="flex min-w-0 items-center gap-4">
+            {cfg?.logo ? (
+              <img src={cfg.logo} alt="" className="h-14 w-14 shrink-0 rounded-[var(--r-sm)] bg-white object-cover" />
+            ) : (
+              <span className="grid h-14 w-14 shrink-0 place-items-center rounded-[var(--r-sm)] bg-accent text-xl font-extrabold text-on-accent" aria-hidden>
+                {(bizName || "?").charAt(0).toUpperCase()}
+              </span>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="pn-title truncate text-lg">{bizName || "—"}</p>
+              <p className="flex items-center gap-1.5 text-sm opacity-80">
+                <span className="h-2 w-2 rounded-full bg-[var(--ok)]" aria-hidden />
+                {t("dashMenuOnline")}
+              </p>
+              <button
+                type="button"
+                onClick={copiar}
+                className="mt-2 flex w-full max-w-md cursor-pointer items-center gap-2 rounded-[var(--r-sm)] border border-white/15 px-3 py-2 text-left text-sm transition-colors hover:bg-white/10"
+                aria-label={`${t("dashCopyLink")}: ${publicUrl}`}
+              >
+                <span className="shrink-0 opacity-70">{copiado ? <IconCheck size={16} /> : I.link}</span>
+                <span className="min-w-0 flex-1 truncate opacity-85">{publicUrl.replace(/^https?:\/\//, "")}</span>
+                <span className="shrink-0 font-semibold" aria-live="polite">
+                  {copiado ? t("dashCopied") : t("dashCopyLink")}
+                </span>
+              </button>
+            </div>
+          </div>
+          {verAnaliticas && (
+            <dl className="grid grid-cols-3 gap-2">
+              {[
+                { v: act ? String(act.hoy.pedidos) : "—", l: t("dashOrdersToday") },
+                { v: act ? String(act.hoy.pendientes) : "—", l: t("dashPendingNow"), destacado: !!act?.hoy.pendientes },
+                { v: act ? fmt(act.hoy.ventas) : "—", l: t("dshSalesToday") },
+              ].map((x) => (
+                <div key={x.l} className="flex flex-col-reverse rounded-[var(--r-sm)] bg-white/[0.07] px-3 py-3">
+                  <dt className="mt-0.5 text-xs opacity-75">{x.l}</dt>
+                  <dd className={`pn-title pn-num truncate text-xl ${x.destacado ? "text-accent" : ""}`}>{x.v}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </section>
+
+        {error && (
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--r-md)] bg-err-bg px-4 py-3 text-err">
+            <span className="flex items-center gap-2 font-medium">
+              {I.warn} {t("dshLoadError")}
+            </span>
+            <button
+              type="button"
+              onClick={() => setReintento((n) => n + 1)}
+              className="min-h-10 cursor-pointer rounded-[var(--r-sm)] border border-current px-4 text-sm font-semibold"
+            >
+              {t("dshRetry")}
+            </button>
+          </div>
         )}
 
-        {/* ── Gráfico + top productos ── */}
-        {resumen && (
-          <section className="grid gap-4 xl:grid-cols-3">
-            <div className={`dash-in rounded-2xl p-5 xl:col-span-2 ${P.card}`} style={delay(5)}>
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-                <h3 className={`text-[15px] font-semibold ${P.title}`}>{t("chartTitle")}</h3>
-                <div className="flex gap-4 text-xs">
-                  <Legend color="#22d3ee" label={t("legendSales")} />
-                  <Legend color="#10b981" label={t("legendProfit")} />
-                </div>
+        {verAnaliticas && (
+          <>
+            {/* ── Período + métricas ── */}
+            <section aria-labelledby="dsh-periodo" className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 id="dsh-periodo" className="pn-title text-lg text-fg">
+                  {t("dshPeriod")}
+                  {act && (
+                    <span className="ml-2 text-sm font-medium text-fg-3" style={{ fontStretch: "100%" }}>
+                      {fechaCorta(act.desde)} – {fechaCorta(act.hasta)}
+                    </span>
+                  )}
+                </h2>
+                <Segmented
+                  label={t("dshPeriod")}
+                  value={dias}
+                  onChange={setDias}
+                  options={[7, 30, 90].map((n) => ({ value: n as Dias, label: t("dshDays", { n }) }))}
+                />
               </div>
-              <BarChart meses={resumen.meses} fmt={fmt} />
-            </div>
+              <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                <Kpi label={t("dshSales")} valor={act ? fmt(act.totales.ventas) : null} delta={act && pct(act.totales.ventas, act.anterior.ventas)} vs={vsPrev} sinPrev={t("dshNoPrevData")} acento />
+                <Kpi label={t("dshProfit")} valor={act ? fmt(act.totales.ganancia) : null} delta={act && pct(act.totales.ganancia, act.anterior.ganancia)} vs={vsPrev} sinPrev={t("dshNoPrevData")} />
+                <Kpi label={t("dshOrders")} valor={act ? String(act.totales.pedidos) : null} delta={act && pct(act.totales.pedidos, act.anterior.pedidos)} vs={vsPrev} sinPrev={t("dshNoPrevData")} />
+                <Kpi
+                  label={t("dshTicket")}
+                  valor={act ? fmt(act.totales.ticket) : null}
+                  delta={act && act.anterior.pedidos ? pct(act.totales.ticket, act.anterior.ventas / act.anterior.pedidos) : null}
+                  vs={vsPrev}
+                  sinPrev={act?.estados.cancelado ? t("dshCancelled", { n: act.estados.cancelado }) : t("dshNoPrevData")}
+                />
+              </dl>
+            </section>
 
-            <div className={`dash-in rounded-2xl p-5 ${P.card}`} style={delay(6)}>
-              <h3 className={`mb-4 text-[15px] font-semibold ${P.title}`}>🏆 {t("topProducts")}</h3>
-              <TopProducts items={resumen.top_productos} fmt={fmt} />
-            </div>
-          </section>
+            {/* ── Ventas por día + cómo te piden ── */}
+            <section className="grid gap-5 xl:grid-cols-3">
+              <Card
+                className="xl:col-span-2"
+                title={t("dshDaily")}
+                desc={t("dshDailyDesc")}
+                action={
+                  <Leyenda
+                    items={[
+                      { color: "var(--chart-1)", label: t("dshThisPeriod") },
+                      ...(act?.anterior.pedidos ? [{ color: "var(--fg-3)", label: t("dshPrevPeriod"), dashed: true }] : []),
+                    ]}
+                  />
+                }
+              >
+                {!act ? (
+                  <div className="h-[230px] animate-pulse rounded-[var(--r-sm)] bg-surface-2" />
+                ) : !conVentas && !act.anterior.pedidos ? (
+                  <EmptyState icon={I.chart} title={t("dshNoSales")} desc={t("dshNoSalesDesc")} />
+                ) : (
+                  <>
+                    <GraficoLinea
+                      puntos={act.serie.map((d, i) => ({ x: d.fecha, y: d.ventas, anterior: act.anterior.pedidos ? act.serie_anterior[i] : undefined }))}
+                      formato={fmt}
+                      locale={locale}
+                      etiqueta={`${t("dshDaily")}: ${fmt(act.totales.ventas)}`}
+                      ayuda={t("dshArrowsHelp")}
+                      antes={t("dshBefore")}
+                    />
+                    <DatosTabla
+                      resumen={t("dshShowData")}
+                      cols={[t("dshDate"), t("dshSales"), t("dshProfit"), t("dshOrders")]}
+                      filas={act.serie.map((d) => [fechaCorta(d.fecha), fmt(d.ventas), fmt(d.ganancia), d.pedidos])}
+                    />
+                  </>
+                )}
+              </Card>
+
+              <Card title={t("dshByType")} desc={t("dshByTypeDesc")}>
+                {!act ? (
+                  <div className="h-40 animate-pulse rounded-[var(--r-sm)] bg-surface-2" />
+                ) : pedidosTipo === 0 ? (
+                  <EmptyState icon={I.receipt} title={t("dshNoOrdersPeriod")} />
+                ) : (
+                  <Reparto
+                    etiqueta={act.por_tipo.map((x) => `${t(TIPO[x.tipo].key)}: ${x.pedidos}`).join(", ")}
+                    partes={act.por_tipo.map((x) => ({
+                      label: t(TIPO[x.tipo].key),
+                      valor: x.pedidos,
+                      color: TIPO[x.tipo].color,
+                      detalle: fmt(x.ventas),
+                    }))}
+                  />
+                )}
+              </Card>
+            </section>
+
+            {/* ── Horas pico + productos ── */}
+            <section className="grid gap-5 xl:grid-cols-3">
+              <Card className="xl:col-span-2" title={t("dshPeak")} desc={t("dshPeakDesc")}>
+                {!act ? (
+                  <div className="h-48 animate-pulse rounded-[var(--r-sm)] bg-surface-2" />
+                ) : (
+                  <>
+                    <p className="mb-4 font-medium text-fg">
+                      {pico
+                        ? t("dshPeakBest", { dia: dSem[pico.d], h: pico.h, h2: pico.h + 1 })
+                        : t("dshPeakNone")}
+                    </p>
+                    <MapaCalor
+                      matriz={act.horas}
+                      dias={dSem}
+                      etiqueta={pico ? t("dshPeakBest", { dia: dSem[pico.d], h: pico.h, h2: pico.h + 1 }) : t("dshPeakNone")}
+                      unidad={(n) => t("dshNOrders", { n })}
+                    />
+                  </>
+                )}
+              </Card>
+
+              <Card
+                title={t("topProducts")}
+                action={
+                  <Segmented
+                    label={t("dshTopBy")}
+                    value={orden}
+                    onChange={setOrden}
+                    options={[
+                      { value: "ganancia", label: t("dshTopProfit") },
+                      { value: "cantidad", label: t("dshTopUnits") },
+                    ]}
+                  />
+                }
+              >
+                {!resumen ? (
+                  <div className="h-48 animate-pulse rounded-[var(--r-sm)] bg-surface-2" />
+                ) : top.length === 0 ? (
+                  <EmptyState icon={I.chart} title={t("dshNoSales")} />
+                ) : (
+                  <Ranking items={top} formato={orden === "ganancia" ? fmt : (n) => t("dshUnitsN", { n })} />
+                )}
+              </Card>
+            </section>
+          </>
         )}
 
-        {/* ── Historial mensual de ganancias (con filtros) ── */}
-        {puedeVerAnaliticas && <HistorialGanancias />}
-
-        {/* ── Pedidos recientes + stock ── */}
-        {(puedeVerPedidos || resumen) && (
-          <section className="grid gap-4 xl:grid-cols-3">
-            {puedeVerPedidos && (
-              <div className={`dash-in rounded-2xl p-5 ${resumen ? "xl:col-span-2" : "xl:col-span-3"} ${P.card}`} style={delay(7)}>
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className={`text-[15px] font-semibold ${P.title}`}>{t("dashRecentOrders")}</h3>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/admin/pedidos")}
-                    className="inline-flex cursor-pointer items-center gap-1 text-[13px] font-semibold text-cyan-500 hover:text-cyan-400"
-                  >
+        {/* ── Últimos pedidos + stock ── */}
+        {(verPedidos || resumen) && (
+          <section className="grid gap-5 xl:grid-cols-3">
+            {verPedidos && (
+              <Card
+                className={resumen ? "xl:col-span-2" : "xl:col-span-3"}
+                title={t("dashRecentOrders")}
+                action={
+                  <Link to="/admin/pedidos" className="inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-fg underline-offset-4 hover:underline">
                     {t("dashSeeAll")} {I.arrow}
-                  </button>
-                </div>
-                {pedidos === null ? (
+                  </Link>
+                }
+              >
+                {recientes === null ? (
                   <div className="space-y-2">
                     {[0, 1, 2].map((k) => (
-                      <div key={k} className={`h-12 animate-pulse rounded-xl ${P.soft}`} />
+                      <div key={k} className="h-14 animate-pulse rounded-[var(--r-sm)] bg-surface-2" />
                     ))}
                   </div>
                 ) : recientes.length === 0 ? (
-                  <div className={`flex flex-col items-center gap-2 rounded-xl py-8 text-center text-sm ${P.soft} ${P.muted}`}>
-                    <span className="text-3xl">🧾</span>
-                    {t("dashNoOrders")}
-                  </div>
+                  <EmptyState icon={I.receipt} title={t("dashNoOrders")} />
                 ) : (
-                  <ul className={`divide-y ${P.divider}`}>
+                  <ul className="-mx-2 divide-y divide-[var(--line)]">
                     {recientes.map((p) => {
                       const e = ESTADO[p.estado] || ESTADO.pendiente;
                       return (
                         <li key={p.id}>
-                          <button
-                            type="button"
-                            onClick={() => navigate("/admin/pedidos")}
-                            className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors ${P.isDark ? "hover:bg-white/[0.03]" : "hover:bg-slate-50"}`}
+                          <Link
+                            to="/admin/pedidos"
+                            className="flex min-h-14 items-center gap-3 rounded-[var(--r-sm)] px-2 py-2.5 transition-colors hover:bg-surface-2"
                           >
-                            <span
-                              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-xs font-bold"
-                              style={{ background: `${e.color}1f`, color: e.color }}
-                            >
+                            <span className="pn-num grid h-10 min-w-10 shrink-0 place-items-center rounded-[var(--r-sm)] bg-surface-3 px-1.5 text-xs font-bold text-fg-2">
                               #{p.id}
                             </span>
-                            <div className="min-w-0 flex-1">
-                              <div className={`truncate text-sm font-medium ${P.title}`}>
-                                {p.mesa ? t("pedTableN", { n: p.mesa }) : p.cliente || t("dashTakeaway")}
-                              </div>
-                              <div className={`truncate text-xs ${P.muted}`}>
-                                {timeAgo(p.created_at, LOCALE[lang])}
-                              </div>
-                            </div>
-                            <span
-                              className="hidden rounded-full px-2.5 py-1 text-[11px] font-semibold sm:inline"
-                              style={{ background: `${e.color}1a`, color: e.color }}
-                            >
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate font-medium text-fg">
+                                {p.mesa ? t("pedTableN", { n: p.mesa }) : p.tipo_entrega ? t(TIPO[p.tipo_entrega].key) : t("dashTakeaway")}
+                              </span>
+                              <span className="block truncate text-sm text-fg-3">{p.created_at ? hace(p.created_at, locale) : ""}</span>
+                            </span>
+                            <span className="hidden rounded-full px-2.5 py-1 text-xs font-semibold sm:inline" style={{ background: e.bg, color: e.color }}>
                               {t(e.key)}
                             </span>
-                            <span className={`w-24 text-right text-sm font-bold ${P.title}`}>{fmt(p.total)}</span>
-                          </button>
+                            <span className="pn-num w-24 text-right font-bold text-fg">{fmt(p.total)}</span>
+                          </Link>
                         </li>
                       );
                     })}
                   </ul>
                 )}
-              </div>
+              </Card>
             )}
 
             {resumen && (
-              <div
-                className={`dash-in rounded-2xl p-5 ${puedeVerPedidos ? "" : "xl:col-span-3"} ${P.card} ${
-                  resumen.stock_bajo.length ? "!border-red-500/30" : ""
-                }`}
-                style={delay(8)}
+              <Card
+                className={verPedidos ? "" : "xl:col-span-3"}
+                title={resumen.stock_bajo.length ? t("lowStock") : undefined}
+                action={
+                  resumen.stock_bajo.length ? (
+                    <Link to="/admin/productos" className="inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-fg underline-offset-4 hover:underline">
+                      {t("dashSeeAll")} {I.arrow}
+                    </Link>
+                  ) : undefined
+                }
               >
                 {resumen.stock_bajo.length > 0 ? (
-                  <>
-                    <h3 className="mb-3 flex items-center gap-2 text-[15px] font-semibold text-red-500">
-                      {I.warn} {t("lowStock")}
-                    </h3>
-                    <ul className="space-y-2">
-                      {resumen.stock_bajo.map((p) => (
-                        <li key={p.id} className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm ${P.soft}`}>
-                          <span className={`truncate ${P.text}`}>{p.nombre}</span>
-                          <span
-                            className="shrink-0 rounded-full px-2 py-0.5 text-xs font-bold"
-                            style={
-                              p.stock === 0
-                                ? { background: "#ef44441a", color: "#ef4444" }
-                                : { background: "#f59e0b1a", color: "#f59e0b" }
-                            }
-                          >
-                            {p.stock === 0 ? t("soldOut") : t("unitsShort", { n: p.stock })}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
+                  <ul className="space-y-2">
+                    {resumen.stock_bajo.map((p) => (
+                      <li key={p.id} className="flex items-center justify-between gap-2 rounded-[var(--r-sm)] bg-surface-2 px-3 py-2.5">
+                        <span className="truncate text-fg-2">{p.nombre}</span>
+                        <span
+                          className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold"
+                          style={p.stock === 0 ? { background: "var(--err-bg)", color: "var(--err)" } : { background: "var(--warn-bg)", color: "var(--warn)" }}
+                        >
+                          {p.stock === 0 ? t("soldOut") : t("unitsShort", { n: p.stock })}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 ) : (
                   <div className="flex h-full flex-col items-center justify-center gap-2 py-6 text-center">
-                    <span className="grid h-12 w-12 place-items-center rounded-full bg-emerald-500/10 text-emerald-500">
+                    <span className="grid h-12 w-12 place-items-center rounded-full bg-ok-bg text-ok" aria-hidden>
                       <IconCheck size={24} />
                     </span>
-                    <div className={`font-semibold ${P.title}`}>{t("dashAllGood")}</div>
-                    <div className={`text-sm ${P.muted}`}>{t("dashStockOk")}</div>
+                    <p className="font-semibold text-fg">{t("dashAllGood")}</p>
+                    <p className="text-sm text-fg-3">{t("dashStockOk")}</p>
                   </div>
                 )}
-              </div>
+              </Card>
             )}
           </section>
         )}
 
-        {/* ── Accesos rápidos ── */}
-        <section>
-          <h3 className={`mb-3 text-xs font-semibold uppercase tracking-[0.1em] ${P.muted}`}>{t("quickAccess")}</h3>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-            {visible.map((card, i) => (
-              <button
-                key={card.ruta}
-                type="button"
-                onClick={() => navigate(card.ruta)}
-                className={`dash-in group relative flex cursor-pointer items-center gap-4 overflow-hidden rounded-2xl p-4 text-left transition-all duration-300 hover:-translate-y-0.5 ${P.card}`}
-                style={delay(9 + i)}
-              >
-                <span
-                  className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full opacity-50 transition-opacity group-hover:opacity-100"
-                  style={{ background: `radial-gradient(closest-side, ${card.accent}aa, transparent)` }}
-                />
-                <span
-                  className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl transition-transform group-hover:scale-110"
-                  style={{ background: `${card.accent}1c`, color: card.accent, boxShadow: `inset 0 0 0 1px ${card.accent}33` }}
-                >
-                  {card.icon}
-                </span>
-                <span className="relative min-w-0 flex-1">
-                  <span className={`block font-semibold ${P.title}`}>{t(card.labelKey)}</span>
-                  <span className={`block truncate text-xs ${P.muted}`}>{t(card.descKey)}</span>
-                </span>
-                <span
-                  className="relative -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100"
-                  style={{ color: card.accent }}
-                >
-                  {I.arrow}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
+        {/* ── Por mes ── */}
+        {resumen && (
+          <Card
+            title={t("dshMonthly")}
+            action={
+              <Leyenda
+                items={[
+                  { color: "var(--chart-1)", label: t("legendSales"), cuadro: true },
+                  { color: "var(--chart-3)", label: t("legendProfit"), cuadro: true },
+                ]}
+              />
+            }
+          >
+            <GraficoBarras
+              grupos={resumen.meses.map((m) => ({ label: m.label, valores: [m.ventas, m.ganancia] }))}
+              series={[
+                { label: t("legendSales"), color: "var(--chart-1)" },
+                { label: t("legendProfit"), color: "var(--chart-3)" },
+              ]}
+              formato={fmt}
+              locale={locale}
+              etiqueta={resumen.meses.map((m) => `${m.label}: ${fmt(m.ventas)}`).join(", ")}
+            />
+            <DatosTabla
+              resumen={t("dshShowData")}
+              cols={[t("dshMonth"), t("legendSales"), t("legendProfit"), t("dshOrders")]}
+              filas={resumen.meses.map((m) => [m.label, fmt(m.ventas), fmt(m.ganancia), m.pedidos])}
+            />
+          </Card>
+        )}
 
-        {/* ── Tip ── */}
-        <div
-          className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-xs ${
-            P.isDark ? "border-cyan-400/15 bg-cyan-400/[0.05] text-slate-400" : "border-cyan-500/20 bg-cyan-50 text-slate-600"
-          }`}
-        >
-          <span className="text-cyan-500">
-            <IconInfo size={18} />
-          </span>
-          {t("tip")}
-        </div>
+        {verAnaliticas && <HistorialGanancias />}
       </div>
     </AdminLayout>
   );
 }
 
-// ── Métrica con delta y sparkline ───────────────────────────
-function Metric({
-  i,
+function Kpi({
   label,
-  value,
-  format,
-  accent,
-  icon,
+  valor,
   delta,
-  serie,
-  highlight,
-  inverse,
+  vs,
+  sinPrev,
+  acento,
 }: {
-  i: number;
   label: string;
-  value: number;
-  format: (n: number) => string;
-  accent: string;
-  icon: ReactNode;
-  delta: number | null;
-  serie: number[];
-  highlight?: boolean;
-  inverse?: boolean;
+  valor: string | null;
+  delta: number | null | undefined;
+  vs: string;
+  sinPrev: string;
+  acento?: boolean;
 }) {
-  const P = usePalette();
-  const { t } = useLang();
-  const v = useCountUp(value);
-  const up = (delta ?? 0) >= 0;
-  const good = inverse ? !up : up;
-
   return (
-    <div className={`dash-in relative overflow-hidden rounded-2xl p-5 ${P.card}`} style={delay(i)}>
-      {highlight && (
-        <span className="pointer-events-none absolute inset-x-0 top-0 h-[3px]" style={{ background: `linear-gradient(90deg, ${accent}, #22d3ee)` }} />
-      )}
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className={`text-[13px] ${P.muted}`}>{label}</div>
-          <div className={`mt-1.5 truncate text-2xl font-extrabold tracking-tight ${P.title}`}>{format(v)}</div>
-        </div>
-        <span
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl"
-          style={{ background: `${accent}1c`, color: accent }}
-        >
-          {icon}
-        </span>
-      </div>
-
-      <div className="mt-4 flex items-end justify-between gap-3">
-        <div className="text-xs">
-          {delta === null ? (
-            <span className={P.muted}>{t("dashNoPrev")}</span>
-          ) : (
-            <>
-              <span
-                className="mr-1.5 inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 font-bold"
-                style={good ? { background: "#10b9811a", color: "#10b981" } : { background: "#ef44441a", color: "#ef4444" }}
-              >
-                {up ? "↑" : "↓"} {Math.abs(delta).toFixed(Math.abs(delta) < 10 ? 1 : 0)}%
-              </span>
-              <span className={P.muted}>{t("dashVsPrev")}</span>
-            </>
-          )}
-        </div>
-        <Sparkline data={serie} color={accent} />
-      </div>
+    <div className="relative overflow-hidden rounded-[var(--r-md)] border border-line bg-surface p-4 sm:p-5">
+      {acento && <span className="absolute inset-x-0 top-0 h-1 bg-accent" aria-hidden />}
+      <dt className="text-sm font-medium text-fg-3">{label}</dt>
+      <dd className="pn-title pn-num mt-1.5 truncate text-[clamp(1.25rem,2.4vw,1.75rem)] text-fg">
+        {valor ?? <span className="inline-block h-7 w-24 animate-pulse rounded bg-surface-2 align-middle" />}
+      </dd>
+      <dd className="mt-2">{valor !== null && <Delta value={delta ?? null} label={delta === null || delta === undefined ? sinPrev : vs} />}</dd>
     </div>
-  );
-}
-
-function Sparkline({ data, color }: { data: number[]; color: string }) {
-  if (data.length < 2) return null;
-  const w = 84;
-  const h = 30;
-  const max = Math.max(...data, 1);
-  const min = Math.min(...data, 0);
-  const pts = data.map((d, i) => [(i / (data.length - 1)) * w, h - 2 - ((d - min) / (max - min || 1)) * (h - 4)]);
-  const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-  const id = `sg-${color.slice(1)}`;
-  return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="shrink-0 overflow-visible">
-      <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.35" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={`${line} L${w},${h} L0,${h} Z`} fill={`url(#${id})`} />
-      <path d={line} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" pathLength={1} className="dash-draw" />
-      <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r={3} fill={color} />
-    </svg>
-  );
-}
-
-function Legend({ color, label }: { color: string; label: string }) {
-  const P = usePalette();
-  return (
-    <span className={`inline-flex items-center gap-1.5 ${P.muted}`}>
-      <span className="h-2.5 w-2.5 rounded-sm" style={{ background: color }} />
-      {label}
-    </span>
-  );
-}
-
-// ── Gráfico de barras con tooltip ───────────────────────────
-function BarChart({ meses, fmt }: { meses: ResumenMes[]; fmt: (n: number) => string }) {
-  const P = usePalette();
-  const { t } = useLang();
-  const [hover, setHover] = useState<number | null>(null);
-  const max = Math.max(1, ...meses.map((m) => Math.max(m.ventas, m.ganancia)));
-  const H = 200;
-  const last = meses.length - 1;
-
-  return (
-    <div className="relative">
-      {/* Líneas guía */}
-      <div className="pointer-events-none absolute inset-x-0 top-0" style={{ height: H }}>
-        {[0, 0.25, 0.5, 0.75, 1].map((f) => (
-          <div key={f} className="absolute inset-x-0 flex items-center gap-2" style={{ top: H * f }}>
-            <span className="h-px flex-1" style={{ background: P.grid }} />
-          </div>
-        ))}
-      </div>
-
-      <div className="relative flex items-end gap-2 sm:gap-4" style={{ height: H }}>
-        {meses.map((m, i) => {
-          const active = hover === i;
-          return (
-            <div
-              key={m.key}
-              className="relative flex h-full flex-1 cursor-default items-end justify-center gap-1 sm:gap-1.5"
-              onMouseEnter={() => setHover(i)}
-              onMouseLeave={() => setHover(null)}
-            >
-              {active && (
-                <div className={`absolute inset-y-0 -inset-x-1 rounded-xl ${P.soft}`} />
-              )}
-              <div
-                className="dash-bar relative w-3 rounded-t-md sm:w-5"
-                style={{
-                  height: Math.max(3, (m.ventas / max) * H),
-                  background: "linear-gradient(180deg,#67e8f9,#06b6d4)",
-                  opacity: hover === null || active ? 1 : 0.45,
-                  animationDelay: `${i * 80}ms`,
-                  transition: "opacity .2s",
-                }}
-              />
-              <div
-                className="dash-bar relative w-3 rounded-t-md sm:w-5"
-                style={{
-                  height: Math.max(3, (m.ganancia / max) * H),
-                  background: "linear-gradient(180deg,#6ee7b7,#059669)",
-                  opacity: hover === null || active ? 1 : 0.45,
-                  animationDelay: `${i * 80 + 40}ms`,
-                  transition: "opacity .2s",
-                }}
-              />
-
-              {active && (
-                <div
-                  className={`absolute bottom-full z-10 mb-2 w-44 rounded-xl px-3 py-2.5 text-xs shadow-xl ${
-                    P.isDark ? "border border-white/10 bg-slate-900" : "border border-slate-200 bg-white"
-                  } ${i >= last - 1 ? "right-0" : i <= 0 ? "left-0" : "left-1/2 -translate-x-1/2"}`}
-                >
-                  <div className={`mb-1.5 font-semibold capitalize ${P.title}`}>{m.label}</div>
-                  <Row color="#06b6d4" label={t("legendSales")} value={fmt(m.ventas)} />
-                  <Row color="#10b981" label={t("legendProfit")} value={fmt(m.ganancia)} />
-                  <div className={`mt-1 ${P.muted}`}>{t("dashOrdersN", { n: m.pedidos })}</div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="mt-2 flex gap-2 sm:gap-4">
-        {meses.map((m, i) => (
-          <span
-            key={m.key}
-            className={`flex-1 text-center text-xs capitalize ${i === last ? "font-semibold text-cyan-500" : P.muted}`}
-          >
-            {m.label}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function Row({ color, label, value }: { color: string; label: string; value: string }) {
-  const P = usePalette();
-  return (
-    <div className="flex items-center justify-between gap-2 py-0.5">
-      <span className={`inline-flex items-center gap-1.5 ${P.muted}`}>
-        <span className="h-2 w-2 rounded-full" style={{ background: color }} />
-        {label}
-      </span>
-      <span className={`font-semibold ${P.title}`}>{value}</span>
-    </div>
-  );
-}
-
-// ── Ranking de productos ────────────────────────────────────
-function TopProducts({
-  items,
-  fmt,
-}: {
-  items: { nombre: string; ganancia: number; cantidad: number }[];
-  fmt: (n: number) => string;
-}) {
-  const P = usePalette();
-  const { t } = useLang();
-  if (items.length === 0) {
-    return (
-      <div className={`flex flex-col items-center gap-2 rounded-xl py-10 text-center text-sm ${P.soft} ${P.muted}`}>
-        <span className="text-3xl">📈</span>
-        {t("noSalesMonth")}
-      </div>
-    );
-  }
-  const max = Math.max(...items.map((i) => i.ganancia), 1);
-  const medal = ["🥇", "🥈", "🥉"];
-  return (
-    <ul className="space-y-3.5">
-      {items.map((it, i) => (
-        <li key={it.nombre}>
-          <div className="mb-1.5 flex items-center gap-2 text-sm">
-            <span className="w-5 text-center">{medal[i] || <span className={`text-xs ${P.muted}`}>{i + 1}</span>}</span>
-            <span className={`min-w-0 flex-1 truncate ${P.text}`}>{it.nombre}</span>
-            <span className={`text-xs ${P.muted}`}>×{it.cantidad}</span>
-            <span className="font-bold text-emerald-500">{fmt(it.ganancia)}</span>
-          </div>
-          <div className={`ml-7 h-1.5 overflow-hidden rounded-full ${P.soft}`}>
-            <div
-              className="dash-grow-x h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400"
-              style={{ width: `${(it.ganancia / max) * 100}%`, animationDelay: `${300 + i * 90}ms` }}
-            />
-          </div>
-        </li>
-      ))}
-    </ul>
   );
 }

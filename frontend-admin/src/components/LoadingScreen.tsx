@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useTheme } from "../context/ThemeContext";
 import { useLang } from "../lib/i18n";
 import { BRAND_LOGO, BRAND_NAME, brandTextStyle } from "../lib/brand";
 
@@ -12,7 +11,6 @@ import { BRAND_LOGO, BRAND_NAME, brandTextStyle } from "../lib/brand";
 // reemplaza a otra (sesión → código de la página → datos) la animación sigue
 // donde iba en vez de reiniciarse.
 export default function LoadingScreen({ leaving = false }: { leaving?: boolean }) {
-  const { isDark } = useTheme();
   const { t } = useLang();
   const [t0] = useState(() => `-${Math.round(performance.now())}ms`);
 
@@ -25,19 +23,17 @@ export default function LoadingScreen({ leaving = false }: { leaving?: boolean }
         {
           "--dx-t": t0,
           // Velo semitransparente: el panel se ve detrás, desenfocado.
-          background: isDark ? "rgba(15,17,23,0.45)" : "rgba(240,242,245,0.4)",
-          color: isDark ? "#94a3b8" : "#64748b",
+          background: "color-mix(in srgb, var(--bg) 55%, transparent)",
+          color: "var(--fg-3)",
         } as React.CSSProperties
       }
     >
       <div
         className="dx-loader-card"
         style={{
-          background: isDark ? "rgba(26,29,39,0.82)" : "rgba(255,255,255,0.85)",
-          border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)"}`,
-          boxShadow: isDark
-            ? "0 24px 60px rgba(0,0,0,0.5)"
-            : "0 24px 60px rgba(15,23,42,0.18)",
+          background: "var(--surface)",
+          border: "1px solid var(--line)",
+          boxShadow: "var(--shadow-pop)",
         }}
       >
         <div className="dx-loader-mark">
@@ -67,7 +63,7 @@ export default function LoadingScreen({ leaving = false }: { leaving?: boolean }
 
         <div
           className="dx-loader-bar"
-          style={{ background: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.08)" }}
+          style={{ background: "var(--surface-3)" }}
         >
           <span />
         </div>

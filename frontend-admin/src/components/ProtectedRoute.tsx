@@ -2,6 +2,49 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { IconLock } from "../lib/icons";
 import LoadingScreen from "./LoadingScreen";
+import { useLang } from "../lib/i18n";
+import { useTituloPagina } from "./tituloPagina";
+
+// Aviso dentro del panel cuando falta el permiso (el menú sigue a mano).
+function SinPermiso() {
+  const { t } = useLang();
+  useTituloPagina(t("accessDenied"));
+  return (
+    <div style={{ display: "grid", placeItems: "center", minHeight: "60vh", padding: 16 }}>
+      <div
+        role="alert"
+        style={{
+          textAlign: "center",
+          maxWidth: 420,
+          background: "var(--surface)",
+          border: "1px solid var(--line)",
+          borderRadius: "var(--r-lg)",
+          padding: "36px 32px",
+        }}
+      >
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            margin: "0 auto 14px",
+            borderRadius: 999,
+            display: "grid",
+            placeItems: "center",
+            color: "var(--err)",
+            background: "var(--err-bg)",
+          }}
+          aria-hidden
+        >
+          <IconLock size={26} />
+        </div>
+        <h2 className="pn-title" style={{ color: "var(--fg)", fontSize: 20, margin: "0 0 8px" }}>
+          {t("accessDenied")}
+        </h2>
+        <p style={{ color: "var(--fg-2)", fontSize: 15, margin: 0 }}>{t("accessDeniedDesc")}</p>
+      </div>
+    </div>
+  );
+}
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -33,45 +76,7 @@ const ProtectedRoute = ({ children, permiso, plataforma }: ProtectedRouteProps) 
   }
 
   if ((permiso && !hasPermiso(permiso)) || (plataforma && !isPlataforma)) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "100vh",
-          background: "#0f1117",
-          fontFamily: "'Inter',system-ui,sans-serif",
-        }}
-      >
-        <div
-          style={{
-            textAlign: "center",
-            background: "#1a1d27",
-            border: "1px solid rgba(255,255,255,0.07)",
-            borderRadius: 16,
-            padding: "40px 48px",
-          }}
-        >
-          <div style={{ color: "#f87171", marginBottom: 12, display: "flex", justifyContent: "center" }}>
-            <IconLock size={40} />
-          </div>
-          <h2
-            style={{
-              color: "#f1f5f9",
-              fontSize: 18,
-              fontWeight: 600,
-              margin: "0 0 8px",
-            }}
-          >
-            Acceso denegado
-          </h2>
-          <p style={{ color: "#475569", fontSize: 14, margin: 0 }}>
-            No tenés permisos para acceder a esta sección.
-          </p>
-        </div>
-      </div>
-    );
+    return <SinPermiso />;
   }
 
   return <>{children}</>;

@@ -186,7 +186,7 @@ export default function WhatsApp() {
       <div className="w-full space-y-5 pb-6">
         {/* Encabezado */}
         <div className="dash-in">
-          <h1 className={`text-2xl font-extrabold tracking-tight ${P.title}`}>{t("waTitle")}</h1>
+          <h2 className={`text-2xl font-extrabold tracking-tight ${P.title}`}>{t("waTitle")}</h2>
           <p className={`mt-1 text-sm ${P.text}`}>{t("waSubtitle")}</p>
         </div>
 

@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
-import { ThemeProvider, useTheme } from "./context/ThemeContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import { NegocioProvider } from "./context/NegocioContext";
 import { LanguageProvider, useLang } from "./lib/i18n";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -27,23 +27,16 @@ const Suscripcion = lazy(() => import("./pages/admin/Suscripcion"));
 const MenuPreview = lazy(() => import("./pages/MenuPreview"));
 const WhatsApp = lazy(() => import("./pages/admin/WhatsApp"));
 const Chats = lazy(() => import("./pages/admin/Chats"));
+// Estructura del panel (menú, barra superior, avisos): se monta una sola vez.
+const AdminShell = lazy(() => import("./components/AdminLayout").then((m) => ({ default: m.AdminShell })));
 
 // Mientras llega el código de la pantalla. En las secciones del panel se ve la
-// pantalla de carga animada; en el login y el menú público, solo el fondo
-// (sin flash blanco).
+// pantalla de carga animada; en el login y el menú público, sólo el fondo.
 function Cargando() {
-  const { isDark } = useTheme();
   const path = window.location.pathname;
   const enLogin = /\/admin\/(login|reset-password)/.test(path);
   if (path.startsWith("/admin/") && !enLogin) return <LoadingScreen />;
-  return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: enLogin ? "#060912" : isDark ? "#0f1117" : "#f0f2f5",
-      }}
-    />
-  );
+  return <div style={{ minHeight: "100vh", background: enLogin ? "#efede6" : "var(--bg)" }} />;
 }
 
 function App() {
@@ -56,7 +49,6 @@ function App() {
         <BrowserRouter>
         <Suspense fallback={<Cargando />}>
         <Routes>
-          <Route path="/" element={<Navigate to="/admin/login" replace />} />
           <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
           <Route path="/admin/login" element={<Login />} />
           <Route path="/admin/reset-password" element={<ResetPassword />} />
@@ -80,105 +72,116 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* Panel: la estructura se monta una vez y cada sección se
+              dibuja adentro (<Outlet/>). Cada sección revisa su permiso. */}
           <Route
-            path="/admin/dashboard"
             element={
               <ProtectedRoute>
-                <Dashboard />
+                <AdminShell />
               </ProtectedRoute>
             }
-          />
-          <Route
-            path="/admin/categorias"
-            element={
-              <ProtectedRoute permiso="categorias">
-                <Categorias />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/productos"
-            element={
-              <ProtectedRoute permiso="productos">
-                <Productos />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/qr"
-            element={
-              <ProtectedRoute permiso="qr">
-                <QRCode />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/pedidos"
-            element={
-              <ProtectedRoute permiso="pedidos">
-                <Pedidos />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/configuracion"
-            element={
-              <ProtectedRoute permiso="configuracion">
-                <Configuracion />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/chats"
-            element={
-              <ProtectedRoute permiso="pedidos">
-                <Chats />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/whatsapp"
-            element={
-              <ProtectedRoute permiso="configuracion">
-                <WhatsApp />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/usuarios"
-            element={
-              <ProtectedRoute permiso="usuarios">
-                <Usuarios />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/negocios"
-            element={
-              <ProtectedRoute permiso="negocios">
-                <Negocios />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/plataforma"
-            element={
-              <ProtectedRoute plataforma>
-                <Plataforma />
-              </ProtectedRoute>
-            }
-          />
-          {/* Suscripción: accesible aunque el plan esté vencido para poder
-              comprar/renovar. Reservada al dueño (SuperAdmin): el permiso
-              "suscripcion" sólo lo cubre el "*" del rol 'admin'. */}
-          <Route
-            path="/admin/suscripcion"
-            element={
-              <ProtectedRoute permiso="suscripcion">
-                <Suscripcion />
-              </ProtectedRoute>
-            }
-          />
+          >
+            <Route
+              path="/admin/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/pedidos"
+              element={
+                <ProtectedRoute permiso="pedidos">
+                  <Pedidos />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/chats"
+              element={
+                <ProtectedRoute permiso="pedidos">
+                  <Chats />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/productos"
+              element={
+                <ProtectedRoute permiso="productos">
+                  <Productos />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/categorias"
+              element={
+                <ProtectedRoute permiso="categorias">
+                  <Categorias />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/qr"
+              element={
+                <ProtectedRoute permiso="qr">
+                  <QRCode />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/whatsapp"
+              element={
+                <ProtectedRoute permiso="configuracion">
+                  <WhatsApp />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/configuracion"
+              element={
+                <ProtectedRoute permiso="configuracion">
+                  <Configuracion />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/usuarios"
+              element={
+                <ProtectedRoute permiso="usuarios">
+                  <Usuarios />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/negocios"
+              element={
+                <ProtectedRoute permiso="negocios">
+                  <Negocios />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/plataforma"
+              element={
+                <ProtectedRoute plataforma>
+                  <Plataforma />
+                </ProtectedRoute>
+              }
+            />
+            {/* Suscripción: accesible aunque el plan esté vencido para poder
+                comprar/renovar. Reservada al dueño (SuperAdmin): el permiso
+                "suscripcion" sólo lo cubre el "*" del rol 'admin'. */}
+            <Route
+              path="/admin/suscripcion"
+              element={
+                <ProtectedRoute permiso="suscripcion">
+                  <Suscripcion />
+                </ProtectedRoute>
+              }
+            />
+          </Route>
 
           {/* Vista previa del menú público de un negocio: /menu/:slug
               (o /menu?negocio=<id> si el negocio aún no tiene slug). */}
@@ -200,22 +203,27 @@ function App() {
 function NotFound() {
   const { t } = useLang();
   return (
-    <div
+    <main
       style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        height: "100vh",
-        background: "#0f1117",
-        color: "#475569",
-        fontFamily: "system-ui",
+        display: "grid",
+        placeItems: "center",
+        minHeight: "100vh",
+        padding: 24,
+        background: "var(--bg)",
+        color: "var(--fg)",
+        textAlign: "center",
       }}
     >
-      <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>404</div>
-        <p>{t("notFound")}</p>
+      <div>
+        <p className="pn-title pn-num" style={{ fontSize: 72, margin: 0, color: "var(--accent-ink)" }}>
+          404
+        </p>
+        <h1 style={{ fontSize: 20, margin: "8px 0 20px" }}>{t("notFound")}</h1>
+        <a href="/admin/dashboard" style={{ color: "var(--fg)", fontWeight: 600, textUnderlineOffset: 4 }}>
+          ← {t("navDashboard")}
+        </a>
       </div>
-    </div>
+    </main>
   );
 }
 

@@ -121,7 +121,7 @@ export default function MenuPreview() {
               className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
               style={
                 device === d.id
-                  ? { background: BRAND_GRADIENT, color: "#fff" }
+                  ? { background: BRAND_GRADIENT, color: "#111216" }
                   : { color: muted }
               }
             >
@@ -149,7 +149,7 @@ export default function MenuPreview() {
             target="_blank"
             rel="noopener noreferrer"
             className={btn}
-            style={{ background: BRAND_GRADIENT, color: "#fff" }}
+            style={{ background: BRAND_GRADIENT, color: "#111216" }}
           >
             ↗<span className="hidden md:inline">{t("mpOpen")}</span>
           </a>

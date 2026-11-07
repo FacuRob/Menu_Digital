@@ -1,6 +1,7 @@
 const supabase = require("../config/database");
 const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
+const { calcularActividad, sumarDias, enArgentina } = require("../utils/actividad");
 
 const MESES_ABBR = [
   "ene", "feb", "mar", "abr", "may", "jun",
@@ -236,4 +237,90 @@ const getHistorial = async (req, res) => {
   }
 };
 
-module.exports = { getResumen, getHistorial };
+// ── Actividad diaria para el Dashboard ──
+// GET /analiticas/actividad?dias=7|30|90
+// Ventas por día (y el período anterior para comparar), pedidos por tipo de
+// entrega, horas pico (día × hora, hora de Argentina), estados, el resumen
+// de hoy y los últimos pedidos. Reemplaza bajar /pedidos completo.
+const DIAS_VALIDOS = [7, 30, 90];
+
+const getActividad = async (req, res) => {
+  try {
+    const negocioId = getNegocioId(req);
+    const dias = DIAS_VALIDOS.includes(Number(req.query.dias)) ? Number(req.query.dias) : 30;
+    const hoy = enArgentina(new Date()).fecha;
+    // Desde el inicio del período anterior (para comparar), con un día de
+    // margen por la diferencia horaria con UTC.
+    const buscarDesde = new Date(`${sumarDias(hoy, -(dias * 2))}T00:00:00-03:00`).toISOString();
+
+    // Trae todas las páginas de una consulta (Supabase corta en 1000).
+    const todas = async (armar) => {
+      const filas = [];
+      for (let from = 0; ; from += PAGINA) {
+        const { data, error } = await armar().order("id", { ascending: true }).range(from, from + PAGINA - 1);
+        if (error) throw error;
+        filas.push(...(data || []));
+        if (!data || data.length < PAGINA) break;
+      }
+      return filas;
+    };
+
+    // En paralelo:
+    // 1) entregados con sus ítems (ventas y ganancia), creados o entregados
+    //    dentro de la ventana;
+    // 2) el resto de los estados, sin ítems (tipo, horas y estados);
+    // 3) los últimos pedidos, livianos y sin costos;
+    // 4) cuántos pendientes hay ahora (de cualquier fecha).
+    const [entregados, otros, rec, pend] = await Promise.all([
+      todas(() =>
+        supabase
+          .from("pedidos")
+          .select("id, created_at, entregado_at, estado, tipo_entrega, mesa, total, pedido_items(cantidad, precio_unit, costo_unit, subtotal)")
+          .eq("negocio_id", negocioId)
+          .eq("estado", "entregado")
+          .or(`created_at.gte.${buscarDesde},entregado_at.gte.${buscarDesde}`),
+      ),
+      todas(() =>
+        supabase
+          .from("pedidos")
+          .select("id, created_at, estado, tipo_entrega, mesa, total")
+          .eq("negocio_id", negocioId)
+          .neq("estado", "entregado")
+          .gte("created_at", buscarDesde),
+      ),
+      supabase
+        .from("pedidos")
+        .select("id, total, estado, tipo_entrega, mesa, created_at, pedido_items(cantidad)")
+        .eq("negocio_id", negocioId)
+        .order("created_at", { ascending: false })
+        .limit(6),
+      supabase
+        .from("pedidos")
+        .select("id", { count: "exact", head: true })
+        .eq("negocio_id", negocioId)
+        .eq("estado", "pendiente"),
+    ]);
+    if (rec.error) throw rec.error;
+    if (pend.error) throw pend.error;
+    const recientes = rec.data;
+    const actividad = calcularActividad([...entregados, ...otros], { dias });
+    if (typeof pend.count === "number") actividad.hoy.pendientes = pend.count;
+
+    res.json({
+      ...actividad,
+      recientes: (recientes || []).map((p) => ({
+        id: p.id,
+        total: Number(p.total) || 0,
+        estado: p.estado,
+        tipo_entrega: p.tipo_entrega || (p.mesa ? "mesa" : null),
+        mesa: p.mesa,
+        created_at: p.created_at,
+        items: (p.pedido_items || []).reduce((n, it) => n + (Number(it.cantidad) || 0), 0),
+      })),
+    });
+  } catch (error) {
+    return respondError(res, error, "analiticas");
+  }
+};
+
+module.exports = { getResumen, getHistorial, getActividad };

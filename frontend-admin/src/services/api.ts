@@ -440,7 +440,39 @@ export interface Historial {
   top_productos: { nombre: string; ventas: number; ganancia: number; cantidad: number }[];
 }
 
+export interface ActividadDia {
+  fecha: string; // YYYY-MM-DD (hora de Argentina)
+  ventas: number;
+  ganancia: number;
+  pedidos: number;
+}
+
+export interface Actividad {
+  desde: string;
+  hasta: string;
+  dias: number;
+  serie: ActividadDia[];
+  totales: { ventas: number; ganancia: number; pedidos: number; ticket: number };
+  anterior: { ventas: number; ganancia: number; pedidos: number };
+  serie_anterior: number[];
+  por_tipo: { tipo: TipoEntrega; pedidos: number; ventas: number }[];
+  estados: Record<string, number>;
+  horas: number[][]; // [día de la semana (lunes = 0)][hora 0-23] = pedidos
+  hoy: { pedidos: number; pendientes: number; ventas: number };
+  recientes: {
+    id: number;
+    total: number;
+    estado: string;
+    tipo_entrega: TipoEntrega | null;
+    mesa?: string | number | null;
+    created_at: string;
+    items: number;
+  }[];
+}
+
 export const analiticasService = {
+  getActividad: async (dias: 7 | 30 | 90) =>
+    (await api.get<Actividad>("/analiticas/actividad", { params: { dias } })).data,
   getResumen: async () => (await api.get<Resumen>("/analiticas/resumen")).data,
   getHistorial: async (params: { desde: string; hasta: string; tipo?: TipoEntrega | "" }) =>
     (

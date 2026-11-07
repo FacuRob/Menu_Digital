@@ -4,7 +4,6 @@
 // gráfico o de la tabla muestra el detalle (productos más rentables) de ese mes.
 
 import { useEffect, useState } from "react";
-import { useTheme } from "../context/ThemeContext";
 import { useNegocio } from "../context/NegocioContext";
 import { useLang, LOCALE } from "../lib/i18n";
 import { fmtMoney } from "../lib/money";
@@ -45,22 +44,17 @@ const margen = (m: { ventas: number; ganancia: number }) =>
 const ticketProm = (m: { ventas: number; pedidos: number }) =>
   m.pedidos > 0 ? m.ventas / m.pedidos : 0;
 
+// Clases sobre los tokens del panel (claro y oscuro salen solos).
 function usePalette() {
-  const { isDark } = useTheme();
   return {
-    isDark,
-    card: isDark
-      ? "bg-[#151924] border border-white/[0.07]"
-      : "bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(15,23,42,0.04)]",
-    title: isDark ? "text-slate-100" : "text-slate-900",
-    text: isDark ? "text-slate-300" : "text-slate-600",
-    muted: isDark ? "text-slate-500" : "text-slate-400",
-    soft: isDark ? "bg-white/[0.04]" : "bg-slate-50",
-    divider: isDark ? "border-white/[0.06]" : "border-slate-100",
-    field: isDark
-      ? "bg-[#0f131c] border border-white/10 text-slate-200"
-      : "bg-white border border-slate-200 text-slate-700",
-    grid: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
+    card: "bg-surface border border-line shadow-[var(--shadow-1)]",
+    title: "text-fg",
+    text: "text-fg-2",
+    muted: "text-fg-3",
+    soft: "bg-surface-2",
+    divider: "border-line",
+    field: "bg-surface border border-line-strong text-fg",
+    grid: "var(--chart-grid)",
   };
 }
 
@@ -220,7 +214,7 @@ export default function HistorialGanancias() {
     { id: "delivery", label: t("pedDelivery") },
   ];
 
-  const selectCls = `h-9 cursor-pointer rounded-lg px-2.5 text-sm outline-none focus:ring-2 focus:ring-cyan-500/40 ${P.field}`;
+  const selectCls = `h-9 cursor-pointer rounded-lg px-2.5 text-sm outline-none focus:ring-2 focus:ring-[color-mix(in_srgb,var(--focus)_30%,transparent)] ${P.field}`;
 
   const monthPicker = (label: string, value: string, onChange: (v: string) => void) => {
     const [y, m] = value.split("-").map(Number);
@@ -250,7 +244,7 @@ export default function HistorialGanancias() {
       <button
         type="button"
         onClick={() => ordenar(k)}
-        className={`inline-flex cursor-pointer items-center gap-1 hover:text-cyan-500 ${sort.key === k ? "text-cyan-500" : ""}`}
+        className={`inline-flex cursor-pointer items-center gap-1 hover:text-fg ${sort.key === k ? "text-fg font-bold" : ""}`}
       >
         {children}
         <span className="text-[10px]">{sort.key === k ? (sort.asc ? "▲" : "▼") : "↕"}</span>
@@ -266,7 +260,7 @@ export default function HistorialGanancias() {
       {/* Encabezado + exportar */}
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className={`text-[15px] font-semibold ${P.title}`}>📅 {t("histTitle")}</h3>
+          <h3 className={`text-[15px] font-semibold ${P.title}`}><span aria-hidden>📅</span> {t("histTitle")}</h3>
           <p className={`mt-0.5 text-xs ${P.muted}`}>{t("histDesc")}</p>
         </div>
         <button
@@ -274,7 +268,7 @@ export default function HistorialGanancias() {
           onClick={exportarCSV}
           disabled={!data || loading}
           className={`inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-            P.isDark ? "bg-white/[0.06] text-slate-200 hover:bg-white/[0.1]" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+            "bg-surface-3 text-fg hover:bg-surface-2"
           }`}
         >
           ⬇ {t("histExport")}
@@ -291,10 +285,8 @@ export default function HistorialGanancias() {
               onClick={() => elegirPreset(p.id)}
               className={`cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                 preset === p.id
-                  ? "bg-cyan-500 text-white"
-                  : P.isDark
-                    ? "bg-white/[0.05] text-slate-300 hover:bg-white/[0.1]"
-                    : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100"
+                  ? "bg-surface-inv text-fg-inv"
+                  : "bg-surface text-fg-2 ring-1 ring-[var(--line-strong)] hover:bg-surface-2"
               }`}
             >
               {p.label}
@@ -316,7 +308,7 @@ export default function HistorialGanancias() {
       </div>
 
       {error ? (
-        <div className={`rounded-xl py-10 text-center text-sm ${P.soft} text-red-500`}>{t("histError")}</div>
+        <div className={`rounded-xl py-10 text-center text-sm ${P.soft} text-err`}>{t("histError")}</div>
       ) : loading && !data ? (
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -328,24 +320,24 @@ export default function HistorialGanancias() {
         <div className={`space-y-5 transition-opacity ${loading ? "opacity-50" : ""}`}>
           {/* Totales del período */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Tile label={t("histProfitTotal")} value={fmt(totales.ganancia)} accent="#10b981" strong />
-            <Tile label={t("histSales")} value={fmt(totales.ventas)} accent="#06b6d4" />
-            <Tile label={t("histCost")} value={fmt(totales.costo)} accent="#f59e0b" />
-            <Tile label={t("histMargin")} value={`${margen(totales).toFixed(1)}%`} accent="#8b5cf6" />
-            <Tile label={t("histOrders")} value={String(totales.pedidos)} accent="#64748b" />
-            <Tile label={t("histAvgTicket")} value={fmt(ticketProm(totales))} accent="#64748b" />
-            <Tile label={t("histAvgMonthly")} value={fmt(promedio)} accent="#64748b" />
+            <Tile label={t("histProfitTotal")} value={fmt(totales.ganancia)} accent="var(--chart-3)" strong />
+            <Tile label={t("histSales")} value={fmt(totales.ventas)} accent="var(--chart-1)" />
+            <Tile label={t("histCost")} value={fmt(totales.costo)} accent="var(--chart-4)" />
+            <Tile label={t("histMargin")} value={`${margen(totales).toFixed(1)}%`} accent="var(--chart-5)" />
+            <Tile label={t("histOrders")} value={String(totales.pedidos)} accent="var(--fg-3)" />
+            <Tile label={t("histAvgTicket")} value={fmt(ticketProm(totales))} accent="var(--fg-3)" />
+            <Tile label={t("histAvgMonthly")} value={fmt(promedio)} accent="var(--fg-3)" />
             <Tile
               label={t("histBestMonth")}
               value={mejor ? nombreMes(mejor.key) : "—"}
               sub={mejor ? fmt(mejor.ganancia) : undefined}
-              accent="#10b981"
+              accent="var(--chart-3)"
             />
           </div>
 
           {conVentas.length === 0 ? (
             <div className={`flex flex-col items-center gap-2 rounded-xl py-10 text-center text-sm ${P.soft} ${P.muted}`}>
-              <span className="text-3xl">📭</span>
+              <span className="text-3xl" aria-hidden>📭</span>
               {t("histNoData")}
             </div>
           ) : (
@@ -375,13 +367,13 @@ export default function HistorialGanancias() {
                         >
                           <span
                             className="dash-bar w-2.5 rounded-t sm:w-4"
-                            style={{ height: Math.max(2, (m.ventas / maxBar) * (H - 6)), background: "linear-gradient(180deg,#67e8f9,#06b6d4)" }}
+                            style={{ height: Math.max(2, (m.ventas / maxBar) * (H - 6)), background: "var(--chart-1)" }}
                           />
                           <span
                             className="dash-bar w-2.5 rounded-t sm:w-4"
                             style={{
                               height: Math.max(2, (Math.abs(m.ganancia) / maxBar) * (H - 6)),
-                              background: m.ganancia < 0 ? "linear-gradient(180deg,#fca5a5,#ef4444)" : "linear-gradient(180deg,#6ee7b7,#059669)",
+                              background: m.ganancia < 0 ? "var(--err)" : "var(--chart-3)",
                             }}
                           />
                         </button>
@@ -392,7 +384,7 @@ export default function HistorialGanancias() {
                     {meses.map((m) => (
                       <span
                         key={m.key}
-                        className={`flex-1 text-center text-[11px] leading-tight capitalize ${mesSel === m.key ? "font-semibold text-cyan-500" : P.muted}`}
+                        className={`flex-1 text-center text-[11px] leading-tight capitalize ${mesSel === m.key ? "font-bold text-fg" : P.muted}`}
                       >
                         {m.label}
                         <span className="block text-[10px] opacity-70">{String(m.anio).slice(2)}</span>
@@ -402,19 +394,19 @@ export default function HistorialGanancias() {
                 </div>
               </div>
               <div className={`-mt-2 flex flex-wrap gap-4 text-xs ${P.muted}`}>
-                <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-cyan-500" />{t("histSales")}</span>
-                <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />{t("histProfit")}</span>
+                <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[var(--chart-1)]" />{t("histSales")}</span>
+                <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[var(--chart-3)]" />{t("histProfit")}</span>
                 <span>{t("histClickHint")}</span>
               </div>
 
               {/* Detalle del mes elegido */}
               {mesSel && (
-                <div className={`rounded-xl border p-4 ${P.isDark ? "border-cyan-400/20 bg-cyan-400/[0.04]" : "border-cyan-500/20 bg-cyan-50/60"}`}>
+                <div className={`rounded-xl border p-4 border-line bg-surface-2`}>
                   <div className="mb-3 flex items-center justify-between gap-2">
                     <h4 className={`text-sm font-semibold ${P.title}`}>
                       {t("histDetailOf", { mes: nombreMes(mesSel) })}
                     </h4>
-                    <button type="button" onClick={() => setMesSel(null)} className={`cursor-pointer text-xs font-semibold ${P.muted} hover:text-cyan-500`}>
+                    <button type="button" onClick={() => setMesSel(null)} className={`cursor-pointer text-xs font-semibold ${P.muted} hover:text-fg`}>
                       ✕ {t("histClose")}
                     </button>
                   </div>
@@ -423,7 +415,7 @@ export default function HistorialGanancias() {
                   ) : (
                     <>
                       <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                        <Mini label={t("histProfit")} value={fmt(detalle.totales.ganancia)} color="#10b981" />
+                        <Mini label={t("histProfit")} value={fmt(detalle.totales.ganancia)} color="var(--ok)" />
                         <Mini label={t("histSales")} value={fmt(detalle.totales.ventas)} />
                         <Mini label={t("histCost")} value={fmt(detalle.totales.costo)} />
                         <Mini label={t("histOrders")} value={String(detalle.totales.pedidos)} />
@@ -439,7 +431,7 @@ export default function HistorialGanancias() {
                               <span className={`min-w-0 flex-1 truncate ${P.text}`}>{p.nombre}</span>
                               <span className={`text-xs ${P.muted}`}>×{p.cantidad}</span>
                               <span className={`hidden w-28 text-right text-xs sm:inline ${P.muted}`}>{fmt(p.ventas)}</span>
-                              <span className="w-28 text-right font-bold text-emerald-500">{fmt(p.ganancia)}</span>
+                              <span className="w-28 text-right font-bold text-ok">{fmt(p.ganancia)}</span>
                             </li>
                           ))}
                         </ul>
@@ -473,17 +465,17 @@ export default function HistorialGanancias() {
                           key={m.key}
                           onClick={() => setMesSel(activo ? null : m.key)}
                           className={`cursor-pointer transition-colors ${
-                            activo ? (P.isDark ? "bg-cyan-400/[0.06]" : "bg-cyan-50") : P.isDark ? "hover:bg-white/[0.03]" : "hover:bg-slate-50"
+                            activo ? "bg-accent-soft" : "hover:bg-surface-2"
                           } ${m.pedidos === 0 ? "opacity-50" : ""}`}
                         >
                           <td className={`whitespace-nowrap px-3 py-2.5 font-medium ${P.title}`}>
                             {nombreMes(m.key)}
-                            {mejor?.key === m.key && <span className="ml-1.5" title={t("histBestMonth")}>🏆</span>}
+                            {mejor?.key === m.key && <span className="ml-1.5" title={t("histBestMonth")}><span aria-hidden>🏆</span><span className="sr-only">{t("histBestMonth")}</span></span>}
                           </td>
                           <td className={`px-3 py-2.5 text-right ${P.text}`}>{m.pedidos}</td>
                           <td className={`whitespace-nowrap px-3 py-2.5 text-right ${P.text}`}>{fmt(m.ventas)}</td>
                           <td className={`whitespace-nowrap px-3 py-2.5 text-right ${P.text}`}>{fmt(m.costo)}</td>
-                          <td className={`whitespace-nowrap px-3 py-2.5 text-right font-bold ${m.ganancia < 0 ? "text-red-500" : "text-emerald-500"}`}>
+                          <td className={`whitespace-nowrap px-3 py-2.5 text-right font-bold ${m.ganancia < 0 ? "text-err" : "text-ok"}`}>
                             {fmt(m.ganancia)}
                           </td>
                           <td className={`px-3 py-2.5 text-right ${P.text}`}>{m.pedidos ? `${margen(m).toFixed(1)}%` : "—"}</td>
@@ -492,7 +484,7 @@ export default function HistorialGanancias() {
                             {v === null ? (
                               <span className={P.muted}>—</span>
                             ) : (
-                              <span style={{ color: v >= 0 ? "#10b981" : "#ef4444" }}>
+                              <span style={{ color: v >= 0 ? "var(--ok)" : "var(--err)" }}>
                                 {v >= 0 ? "↑" : "↓"} {Math.abs(v).toFixed(Math.abs(v) < 10 ? 1 : 0)}%
                               </span>
                             )}
@@ -507,7 +499,7 @@ export default function HistorialGanancias() {
                       <td className={`px-3 py-2.5 text-right ${P.title}`}>{totales.pedidos}</td>
                       <td className={`whitespace-nowrap px-3 py-2.5 text-right ${P.title}`}>{fmt(totales.ventas)}</td>
                       <td className={`whitespace-nowrap px-3 py-2.5 text-right ${P.title}`}>{fmt(totales.costo)}</td>
-                      <td className="whitespace-nowrap px-3 py-2.5 text-right text-emerald-500">{fmt(totales.ganancia)}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-right text-ok">{fmt(totales.ganancia)}</td>
                       <td className={`px-3 py-2.5 text-right ${P.title}`}>{margen(totales).toFixed(1)}%</td>
                       <td className={`whitespace-nowrap px-3 py-2.5 text-right ${P.title}`}>{fmt(ticketProm(totales))}</td>
                       <td />
@@ -535,7 +527,7 @@ function Tile({ label, value, sub, accent, strong }: { label: string; value: str
       <div className={`mt-0.5 truncate font-extrabold ${strong ? "text-xl" : "text-base"}`} style={strong ? { color: accent } : undefined}>
         <span className={strong ? "" : P.title}>{value}</span>
       </div>
-      {sub && <div className="text-xs font-semibold text-emerald-500">{sub}</div>}
+      {sub && <div className="text-xs font-semibold text-ok">{sub}</div>}
     </div>
   );
 }
@@ -543,7 +535,7 @@ function Tile({ label, value, sub, accent, strong }: { label: string; value: str
 function Mini({ label, value, color }: { label: string; value: string; color?: string }) {
   const P = usePalette();
   return (
-    <div className={`rounded-lg px-3 py-2 ${P.isDark ? "bg-white/[0.04]" : "bg-white"}`}>
+    <div className={`rounded-lg px-3 py-2 bg-surface`}>
       <div className={`text-[11px] ${P.muted}`}>{label}</div>
       <div className={`truncate text-sm font-bold ${color ? "" : P.title}`} style={color ? { color } : undefined}>{value}</div>
     </div>

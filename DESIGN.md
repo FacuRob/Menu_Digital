@@ -192,3 +192,75 @@ Tres planes (Basic, Standard recomendado en ají, Premium en tinta). Selector Me
 - Texto blanco sobre ají.
 - Animaciones que oculten contenido sin `.dx-motion`, o escenas fijadas en el celular.
 - Volver al mundo "Comanda del mozo" (papel de talonario, sello, birome).
+
+---
+
+# Panel admin: "Hora pico, versión trabajo"
+
+Fuente de verdad: `frontend-admin/src/styles/tokens.css`. El tema va en `<html data-theme="light|dark">`; lo ponen `ThemeContext` y `public/theme-init.js`, que lo hace antes de React. La primera vez sigue `prefers-color-scheme`. El login (`.hp` en `index.css`) es siempre claro y usa la paleta de la landing.
+
+Misma familia que la landing, pero tranquila para usar todo el día:
+- base neutra cálida;
+- ají sólo para la acción principal y los avisos;
+- cobalto para el foco y la información;
+- seis colores para los gráficos.
+
+Nada de colores sueltos en los componentes. Tailwind tiene clases sobre los tokens: `bg-surface`, `text-fg-2`, `border-line`, `bg-accent`, `text-ok`, etc.
+
+| Token | Claro | Oscuro | Uso |
+|---|---|---|---|
+| `--bg` | #f4f2ec | #0d0e11 | fondo de página |
+| `--surface` / `-2` / `-3` | #fff / #f8f6f1 / #efede6 | #16171c / #1d1f25 / #25272e | tarjetas, campos, rellenos |
+| `--fg` / `-2` / `-3` | #111216 / #44464f / #5f616a | #efede6 / #c2c0b9 / #94949a | texto (todos ≥ 4,5:1) |
+| `--accent` (+`--on-accent` tinta) | #ff5b24 | #ff6a38 | acción principal, ítem activo |
+| `--accent-ink` | #b5370a | #ff8a5c | ají como texto |
+| `--focus` / `--info` | #3b3bf5 | #8c8cff | anillo de foco, información |
+| `--ok` `--warn` `--err` (+ `-bg`) | verde, ámbar, rojo oscuros | versiones claras | estados |
+| `--spot` / `--on-spot` | #111216 / #efede6 | #24262d / #efede6 | bloque destacado (tarjeta del local) |
+| `--chart-1…6` | cobalto, ají, verde, ámbar, violeta, petróleo | versiones claras | series de gráficos |
+
+Forma: radios `--r-sm` 10px, `--r-md` 14px y `--r-lg` 20px. En claro hay una sombra casi nula; en oscuro, ninguna. Letra Archivo en todo el panel, con títulos ensanchados (`.pn-title`) y números tabulares (`.pn-num`).
+
+## Estructura (`components/AdminLayout.tsx` + `styles/shell.css`)
+
+- `AdminShell` es un **layout de ruta** (`App.tsx`): se monta una vez y cada sección se dibuja en `<Outlet/>`. Al navegar no se reinician las consultas automáticas ni aparece la pantalla de carga.
+- Cada pantalla sigue usando `<AdminLayout title>`, que ahora sólo informa el título.
+- **Menú lateral:**
+  - 240 px, o 72 px sólo con íconos (se recuerda);
+  - enlaces `NavLink` con `aria-current`;
+  - barra ají a la izquierda en el ítem activo.
+- **Celular (≤ 768 px):** barra inferior con Dashboard, Pedidos, Chats, Productos y "Más", que abre el cajón con el menú completo.
+- **Accesibilidad:**
+  - "Saltar al contenido";
+  - los desplegables se cierran con Escape;
+  - los avisos usan `aria-live`;
+  - los botones táctiles miden ≥ 40 px.
+
+## Componentes
+
+- `components/ui.tsx`: `Card`, `Segmented`, `EmptyState` y `Delta`.
+- `components/charts.tsx`, en SVG propio y sin librerías:
+  - `GraficoLinea`: con el período anterior punteado y recorrido con las flechas;
+  - `GraficoBarras`, `Reparto`, `Ranking` y `MapaCalor`;
+  - `DatosTabla`: los datos en una tabla desplegable.
+- `sharedStyles.ts` usa `var(--…)`, así que las pantallas viejas que lo usan ya funcionan en los dos temas.
+
+## Dashboard
+
+Arriba van el saludo, las acciones (Ver menú, Compartir QR y Nuevo producto en ají) y la tarjeta del local, con el link y lo de hoy. Después hay un período de 7, 30 o 90 días con estas secciones:
+- 4 métricas comparadas con el período anterior;
+- ventas por día;
+- cómo te piden;
+- horas pico;
+- productos top (por ganancia o por unidades);
+- últimos pedidos;
+- stock bajo;
+- ventas por mes;
+- historial.
+
+Datos: `GET /api/analiticas/actividad?dias=` (backend `utils/actividad.js`, en hora de Argentina). Ya no baja `/pedidos` completo.
+
+## Pendiente (fases 4–6, ver `docs/auditoria-panel-admin.md`)
+
+- Pantallas internas que todavía tienen colores propios: Pedidos, Chats, Productos, Categorías, Usuarios, Configuración, WhatsApp, Suscripción y Plataforma.
+- Pantallas siempre oscuras: Onboarding, CambiarPassword y ResetPassword.
