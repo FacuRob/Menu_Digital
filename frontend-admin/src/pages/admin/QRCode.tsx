@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import QRCodeLib from "qrcode";
 import AdminLayout from "../../components/AdminLayout";
 import { useStyles } from "../../components/sharedStyles";
-import { useTheme } from "../../context/ThemeContext";
 import { useNegocio } from "../../context/NegocioContext";
 import { useLang } from "../../lib/i18n";
 import { configuracionService } from "../../services/api";
@@ -11,7 +10,6 @@ import { MENU_PUBLIC_BASE as MENU_BASE } from "../../lib/menuUrl";
 
 export default function QRCode() {
   const S = useStyles();
-  const { isDark } = useTheme();
   const { t } = useLang();
   const { negocioId, negocios, slug } = useNegocio();
   const [qrUrl, setQrUrl] = useState("");
@@ -21,9 +19,9 @@ export default function QRCode() {
   const [mesasCant, setMesasCant] = useState(0);
   const ref = useRef<HTMLCanvasElement>(null);
 
-  const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
-  const textSecondary = isDark ? "#94a3b8" : "#475569";
-  const cardBg = isDark ? "#1a1d27" : "#ffffff";
+  const textPrimary = "var(--fg)";
+  const textSecondary = "var(--fg-2)";
+  const cardBg = "var(--surface)";
   const negocioNombre =
     negocios.find((n) => n.id === negocioId)?.nombre ||
     t("bizFallback", { n: negocioId });
@@ -87,9 +85,7 @@ export default function QRCode() {
         <div
           style={{
             ...S.card,
-            background: isDark
-              ? "radial-gradient(120% 90% at 50% 0%, rgba(99,102,241,0.16), transparent 60%), #1a1d27"
-              : "radial-gradient(120% 90% at 50% 0%, rgba(99,102,241,0.10), transparent 60%), #ffffff",
+            background: "radial-gradient(120% 90% at 50% 0%, var(--accent-soft), transparent 60%), var(--surface)",
             padding: "32px 24px",
             display: "flex",
             flexDirection: "column",
@@ -104,10 +100,9 @@ export default function QRCode() {
               background: "#ffffff",
               borderRadius: 20,
               padding: 18,
-              boxShadow: isDark
-                ? "0 18px 50px rgba(0,0,0,0.45)"
-                : "0 18px 50px rgba(15,23,42,0.12)",
-              border: "1px solid rgba(0,0,0,0.06)",
+              // La tarjeta del QR queda blanca en los dos temas (se escanea mejor).
+              boxShadow: "var(--shadow-pop)",
+              border: "1px solid var(--line)",
             }}
           >
             {/* El canvas (grande, para descargar) queda oculto; se muestra
@@ -127,7 +122,7 @@ export default function QRCode() {
             <div style={{ color: textPrimary, fontSize: 18, fontWeight: 700 }}>
               {negocioNombre}
             </div>
-            <div style={{ color: "#6366f1", fontSize: 13, fontWeight: 600, marginTop: 3 }}>
+            <div style={{ color: "var(--info)", fontSize: 13, fontWeight: 600, marginTop: 3 }}>
               {mesa ? t("pedTableN", { n: mesa }) : t("qrGeneral")}
             </div>
           </div>
@@ -194,7 +189,7 @@ export default function QRCode() {
                     gap: 6,
                     flexShrink: 0,
                     ...(copied
-                      ? { background: "rgba(16,185,129,0.12)", color: "#059669" }
+                      ? { background: "var(--ok-bg)", color: "var(--ok)" }
                       : {}),
                   } as React.CSSProperties}
                 >
@@ -207,6 +202,7 @@ export default function QRCode() {
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button
                 onClick={download}
+                disabled={!qrUrl}
                 style={{ ...S.btnPrimary, flex: "1 1 160px", justifyContent: "center", padding: "11px 16px" }}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} style={{ width: 15, height: 15 }}>
@@ -251,8 +247,8 @@ export default function QRCode() {
                       placeItems: "center",
                       fontSize: 11.5,
                       fontWeight: 700,
-                      color: "#fff",
-                      background: "linear-gradient(135deg,#6366f1,#06b6d4)",
+                      color: "var(--on-accent)",
+                      background: "var(--accent)",
                     }}
                   >
                     {i + 1}

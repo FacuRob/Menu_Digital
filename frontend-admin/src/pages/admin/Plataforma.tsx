@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useTheme } from "../../context/ThemeContext";
 import AdminLayout from "../../components/AdminLayout";
 import { useLang, LOCALE, type Lang } from "../../lib/i18n";
 import {
@@ -11,10 +10,10 @@ import {
 } from "../../services/api";
 
 const planColor: Record<TipoPlan, string> = {
-  free: "#6b7280",
-  basic: "#3b82f6",
-  standard: "#8b5cf6",
-  premium: "#f59e0b",
+  free: "var(--fg-3)",
+  basic: "var(--info)",
+  standard: "var(--violet)",
+  premium: "var(--warn)",
 };
 
 const fmtFecha = (s?: string, lang: Lang = "es") =>
@@ -34,7 +33,6 @@ const fmtMoney = (n: number, moneda = "USD") =>
   }).format(n || 0);
 
 export default function Plataforma() {
-  const { isDark } = useTheme();
   const { t, lang } = useLang();
   const [resumen, setResumen] = useState<PlataformaResumen | null>(null);
   const [cuentas, setCuentas] = useState<Cuenta[]>([]);
@@ -67,11 +65,11 @@ export default function Plataforma() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const cardBg = isDark ? "#1a1d27" : "#ffffff";
-  const cardBorder = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)";
-  const cardShadow = isDark ? "none" : "0 1px 3px rgba(0,0,0,0.04)";
-  const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
-  const textMuted = isDark ? "#475569" : "#94a3b8";
+  const cardBg = "var(--surface)";
+  const cardBorder = "var(--line)";
+  const cardShadow = "var(--shadow-1)";
+  const textPrimary = "var(--fg)";
+  const textMuted = "var(--fg-3)";
 
   return (
     <AdminLayout title={t("navPlataforma")}>
@@ -79,7 +77,7 @@ export default function Plataforma() {
         <h2 style={{ color: textPrimary, fontSize: 22, fontWeight: 600, margin: 0 }}>
           {t("pfHeading")}
         </h2>
-        <p style={{ color: isDark ? "#475569" : "#64748b", fontSize: 13, margin: "4px 0 0" }}>
+        <p style={{ color: "var(--fg-3)", fontSize: 13, margin: "4px 0 0" }}>
           {t("pfSubtitle")}
         </p>
       </div>
@@ -89,9 +87,9 @@ export default function Plataforma() {
           style={{
             padding: "12px 16px",
             borderRadius: 10,
-            background: "rgba(239,68,68,0.08)",
-            border: "1px solid rgba(239,68,68,0.25)",
-            color: "#ef4444",
+            background: "var(--err-bg)",
+            border: "1px solid color-mix(in srgb, var(--err) 30%, transparent)",
+            color: "var(--err)",
             fontSize: 13,
             marginBottom: 20,
           }}
@@ -110,12 +108,12 @@ export default function Plataforma() {
             marginBottom: 22,
           }}
         >
-          <Metric label={t("pfMrr", { cur: resumen.moneda })} value={fmtMoney(resumen.mrr, resumen.moneda)} accent="#10b981" isDark={isDark} big />
-          <Metric label={t("pfTotalAccounts")} value={String(resumen.total_cuentas)} accent="#3b82f6" isDark={isDark} />
-          <Metric label={t("pfActive")} value={String(resumen.activas)} accent="#10b981" isDark={isDark} />
-          <Metric label={t("pfCancelled")} value={String(resumen.canceladas)} accent="#ef4444" isDark={isDark} />
-          <Metric label={t("pfPaid")} value={String(resumen.por_pago)} accent="#f59e0b" isDark={isDark} />
-          <Metric label={t("pfTotalBiz")} value={String(resumen.total_negocios)} accent="#8b5cf6" isDark={isDark} />
+          <Metric label={t("pfMrr", { cur: resumen.moneda })} value={fmtMoney(resumen.mrr, resumen.moneda)} accent="var(--ok)" big />
+          <Metric label={t("pfTotalAccounts")} value={String(resumen.total_cuentas)} accent="var(--info)" />
+          <Metric label={t("pfActive")} value={String(resumen.activas)} accent="var(--ok)" />
+          <Metric label={t("pfCancelled")} value={String(resumen.canceladas)} accent="var(--err)" />
+          <Metric label={t("pfPaid")} value={String(resumen.por_pago)} accent="var(--warn)" />
+          <Metric label={t("pfTotalBiz")} value={String(resumen.total_negocios)} accent="var(--violet)" />
         </div>
       )}
 
@@ -131,9 +129,9 @@ export default function Plataforma() {
             style={{
               padding: "10px 14px",
               borderRadius: 10,
-              background: "rgba(245,158,11,0.08)",
-              border: "1px solid rgba(245,158,11,0.25)",
-              color: "#f59e0b",
+              background: "var(--warn-bg)",
+              border: "1px solid color-mix(in srgb, var(--warn) 30%, transparent)",
+              color: "var(--warn)",
               fontSize: 12.5,
               marginBottom: 20,
             }}
@@ -231,6 +229,7 @@ export default function Plataforma() {
                     { label: t("pfColSignup"), left: false },
                   ].map((h) => (
                     <th
+                      scope="col"
                       key={h.label}
                       style={{
                         textAlign: h.left ? "left" : "center",
@@ -256,7 +255,7 @@ export default function Plataforma() {
                       {c.nombre}
                       <span style={{ color: textMuted, fontWeight: 400, marginLeft: 6, fontSize: 11 }}>#{c.id}</span>
                     </td>
-                    <td style={{ padding: "11px 14px", color: isDark ? "#cbd5e1" : "#334155", borderBottom: `1px solid ${cardBorder}`, whiteSpace: "nowrap" }}>
+                    <td style={{ padding: "11px 14px", color: "var(--fg-2)", borderBottom: `1px solid ${cardBorder}`, whiteSpace: "nowrap" }}>
                       {c.email || "—"}
                     </td>
                     <td style={{ padding: "11px 14px", textAlign: "center", borderBottom: `1px solid ${cardBorder}` }}>
@@ -268,13 +267,13 @@ export default function Plataforma() {
                           fontWeight: 700,
                           textTransform: "capitalize",
                           color: planColor[c.tipo_plan],
-                          background: `${planColor[c.tipo_plan]}18`,
+                          background: `color-mix(in srgb, ${planColor[c.tipo_plan]} 9%, transparent)`,
                         }}
                       >
                         {c.tipo_plan}
                       </span>
                     </td>
-                    <td style={{ padding: "11px 14px", textAlign: "center", color: isDark ? "#cbd5e1" : "#334155", borderBottom: `1px solid ${cardBorder}`, textTransform: "capitalize" }}>
+                    <td style={{ padding: "11px 14px", textAlign: "center", color: "var(--fg-2)", borderBottom: `1px solid ${cardBorder}`, textTransform: "capitalize" }}>
                       {c.ciclo_facturacion || t("pfCycleMonthly")}
                     </td>
                     <td style={{ padding: "11px 14px", textAlign: "center", borderBottom: `1px solid ${cardBorder}` }}>
@@ -285,7 +284,7 @@ export default function Plataforma() {
                           gap: 5,
                           fontSize: 12,
                           fontWeight: 600,
-                          color: c.estado_suscripcion === "activo" ? "#10b981" : "#ef4444",
+                          color: c.estado_suscripcion === "activo" ? "var(--ok)" : "var(--err)",
                         }}
                       >
                         <span
@@ -293,13 +292,13 @@ export default function Plataforma() {
                             width: 7,
                             height: 7,
                             borderRadius: "50%",
-                            background: c.estado_suscripcion === "activo" ? "#10b981" : "#ef4444",
+                            background: c.estado_suscripcion === "activo" ? "var(--ok)" : "var(--err)",
                           }}
                         />
                         {c.estado_suscripcion}
                       </span>
                     </td>
-                    <td style={{ padding: "11px 14px", textAlign: "center", color: isDark ? "#cbd5e1" : "#334155", borderBottom: `1px solid ${cardBorder}`, textTransform: "capitalize" }}>
+                    <td style={{ padding: "11px 14px", textAlign: "center", color: "var(--fg-2)", borderBottom: `1px solid ${cardBorder}`, textTransform: "capitalize" }}>
                       {c.origen || t("pfOriginManual")}
                     </td>
                     <td style={{ padding: "11px 14px", textAlign: "center", color: textPrimary, borderBottom: `1px solid ${cardBorder}` }}>
@@ -330,26 +329,24 @@ function Metric({
   label,
   value,
   accent,
-  isDark,
   big,
 }: {
   label: string;
   value: string;
   accent: string;
-  isDark: boolean;
   big?: boolean;
 }) {
   return (
     <div
       style={{
-        background: isDark ? "#1a1d27" : "#fff",
-        border: `1px solid ${isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)"}`,
+        background: "var(--surface)",
+        border: `1px solid ${"var(--line)"}`,
         borderRadius: 14,
         padding: "16px 18px",
-        boxShadow: isDark ? "none" : "0 1px 3px rgba(0,0,0,0.04)",
+        boxShadow: "var(--shadow-1)",
       }}
     >
-      <div style={{ fontSize: 12, color: isDark ? "#64748b" : "#94a3b8", marginBottom: 6 }}>
+      <div style={{ fontSize: 12, color: "var(--fg-3)", marginBottom: 6 }}>
         {label}
       </div>
       <div style={{ fontSize: big ? 24 : 20, fontWeight: 800, color: accent }}>{value}</div>

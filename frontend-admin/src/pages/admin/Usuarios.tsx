@@ -10,6 +10,7 @@ import AdminLayout from "../../components/AdminLayout";
 import { useStyles } from "../../components/sharedStyles";
 import Modal from "../../components/Modal";
 import { useLang, LOCALE } from "../../lib/i18n";
+import { Switch } from "../../components/ui";
 import { IconEye, IconEyeOff, IconAlert, IconUser } from "../../lib/icons";
 
 type Mode = "crear" | "editar" | "password" | null;
@@ -30,35 +31,35 @@ const ROL_COLOR: Record<string, { bg: string; text: string; border: string }> =
   {
     // Roles actuales (admin=SuperAdmin, manager=Admin, staff=Staff)
     admin: {
-      bg: "rgba(59,130,246,0.12)",
-      text: "#60a5fa",
-      border: "rgba(59,130,246,0.3)",
+      bg: "var(--info-bg)",
+      text: "var(--info)",
+      border: "color-mix(in srgb, var(--info) 30%, transparent)",
     },
     manager: {
-      bg: "rgba(14,165,233,0.12)",
-      text: "#38bdf8",
-      border: "rgba(14,165,233,0.3)",
+      bg: "color-mix(in srgb, var(--teal) 14%, transparent)",
+      text: "var(--teal)",
+      border: "color-mix(in srgb, var(--teal) 30%, transparent)",
     },
     staff: {
-      bg: "rgba(139,92,246,0.12)",
-      text: "#a78bfa",
-      border: "rgba(139,92,246,0.3)",
+      bg: "color-mix(in srgb, var(--violet) 14%, transparent)",
+      text: "var(--violet)",
+      border: "color-mix(in srgb, var(--violet) 30%, transparent)",
     },
     // Roles legacy (por si quedan usuarios/tokens sin migrar)
     superadmin: {
-      bg: "rgba(59,130,246,0.12)",
-      text: "#60a5fa",
-      border: "rgba(59,130,246,0.3)",
+      bg: "var(--info-bg)",
+      text: "var(--info)",
+      border: "color-mix(in srgb, var(--info) 30%, transparent)",
     },
     editor: {
-      bg: "rgba(139,92,246,0.12)",
-      text: "#a78bfa",
-      border: "rgba(139,92,246,0.3)",
+      bg: "color-mix(in srgb, var(--violet) 14%, transparent)",
+      text: "var(--violet)",
+      border: "color-mix(in srgb, var(--violet) 30%, transparent)",
     },
     visor: {
-      bg: "rgba(100,116,139,0.12)",
-      text: "#94a3b8",
-      border: "rgba(100,116,139,0.3)",
+      bg: "var(--surface-3)",
+      text: "var(--fg-3)",
+      border: "var(--line-strong)",
     },
   };
 
@@ -288,7 +289,7 @@ export default function Usuarios() {
             <RolBadge rol={r.rol} />
             <div
               style={{
-                color: "#64748b",
+                color: "var(--fg-3)",
                 fontSize: 11,
                 marginTop: 8,
                 lineHeight: 1.5,
@@ -311,8 +312,8 @@ export default function Usuarios() {
                   key={p}
                   style={{
                     fontSize: 10,
-                    background: "rgba(0,0,0,0.04)",
-                    color: "#64748b",
+                    background: "var(--surface-2)",
+                    color: "var(--fg-3)",
                     padding: "2px 7px",
                     borderRadius: 6,
                   }}
@@ -334,14 +335,14 @@ export default function Usuarios() {
           marginBottom: 14,
         }}
       >
-        <span style={{ color: "#475569", fontSize: 12 }}>
+        <span style={{ color: "var(--fg-2)", fontSize: 12 }}>
           {t("usrCount", { n: usuarios.length })}
         </span>
         <button
           style={S.btnPrimary}
           onClick={() => open("crear")}
-          onMouseEnter={(e) => (e.currentTarget.style.background = "#2563eb")}
-          onMouseLeave={(e) => (e.currentTarget.style.background = "#3b82f6")}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--accent-hover)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "var(--accent)")}
         >
           <PlusIcon /> {t("usrNew")}
         </button>
@@ -357,7 +358,7 @@ export default function Usuarios() {
               style={{
                 width: 28,
                 height: 28,
-                border: "2px solid #3b82f6",
+                border: "2px solid var(--focus)",
                 borderTopColor: "transparent",
                 borderRadius: "50%",
                 animation: "spin 0.7s linear infinite",
@@ -378,7 +379,7 @@ export default function Usuarios() {
                     t("usrColCreated"),
                     t("colActions"),
                   ].map((h) => (
-                    <th key={h} style={S.th}>
+                    <th key={h} scope="col" style={S.th}>
                       {h}
                     </th>
                   ))}
@@ -391,7 +392,7 @@ export default function Usuarios() {
                     style={S.tr}
                     onMouseEnter={(e) =>
                       (e.currentTarget.style.background =
-                        "rgba(0,0,0,0.02)")
+                        "var(--surface-2)")
                     }
                     onMouseLeave={(e) =>
                       (e.currentTarget.style.background = "transparent")
@@ -411,12 +412,12 @@ export default function Usuarios() {
                             height: 30,
                             borderRadius: "50%",
                             background:
-                              ROL_COLOR[u.rol]?.bg || "rgba(59,130,246,0.12)",
-                            border: `1.5px solid ${ROL_COLOR[u.rol]?.border || "rgba(59,130,246,0.3)"}`,
+                              ROL_COLOR[u.rol]?.bg || "var(--info-bg)",
+                            border: `1.5px solid ${ROL_COLOR[u.rol]?.border || "color-mix(in srgb, var(--info) 30%, transparent)"}`,
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            color: ROL_COLOR[u.rol]?.text || "#60a5fa",
+                            color: ROL_COLOR[u.rol]?.text || "var(--info)",
                             fontWeight: 700,
                             fontSize: 12,
                             flexShrink: 0,
@@ -424,16 +425,16 @@ export default function Usuarios() {
                         >
                           {u.username[0].toUpperCase()}
                         </div>
-                        <span style={{ color: "#1e293b", fontWeight: 500 }}>
+                        <span style={{ color: "var(--fg)", fontWeight: 500 }}>
                           {u.username}
                         </span>
                         {u.id === me?.id && (
                           <span
                             style={{
                               fontSize: 10,
-                              background: "rgba(16,185,129,0.1)",
-                              color: "#059669",
-                              border: "1px solid rgba(16,185,129,0.2)",
+                              background: "var(--ok-bg)",
+                              color: "var(--ok)",
+                              border: "1px solid color-mix(in srgb, var(--ok) 25%, transparent)",
                               padding: "1px 7px",
                               borderRadius: 10,
                             }}
@@ -445,21 +446,21 @@ export default function Usuarios() {
                     </td>
                     <td style={S.tdMuted}>
                       {u.nombre || (
-                        <span style={{ fontStyle: "italic", color: "#94a3b8" }}>
+                        <span style={{ fontStyle: "italic", color: "var(--fg-3)" }}>
                           —
                         </span>
                       )}
                     </td>
                     <td style={S.tdMuted}>
                       {(u as any).email ? (
-                        <span style={{ color: "#60a5fa", fontSize: 12 }}>
+                        <span style={{ color: "var(--info)", fontSize: 12 }}>
                           {(u as any).email}
                         </span>
                       ) : (
                         <span
                           style={{
                             fontStyle: "italic",
-                            color: "#94a3b8",
+                            color: "var(--fg-3)",
                             fontSize: 12,
                           }}
                         >
@@ -494,7 +495,7 @@ export default function Usuarios() {
                             width: 5,
                             height: 5,
                             borderRadius: "50%",
-                            background: u.activo ? "#10b981" : "#ef4444",
+                            background: u.activo ? "var(--ok)" : "var(--err)",
                           }}
                         />
                         {u.activo ? t("statusActive") : t("statusInactive")}
@@ -514,7 +515,7 @@ export default function Usuarios() {
                               style={{
                                 background: "none",
                                 border: "none",
-                                color: "#60a5fa",
+                                color: "var(--info)",
                                 fontSize: 13,
                                 cursor: "pointer",
                                 padding: 0,
@@ -527,7 +528,7 @@ export default function Usuarios() {
                               style={{
                                 background: "none",
                                 border: "none",
-                                color: "#a78bfa",
+                                color: "var(--violet)",
                                 fontSize: 13,
                                 cursor: "pointer",
                                 padding: 0,
@@ -542,7 +543,7 @@ export default function Usuarios() {
                             )}
                           </>
                         ) : (
-                          <span style={{ color: "#94a3b8", fontSize: 13 }}>—</span>
+                          <span style={{ color: "var(--fg-3)", fontSize: 13 }}>—</span>
                         )}
                       </div>
                     </td>
@@ -627,7 +628,7 @@ export default function Usuarios() {
                         {t("colEmail")}
                         <span
                           style={{
-                            color: "#94a3b8",
+                            color: "var(--fg-3)",
                             fontWeight: 400,
                             textTransform: "none",
                             letterSpacing: 0,
@@ -714,7 +715,7 @@ export default function Usuarios() {
                         {t("colEmail")}
                         <span
                           style={{
-                            color: "#94a3b8",
+                            color: "var(--fg-3)",
                             fontWeight: 400,
                             textTransform: "none",
                             letterSpacing: 0,
@@ -735,46 +736,12 @@ export default function Usuarios() {
                         }
                       />
                     </div>
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 10 }}
-                    >
-                      <div
-                        onClick={() => {
-                          if (selected?.id !== me?.id)
-                            setForm({ ...form, activo: !form.activo });
-                        }}
-                        style={{
-                          width: 38,
-                          height: 22,
-                          borderRadius: 11,
-                          background: form.activo
-                            ? "#3b82f6"
-                            : "rgba(0,0,0,0.1)",
-                          position: "relative",
-                          cursor:
-                            selected?.id === me?.id ? "not-allowed" : "pointer",
-                          transition: "background 0.2s",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: 3,
-                            left: form.activo ? 18 : 3,
-                            width: 16,
-                            height: 16,
-                            borderRadius: "50%",
-                            background: "#fff",
-                            transition: "left 0.2s",
-                            boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                          }}
-                        />
-                      </div>
-                      <span style={{ color: "#64748b", fontSize: 13 }}>
-                        {t("usrActiveToggle")}
-                      </span>
-                    </div>
+                    <Switch
+                      checked={!!form.activo}
+                      onChange={(v) => setForm({ ...form, activo: v })}
+                      label={t("usrActiveToggle")}
+                      disabled={selected?.id === me?.id}
+                    />
                   </>
                 )}
 
@@ -794,15 +761,21 @@ export default function Usuarios() {
                       <button
                         type="button"
                         onClick={() => setShowPwd(!showPwd)}
+                        aria-label={t("showPwd")}
+                        aria-pressed={showPwd}
                         style={{
                           position: "absolute",
-                          right: 10,
+                          right: 0,
                           top: "50%",
                           transform: "translateY(-50%)",
+                          width: 44,
+                          height: 44,
+                          display: "grid",
+                          placeItems: "center",
                           background: "none",
                           border: "none",
                           cursor: "pointer",
-                          color: "#475569",
+                          color: "var(--fg-2)",
                           fontSize: 14,
                         }}
                       >
@@ -813,12 +786,12 @@ export default function Usuarios() {
                 )}
 
                 {error && (
-                  <div
+                  <div role="alert"
                     style={{
                       fontSize: 12,
-                      color: "#f87171",
-                      background: "rgba(239,68,68,0.08)",
-                      border: "1px solid rgba(239,68,68,0.2)",
+                      color: "var(--err)",
+                      background: "var(--err-bg)",
+                      border: "1px solid color-mix(in srgb, var(--err) 25%, transparent)",
                       borderRadius: 8,
                       padding: "8px 12px",
                       display: "flex",
@@ -837,11 +810,11 @@ export default function Usuarios() {
                   style={{ ...S.btnGhost, flex: 1, justifyContent: "center" }}
                   onMouseEnter={(e) =>
                     (e.currentTarget.style.background =
-                      "rgba(0,0,0,0.08)")
+                      "var(--surface-2)")
                   }
                   onMouseLeave={(e) =>
                     (e.currentTarget.style.background =
-                      "rgba(0,0,0,0.04)")
+                      "var(--surface)")
                   }
                 >
                   {t("actionCancel")}
@@ -858,11 +831,11 @@ export default function Usuarios() {
                   onMouseEnter={(e) => {
                     if (!saving)
                       (e.currentTarget as HTMLButtonElement).style.background =
-                        "#2563eb";
+                        "var(--accent-hover)";
                   }}
                   onMouseLeave={(e) =>
                     ((e.currentTarget as HTMLButtonElement).style.background =
-                      "#3b82f6")
+                      "var(--accent)")
                   }
                 >
                   {saving

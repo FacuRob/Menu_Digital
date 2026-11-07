@@ -1,5 +1,4 @@
 import { useEffect, useRef, type ComponentType, type ReactNode } from "react";
-import { useTheme } from "../context/ThemeContext";
 
 // Piezas compartidas por las ventanas con secciones ("Configuración del menú"
 // y "Mi cuenta"), para que las dos tengan exactamente el mismo diseño.
@@ -35,7 +34,6 @@ export function SideNav<T extends string>({
   isMobile: boolean;
   dirtyTitle?: string;
 }) {
-  const { isDark } = useTheme();
 
   // En el celular la fila se desliza: mantener visible la sección elegida.
   const filaRef = useRef<HTMLElement>(null);
@@ -51,10 +49,10 @@ export function SideNav<T extends string>({
     }
   }, [value, isMobile]);
 
-  const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
-  const activeBg = isDark ? "#2a2f3d" : "#ffffff";
-  const itemColor = isDark ? "#94a3b8" : "#475569";
-  const hoverBg = isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)";
+  const textPrimary = "var(--fg)";
+  const activeBg = "var(--surface)";
+  const itemColor = "var(--fg-2)";
+  const hoverBg = "var(--surface-2)";
 
   const renderItem = (it: SideNavItem<T>) => {
     const activa = it.id === value;
@@ -87,7 +85,7 @@ export function SideNav<T extends string>({
           fontWeight: activa ? 650 : 500,
           color: activa ? textPrimary : itemColor,
           background: activa ? activeBg : "transparent",
-          boxShadow: activa ? "0 1px 3px rgba(0,0,0,0.12)" : "none",
+          boxShadow: activa ? "0 1px 3px var(--line-strong)" : "none",
           transition: "background 0.15s, color 0.15s",
         }}
       >
@@ -100,7 +98,7 @@ export function SideNav<T extends string>({
             borderRadius: 7,
             flexShrink: 0,
             color: activa ? it.accent : itemColor,
-            background: activa ? `${it.accent}1f` : "transparent",
+            background: activa ? `color-mix(in srgb, ${it.accent} 12%, transparent)` : "transparent",
             transition: "background 0.15s, color 0.15s",
           }}
         >
@@ -114,7 +112,7 @@ export function SideNav<T extends string>({
               width: 7,
               height: 7,
               borderRadius: "50%",
-              background: "#f59e0b",
+              background: "var(--warn)",
               flexShrink: 0,
               marginLeft: "auto",
             }}
@@ -127,8 +125,8 @@ export function SideNav<T extends string>({
   const contenedor: React.CSSProperties = {
     padding: 6,
     borderRadius: 14,
-    background: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.04)",
-    border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+    background: "var(--surface-2)",
+    border: `1px solid ${"var(--line)"}`,
   };
 
   if (isMobile) {
@@ -195,12 +193,11 @@ export function SectionCard({
   subtitle?: string;
   children: ReactNode;
 }) {
-  const { isDark } = useTheme();
   return (
     <div
       style={{
-        background: isDark ? "#1a1d27" : "#ffffff",
-        border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+        background: "var(--surface)",
+        border: `1px solid ${"var(--line)"}`,
         borderLeft: `3px solid ${accent}`,
         borderRadius: 12,
         marginBottom: 14,
@@ -208,7 +205,7 @@ export function SectionCard({
       }}
     >
       <div style={{ padding: "15px 18px 0" }}>
-        <h3 style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: isDark ? "#f1f5f9" : "#1e293b" }}>
+        <h3 style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: "var(--fg)" }}>
           {title}
         </h3>
         {subtitle && (
@@ -216,7 +213,7 @@ export function SectionCard({
             style={{
               margin: "3px 0 0",
               fontSize: 12,
-              color: isDark ? "#64748b" : "#94a3b8",
+              color: "var(--fg-3)",
               lineHeight: 1.5,
             }}
           >

@@ -30,6 +30,8 @@
   /* Bordes */
   --line: rgba(17, 18, 22, 0.09);
   --line-strong: rgba(17, 18, 22, 0.18);
+  /* Borde de campos de formulario: 3:1 contra el fondo. */
+  --field-border: rgba(17, 18, 22, 0.42);
 
   /* Marca */
   --accent: #ff5b24;
@@ -89,6 +91,7 @@
 
   --line: rgba(239, 237, 230, 0.09);
   --line-strong: rgba(239, 237, 230, 0.17);
+  --field-border: rgba(239, 237, 230, 0.4);
 
   --accent: #ff6a38;
   --accent-hover: #ff8559;
@@ -136,6 +139,7 @@
   --color-fg-inv: var(--fg-inv);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
+  --color-field-border: var(--field-border);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-on-accent: var(--on-accent);

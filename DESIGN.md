@@ -284,7 +284,15 @@ Pedidos, Chats, Categorías y Productos, junto con Ticket, Variantes y el resalt
 - **Chats:** conserva los colores de WhatsApp (fondo y burbujas), citados para que se reconozca la app.
 - **Celular:** Categorías y Productos arrancan en vista "Tarjetas" si el usuario no eligió otra.
 
-## Pendiente (fases 5–6, ver `docs/auditoria-panel-admin.md`)
+## Configuración y administración (fase 5)
 
-- Configuración, Mi cuenta, Usuarios, Negocios, QR, WhatsApp, Suscripción y Plataforma, que todavía tienen colores propios.
-- Pantallas siempre oscuras: Onboarding, CambiarPassword y ResetPassword.
+Configuración, Mi cuenta, Usuarios, Negocios, QR, WhatsApp, Suscripción y Plataforma ya usan los tokens. No se tocaron a propósito:
+- la **paleta del menú público** (`color_primario` y las opciones de color de Configuración), porque es el color que elige cada local para su carta;
+- el **código QR**, que queda negro sobre una tarjeta blanca en los dos temas para que se escanee bien;
+- los **colores citados de WhatsApp** en la vista previa de avisos.
+
+Los roles de usuario usan `--info` (SuperAdmin), `--teal` (Admin) y `--violet` (Staff). Los campos de formulario tienen el borde `--field-border` (3:1 contra el fondo). El texto sobre ají va en `--on-accent` (tinta); sobre los demás colores plenos, en `--surface`. Los interruptores apagados usan `--fg-3`, que se ve en los dos temas.
+
+## Pendiente (fase 6, ver `docs/auditoria-panel-admin.md`)
+
+- Pantallas siempre oscuras: Onboarding, CambiarPassword y ResetPassword. Se pasan al estilo "Hora pico", como el login.

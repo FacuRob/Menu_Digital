@@ -4,7 +4,6 @@ import Modal from "./Modal";
 import { useStyles } from "./sharedStyles";
 import { SideNav, SectionCard } from "./SeccionesUi";
 import { useAuth } from "../context/AuthContext";
-import { useTheme } from "../context/ThemeContext";
 import { authService } from "../services/api";
 import { useLang } from "../lib/i18n";
 import { useIsMobile } from "../lib/useIsMobile";
@@ -39,7 +38,6 @@ export default function CuentaModal({
   onClose: () => void;
 }) {
   const { t } = useLang();
-  const { isDark } = useTheme();
   const S = useStyles();
   const isMobile = useIsMobile();
   const { user, setSession } = useAuth();
@@ -141,7 +139,7 @@ export default function CuentaModal({
     }
   };
 
-  const muted = isDark ? "#94a3b8" : "#64748b";
+  const muted = "var(--fg-3)";
   const hint: React.CSSProperties = { margin: "6px 0 0", fontSize: 11.5, color: muted, lineHeight: 1.45 };
   const fila: React.CSSProperties = {
     display: "grid",
@@ -160,7 +158,7 @@ export default function CuentaModal({
           background: "none",
           border: "none",
           padding: 0,
-          color: "#3b82f6",
+          color: "var(--info)",
           fontSize: 11.5,
           fontWeight: 600,
           cursor: enviandoLink ? "default" : "pointer",
@@ -198,7 +196,7 @@ export default function CuentaModal({
       <style>{`@keyframes acctTabIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}`}</style>
       <div
         style={{
-          background: isDark ? "#0f1117" : "#f0f2f5",
+          background: "var(--surface-3)",
           padding: isMobile ? 12 : 22,
           display: "flex",
           flexDirection: isMobile ? "column" : "row",
@@ -214,14 +212,14 @@ export default function CuentaModal({
           groups={[
             {
               label: t("acctNavGroup"),
-              color: "#3b82f6",
+              color: "var(--info)",
               items: [
-                { id: "perfil", label: t("acctTabProfile"), accent: "#3b82f6", Icon: IconUser, dirty: perfilCambiado },
-                { id: "email", label: t("acctTabEmail"), accent: "#8b5cf6", Icon: IconMail, dirty: !!(email || actualEmail) },
+                { id: "perfil", label: t("acctTabProfile"), accent: "var(--info)", Icon: IconUser, dirty: perfilCambiado },
+                { id: "email", label: t("acctTabEmail"), accent: "var(--violet)", Icon: IconMail, dirty: !!(email || actualEmail) },
                 {
                   id: "password",
                   label: t("acctTabPassword"),
-                  accent: "#f59e0b",
+                  accent: "var(--warn)",
                   Icon: IconLock,
                   dirty: !!(actual || nueva || confirmar),
                 },
@@ -235,7 +233,7 @@ export default function CuentaModal({
         <div style={{ flex: 1, minWidth: 0, display: "grid" }}>
           <Panel visible={tab === "perfil"}>
             <form onSubmit={guardarPerfil}>
-              <SectionCard accent="#3b82f6" title={t("acctTabProfile")} subtitle={t("acctProfileSub")}>
+              <SectionCard accent="var(--info)" title={t("acctTabProfile")} subtitle={t("acctProfileSub")}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                   <Campo label={t("colName")} S={S}>
                     <input
@@ -266,7 +264,7 @@ export default function CuentaModal({
           <Panel visible={tab === "email"}>
             <form onSubmit={guardarEmail}>
               <SectionCard
-                accent="#8b5cf6"
+                accent="var(--violet)"
                 title={t("acctTabEmail")}
                 subtitle={
                   user?.email ? t("acctEmailSub", { email: user.email }) : t("acctNoEmail")
@@ -302,7 +300,7 @@ export default function CuentaModal({
 
           <Panel visible={tab === "password"}>
             <form onSubmit={guardarPassword}>
-              <SectionCard accent="#f59e0b" title={t("acctTabPassword")} subtitle={t("acctPwSub")}>
+              <SectionCard accent="var(--warn)" title={t("acctTabPassword")} subtitle={t("acctPwSub")}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                   <Campo label={t("acctCurrentPw")} S={S}>
                     <InputPassword S={S} value={actual} onChange={setActual} autoComplete="current-password" />
@@ -335,7 +333,7 @@ export default function CuentaModal({
                         ...hint,
                         margin: 0,
                         flex: 1,
-                        color: "#f87171",
+                        color: "var(--err)",
                         visibility: confirmar && confirmar !== nueva ? "visible" : "hidden",
                       }}
                     >
@@ -371,8 +369,8 @@ export default function CuentaModal({
               gap: 10,
               padding: "12px 16px",
               borderRadius: 12,
-              background: toast.type === "ok" ? "#059669" : "#dc2626",
-              color: "#fff",
+              background: toast.type === "ok" ? "var(--ok)" : "var(--err)",
+              color: "var(--surface)",
               fontSize: 13.5,
               fontWeight: 600,
               boxShadow: "0 12px 34px rgba(0,0,0,0.28)",
@@ -458,7 +456,7 @@ function InputPassword({
           background: "none",
           border: "none",
           cursor: "pointer",
-          color: "#64748b",
+          color: "var(--fg-3)",
           display: "flex",
           padding: 0,
         }}

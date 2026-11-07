@@ -18,10 +18,10 @@ const ESTADO_INFO: Record<
   string,
   { key: string; color: string; bg: string }
 > = {
-  trial: { key: "subStatusTrial", color: "#2563eb", bg: "rgba(37,99,235,0.12)" },
-  activo: { key: "subStatusActive", color: "#059669", bg: "rgba(16,185,129,0.14)" },
-  cancelado: { key: "subStatusCancelled", color: "#d97706", bg: "rgba(217,119,6,0.14)" },
-  vencido: { key: "subStatusExpired", color: "#dc2626", bg: "rgba(239,68,68,0.14)" },
+  trial: { key: "subStatusTrial", color: "var(--info)", bg: "var(--info-bg)" },
+  activo: { key: "subStatusActive", color: "var(--ok)", bg: "var(--ok-bg)" },
+  cancelado: { key: "subStatusCancelled", color: "var(--warn)", bg: "var(--warn-bg)" },
+  vencido: { key: "subStatusExpired", color: "var(--err)", bg: "var(--err-bg)" },
 };
 
 // Perks por plan (claves de traducción; además de los límites del backend).
@@ -49,10 +49,10 @@ export default function Suscripcion() {
   const [ciclo, setCiclo] = useState<CicloFacturacion>("mensual");
   const [redirecting, setRedirecting] = useState<string>("");
 
-  const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
-  const textMuted = isDark ? "#94a3b8" : "#64748b";
-  const cardBg = isDark ? "#13151c" : "#ffffff";
-  const border = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
+  const textPrimary = "var(--fg)";
+  const textMuted = "var(--fg-3)";
+  const cardBg = "var(--surface)";
+  const border = "var(--line)";
   const locale = LOCALE[lang] || "es-AR";
 
   useEffect(() => {
@@ -133,9 +133,9 @@ export default function Suscripcion() {
               padding: "10px 14px",
               borderRadius: 8,
               fontSize: 13,
-              background: "rgba(239,68,68,0.1)",
-              color: "#dc2626",
-              border: "1px solid rgba(239,68,68,0.25)",
+              background: "var(--err-bg)",
+              color: "var(--err)",
+              border: "1px solid color-mix(in srgb, var(--err) 30%, transparent)",
             }}
           >
             <IconAlert size={15} style={{ flexShrink: 0 }} /> {error}
@@ -210,7 +210,7 @@ export default function Suscripcion() {
                     diasRestantes={dias ?? 0}
                     total={estado === "trial" ? data.trial_dias : 30}
                     color={info.color}
-                    track={isDark ? "#0f1117" : "#eef2f7"}
+                    track={"var(--surface-3)"}
                   />
                 </div>
               )}
@@ -229,9 +229,9 @@ export default function Suscripcion() {
                     marginTop: 14,
                     padding: "10px 12px",
                     borderRadius: 8,
-                    background: "rgba(239,68,68,0.1)",
-                    border: "1px solid rgba(239,68,68,0.25)",
-                    color: "#dc2626",
+                    background: "var(--err-bg)",
+                    border: "1px solid color-mix(in srgb, var(--err) 30%, transparent)",
+                    color: "var(--err)",
                     fontSize: 12.5,
                   }}
                 >
@@ -289,11 +289,13 @@ export default function Suscripcion() {
             {data?.vigente ? t("subChangePlan") : t("subChoosePlan")}
           </h3>
           {/* Toggle mensual/anual */}
-          <div style={{ display: "flex", background: isDark ? "#0f1117" : "#eef2f7", borderRadius: 10, padding: 3 }}>
+          <div style={{ display: "flex", background: "var(--surface-2)", borderRadius: 10, padding: 3 }}>
             {(["mensual", "anual"] as CicloFacturacion[]).map((c) => (
               <button
                 key={c}
                 onClick={() => setCiclo(c)}
+                aria-pressed={ciclo === c}
+                className="tap"
                 style={{
                   padding: "6px 16px",
                   borderRadius: 8,
@@ -301,8 +303,8 @@ export default function Suscripcion() {
                   cursor: "pointer",
                   fontSize: 12.5,
                   fontWeight: 600,
-                  background: ciclo === c ? "#3b82f6" : "transparent",
-                  color: ciclo === c ? "#fff" : textMuted,
+                  background: ciclo === c ? "var(--surface-inv)" : "transparent",
+                  color: ciclo === c ? "var(--fg-inv)" : textMuted,
                 }}
               >
                 {c === "mensual" ? t("subMonthly") : t("subAnnual")}
@@ -339,7 +341,7 @@ export default function Suscripcion() {
                 style={{
                   ...S.card,
                   padding: 20,
-                  border: `1.5px solid ${destacado ? "#3b82f6" : border}`,
+                  border: `1.5px solid ${destacado ? "var(--info)" : border}`,
                   position: "relative",
                   display: "flex",
                   flexDirection: "column",
@@ -353,8 +355,8 @@ export default function Suscripcion() {
                       left: 16,
                       fontSize: 10.5,
                       fontWeight: 700,
-                      color: "#fff",
-                      background: "#3b82f6",
+                      color: "var(--on-accent)",
+                      background: "var(--accent)",
                       padding: "2px 10px",
                       borderRadius: 999,
                     }}
@@ -374,7 +376,7 @@ export default function Suscripcion() {
                   </span>
                 </div>
                 {ciclo === "anual" && p.precio_mensual > 0 && (
-                  <div style={{ fontSize: 11.5, color: "#059669" }}>
+                  <div style={{ fontSize: 11.5, color: "var(--ok)" }}>
                     {t("subEquiv", { v: money(p.precio_anual / 12) })}
                   </div>
                 )}
@@ -382,7 +384,7 @@ export default function Suscripcion() {
                 <ul style={{ listStyle: "none", padding: 0, margin: "14px 0 18px", display: "grid", gap: 8, flex: 1 }}>
                   {[bizFeature, prodFeature, ...(PERK_KEYS[p.code] || []).map((k) => t(k))].map((f, i) => (
                     <li key={i} style={{ display: "flex", gap: 8, fontSize: 12.5, color: textMuted }}>
-                      <span style={{ color: "#10b981", fontWeight: 800 }}>✓</span>
+                      <span style={{ color: "var(--ok)", fontWeight: 800 }}>✓</span>
                       {f}
                     </li>
                   ))}
@@ -529,13 +531,13 @@ function MiniCalendario({
                 padding: "5px 0",
                 borderRadius: 7,
                 fontWeight: fin_ || hoy_ ? 700 : 400,
-                color: fin_ ? "#fff" : hoy_ ? accent : textPrimary,
+                color: fin_ ? "var(--surface)" : hoy_ ? accent : textPrimary,
                 background: fin_
                   ? accent
                   : hoy_
                     ? isDark
-                      ? "rgba(255,255,255,0.06)"
-                      : "rgba(0,0,0,0.05)"
+                      ? "var(--line)"
+                      : "var(--line)"
                     : "transparent",
                 border: hoy_ && !fin_ ? `1px solid ${accent}` : "1px solid transparent",
               }}

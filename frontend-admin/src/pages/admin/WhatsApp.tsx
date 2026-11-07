@@ -25,26 +25,22 @@ const EMOJI: Record<EstadoAviso, string> = {
 };
 
 const ESTADO_MSG: Record<MensajeWhatsapp["estado"], { color: string; check: string }> = {
-  enviado: { color: "#64748b", check: "✓" },
-  entregado: { color: "#64748b", check: "✓✓" },
-  leido: { color: "#0ea5e9", check: "✓✓" },
-  fallido: { color: "#ef4444", check: "!" },
+  enviado: { color: "var(--fg-3)", check: "✓" },
+  entregado: { color: "var(--fg-3)", check: "✓✓" },
+  leido: { color: "var(--teal)", check: "✓✓" },
+  fallido: { color: "var(--err)", check: "!" },
 };
 
 function usePalette() {
   const { isDark } = useTheme();
   return {
     isDark,
-    card: isDark
-      ? "bg-[#151924] border border-white/[0.07]"
-      : "bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(15,23,42,0.04)]",
-    title: isDark ? "text-slate-100" : "text-slate-900",
-    text: isDark ? "text-slate-300" : "text-slate-600",
-    muted: isDark ? "text-slate-500" : "text-slate-400",
-    soft: isDark ? "bg-white/[0.04]" : "bg-slate-50",
-    input: isDark
-      ? "bg-white/[0.04] border-white/10 text-slate-100 placeholder:text-slate-500"
-      : "bg-white border-slate-200 text-slate-900 placeholder:text-slate-400",
+    card: "bg-surface border border-line shadow-[var(--shadow-1)]",
+    title: "text-fg",
+    text: "text-fg-2",
+    muted: "text-fg-3",
+    soft: "bg-surface-2",
+    input: "bg-surface border-field-border text-fg placeholder:text-fg-3",
   };
 }
 
@@ -69,13 +65,13 @@ function Toggle({
       disabled={disabled}
       onClick={() => onChange(!on)}
       className={`relative block h-6 w-11 shrink-0 cursor-pointer rounded-full p-0 transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-        on ? "bg-emerald-500" : "bg-slate-500/35 ring-1 ring-inset ring-slate-400/40"
+        on ? "bg-ok" : "bg-fg-3"
       }`}
     >
       {/* left-0 explícito: sin él, el botón centra la bolita y apagado parece encendido. */}
       <span
         className={`absolute left-0 top-0.5 h-5 w-5 rounded-full shadow transition-transform ${
-          on ? "bg-white" : "bg-slate-200"
+          "bg-surface"
         }`}
         style={{ transform: on ? "translateX(22px)" : "translateX(2px)" }}
       />
@@ -191,7 +187,7 @@ export default function WhatsApp() {
         </div>
 
         {error && (
-          <div className="rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-500">{error}</div>
+          <div role="alert" className="rounded-xl border border-err/25 bg-err-bg px-4 py-3 text-sm text-err">{error}</div>
         )}
 
         {!data ? (
@@ -206,13 +202,13 @@ export default function WhatsApp() {
             <div
               className={`dash-in flex items-start gap-3 rounded-2xl border px-4 py-3.5 ${
                 data.conectado
-                  ? "border-emerald-500/25 bg-emerald-500/[0.07]"
-                  : "border-amber-500/30 bg-amber-500/[0.08]"
+                  ? "border-ok/25 bg-ok-bg"
+                  : "border-warn/30 bg-warn-bg"
               }`}
             >
               <span
                 className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full ${
-                  data.conectado ? "bg-emerald-500/15 text-emerald-500" : "bg-amber-500/15 text-amber-500"
+                  data.conectado ? "bg-ok-bg text-ok" : "bg-warn-bg text-warn"
                 }`}
               >
                 {data.conectado ? <IconCheck size={16} /> : <IconInfo size={16} />}
@@ -229,7 +225,7 @@ export default function WhatsApp() {
 
             {/* Interruptor general */}
             <div className={`dash-in flex items-center gap-4 rounded-2xl p-5 ${P.card}`} style={{ animationDelay: "60ms" }}>
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#25d366]/15 text-2xl">💬</span>
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-ok-bg text-2xl">💬</span>
               <div className="min-w-0 flex-1">
                 <div className={`font-semibold ${P.title}`}>{t("waMasterTitle")}</div>
                 <div className={`text-sm ${P.text}`}>{t("waMasterDesc")}</div>
@@ -277,7 +273,7 @@ export default function WhatsApp() {
                           }`}
                         >
                           {ejemplo(a.texto)}
-                          <span className="ml-2 inline-block translate-y-1 text-[10px] opacity-60">
+                          <span className="ml-2 inline-block translate-y-1 text-[11px] opacity-75">
                             {hora} <span className="text-sky-400">✓✓</span>
                           </span>
                         </div>
@@ -295,7 +291,7 @@ export default function WhatsApp() {
             {ia && (
               <section className={`rounded-2xl p-5 ${P.card}`}>
                 <div className="flex items-center gap-4">
-                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-violet-500/15 text-2xl">🤖</span>
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[color-mix(in_srgb,var(--violet)_15%,transparent)] text-2xl">🤖</span>
                   <div className="min-w-0 flex-1">
                     <div className={`font-semibold ${P.title}`}>{t("iaTitle")}</div>
                     <div className={`text-sm ${P.text}`}>{t("iaDesc")}</div>
@@ -308,7 +304,7 @@ export default function WhatsApp() {
                   />
                 </div>
                 {!ia.configurada && (
-                  <p className="mt-3 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2 text-sm text-amber-600">
+                  <p className="mt-3 flex items-center gap-2 rounded-xl border border-warn/30 bg-warn-bg px-3 py-2 text-sm text-warn">
                     <IconInfo size={14} /> {t("iaNotConfigured")}
                   </p>
                 )}
@@ -328,19 +324,20 @@ export default function WhatsApp() {
                   maxLength={2000}
                   rows={4}
                   placeholder={t("iaInstrPh")}
-                  className={`mt-2 w-full resize-y rounded-xl border px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-violet-500/30 ${P.input}`}
+                  aria-label={t("iaInstrPh")}
+                  className={`mt-2 w-full resize-y rounded-xl border px-3.5 py-2.5 text-sm ${P.input}`}
                 />
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                   <span className={`text-xs ${P.muted}`}>{instrucciones.length}/2000</span>
                   <div className="flex items-center gap-3">
                     {iaMsg && (
-                      <span className={`text-sm ${iaMsg.ok ? "text-emerald-500" : "text-red-500"}`}>{iaMsg.text}</span>
+                      <span role={iaMsg.ok ? "status" : "alert"} className={`text-sm ${iaMsg.ok ? "text-ok" : "text-err"}`}>{iaMsg.text}</span>
                     )}
                     <button
                       type="button"
                       disabled={guardandoIa || instrucciones === (ia.instrucciones || "")}
                       onClick={() => guardarIa({ instrucciones })}
-                      className="cursor-pointer rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+                      className="cursor-pointer rounded-xl bg-accent px-4 py-2 text-sm font-bold text-on-accent hover:bg-accent-hover transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
                     >
                       {t("iaSave")}
                     </button>
@@ -362,18 +359,19 @@ export default function WhatsApp() {
                     onChange={(e) => setTel(e.target.value)}
                     placeholder={t("waTestPh")}
                     required
-                    className={`min-w-0 flex-1 rounded-xl border px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500/30 ${P.input}`}
+                    aria-label={t("waTestPh")}
+                    className={`min-w-0 flex-1 rounded-xl border px-3.5 py-2.5 text-sm ${P.input}`}
                   />
                   <button
                     type="submit"
                     disabled={enviando || !data.conectado}
-                    className="cursor-pointer rounded-xl bg-[#25d366] px-4 py-2.5 text-sm font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+                    className="cursor-pointer rounded-xl bg-ok px-4 py-2.5 text-sm font-bold text-surface transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
                   >
                     {enviando ? "…" : t("waTestBtn")}
                   </button>
                 </div>
                 {testMsg && (
-                  <p className={`mt-3 text-sm ${testMsg.ok ? "text-emerald-500" : "text-red-500"}`}>{testMsg.text}</p>
+                  <p role={testMsg.ok ? "status" : "alert"} className={`mt-3 text-sm ${testMsg.ok ? "text-ok" : "text-err"}`}>{testMsg.text}</p>
                 )}
               </form>
 
@@ -407,7 +405,7 @@ export default function WhatsApp() {
                           </div>
                           <span
                             className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
-                            style={{ background: `${st.color}1a`, color: st.color }}
+                            style={{ background: `color-mix(in srgb, ${st.color} 10%, transparent)`, color: st.color }}
                           >
                             {st.check} {t(`waSt_${m.estado}`)}
                           </span>

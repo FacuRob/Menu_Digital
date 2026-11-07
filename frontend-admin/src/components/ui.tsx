@@ -74,19 +74,22 @@ export function Switch({
   onChange,
   label,
   color = "var(--ok)",
+  disabled = false,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label: ReactNode;
   color?: string;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
-      className="inline-flex min-h-11 cursor-pointer items-center gap-2.5 rounded-[var(--r-sm)] text-left text-sm text-fg-2"
+      className="inline-flex min-h-11 cursor-pointer items-center gap-2.5 rounded-[var(--r-sm)] text-left text-sm text-fg-2 disabled:cursor-not-allowed disabled:opacity-60"
     >
       <span
         aria-hidden

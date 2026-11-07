@@ -74,7 +74,7 @@ export const lightS = {
     padding: "9px 12px",
     borderRadius: "var(--r-sm)",
     background: "var(--surface)",
-    border: "1px solid var(--line-strong)",
+    border: "1px solid var(--field-border)",
     color: "var(--fg)",
     fontSize: 14,
     boxSizing: "border-box" as const,

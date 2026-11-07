@@ -3,7 +3,6 @@ import { useDialogos } from "../../lib/dialogos";
 import AdminLayout from "../../components/AdminLayout";
 import { useStyles } from "../../components/sharedStyles";
 import Modal from "../../components/Modal";
-import { useTheme } from "../../context/ThemeContext";
 import { useNegocio } from "../../context/NegocioContext";
 import type { ComponentType } from "react";
 import { useLang } from "../../lib/i18n";
@@ -33,7 +32,6 @@ const RUBROS: {
 
 export default function Negocios() {
   const s = useStyles();
-  const { isDark } = useTheme();
   const { t } = useLang();
   const { confirmar, avisar } = useDialogos();
   const { negocios, refresh, negocioId, setNegocioId } = useNegocio();
@@ -47,8 +45,8 @@ export default function Negocios() {
   const [saveError, setSaveError] = useState("");
   const [copiado, setCopiado] = useState<number | null>(null);
 
-  const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
-  const textMuted = isDark ? "#64748b" : "#94a3b8";
+  const textPrimary = "var(--fg)";
+  const textMuted = "var(--fg-3)";
 
   useEffect(() => {
     (async () => {
@@ -157,9 +155,9 @@ export default function Negocios() {
                 padding: "3px 9px",
                 borderRadius: 99,
                 background: alLimite
-                  ? "rgba(239,68,68,0.12)"
-                  : "rgba(59,130,246,0.1)",
-                color: alLimite ? "#dc2626" : "#3b82f6",
+                  ? "var(--err-bg)"
+                  : "var(--info-bg)",
+                color: alLimite ? "var(--err)" : "var(--info)",
               }}
               title={t("bizPlanTitleAttr", {
                 plan: plan?.tipo_plan || "",
@@ -214,7 +212,7 @@ export default function Negocios() {
                   ...s.card,
                   padding: 16,
                   border: activo
-                    ? "2px solid #3b82f6"
+                    ? "2px solid var(--focus)"
                     : (s.card.border as string),
                 }}
               >
@@ -224,11 +222,11 @@ export default function Negocios() {
                       width: 34,
                       height: 34,
                       borderRadius: 9,
-                      background: "linear-gradient(135deg,#3b82f6,#6366f1)",
+                      background: "var(--accent)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      color: "#fff",
+                      color: "var(--on-accent)",
                       fontWeight: 700,
                       fontSize: 15,
                     }}
@@ -259,8 +257,8 @@ export default function Negocios() {
                     marginTop: 12,
                     padding: "7px 10px",
                     borderRadius: 8,
-                    border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
-                    background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+                    border: `1px solid ${"var(--line)"}`,
+                    background: "var(--surface-2)",
                     cursor: "pointer",
                     textAlign: "left",
                     fontSize: 12,
@@ -269,7 +267,7 @@ export default function Negocios() {
                   <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: textPrimary }}>
                     {linkDe(n).replace(/^https?:\/\//, "")}
                   </span>
-                  <span style={{ flexShrink: 0, fontWeight: 600, color: copiado === n.id ? "#10b981" : "#3b82f6" }}>
+                  <span style={{ flexShrink: 0, fontWeight: 600, color: copiado === n.id ? "var(--ok)" : "var(--info)" }}>
                     {copiado === n.id ? t("dashCopied") : t("dashCopyLink")}
                   </span>
                 </button>
@@ -298,7 +296,7 @@ export default function Negocios() {
                   {n.id !== 1 && (
                     <button
                       onClick={() => eliminar(n)}
-                      style={{ ...s.btnGhost, padding: "7px 12px", fontSize: 12.5, color: "#ef4444" }}
+                      style={{ ...s.btnGhost, padding: "7px 12px", fontSize: 12.5, color: "var(--err)" }}
                     >
                       {t("actionDelete")}
                     </button>
@@ -352,12 +350,10 @@ export default function Negocios() {
                         cursor: "pointer",
                         textAlign: "left",
                         background: activo
-                          ? "rgba(59,130,246,0.12)"
-                          : isDark
-                            ? "rgba(255,255,255,0.03)"
-                            : "rgba(0,0,0,0.02)",
-                        border: `1.5px solid ${activo ? "#3b82f6" : (s.card.border as string)}`,
-                        color: activo ? "#3b82f6" : textPrimary,
+                          ? "var(--info-bg)"
+                          : "var(--surface-2)",
+                        border: `1.5px solid ${activo ? "var(--info)" : (s.card.border as string)}`,
+                        color: activo ? "var(--info)" : textPrimary,
                         fontSize: 13,
                         fontWeight: activo ? 600 : 500,
                       }}
@@ -374,9 +370,9 @@ export default function Negocios() {
                     marginTop: 12,
                     padding: "10px 12px",
                     borderRadius: 8,
-                    background: "rgba(239,68,68,0.1)",
-                    border: "1px solid rgba(239,68,68,0.25)",
-                    color: "#dc2626",
+                    background: "var(--err-bg)",
+                    border: "1px solid color-mix(in srgb, var(--err) 30%, transparent)",
+                    color: "var(--err)",
                     fontSize: 12.5,
                     lineHeight: 1.4,
                     display: "flex",

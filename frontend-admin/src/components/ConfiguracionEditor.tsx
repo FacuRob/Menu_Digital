@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ComponentType } from "react";
 import { useStyles } from "./sharedStyles";
-import { useTheme } from "../context/ThemeContext";
 import { useLang } from "../lib/i18n";
 import {
   IconUtensils,
@@ -156,39 +155,39 @@ const GRUPOS: {
 }[] = [
   {
     labelKey: "cfgNavBusiness",
-    color: "#3b82f6",
+    color: "var(--info)",
     items: [
       {
         id: "datos",
         labelKey: "cfgHeading",
-        accent: "#3b82f6",
+        accent: "var(--info)",
         Icon: IconStore,
         campos: ["nombre", "direccion", "telefono", "whatsapp", "email", "descripcion"],
       },
-      { id: "rubro", labelKey: "rubroTitle", accent: "#0d9488", Icon: IconBag, campos: ["tipo_rubro"] },
+      { id: "rubro", labelKey: "rubroTitle", accent: "var(--teal)", Icon: IconBag, campos: ["tipo_rubro"] },
     ],
   },
   {
     labelKey: "cfgNavLook",
-    color: "#8b5cf6",
+    color: "var(--violet)",
     items: [
-      { id: "imagenes", labelKey: "cfgImagesTitle", accent: "#8b5cf6", Icon: IconImage, campos: ["logo_url", "portada_url"] },
-      { id: "color", labelKey: "cfgColorTitle", accent: "#db2777", Icon: IconPalette, campos: ["color_primario"] },
+      { id: "imagenes", labelKey: "cfgImagesTitle", accent: "var(--violet)", Icon: IconImage, campos: ["logo_url", "portada_url"] },
+      { id: "color", labelKey: "cfgColorTitle", accent: "var(--chart-5)", Icon: IconPalette, campos: ["color_primario"] },
     ],
   },
   {
     labelKey: "cfgNavSales",
-    color: "#10b981",
+    color: "var(--ok)",
     items: [
-      { id: "moneda", labelKey: "cfgCurrencyTitle", accent: "#f59e0b", Icon: IconCoin, campos: ["moneda"] },
+      { id: "moneda", labelKey: "cfgCurrencyTitle", accent: "var(--warn)", Icon: IconCoin, campos: ["moneda"] },
       {
         id: "servicio",
         labelKey: "cfgServiceTitle",
-        accent: "#10b981",
+        accent: "var(--ok)",
         Icon: IconTruck,
         campos: ["mesas_activo", "mesas_cantidad", "retiro_activo", "delivery_activo"],
       },
-      { id: "horarios", labelKey: "cfgHours", accent: "#6366f1", Icon: IconClock, campos: ["horarios", "horarios_config"] },
+      { id: "horarios", labelKey: "cfgHours", accent: "var(--info)", Icon: IconClock, campos: ["horarios", "horarios_config"] },
     ],
   },
 ];
@@ -206,7 +205,6 @@ export default function ConfiguracionEditor({
   onSaved?: () => void;
 }) {
   const s = useStyles();
-  const { isDark } = useTheme();
   const { t } = useLang();
   const [form, setForm] = useState<Form>(EMPTY);
   // Snapshot de lo persistido: sirve para detectar cambios (dirty) y para
@@ -224,9 +222,9 @@ export default function ConfiguracionEditor({
   const [seccion, setSeccion] = useState<SeccionId>("datos");
   const isMobile = useIsMobile();
 
-  const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
-  const textMuted = isDark ? "#64748b" : "#94a3b8";
-  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
+  const textPrimary = "var(--fg)";
+  const textMuted = "var(--fg-3)";
+  const cardBorder = "var(--line)";
 
   useEffect(() => {
     (async () => {
@@ -397,7 +395,7 @@ export default function ConfiguracionEditor({
       {/* ── Datos del local (identidad) ── */}
       {seccion === "datos" && (
       <SectionCard
-        accent="#3b82f6"
+        accent="var(--info)"
         title={t("cfgHeading")}
         subtitle={t("cfgSubtitle")}
       >
@@ -430,7 +428,7 @@ export default function ConfiguracionEditor({
       {/* ── Imágenes ── */}
       {seccion === "imagenes" && (
       <SectionCard
-        accent="#8b5cf6"
+        accent="var(--violet)"
         title={t("cfgImagesTitle")}
         subtitle={t("cfgImagesSubtitle")}
       >
@@ -448,7 +446,6 @@ export default function ConfiguracionEditor({
             onPick={(e) => handleUpload(e, "logo_url")}
             onClear={() => set("logo_url")("")}
             shape="square"
-            isDark={isDark}
           />
           <ImageField
             label={t("cfgCover")}
@@ -457,7 +454,6 @@ export default function ConfiguracionEditor({
             onPick={(e) => handleUpload(e, "portada_url")}
             onClear={() => set("portada_url")("")}
             shape="wide"
-            isDark={isDark}
           />
         </div>
       </SectionCard>
@@ -466,7 +462,7 @@ export default function ConfiguracionEditor({
       {/* ── Tipo de rubro (multi-rubro) ── */}
       {seccion === "rubro" && (
       <SectionCard
-        accent="#0d9488"
+        accent="var(--teal)"
         title={t("rubroTitle")}
         subtitle={t("rubroSubtitle")}
       >
@@ -483,6 +479,7 @@ export default function ConfiguracionEditor({
               <button
                 key={r.code}
                 type="button"
+                aria-pressed={activo}
                 onClick={() => setForm((f) => ({ ...f, tipo_rubro: r.code }))}
                 style={{
                   display: "flex",
@@ -492,15 +489,13 @@ export default function ConfiguracionEditor({
                   borderRadius: 10,
                   cursor: "pointer",
                   textAlign: "left",
-                  border: `2px solid ${activo ? "#0d9488" : isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+                  border: `2px solid ${activo ? "var(--teal)" : "var(--line)"}`,
                   background: activo
-                    ? "rgba(13,148,136,0.08)"
-                    : isDark
-                      ? "#0f1117"
-                      : "#f8f9fa",
+                    ? "color-mix(in srgb, var(--teal) 10%, transparent)"
+                    : "var(--surface-2)",
                 }}
               >
-                <span style={{ color: activo ? "#0d9488" : textMuted, display: "flex", flexShrink: 0 }}>
+                <span style={{ color: activo ? "var(--teal)" : textMuted, display: "flex", flexShrink: 0 }}>
                   <r.Icon size={22} />
                 </span>
                 <span style={{ flex: 1 }}>
@@ -531,7 +526,10 @@ export default function ConfiguracionEditor({
             return (
               <button
                 key={p.color}
+                type="button"
                 title={t(p.nameKey)}
+                aria-label={t(p.nameKey)}
+                aria-pressed={activo}
                 onClick={() => set("color_primario")(p.color)}
                 style={{
                   width: 34,
@@ -580,7 +578,7 @@ export default function ConfiguracionEditor({
       {/* ── Moneda del menú ── */}
       {seccion === "moneda" && (
       <SectionCard
-        accent="#f59e0b"
+        accent="var(--warn)"
         title={t("cfgCurrencyTitle")}
         subtitle={t("cfgCurrencySubtitle")}
       >
@@ -601,13 +599,12 @@ export default function ConfiguracionEditor({
       {/* ── Opciones de servicio ── */}
       {seccion === "servicio" && (
       <SectionCard
-        accent="#10b981"
+        accent="var(--ok)"
         title={t("cfgServiceTitle")}
         subtitle={t("cfgServiceSubtitle")}
       >
         <div style={{ display: "grid", gap: 12 }}>
           <Toggle
-            isDark={isDark}
             label={t("cfgTables")}
             desc={t("cfgTablesDesc")}
             value={form.mesas_activo}
@@ -631,14 +628,12 @@ export default function ConfiguracionEditor({
             </div>
           )}
           <Toggle
-            isDark={isDark}
             label={t("cfgPickup")}
             desc={t("cfgPickupDesc")}
             value={form.retiro_activo}
             onChange={(v) => setForm((f) => ({ ...f, retiro_activo: v }))}
           />
           <Toggle
-            isDark={isDark}
             label={t("pedDelivery")}
             desc={t("cfgDeliveryDesc")}
             value={form.delivery_activo}
@@ -651,12 +646,11 @@ export default function ConfiguracionEditor({
       {/* ── Horarios ── */}
       {seccion === "horarios" && (
       <SectionCard
-        accent="#6366f1"
+        accent="var(--info)"
         title={t("cfgHours")}
         subtitle={t("cfgHoursSubtitle")}
       >
         <Toggle
-          isDark={isDark}
           label={t("cfgHoursPerDay")}
           desc={t("cfgHoursPerDayDesc")}
           value={usarPorDia}
@@ -667,7 +661,6 @@ export default function ConfiguracionEditor({
             <HorariosEditor
               value={form.horarios_config}
               onChange={setHorarios}
-              isDark={isDark}
             />
           ) : (
             <div>
@@ -708,7 +701,7 @@ export default function ConfiguracionEditor({
             gap: 14,
             padding: "11px 12px 11px 18px",
             borderRadius: 14,
-            background: isDark ? "#1a1d27" : "#ffffff",
+            background: "var(--surface)",
             border: `1px solid ${cardBorder}`,
             boxShadow: "0 16px 44px rgba(0,0,0,0.30)",
             animation: "cfgBarIn .22s cubic-bezier(.2,.8,.2,1)",
@@ -732,8 +725,8 @@ export default function ConfiguracionEditor({
                 width: 8,
                 height: 8,
                 borderRadius: "50%",
-                background: "#f59e0b",
-                boxShadow: "0 0 0 3px rgba(245,158,11,0.2)",
+                background: "var(--warn)",
+                boxShadow: "0 0 0 3px color-mix(in srgb, var(--warn) 25%, transparent)",
                 flexShrink: 0,
               }}
             />
@@ -774,8 +767,8 @@ export default function ConfiguracionEditor({
             gap: 10,
             padding: "12px 16px",
             borderRadius: 12,
-            background: toast.type === "ok" ? "#059669" : "#dc2626",
-            color: "#fff",
+            background: toast.type === "ok" ? "var(--ok)" : "var(--err)",
+            color: "var(--surface)",
             fontSize: 13.5,
             fontWeight: 600,
             boxShadow: "0 12px 34px rgba(0,0,0,0.28)",
@@ -826,13 +819,11 @@ function Toggle({
   desc,
   value,
   onChange,
-  isDark,
 }: {
   label: string;
   desc: string;
   value: boolean;
   onChange: (v: boolean) => void;
-  isDark: boolean;
 }) {
   return (
     <div
@@ -842,29 +833,31 @@ function Toggle({
         gap: 12,
         padding: "12px 14px",
         borderRadius: 10,
-        border: `1px solid ${isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)"}`,
-        background: isDark ? "#0f1117" : "#f8f9fa",
+        border: `1px solid ${"var(--line)"}`,
+        background: "var(--surface-2)",
       }}
     >
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: isDark ? "#f1f5f9" : "#1e293b" }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--fg)" }}>
           {label}
         </div>
-        <div style={{ fontSize: 12, color: isDark ? "#64748b" : "#94a3b8", marginTop: 2 }}>
+        <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 2 }}>
           {desc}
         </div>
       </div>
       <button
+        type="button"
         onClick={() => onChange(!value)}
         role="switch"
         aria-checked={value}
+        aria-label={typeof label === "string" ? label : undefined}
         style={{
           width: 46,
           height: 26,
           borderRadius: 999,
           border: "none",
           cursor: "pointer",
-          background: value ? "#10b981" : isDark ? "#334155" : "#cbd5e1",
+          background: value ? "var(--ok)" : "var(--fg-3)",
           position: "relative",
           transition: "background .2s",
           flexShrink: 0,
@@ -878,9 +871,8 @@ function Toggle({
             width: 20,
             height: 20,
             borderRadius: "50%",
-            background: "#fff",
+            background: "var(--surface)",
             transition: "left .2s",
-            boxShadow: "0 1px 3px rgba(0,0,0,.3)",
           }}
         />
       </button>
@@ -891,17 +883,15 @@ function Toggle({
 function HorariosEditor({
   value,
   onChange,
-  isDark,
 }: {
   value: HorariosConfig;
   onChange: (v: HorariosConfig) => void;
-  isDark: boolean;
 }) {
   const { t } = useLang();
-  const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
-  const textMuted = isDark ? "#64748b" : "#94a3b8";
-  const border = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
-  const inputBg = isDark ? "#0f1117" : "#fff";
+  const textPrimary = "var(--fg)";
+  const textMuted = "var(--fg-3)";
+  const border = "var(--line)";
+  const inputBg = "var(--surface)";
 
   const update = (i: number, patch: Partial<DiaHorario>) =>
     onChange(value.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
@@ -970,16 +960,18 @@ function HorariosEditor({
                 {dia}
               </span>
               <button
+                type="button"
                 onClick={() => toggleCerrado(i)}
                 role="switch"
                 aria-checked={!d.cerrado}
+                aria-label={`${dia}: ${t("cfgOpen")}`}
                 style={{
                   width: 40,
                   height: 22,
                   borderRadius: 999,
                   border: "none",
                   cursor: "pointer",
-                  background: d.cerrado ? (isDark ? "#334155" : "#cbd5e1") : "#10b981",
+                  background: d.cerrado ? "var(--fg-3)" : "var(--ok)",
                   position: "relative",
                   flexShrink: 0,
                 }}
@@ -992,7 +984,7 @@ function HorariosEditor({
                     width: 16,
                     height: 16,
                     borderRadius: "50%",
-                    background: "#fff",
+                    background: "var(--surface)",
                     transition: "left .2s",
                   }}
                 />
@@ -1003,7 +995,7 @@ function HorariosEditor({
               {!d.cerrado && (
                 <button
                   onClick={() => copiarATodos(i)}
-                  style={{ marginLeft: "auto", fontSize: 11, color: "#3b82f6", background: "none", border: "none", cursor: "pointer" }}
+                  style={{ marginLeft: "auto", fontSize: 11, color: "var(--info)", background: "none", border: "none", cursor: "pointer" }}
                 >
                   {t("cfgCopyAll")}
                 </button>
@@ -1014,11 +1006,11 @@ function HorariosEditor({
               <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
                 {franjas.map((f, j) => (
                   <div key={j} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input type="time" value={f.desde} onChange={(e) => setFranja(i, j, { desde: e.target.value })} style={timeInput} />
+                    <input type="time" aria-label={`${dia} ${j + 1}: ${t("cfgFrom")}`} value={f.desde} onChange={(e) => setFranja(i, j, { desde: e.target.value })} style={timeInput} />
                     <span style={{ color: textMuted, fontSize: 12 }}>{t("cfgTo")}</span>
-                    <input type="time" value={f.hasta} onChange={(e) => setFranja(i, j, { hasta: e.target.value })} style={timeInput} />
+                    <input type="time" aria-label={`${dia} ${j + 1}: ${t("cfgTo")}`} value={f.hasta} onChange={(e) => setFranja(i, j, { hasta: e.target.value })} style={timeInput} />
                     {franjas.length > 1 && (
-                      <button onClick={() => removeFranja(i, j)} title={t("cfgRemoveRange")} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>
+                      <button type="button" onClick={() => removeFranja(i, j)} aria-label={t("cfgRemoveRange")} title={t("cfgRemoveRange")} style={{ background: "none", border: "none", color: "var(--err)", cursor: "pointer", fontSize: 18, lineHeight: 1, minWidth: 44, minHeight: 44 }}>
                         ×
                       </button>
                     )}
@@ -1027,7 +1019,7 @@ function HorariosEditor({
                 {franjas.length < 3 && (
                   <button
                     onClick={() => addFranja(i)}
-                    style={{ fontSize: 12, color: "#3b82f6", background: "none", border: "none", cursor: "pointer", justifySelf: "start", padding: 0 }}
+                    style={{ fontSize: 12, color: "var(--info)", background: "none", border: "none", cursor: "pointer", justifySelf: "start", padding: 0 }}
                   >
                     {t("cfgAddRange")}
                   </button>
@@ -1048,7 +1040,6 @@ function ImageField({
   onPick,
   onClear,
   shape,
-  isDark,
 }: {
   label: string;
   url: string | null;
@@ -1056,10 +1047,9 @@ function ImageField({
   onPick: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onClear: () => void;
   shape: "square" | "wide";
-  isDark: boolean;
 }) {
   const { t } = useLang();
-  const border = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)";
+  const border = "var(--line-strong)";
   const boxH = 120;
   const boxW = shape === "square" ? 120 : "100%";
   return (
@@ -1069,7 +1059,7 @@ function ImageField({
           display: "block",
           fontSize: 11,
           fontWeight: 600,
-          color: isDark ? "#475569" : "#64748b",
+          color: "var(--fg-3)",
           textTransform: "uppercase",
           letterSpacing: "0.06em",
           marginBottom: 8,
@@ -1089,14 +1079,14 @@ function ImageField({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            background: isDark ? "#0f1117" : "#f8f9fa",
+            background: "var(--surface-2)",
             flexShrink: 0,
           }}
         >
           {url ? (
             <img src={url} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           ) : (
-            <span style={{ opacity: 0.4, color: isDark ? "#94a3b8" : "#64748b", display: "flex" }}>
+            <span style={{ opacity: 0.4, color: "var(--fg-3)", display: "flex" }}>
               <IconImage size={24} />
             </span>
           )}
@@ -1112,8 +1102,8 @@ function ImageField({
               cursor: "pointer",
               fontSize: 12.5,
               fontWeight: 500,
-              background: "#3b82f6",
-              color: "#fff",
+              background: "var(--accent)",
+              color: "var(--on-accent)",
             }}
           >
             {uploading ? t("cfgUploading") : url ? t("cfgChange") : t("cfgUploadImg")}
@@ -1125,7 +1115,7 @@ function ImageField({
               style={{
                 background: "none",
                 border: "none",
-                color: "#ef4444",
+                color: "var(--err)",
                 fontSize: 12,
                 cursor: "pointer",
                 padding: 0,
