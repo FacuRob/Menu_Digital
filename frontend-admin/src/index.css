@@ -1,13 +1,80 @@
 @import "tailwindcss";
 
-/* ── Login / registro: panel deslizante ─────────────────────────
+/* ── Login / registro: mundo "Hora pico" (igual que la landing) ──
    Móvil: un formulario por vez, que se desliza de lado.
-   Escritorio (≥ 900px): dos mitades; un panel de marca se desliza
-   sobre el formulario inactivo y destapa el otro. */
+   Escritorio (≥ 900px): dos mitades; un bloque de color se desliza
+   sobre el formulario inactivo y destapa el otro. El bloque es ají
+   en el login y pasa a tinta en el registro mientras viaja. */
 :root {
   --auth-ease: cubic-bezier(0.7, 0, 0.2, 1);
-  --auth-dur: 0.75s;
+  --auth-dur: 0.8s;
 }
+
+.hp {
+  --hueso: #efede6;
+  --aji: #ff5b24;
+  --aji-deep: #e8470f;
+  --tinta: #111216;
+  --cobalto: #3b3bf5;
+  --gris: #5b5d66;
+  --gris-claro: #a9abb4;
+  --error: #8a2306;
+  --error-bg: #fde3d9;
+  --focus: var(--cobalto);
+  font-family: "Archivo Variable", system-ui, sans-serif;
+  background: var(--hueso);
+  color: var(--tinta);
+  -webkit-font-smoothing: antialiased;
+}
+.hp ::selection { background: var(--aji); color: var(--tinta); }
+.hp :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.hp-sobre-aji { --focus: var(--tinta); }
+.hp-sobre-oscuro { --focus: var(--aji); }
+
+.hp-display {
+  font-stretch: 118%;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+}
+.hp-label {
+  font-stretch: 112%;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Acción principal: pastilla ají. */
+.hp-btn,
+.hp-btn-borde {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 3rem;
+  padding: 0 1.6rem;
+  border-radius: 999px;
+  font-stretch: 112%;
+  font-weight: 700;
+  font-size: 1.0625rem;
+  cursor: pointer;
+  transition:
+    background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hp-btn { background: var(--aji); color: var(--tinta); }
+/* Hover más claro: con tinta encima mantiene buen contraste. */
+.hp-btn:hover { background: #ff7a47; }
+.hp-btn:active { transform: scale(0.97); }
+.hp-btn:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }
+.hp-btn.hp-btn-oscuro { background: var(--tinta); color: #fff; }
+.hp-btn.hp-btn-oscuro:hover { background: var(--cobalto); }
+.hp-btn-flecha { transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1); }
+.hp-btn:hover .hp-btn-flecha { transform: translateX(3px); }
+.hp-btn-borde { border: 2px solid var(--tinta); color: var(--tinta); }
+.hp-btn-borde:hover { background: var(--tinta); color: var(--hueso); }
 
 .auth-shell {
   position: relative;
@@ -30,10 +97,16 @@
 @media (min-width: 900px) {
   .auth-shell {
     grid-template-columns: 1fr 1fr;
-    min-height: 640px;
+    min-height: 0;
   }
   .auth-login,
   .auth-signup { grid-column: 1; grid-row: 1; }
+  /* Si un idioma largo o el botón de Google no entran, el panel scrollea
+     por dentro en vez de cortar el título o el botón. */
+  .auth-panel { overflow-y: auto; justify-content: safe center; min-height: 0; }
+  /* Si un idioma largo o el botón de Google no entran, el panel scrollea
+     por dentro en vez de cortar el título o el botón. */
+  .auth-panel { overflow-y: auto; justify-content: safe center; min-height: 0; }
   .auth-login { z-index: 2; }
   .auth-signup { transform: translateX(0); opacity: 0; z-index: 1; }
   .auth-shell.is-signup .auth-login { transform: translateX(100%); opacity: 0; }
@@ -53,32 +126,62 @@
     height: 100%;
     overflow: hidden;
     z-index: 50;
-    transition: transform var(--auth-dur) var(--auth-ease);
+    border-radius: 28px;
+    transition:
+      transform var(--auth-dur) var(--auth-ease),
+      border-radius var(--auth-dur) var(--auth-ease);
   }
   .auth-shell.is-signup .auth-overlay { transform: translateX(-100%); }
 
+  /* El bloque cambia de color mientras viaja, como cambia el turno. */
   .auth-overlay-inner {
     position: relative;
     left: -100%;
     width: 200%;
     height: 100%;
-    transition: transform var(--auth-dur) var(--auth-ease);
+    background: var(--aji);
+    /* Sin mezcla (daría marrón): el color cambia de golpe a mitad del viaje. */
+    transition:
+      transform var(--auth-dur) var(--auth-ease),
+      background-color 0s linear calc(var(--auth-dur) * 0.5);
   }
-  .auth-shell.is-signup .auth-overlay-inner { transform: translateX(50%); }
+  .auth-shell.is-signup .auth-overlay-inner {
+    transform: translateX(50%);
+    background: var(--tinta);
+  }
 
   .auth-overlay-panel {
     position: absolute;
     top: 0;
     width: 50%;
     height: 100%;
-    transition:
-      transform var(--auth-dur) var(--auth-ease),
-      opacity var(--auth-dur) ease;
   }
-  .auth-ov-left { left: 0; transform: translateX(-18%); opacity: 0; }
-  .auth-ov-right { right: 0; transform: translateX(0); opacity: 1; }
-  .auth-shell.is-signup .auth-ov-left { transform: translateX(0); opacity: 1; }
-  .auth-shell.is-signup .auth-ov-right { transform: translateX(18%); opacity: 0; }
+  .auth-ov-left { left: 0; }
+  .auth-ov-right { right: 0; }
+
+  /* Piezas del bloque: salen rápido y entran escalonadas detrás del bloque. */
+  .hp-ov-item {
+    transition:
+      transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 0.4s ease;
+    transition-delay: calc(var(--auth-dur) * 0.45 + var(--i, 0) * 60ms);
+  }
+  .auth-ov-left .hp-ov-item { transform: translateX(-48px); opacity: 0; transition-delay: 0s; }
+  .auth-ov-right .hp-ov-item { transform: none; opacity: 1; }
+  .auth-shell.is-signup .auth-ov-left .hp-ov-item {
+    transform: none;
+    opacity: 1;
+    transition-delay: calc(var(--auth-dur) * 0.45 + var(--i, 0) * 60ms);
+  }
+  .auth-shell.is-signup .auth-ov-right .hp-ov-item { transform: translateX(48px); opacity: 0; transition-delay: 0s; }
+}
+/* Aviso decorativo de "Nuevo pedido": se saca si falta alto. */
+@media (min-width: 900px) and (max-height: 720px) {
+  .hp-ov-toast { display: none !important; }
+}
+/* Aviso decorativo de "Nuevo pedido": se saca si falta alto. */
+@media (min-width: 900px) and (max-height: 720px) {
+  .hp-ov-toast { display: none !important; }
 }
 
 /* Truco del "doble slider": el z-index cambia a mitad de la animación. */
@@ -98,6 +201,31 @@
   .auth-fade-up { animation: auth-fade-up 0.45s cubic-bezier(.2,.7,.2,1) both; }
 }
 
+/* Campos del formulario de acceso */
+.auth-input {
+  width: 100%;
+  min-height: 3rem;
+  padding: 12px 16px 12px 44px;
+  border-radius: 16px;
+  background: var(--hueso, #efede6);
+  border: 2px solid transparent;
+  color: var(--tinta, #111216);
+  font-size: 1rem;
+  outline: none;
+  transition: border-color .2s, background-color .2s;
+}
+.auth-input::placeholder { color: #6b6d76; }
+.auth-input:hover { border-color: rgba(17, 18, 22, 0.15); }
+.auth-input:focus {
+  border-color: var(--cobalto, #3b3bf5);
+  background: #fff;
+}
+/* El borde cobalto ya marca el foco: sin anillo doble. */
+.hp .auth-input:focus-visible { outline: none; }
+/* El borde cobalto ya marca el foco: sin anillo doble. */
+.hp .auth-input:focus-visible { outline: none; }
+
+/* ── Fondos animados (los usa el Dashboard) ─────────────────── */
 @keyframes auth-blob {
   0%, 100% { transform: translate(0, 0) scale(1); }
   33% { transform: translate(30px, -40px) scale(1.08); }
@@ -136,27 +264,9 @@
   -webkit-mask-image: radial-gradient(ellipse at 50% 40%, black 25%, transparent 75%);
 }
 
-/* Campos del formulario de acceso */
-.auth-input {
-  width: 100%;
-  padding: 12px 14px 12px 42px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  color: #e2e8f0;
-  font-size: 14px;
-  outline: none;
-  transition: border-color .2s, box-shadow .2s, background .2s;
-}
-.auth-input::placeholder { color: #475569; }
-.auth-input:focus {
-  border-color: rgba(34, 211, 238, 0.6);
-  background: rgba(34, 211, 238, 0.04);
-  box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.12);
-}
-
 @media (prefers-reduced-motion: reduce) {
   :root { --auth-dur: 0.01s; }
+  .hp-ov-item { transition-duration: 0.01s !important; transition-delay: 0s !important; }
   .auth-blob, .auth-float, .auth-ping, .auth-fade-up { animation: none !important; }
 }
 

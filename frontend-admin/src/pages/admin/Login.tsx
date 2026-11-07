@@ -4,7 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { authService } from "../../services/api";
 import { useLang, LangSelector } from "../../lib/i18n";
-import { BRAND_NAME, BRAND_LOGO } from "../../lib/brand";
+import { BRAND_NAME } from "../../lib/brand";
+import "@fontsource-variable/archivo/wdth.css";
 import { MENU_PREVIEW_BASE } from "../../lib/menuUrl";
 import {
   IconEye,
@@ -66,17 +67,17 @@ const IcStore = () => (
   </svg>
 );
 
-function BrandMark({ size = 40 }: { size?: number }) {
+// Logo de la landing: globo de chat con QR sobre ají.
+function LogoMark({ size = 32 }: { size?: number }) {
   return (
-    <img
-      src={BRAND_LOGO}
-      alt=""
-      width={size}
-      height={size}
-      decoding="async"
-      className="inline-block shrink-0 rounded-xl bg-white shadow-lg shadow-cyan-500/10"
-      style={{ width: size, height: size }}
-    />
+    <svg viewBox="0 0 32 32" width={size} height={size} aria-hidden className="shrink-0">
+      <rect width="32" height="32" rx="9" fill="#ff5b24" />
+      <path d="M7 9.5A2.5 2.5 0 019.5 7h13A2.5 2.5 0 0125 9.5v9a2.5 2.5 0 01-2.5 2.5H13l-4.6 3.8a.6.6 0 01-1-.5V21A2.5 2.5 0 017 18.5z" fill="#111216" />
+      <rect x="10.5" y="10" width="4" height="4" rx="1" fill="#efede6" />
+      <rect x="17.5" y="10" width="4" height="4" rx="1" fill="#efede6" />
+      <rect x="10.5" y="15" width="4" height="3" rx="1" fill="#efede6" />
+      <rect x="18" y="15.5" width="2" height="2" rx=".5" fill="#ff5b24" />
+    </svg>
   );
 }
 
@@ -91,11 +92,9 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-        {label}
-      </span>
+      <span className="hp-label mb-1.5 block text-[var(--gris)]">{label}</span>
       <span className="relative block">
-        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500">
+        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--gris)]">
           {icon}
         </span>
         {children}
@@ -104,13 +103,15 @@ function Field({
   );
 }
 
-// Panel de marca que se desliza sobre el formulario inactivo (escritorio).
+// Panel de color que se desliza sobre el formulario inactivo (escritorio).
+// Cada pieza entra escalonada (--i) cuando su panel queda a la vista.
 function OverlayContent({
   title,
   desc,
   cta,
   onClick,
   perks,
+  oscuro,
   toast,
 }: {
   title: string;
@@ -118,17 +119,31 @@ function OverlayContent({
   cta: string;
   onClick: () => void;
   perks: string[];
+  oscuro?: boolean;
   toast?: { title: string; sub: string };
 }) {
+  const item = (i: number) => ({ ["--i" as string]: i });
   return (
-    <div className="relative flex h-full flex-col justify-center px-12 py-12 text-white">
-      <h2 className="text-4xl font-extrabold leading-tight tracking-tight">{title}</h2>
-      <p className="mt-4 max-w-sm text-[15px] leading-relaxed text-slate-200/85">{desc}</p>
-      <ul className="mt-7 space-y-3">
-        {perks.map((p) => (
-          <li key={p} className="flex items-center gap-3 text-sm text-slate-100">
-            <span className="grid h-6 w-6 place-items-center rounded-full bg-white/15 ring-1 ring-white/25">
-              <IconCheck size={13} />
+    <div
+      className={`relative flex h-full flex-col justify-center px-12 py-8 ${
+        oscuro ? "hp-sobre-oscuro text-[var(--hueso)]" : "hp-sobre-aji text-[var(--tinta)]"
+      }`}
+    >
+      <h2 className="hp-ov-item hp-display text-[clamp(2rem,min(3.6vw,6svh),3.25rem)]" style={item(0)}>
+        {title}
+      </h2>
+      <p className="hp-ov-item mt-4 max-w-sm text-base leading-relaxed" style={item(1)}>
+        {desc}
+      </p>
+      <ul className="mt-6 space-y-2.5">
+        {perks.map((p, i) => (
+          <li key={p} className="hp-ov-item flex items-center gap-3 font-medium" style={item(i + 2)}>
+            <span
+              className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${
+                oscuro ? "bg-[var(--aji)] text-[var(--tinta)]" : "bg-[var(--tinta)] text-[var(--aji)]"
+              }`}
+            >
+              <IconCheck size={14} />
             </span>
             {p}
           </li>
@@ -137,20 +152,26 @@ function OverlayContent({
       <button
         type="button"
         onClick={onClick}
-        className="mt-9 w-fit cursor-pointer rounded-2xl border border-white/40 bg-white/10 px-7 py-3.5 text-sm font-bold text-white backdrop-blur transition-all hover:-translate-y-0.5 hover:bg-white hover:text-slate-900"
+        className={`hp-ov-item hp-btn mt-8 w-fit ${oscuro ? "" : "hp-btn-oscuro"}`}
+        style={item(perks.length + 2)}
       >
-        {cta} →
+        {cta}
+        <span aria-hidden className="hp-btn-flecha">→</span>
       </button>
 
       {toast && (
-        <div className="auth-float absolute bottom-10 right-10 flex w-60 items-center gap-3 rounded-2xl border border-white/15 bg-slate-950/50 p-3 shadow-2xl backdrop-blur-xl">
-          <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-400/20 text-lg">
-            <span className="auth-ping absolute inset-0 rounded-xl bg-emerald-400/30" />
-            🔔
+        <div
+          className="hp-ov-item hp-ov-toast absolute bottom-8 right-8 flex items-center gap-3 rounded-full bg-[var(--tinta)] py-2.5 pl-2.5 pr-5 text-[var(--hueso)]"
+          style={item(perks.length + 3)}
+          aria-hidden
+        >
+          <span className="relative grid h-9 w-9 place-items-center rounded-full bg-[var(--aji)]">
+            <span className="auth-ping absolute inset-0 rounded-full bg-[var(--aji)]" />
+            <span className="relative h-2.5 w-2.5 rounded-full bg-[var(--tinta)]" />
           </span>
           <div className="min-w-0">
-            <div className="truncate text-xs font-semibold">{toast.title}</div>
-            <div className="truncate text-[11px] text-slate-300">{toast.sub}</div>
+            <div className="text-sm font-bold">{toast.title}</div>
+            <div className="text-xs text-[var(--gris-claro)]">{toast.sub}</div>
           </div>
         </div>
       )}
@@ -159,7 +180,7 @@ function OverlayContent({
 }
 
 export default function Login() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   // ?view=signup abre directo el registro (lo usa la landing pública).
   const [view, setView] = useState<View>(() =>
     new URLSearchParams(window.location.search).get("view") === "signup"
@@ -182,8 +203,38 @@ export default function Login() {
   const navigate = useNavigate();
   const googleLoginRef = useRef<HTMLDivElement>(null);
   const googleSignupRef = useRef<HTMLDivElement>(null);
+  // Foco al cambiar de vista (teclado y lectores de pantalla).
+  const loginUserRef = useRef<HTMLInputElement>(null);
+  const signupNegocioRef = useRef<HTMLInputElement>(null);
+  const forgotUserRef = useRef<HTMLInputElement>(null);
+  const forgotLinkRef = useRef<HTMLButtonElement>(null);
+  const sentTitleRef = useRef<HTMLHeadingElement>(null);
+  const vistaAnterior = useRef<View | null>(null);
 
   const isSignup = view === "signup";
+
+  // Al cambiar de vista, el foco va al primer campo de la nueva (no en la
+  // primera carga). En escritorio espera a que el bloque de color la destape.
+  useEffect(() => {
+    const antes = vistaAnterior.current;
+    vistaAnterior.current = view;
+    if (antes === null) return;
+    const destino =
+      view === "signup"
+        ? signupNegocioRef.current
+        : view === "forgot"
+          ? forgotUserRef.current
+          : view === "forgot_sent"
+            ? sentTitleRef.current
+            : antes === "forgot"
+              ? forgotLinkRef.current
+              : loginUserRef.current;
+    const desliza =
+      (view === "signup" || antes === "signup") &&
+      window.matchMedia("(min-width: 900px) and (prefers-reduced-motion: no-preference)").matches;
+    const id = window.setTimeout(() => destino?.focus({ preventScroll: true }), desliza ? 380 : 0);
+    return () => window.clearTimeout(id);
+  }, [view]);
 
   const go = (v: View) => {
     setView(v);
@@ -256,6 +307,11 @@ export default function Login() {
     }
   };
 
+  const onGoogleRef = useRef(onGoogle);
+  useEffect(() => {
+    onGoogleRef.current = onGoogle;
+  });
+
   // Carga GIS y renderiza el botón de Google en login y en registro
   // (los dos formularios están montados a la vez para poder animarlos).
   useEffect(() => {
@@ -264,16 +320,17 @@ export default function Login() {
     const render = () => {
       const g = gsi();
       if (!g) return;
-      g.initialize({ client_id: GOOGLE_CLIENT_ID, callback: onGoogle });
+      g.initialize({ client_id: GOOGLE_CLIENT_ID, callback: (r) => onGoogleRef.current(r) });
       [googleLoginRef.current, googleSignupRef.current].forEach((el) => {
         if (!el) return;
         el.innerHTML = "";
         g.renderButton(el, {
-          theme: "filled_black",
+          theme: "outline",
           size: "large",
           text: "continue_with",
           shape: "pill",
-          width: 320,
+          width: Math.min(320, el.clientWidth || 320),
+          locale: lang,
         });
       });
     };
@@ -293,47 +350,52 @@ export default function Login() {
     }
     s.addEventListener("load", render);
     return () => s?.removeEventListener("load", render);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [lang]);
 
   // ── Piezas reutilizables ──
   const spinner = (
     <span
-      className="inline-block h-4 w-4 rounded-full border-2 border-slate-900/25 border-t-slate-900"
+      aria-hidden
+      className="inline-block h-4 w-4 rounded-full border-2 border-current/25 border-t-current"
       style={{ animation: "spin 0.7s linear infinite" }}
     />
   );
 
-  const errorBox = (show: boolean) =>
+  const errorBox = (show: boolean, id: string) =>
     show && error ? (
-      <div className="auth-fade-up flex items-center gap-2 rounded-xl border border-red-500/25 bg-red-500/10 px-3.5 py-2.5 text-[13px] text-red-300">
-        <IconAlert size={15} style={{ flexShrink: 0 }} /> {error}
+      <div
+        id={id}
+        role="alert"
+        className="auth-fade-up flex items-center gap-2 rounded-2xl bg-[var(--error-bg)] px-4 py-3 text-[0.9375rem] font-medium text-[var(--error)]"
+      >
+        <IconAlert size={16} style={{ flexShrink: 0 }} /> {error}
       </div>
     ) : null;
 
-  const primaryBtn =
-    "flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 via-teal-300 to-amber-300 py-3.5 text-sm font-bold text-slate-950 shadow-lg shadow-cyan-500/20 transition-all hover:-translate-y-0.5 hover:shadow-cyan-500/35 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0";
+  const primaryBtn = "hp-btn w-full";
 
   const googleBlock = (ref: React.RefObject<HTMLDivElement | null>) =>
     GOOGLE_CLIENT_ID ? (
       <>
-        <div ref={ref} className="flex min-h-[44px] justify-center" />
-        <div className="flex items-center gap-3 text-xs text-slate-500">
-          <span className="h-px flex-1 bg-white/10" />
+        <div ref={ref} className="flex min-h-[40px] justify-center" />
+        <div className="flex items-center gap-3 text-sm text-[var(--gris)]">
+          <span className="h-0.5 flex-1 rounded bg-[var(--tinta)]/10" />
           {t("authOr")}
-          <span className="h-px flex-1 bg-white/10" />
+          <span className="h-0.5 flex-1 rounded bg-[var(--tinta)]/10" />
         </div>
       </>
     ) : null;
 
   // Pestañas con indicador deslizante (sólo móvil; en escritorio está el panel).
   const tabs = (
-    <div className="relative mb-7 flex rounded-xl border border-white/10 bg-white/[0.03] p-1 min-[900px]:hidden">
+    <div role="tablist" aria-label={`${t("authTabLogin")} / ${t("authTabSignup")}`} className="relative flex rounded-full bg-[var(--hueso)] p-1">
       <span
-        className="absolute bottom-1 top-1 w-[calc(50%-4px)] rounded-lg bg-gradient-to-r from-cyan-400/90 to-teal-300/90 shadow transition-transform duration-500"
+        aria-hidden
+        className="absolute bottom-1 top-1 w-[calc(50%-4px)] rounded-full transition-[transform,background-color] duration-500"
         style={{
           transform: isSignup ? "translateX(100%)" : "translateX(0)",
-          transitionTimingFunction: "cubic-bezier(.7,0,.2,1)",
+          backgroundColor: isSignup ? "var(--tinta)" : "var(--aji)",
+          transitionTimingFunction: "var(--auth-ease)",
         }}
       />
       {(["login", "signup"] as const).map((v) => {
@@ -342,10 +404,13 @@ export default function Login() {
           <button
             key={v}
             type="button"
+            role="tab"
+            id={`tab-${v}`}
+            aria-selected={active}
+            aria-controls={`panel-${v}`}
             onClick={() => go(v)}
-            aria-pressed={active}
-            className={`relative z-10 flex-1 cursor-pointer rounded-lg py-2 text-[13px] font-semibold transition-colors ${
-              active ? "text-slate-950" : "text-slate-400"
+            className={`relative z-10 min-h-11 flex-1 cursor-pointer rounded-full text-[0.9375rem] font-bold transition-colors duration-300 ${
+              active ? (v === "signup" ? "text-[var(--hueso)]" : "text-[var(--tinta)]") : "text-[var(--gris)]"
             }`}
           >
             {v === "login" ? t("authTabLogin") : t("authTabSignup")}
@@ -355,62 +420,54 @@ export default function Login() {
     </div>
   );
 
-  const panelBase = "flex flex-col justify-center px-6 py-10 sm:px-12 min-[900px]:py-12";
+  const linkBase =
+    "cursor-pointer font-semibold text-[var(--tinta)] decoration-[1.5px] underline-offset-4 transition-colors hover:text-[var(--cobalto)]";
+  const linkBtn = `${linkBase} underline`;
+
+  const panelBase = "flex flex-col justify-center px-5 pb-6 pt-5 sm:px-10 min-[900px]:px-12 min-[900px]:py-8";
+  const titulo = "hp-display text-[clamp(1.875rem,min(3.4vw,5.6svh),2.75rem)]";
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#060912] font-[Inter,system-ui,sans-serif] text-slate-200 antialiased">
-      {/* Fondo */}
-      <div className="auth-grid-bg pointer-events-none fixed inset-0" />
-      {/* Manchas de luz con degradado radial (sin filtro blur: liviano en celulares). */}
-      <div
-        className="auth-blob auth-glow pointer-events-none fixed -left-64 -top-24 h-[720px] w-[720px]"
-        style={{ ["--glow" as string]: "rgba(6,182,212,0.22)" }}
-      />
-      <div
-        className="auth-blob auth-glow pointer-events-none fixed -bottom-32 -right-56 h-[760px] w-[760px]"
-        style={{ ["--glow" as string]: "rgba(245,158,11,0.16)", animationDelay: "-7s" }}
-      />
-
+    <div className="hp relative min-h-screen overflow-x-hidden">
       {/* Barra superior */}
-      <header className="relative z-20 mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6">
-        <a href={SITE_URL} className="flex items-center gap-2.5">
-          <BrandMark size={36} />
-          <span className="text-lg font-bold tracking-tight text-white">{BRAND_NAME}</span>
+      <header className="relative z-20 mx-auto flex h-14 max-w-[1120px] items-center justify-between px-4 sm:h-16 sm:px-6">
+        <a href={SITE_URL} className="flex items-center gap-2.5 rounded-lg">
+          <LogoMark size={30} />
+          <span className="hp-display text-[1.25rem] lowercase">{BRAND_NAME}</span>
         </a>
-        <div className="flex items-center gap-3">
-          <a
-            href={SITE_URL}
-            className="hidden rounded-lg px-3 py-2 text-sm text-slate-400 transition-colors hover:text-white sm:inline"
-          >
+        <div className="flex items-center gap-2 sm:gap-4">
+          <a href={SITE_URL} className={`hidden rounded-lg px-2 py-2 text-[0.9375rem] sm:inline ${linkBase} hover:underline`}>
             ← {t("authBackSite")}
           </a>
-          <LangSelector isDark />
+          <LangSelector variant="hp" />
         </div>
       </header>
 
-      <main className="relative z-10 flex items-center justify-center px-4 pb-12 pt-2 sm:px-6 min-[900px]:min-h-[calc(100vh-88px)] min-[900px]:pb-16">
-        <div
-          className={`auth-shell w-full max-w-[460px] rounded-[28px] border border-white/10 bg-[#0a0f1c]/95 shadow-[0_40px_120px_-30px_rgba(0,0,0,0.8)] min-[900px]:max-w-[1000px] min-[900px]:bg-[#0a0f1c]/85 min-[900px]:backdrop-blur-xl ${
-            isSignup ? "is-signup" : ""
-          }`}
-        >
+      <main className="relative z-10 flex items-start justify-center px-3 pb-3 sm:px-6 sm:pb-6 min-[900px]:h-[calc(100svh-4rem)] min-[900px]:min-h-[34rem] min-[900px]:items-center">
+        <div className="flex w-full max-w-[480px] flex-col overflow-hidden rounded-[24px] bg-white min-[900px]:h-full min-[900px]:max-h-[40rem] min-[900px]:max-w-[1000px] min-[900px]:rounded-[28px]">
+        {/* Pestañas (sólo celular; en escritorio está el bloque de color). */}
+        <div className="px-5 pt-5 sm:px-10 min-[900px]:hidden">{tabs}</div>
+        <div className={`auth-shell min-h-0 flex-1 ${isSignup ? "is-signup" : ""}`}>
           {/* ── LOGIN (+ recuperar contraseña) ── */}
-          <section className={`auth-panel auth-login ${panelBase}`} inert={isSignup}>
-            {tabs}
+          <section id="panel-login" role="tabpanel" aria-labelledby="tab-login" className={`auth-panel auth-login ${panelBase}`} inert={isSignup}>
 
             {view !== "forgot" && view !== "forgot_sent" && (
-              <form key="login" onSubmit={handleLogin} className="auth-fade-up flex flex-col gap-4">
-                <div className="mb-2">
-                  <h1 className="text-3xl font-extrabold tracking-tight text-white">{t("authLoginTitle")}</h1>
-                  <p className="mt-1.5 text-sm text-slate-400">{t("loginSubtitle")}</p>
+              <form key="login" onSubmit={handleLogin} aria-busy={loading} className="auth-fade-up flex flex-col gap-[clamp(0.75rem,1.9svh,1.125rem)]">
+                <div>
+                  <h1 className={titulo}>{t("authLoginTitle")}</h1>
+                  <p className="mt-2 text-base text-[var(--gris)]">{t("loginSubtitle")}</p>
                 </div>
 
                 {googleBlock(googleLoginRef)}
 
                 <Field label={t("user")} icon={<IcUser />}>
                   <input
+                    ref={loginUserRef}
                     className="auth-input"
                     type="text"
+                    name="username"
+                    aria-invalid={!isSignup && !!error}
+                    aria-describedby={!isSignup && error ? "err-login" : undefined}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     required
@@ -421,8 +478,11 @@ export default function Login() {
 
                 <Field label={t("password")} icon={<IconLock size={17} />}>
                   <input
-                    className="auth-input pr-11"
+                    className="auth-input pr-12"
                     type={showPwd ? "text" : "password"}
+                    name="password"
+                    aria-invalid={!isSignup && !!error}
+                    aria-describedby={!isSignup && error ? "err-login" : undefined}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -432,55 +492,45 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => setShowPwd(!showPwd)}
-                    aria-label={showPwd ? "Ocultar contraseña" : "Mostrar contraseña"}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-slate-500 transition-colors hover:text-slate-200"
+                    aria-label={t("showPwd")}
+                    aria-pressed={showPwd}
+                    className="absolute right-1.5 top-1/2 grid h-10 w-10 -translate-y-1/2 cursor-pointer place-items-center rounded-full text-[var(--gris)] transition-colors hover:text-[var(--tinta)]"
                   >
                     {showPwd ? <IconEyeOff size={17} /> : <IconEye size={17} />}
                   </button>
                 </Field>
 
                 <div className="-mt-1 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => go("forgot")}
-                    className="cursor-pointer text-[13px] font-medium text-cyan-300/90 transition-colors hover:text-cyan-200"
-                  >
+                  <button ref={forgotLinkRef} type="button" onClick={() => go("forgot")} className={`text-[0.9375rem] ${linkBtn}`}>
                     {t("forgotLink")}
                   </button>
                 </div>
 
-                {errorBox(!isSignup)}
+                {errorBox(!isSignup, "err-login")}
 
                 <button type="submit" disabled={loading} className={primaryBtn}>
                   {loading && spinner}
                   {loading ? t("signingIn") : t("signIn")}
                 </button>
-
-                <p className="mt-2 text-center text-[13px] text-slate-500 min-[900px]:hidden">
-                  <button
-                    type="button"
-                    onClick={() => go("signup")}
-                    className="cursor-pointer font-semibold text-cyan-300"
-                  >
-                    {t("authToSignup")}
-                  </button>
-                </p>
               </form>
             )}
 
             {view === "forgot" && (
-              <form key="forgot" onSubmit={handleForgot} className="auth-fade-up flex flex-col gap-4">
-                <div className="mb-2">
-                  <h1 className="text-3xl font-extrabold tracking-tight text-white">{t("forgotSubtitle")}</h1>
-                </div>
-                <div className="flex gap-2.5 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] px-3.5 py-3 text-[13px] leading-relaxed text-slate-300">
-                  <IconInfo size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+              <form key="forgot" onSubmit={handleForgot} aria-busy={loading} className="auth-fade-up flex flex-col gap-[clamp(0.75rem,1.9svh,1.125rem)]">
+                <h1 className={titulo}>{t("forgotSubtitle")}</h1>
+                <div className="flex gap-3 rounded-2xl bg-[var(--hueso)] px-4 py-3.5 text-[0.9375rem] leading-relaxed">
+                  <IconInfo size={17} style={{ flexShrink: 0, marginTop: 3, color: "var(--cobalto)" }} />
                   {t("forgotInfo")}
                 </div>
                 <Field label={t("yourUser")} icon={<IcUser />}>
                   <input
+                    ref={forgotUserRef}
                     className="auth-input"
                     type="text"
+                    name="username"
+                    autoComplete="username"
+                    aria-invalid={!!error}
+                    aria-describedby={error ? "err-forgot" : undefined}
                     value={forgotUser}
                     onChange={(e) => setForgotUser(e.target.value)}
                     required
@@ -488,17 +538,13 @@ export default function Login() {
                   />
                 </Field>
 
-                {errorBox(true)}
+                {errorBox(true, "err-forgot")}
 
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => go("login")}
-                    className="flex-1 cursor-pointer rounded-xl border border-white/10 bg-white/5 py-3.5 text-sm font-semibold text-slate-300 transition-colors hover:bg-white/10"
-                  >
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button type="button" onClick={() => go("login")} className="hp-btn-borde sm:flex-1">
                     ← {t("back")}
                   </button>
-                  <button type="submit" disabled={loading} className={`${primaryBtn} flex-1`}>
+                  <button type="submit" disabled={loading} className="hp-btn sm:flex-1">
                     {loading && spinner}
                     {loading ? t("sending") : t("send")}
                   </button>
@@ -507,13 +553,15 @@ export default function Login() {
             )}
 
             {view === "forgot_sent" && (
-              <div key="sent" className="auth-fade-up flex flex-col items-center gap-4 text-center">
-                <div className="grid h-16 w-16 place-items-center rounded-full border border-emerald-400/30 bg-emerald-400/10 text-emerald-400">
+              <div key="sent" role="status" className="auth-fade-up flex flex-col items-center gap-5 text-center">
+                <div aria-hidden className="grid h-16 w-16 place-items-center rounded-full bg-[var(--tinta)] text-[var(--aji)]">
                   <IconCheck size={30} />
                 </div>
                 <div>
-                  <p className="text-lg font-semibold text-white">{t("emailSent")}</p>
-                  <p className="mt-1.5 text-sm leading-relaxed text-slate-400">{t("emailSentDesc")}</p>
+                  <h1 ref={sentTitleRef} tabIndex={-1} className="hp-display text-[1.75rem] outline-none">
+                    {t("emailSent")}
+                  </h1>
+                  <p className="mt-2 leading-relaxed text-[var(--gris)]">{t("emailSentDesc")}</p>
                 </div>
                 <button
                   type="button"
@@ -530,20 +578,24 @@ export default function Login() {
           </section>
 
           {/* ── REGISTRO ── */}
-          <section className={`auth-panel auth-signup ${panelBase}`} inert={!isSignup}>
-            {tabs}
-            <form onSubmit={handleSignup} className="flex flex-col gap-4">
-              <div className="mb-2">
-                <h1 className="text-3xl font-extrabold tracking-tight text-white">{t("authSignupTitle")}</h1>
-                <p className="mt-1.5 text-sm text-slate-400">{t("authSignupSubtitle")}</p>
+          <section id="panel-signup" role="tabpanel" aria-labelledby="tab-signup" className={`auth-panel auth-signup ${panelBase}`} inert={!isSignup}>
+            <form onSubmit={handleSignup} aria-busy={loading} className="flex flex-col gap-[clamp(0.75rem,1.9svh,1.125rem)]">
+              <div>
+                <h1 className={titulo}>{t("authSignupTitle")}</h1>
+                <p className="mt-2 text-base text-[var(--gris)]">{t("authSignupSubtitle")}</p>
               </div>
 
               {googleBlock(googleSignupRef)}
 
               <Field label={t("authBusiness")} icon={<IcStore />}>
                 <input
+                  ref={signupNegocioRef}
                   className="auth-input"
                   type="text"
+                  name="negocio"
+                  autoComplete="organization"
+                  aria-invalid={isSignup && !!error}
+                  aria-describedby={isSignup && error ? "err-signup" : undefined}
                   value={negocio}
                   onChange={(e) => setNegocio(e.target.value)}
                   required
@@ -554,6 +606,9 @@ export default function Login() {
                 <input
                   className="auth-input"
                   type="email"
+                  name="email"
+                  aria-invalid={isSignup && !!error}
+                  aria-describedby={isSignup && error ? "err-signup" : undefined}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -563,64 +618,51 @@ export default function Login() {
               </Field>
               <Field label={t("password")} icon={<IconLock size={17} />}>
                 <input
-                  className="auth-input pr-11"
+                  className="auth-input pr-12"
                   type={showSignupPwd ? "text" : "password"}
                   value={signupPwd}
                   onChange={(e) => setSignupPwd(e.target.value)}
                   required
                   minLength={8}
+                  name="new-password"
                   autoComplete="new-password"
+                  aria-invalid={isSignup && !!error}
+                  aria-describedby={`pwd-hint${isSignup && error ? " err-signup" : ""}`}
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowSignupPwd(!showSignupPwd)}
-                  aria-label={showSignupPwd ? "Ocultar contraseña" : "Mostrar contraseña"}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-slate-500 transition-colors hover:text-slate-200"
+                  aria-label={t("showPwd")}
+                  aria-pressed={showSignupPwd}
+                  className="absolute right-1.5 top-1/2 grid h-10 w-10 -translate-y-1/2 cursor-pointer place-items-center rounded-full text-[var(--gris)] transition-colors hover:text-[var(--tinta)]"
                 >
                   {showSignupPwd ? <IconEyeOff size={17} /> : <IconEye size={17} />}
                 </button>
               </Field>
+              <p id="pwd-hint" className="-mt-2 text-sm text-[var(--gris)]">
+                {t("min8")}
+              </p>
 
-              {errorBox(isSignup)}
+              {errorBox(isSignup, "err-signup")}
 
               <button type="submit" disabled={loading} className={primaryBtn}>
                 {loading && spinner}
                 {loading ? t("authCreating") : t("authCreateBtn")}
               </button>
-              <p className="flex items-center justify-center gap-1.5 text-xs text-slate-500">
-                <IconSparkle size={13} /> {t("authTrialNote")}
-              </p>
-
-              <p className="text-center text-[13px] text-slate-500 min-[900px]:hidden">
-                <button
-                  type="button"
-                  onClick={() => go("login")}
-                  className="cursor-pointer font-semibold text-cyan-300"
-                >
-                  {t("authToLogin")}
-                </button>
+              <p className="flex items-center justify-center gap-1.5 text-[0.9375rem] text-[var(--gris)]">
+                <IconSparkle size={14} /> {t("authTrialNote")}
               </p>
             </form>
           </section>
 
-          {/* ── Panel de marca deslizante (escritorio) ── */}
+          {/* ── Panel de color deslizante (escritorio): ají en login, tinta en registro ── */}
           <div className="auth-overlay">
-            <div className="auth-overlay-inner bg-gradient-to-br from-cyan-500 via-teal-600 to-indigo-700">
-              <div className="auth-grid-bg pointer-events-none absolute inset-0 opacity-70" />
-              <div
-                className="auth-blob auth-glow pointer-events-none absolute -left-40 -top-6 h-[30rem] w-[30rem]"
-                style={{ ["--glow" as string]: "rgba(103,232,249,0.40)" }}
-              />
-              <div
-                className="auth-blob auth-glow pointer-events-none absolute -bottom-40 right-[10%] h-[30rem] w-[30rem]"
-                style={{ ["--glow" as string]: "rgba(252,211,77,0.35)", animationDelay: "-9s" }}
-              />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-slate-950/10 to-slate-950/40" />
-
+            <div className="auth-overlay-inner">
               {/* Visible en REGISTRO: invita a volver al login */}
-              <div className="auth-overlay-panel auth-ov-left">
+              <div className="auth-overlay-panel auth-ov-left" inert={!isSignup}>
                 <OverlayContent
+                  oscuro
                   title={t("authOvBackTitle")}
                   desc={t("authOvBackDesc")}
                   cta={t("authTabLogin")}
@@ -630,7 +672,7 @@ export default function Login() {
               </div>
 
               {/* Visible en LOGIN: invita a crear cuenta */}
-              <div className="auth-overlay-panel auth-ov-right">
+              <div className="auth-overlay-panel auth-ov-right" inert={isSignup}>
                 <OverlayContent
                   title={t("authOvNewTitle")}
                   desc={t("authOvNewDesc")}
@@ -642,6 +684,7 @@ export default function Login() {
               </div>
             </div>
           </div>
+        </div>
         </div>
       </main>
     </div>

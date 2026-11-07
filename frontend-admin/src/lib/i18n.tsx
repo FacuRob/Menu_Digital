@@ -461,6 +461,7 @@ const es: Dict = {
   authCreateBtn: "Crear cuenta gratis",
   authGoogle: "Continuar con Google",
   authOr: "o",
+  showPwd: "Mostrar contraseña",
   authTrialNote: "Prueba gratis · sin tarjeta de crédito",
   authToSignup: "¿No tenés cuenta? Creá una",
   authToLogin: "¿Ya tenés cuenta? Iniciá sesión",
@@ -1189,6 +1190,7 @@ const en: Dict = {
   authCreateBtn: "Create free account",
   authGoogle: "Continue with Google",
   authOr: "or",
+  showPwd: "Show password",
   authTrialNote: "Free trial · no credit card",
   authToSignup: "No account? Create one",
   authToLogin: "Already have an account? Sign in",
@@ -1917,6 +1919,7 @@ const pt: Dict = {
   authCreateBtn: "Criar conta grátis",
   authGoogle: "Continuar com Google",
   authOr: "ou",
+  showPwd: "Mostrar senha",
   authTrialNote: "Teste grátis · sem cartão",
   authToSignup: "Não tem conta? Crie uma",
   authToLogin: "Já tem conta? Entre",
@@ -2265,9 +2268,11 @@ export const useLang = () => {
 };
 
 // ── Selector de idioma (desplegable compacto para el topbar) ──
-export function LangSelector({ isDark = false }: { isDark?: boolean }) {
+// variant "hp": pastilla del mundo "Hora pico" (pantalla de acceso).
+export function LangSelector({ isDark = false, variant }: { isDark?: boolean; variant?: "hp" }) {
   const { lang, setLang } = useLang();
   const current = LANGS.find((l) => l.code === lang) || LANGS[0];
+  const hp = variant === "hp";
   return (
     <label
       style={{
@@ -2279,25 +2284,45 @@ export function LangSelector({ isDark = false }: { isDark?: boolean }) {
       }}
       title="Idioma / Language"
     >
-      <span style={{ fontSize: 15, lineHeight: 1 }}>{current.flag}</span>
+      {!hp && (
+        <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>
+          {current.flag}
+        </span>
+      )}
       <select
         value={lang}
         onChange={(e) => setLang(e.target.value as Lang)}
         aria-label="Idioma"
-        style={{
-          appearance: "none",
-          WebkitAppearance: "none",
-          border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`,
-          background: isDark ? "#0f1117" : "#f8f9fa",
-          color: isDark ? "#f1f5f9" : "#1e293b",
-          borderRadius: 8,
-          padding: "5px 24px 5px 8px",
-          fontSize: 12.5,
-          fontWeight: 600,
-          fontFamily: "inherit",
-          cursor: "pointer",
-          outline: "none",
-        }}
+        style={
+          hp
+            ? {
+                appearance: "none",
+                WebkitAppearance: "none",
+                border: "2px solid #111216",
+                background: "transparent",
+                color: "#111216",
+                borderRadius: 999,
+                minHeight: 44,
+                padding: "0 34px 0 16px",
+                fontSize: 15,
+                fontWeight: 700,
+                fontFamily: "inherit",
+                cursor: "pointer",
+              }
+            : {
+                appearance: "none",
+                WebkitAppearance: "none",
+                border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`,
+                background: isDark ? "#0f1117" : "#f8f9fa",
+                color: isDark ? "#f1f5f9" : "#1e293b",
+                borderRadius: 8,
+                padding: "5px 24px 5px 8px",
+                fontSize: 12.5,
+                fontWeight: 600,
+                fontFamily: "inherit",
+                cursor: "pointer",
+              }
+        }
       >
         {LANGS.map((l) => (
           <option key={l.code} value={l.code} style={{ color: "#1e293b" }}>
@@ -2310,11 +2335,12 @@ export function LangSelector({ isDark = false }: { isDark?: boolean }) {
         height={11}
         viewBox="0 0 24 24"
         fill="none"
-        stroke={isDark ? "#94a3b8" : "#64748b"}
+        stroke={hp ? "#111216" : isDark ? "#94a3b8" : "#64748b"}
         strokeWidth={2.4}
         strokeLinecap="round"
         strokeLinejoin="round"
-        style={{ position: "absolute", right: 8, pointerEvents: "none" }}
+        aria-hidden
+        style={{ position: "absolute", right: hp ? 14 : 8, pointerEvents: "none" }}
       >
         <path d="M6 9l6 6 6-6" />
       </svg>
