@@ -34,7 +34,7 @@ export function Highlight({ text, query }: { text: string; query: string }) {
       {text.slice(0, i)}
       <mark
         style={{
-          background: "rgba(59,130,246,0.22)",
+          background: "var(--accent-soft)",
           color: "inherit",
           padding: "0 1px",
           borderRadius: 3,

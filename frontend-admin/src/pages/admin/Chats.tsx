@@ -14,17 +14,17 @@ function usePalette() {
   const { isDark } = useTheme();
   return {
     isDark,
-    card: isDark ? "bg-[#151924] border border-white/[0.07]" : "bg-white border border-slate-200/80",
-    title: isDark ? "text-slate-100" : "text-slate-900",
-    text: isDark ? "text-slate-300" : "text-slate-600",
-    muted: isDark ? "text-slate-500" : "text-slate-400",
-    soft: isDark ? "bg-white/[0.04]" : "bg-slate-50",
-    hover: isDark ? "hover:bg-white/[0.04]" : "hover:bg-slate-50",
-    active: isDark ? "bg-white/[0.07]" : "bg-emerald-50",
-    border: isDark ? "border-white/[0.07]" : "border-slate-200/80",
+    card: "bg-surface border border-line",
+    title: "text-fg",
+    text: "text-fg-2",
+    muted: "text-fg-3",
+    soft: "bg-surface-2",
+    hover: "hover:bg-surface-2",
+    active: "bg-accent-soft",
+    border: "border-line",
     input: isDark
-      ? "bg-white/[0.04] border-white/10 text-slate-100 placeholder:text-slate-500"
-      : "bg-white border-slate-200 text-slate-900 placeholder:text-slate-400",
+      ? "bg-surface border-line-strong text-fg placeholder:text-fg-3"
+      : "bg-surface border-line-strong text-fg placeholder:text-fg-3",
     wall: isDark ? "bg-[#0b141a]" : "bg-[#efeae2]",
     bubbleIn: isDark ? "bg-[#202c33] text-[#e9edef]" : "bg-white text-[#111b21]",
     bubbleOut: isDark ? "bg-[#005c4b] text-[#e9edef]" : "bg-[#d9fdd3] text-[#111b21]",
@@ -64,7 +64,7 @@ const CHECK: Record<string, { txt: string; color?: string }> = {
   enviado: { txt: "✓" },
   entregado: { txt: "✓✓" },
   leido: { txt: "✓✓", color: "#53bdeb" },
-  fallido: { txt: "!", color: "#ef4444" },
+  fallido: { txt: "!", color: "var(--err)" },
 };
 
 export default function Chats() {
@@ -222,14 +222,15 @@ export default function Chats() {
 
   // ── Lista de chats ──
   const lista = (
-    <div className={`flex min-h-0 flex-col ${abiertoId ? "hidden md:flex" : "flex"} md:w-[340px] md:shrink-0 md:border-r ${P.border}`}>
+    <div className={`flex min-h-0 flex-col ${abiertoId ? "hidden md:flex" : "flex"} w-full md:w-[340px] md:shrink-0 md:border-r ${P.border}`}>
       <div className="p-3">
         <input
           type="search"
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           placeholder={t("chSearch")}
-          className={`w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500/30 ${P.input}`}
+          aria-label={t("chSearch")}
+          className={`w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[color-mix(in_srgb,var(--focus)_30%,transparent)] ${P.input}`}
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
@@ -248,18 +249,19 @@ export default function Chats() {
               <button
                 key={c.id}
                 type="button"
+                aria-current={activo ? "true" : undefined}
                 onClick={() => setAbiertoId(c.id)}
                 className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
                   activo ? P.active : P.hover
                 }`}
               >
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-sm font-bold text-white">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-spot text-on-spot text-sm font-bold">
                   {iniciales(c.nombre || t("chUnknown"))}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline justify-between gap-2">
                     <span className={`truncate font-semibold ${P.title}`}>{nombreDe(c)}</span>
-                    <span className={`shrink-0 text-[11px] ${c.no_leidos ? "font-semibold text-emerald-500" : P.muted}`}>
+                    <span className={`shrink-0 text-[11px] ${c.no_leidos ? "font-semibold text-ok" : P.muted}`}>
                       {horaCorta(c.ultimo_at)}
                     </span>
                   </span>
@@ -267,14 +269,14 @@ export default function Chats() {
                     <span className={`truncate text-[13px] ${P.text}`}>{c.ultimo_texto || t("chNoMessages")}</span>
                     {c.necesita_humano && (
                       <span
-                        className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-500"
+                        className="shrink-0 rounded-full bg-warn-bg px-2 py-0.5 text-xs font-semibold text-warn"
                         title={t("chNeedsHuman")}
                       >
                         👋 {t("chAttend")}
                       </span>
                     )}
                     {c.no_leidos > 0 && (
-                      <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-emerald-500 px-1.5 text-[11px] font-bold text-white">
+                      <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-ok px-1.5 text-xs font-bold text-surface">
                         {c.no_leidos}
                       </span>
                     )}
@@ -313,7 +315,7 @@ export default function Chats() {
                 <path d="M15 18l-6-6 6-6" />
               </svg>
             </button>
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-sm font-bold text-white">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-spot text-on-spot text-sm font-bold">
               {iniciales(chat?.nombre || t("chUnknown"))}
             </span>
             <div className="min-w-0 flex-1">
@@ -328,7 +330,7 @@ export default function Chats() {
                 className={`shrink-0 cursor-pointer rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
                   chat.ia_pausada
                     ? `${P.border} ${P.text} ${P.hover}`
-                    : "border-violet-500/30 bg-violet-500/10 text-violet-500 hover:bg-violet-500/15"
+                    : "border-violet/30 bg-violet/10 text-violet hover:bg-violet/15"
                 }`}
               >
                 🤖 {chat.ia_pausada ? t("chIaPaused") : t("chIaOn")}
@@ -337,7 +339,7 @@ export default function Chats() {
           </div>
 
           {iaActiva && chat?.necesita_humano && (
-            <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/[0.08] px-4 py-2 text-sm text-amber-600">
+            <div className="flex items-center gap-2 border-b border-line bg-warn-bg px-4 py-2 text-sm text-warn">
               👋 {t("chNeedsHuman")}
             </div>
           )}
@@ -364,7 +366,7 @@ export default function Chats() {
                       }`}
                     >
                       {m.autor === "ia" && (
-                        <div className="mb-0.5 text-[11px] font-semibold text-violet-500">🤖 {t("chIaAuthor")}</div>
+                        <div className="mb-0.5 text-xs font-semibold"><span aria-hidden>🤖</span> {t("chIaAuthor")}</div>
                       )}
                       {m.aviso && (
                         <div className="mb-0.5 text-[11px] font-semibold opacity-70">
@@ -373,12 +375,12 @@ export default function Chats() {
                         </div>
                       )}
                       <span className="whitespace-pre-wrap break-words">{m.texto || "—"}</span>
-                      <span className="ml-2 inline-flex translate-y-1 items-center gap-1 text-[10px] opacity-60">
+                      <span className="ml-2 inline-flex translate-y-1 items-center gap-1 text-[11px] opacity-75">
                         {new Date(m.created_at).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}
                         {sale && ck && <span style={{ color: ck.color }}>{ck.txt}</span>}
                       </span>
                       {m.estado === "fallido" && (
-                        <div className="mt-1 text-[11px] font-medium text-red-500" title={m.error || undefined}>
+                        <div className="mt-1 text-xs font-medium text-err" title={m.error || undefined}>
                           {t("chFailed")}
                           {m.error ? `: ${m.error}` : ""}
                         </div>
@@ -394,14 +396,14 @@ export default function Chats() {
           {/* Escribir */}
           {chat && !chat.puede_responder ? (
             <div className={`flex items-start gap-2 border-t px-4 py-3 text-sm ${P.border} ${P.text}`}>
-              <span className="mt-0.5 text-amber-500">
+              <span className="mt-0.5 text-warn">
                 <IconInfo size={16} />
               </span>
               {t("chClosed")}
             </div>
           ) : (
             <form onSubmit={enviar} className={`border-t px-3 py-2.5 ${P.border}`}>
-              {error && <p className="mb-2 text-sm text-red-500">{error}</p>}
+              {error && <p className="mb-2 text-sm text-err">{error}</p>}
               <div className="flex items-end gap-2">
                 <textarea
                   value={texto}
@@ -410,14 +412,15 @@ export default function Chats() {
                   rows={1}
                   maxLength={4096}
                   placeholder={t("chPlaceholder")}
+                  aria-label={t("chPlaceholder")}
                   disabled={!chat}
-                  className={`max-h-32 min-h-[42px] flex-1 resize-none rounded-2xl border px-4 py-2.5 text-[16px] outline-none focus:ring-2 focus:ring-emerald-500/30 sm:text-sm ${P.input}`}
+                  className={`max-h-32 min-h-[42px] flex-1 resize-none rounded-2xl border px-4 py-2.5 text-[16px] outline-none focus:ring-2 focus:ring-[color-mix(in_srgb,var(--focus)_30%,transparent)] sm:text-sm ${P.input}`}
                 />
                 <button
                   type="submit"
                   disabled={!texto.trim() || enviando || !chat}
                   aria-label={t("chSend")}
-                  className="grid h-[42px] w-[42px] shrink-0 cursor-pointer place-items-center rounded-full bg-[#25d366] text-white transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
+                  className="grid h-[42px] w-[42px] shrink-0 cursor-pointer place-items-center rounded-full bg-ok text-surface transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
                 >
                   {enviando ? (
                     "…"
@@ -439,7 +442,7 @@ export default function Chats() {
     <AdminLayout title={t("navChats")}>
       <div className="flex w-full flex-col gap-3">
         {!conectado && (
-          <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-4 py-2.5 text-sm text-amber-600">
+          <div className="flex items-center gap-2 rounded-xl border border-line bg-warn-bg px-4 py-2.5 text-sm text-warn">
             <IconInfo size={16} /> {t("chNotConnected")}
           </div>
         )}

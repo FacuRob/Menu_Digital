@@ -260,7 +260,31 @@ Arriba van el saludo, las acciones (Ver menú, Compartir QR y Nuevo producto en 
 
 Datos: `GET /api/analiticas/actividad?dias=` (backend `utils/actividad.js`, en hora de Argentina). Ya no baja `/pedidos` completo.
 
-## Pendiente (fases 4–6, ver `docs/auditoria-panel-admin.md`)
+## Pantallas de trabajo (fase 4)
 
-- Pantallas internas que todavía tienen colores propios: Pedidos, Chats, Productos, Categorías, Usuarios, Configuración, WhatsApp, Suscripción y Plataforma.
+Pedidos, Chats, Categorías y Productos, junto con Ticket, Variantes y el resaltado de búsqueda, ya usan los tokens.
+
+- **Estados de pedido** (un color por estado, igual en todo el panel):
+
+  | Estado | Token |
+  |---|---|
+  | pendiente | `--warn` |
+  | preparando | `--info` |
+  | listo | `--violet` |
+  | en camino | `--teal` |
+  | entregado | `--ok` |
+  | cancelado | `--err` |
+
+- **Tipo de entrega:**
+  - en gráficos: mesa `--chart-1`, delivery `--chart-2` y retiro `--chart-3`;
+  - en filtros con texto: `--info`, `--accent-ink` y `--ok`, que tienen contraste de texto.
+- **Interruptores:** `Switch` de `components/ui.tsx` (`role="switch"`, se usa con el teclado). La clase `.tap` da 44 px de alto en el celular a los controles con estilos en línea.
+- **Texto sobre un color pleno:** usa `var(--surface)`, que contrasta en los dos temas.
+- **Transparencias:** `color-mix(in srgb, <color> N%, transparent)`, nunca un hex con dígitos agregados.
+- **Chats:** conserva los colores de WhatsApp (fondo y burbujas), citados para que se reconozca la app.
+- **Celular:** Categorías y Productos arrancan en vista "Tarjetas" si el usuario no eligió otra.
+
+## Pendiente (fases 5–6, ver `docs/auditoria-panel-admin.md`)
+
+- Configuración, Mi cuenta, Usuarios, Negocios, QR, WhatsApp, Suscripción y Plataforma, que todavía tienen colores propios.
 - Pantallas siempre oscuras: Onboarding, CambiarPassword y ResetPassword.

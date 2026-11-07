@@ -68,6 +68,41 @@ export function Segmented<T extends string | number>({
   );
 }
 
+// Interruptor (encendido / apagado) con rol de switch y teclado.
+export function Switch({
+  checked,
+  onChange,
+  label,
+  color = "var(--ok)",
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: ReactNode;
+  color?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="inline-flex min-h-11 cursor-pointer items-center gap-2.5 rounded-[var(--r-sm)] text-left text-sm text-fg-2"
+    >
+      <span
+        aria-hidden
+        className="relative h-[22px] w-[38px] shrink-0 rounded-full transition-colors"
+        style={{ background: checked ? color : "var(--fg-3)" }}
+      >
+        <span
+          className="absolute top-[3px] h-4 w-4 rounded-full bg-surface transition-[left]"
+          style={{ left: checked ? 19 : 3 }}
+        />
+      </span>
+      {label}
+    </button>
+  );
+}
+
 export function EmptyState({ icon, title, desc }: { icon?: ReactNode; title: ReactNode; desc?: ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 rounded-[var(--r-md)] bg-surface-2 px-4 py-8 text-center">

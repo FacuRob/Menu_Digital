@@ -15,11 +15,12 @@ import VariantesEditor from "../../components/VariantesEditor";
 import { useStyles } from "../../components/sharedStyles";
 import Modal from "../../components/Modal";
 import { useNegocio } from "../../context/NegocioContext";
-import { useTheme } from "../../context/ThemeContext";
 import { fmtMoney } from "../../lib/money";
 import { cld } from "../../lib/cloudinary";
 import { useLang } from "../../lib/i18n";
 import { SearchIcon, ListIcon, GridIcon, Highlight } from "../../lib/listUi";
+import { MOBILE_QUERY } from "../../lib/useIsMobile";
+import { Switch } from "../../components/ui";
 import {
   IconPlus,
   IconX,
@@ -62,7 +63,6 @@ export default function Productos() {
   const { moneda } = useNegocio();
   const { t } = useLang();
   const { avisar } = useDialogos();
-  const { isDark } = useTheme();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [plan, setPlan] = useState<PlanInfo | null>(null);
@@ -96,13 +96,24 @@ export default function Productos() {
   const [filterCategoria, setFilterCategoria] = useState<number | "all">("all");
   const [soloPorAgotarse, setSoloPorAgotarse] = useState(false);
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<ViewMode>(
-    () => (localStorage.getItem("prod_view") as ViewMode) || "lista",
-  );
+  // Vista elegida; si nunca eligió: tarjetas en el celular (la tabla no entra).
+  const [view, setView] = useState<ViewMode>(() => {
+    try {
+      const g = localStorage.getItem("prod_view");
+      if (g === "lista" || g === "cards") return g;
+    } catch {
+      /* sin storage */
+    }
+    return window.matchMedia(MOBILE_QUERY).matches ? "cards" : "lista";
+  });
   const fileRef = useRef<HTMLInputElement>(null);
 
   const setViewMode = (v: ViewMode) => {
-    localStorage.setItem("prod_view", v);
+    try {
+      localStorage.setItem("prod_view", v);
+    } catch {
+      /* sin storage */
+    }
     setView(v);
   };
 
@@ -284,9 +295,8 @@ export default function Productos() {
         {},
       );
       const data = { ...form, imagen_url: url || null, atributos: atributosObj };
-      editing
-        ? await productosService.update(editing.id, data)
-        : await productosService.create(data);
+      if (editing) await productosService.update(editing.id, data);
+      else await productosService.create(data);
       await fetch_();
       closeModal();
     } catch (err) {
@@ -299,10 +309,10 @@ export default function Productos() {
 
   const fmt = (n: number) => fmtMoney(n, moneda);
 
-  const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
-  const textMuted = isDark ? "#94a3b8" : "#94a3b8";
-  const cardBg = isDark ? "#1a1d27" : "#ffffff";
-  const cardBorder = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)";
+  const textPrimary = "var(--fg)";
+  const textMuted = "var(--fg-3)";
+  const cardBg = "var(--surface)";
+  const cardBorder = "var(--line)";
 
   // Badge de stock con parpadeo cuando está bajo/agotado, para que "salte" a
   // la vista. Si el producto no controla stock, no muestra nada.
@@ -318,8 +328,8 @@ export default function Productos() {
       );
     }
     const isOut = st === "out";
-    const color = isOut ? "#ef4444" : "#f59e0b";
-    const bg = isOut ? "rgba(239,68,68,0.12)" : "rgba(245,158,11,0.14)";
+    const color = isOut ? "var(--err)" : "var(--warn)";
+    const bg = isOut ? "var(--err-bg)" : "var(--warn-bg)";
     const label = isOut ? t("soldOut") : `${t("lowStock")} · ${t("unitsShort", { n })}`;
     return (
       <span
@@ -333,7 +343,7 @@ export default function Productos() {
           borderRadius: 20,
           background: bg,
           color,
-          border: `1px solid ${color}55`,
+          border: `1px solid color-mix(in srgb, ${color} 33%, transparent)`,
           whiteSpace: "nowrap",
         }}
       >
@@ -390,12 +400,13 @@ export default function Productos() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("prodSearchPh")}
+            aria-label={t("prodSearchPh")}
             style={{ ...S.input, padding: "8px 30px 8px 32px" }}
           />
           {search && (
             <button
               onClick={() => setSearch("")}
-              title={t("actionCancel")}
+              aria-label={t("clearSearch")}
               style={{
                 position: "absolute",
                 right: 8,
@@ -433,8 +444,8 @@ export default function Productos() {
               fontSize: 13,
               fontWeight: 500,
               transition: "all 0.15s",
-              background: vista === "disponibles" ? "#f0f2f5" : "transparent",
-              color: vista === "disponibles" ? "#059669" : "#64748b",
+              background: vista === "disponibles" ? "var(--surface-3)" : "transparent",
+              color: vista === "disponibles" ? "var(--ok)" : "var(--fg-3)",
               display: "flex",
               alignItems: "center",
               gap: 7,
@@ -445,7 +456,7 @@ export default function Productos() {
                 width: 7,
                 height: 7,
                 borderRadius: "50%",
-                background: "#10b981",
+                background: "var(--ok)",
                 display: "inline-block",
               }}
             />
@@ -453,8 +464,8 @@ export default function Productos() {
             <span
               style={{
                 fontSize: 11,
-                background: "rgba(16,185,129,0.15)",
-                color: "#34d399",
+                background: "var(--ok-bg)",
+                color: "var(--ok)",
                 padding: "1px 7px",
                 borderRadius: 99,
               }}
@@ -473,8 +484,8 @@ export default function Productos() {
               fontWeight: 500,
               transition: "all 0.15s",
               background:
-                vista === "no_disponibles" ? "#f0f2f5" : "transparent",
-              color: vista === "no_disponibles" ? "#dc2626" : "#64748b",
+                vista === "no_disponibles" ? "var(--surface-3)" : "transparent",
+              color: vista === "no_disponibles" ? "var(--err)" : "var(--fg-3)",
               display: "flex",
               alignItems: "center",
               gap: 7,
@@ -485,7 +496,7 @@ export default function Productos() {
                 width: 7,
                 height: 7,
                 borderRadius: "50%",
-                background: "#ef4444",
+                background: "var(--err)",
                 display: "inline-block",
               }}
             />
@@ -493,8 +504,8 @@ export default function Productos() {
             <span
               style={{
                 fontSize: 11,
-                background: "rgba(239,68,68,0.12)",
-                color: "#f87171",
+                background: "var(--err-bg)",
+                color: "var(--err)",
                 padding: "1px 7px",
                 borderRadius: 99,
               }}
@@ -506,6 +517,7 @@ export default function Productos() {
 
         {/* Filtro por categoría */}
         <select
+          aria-label={t("filterCategory")}
           value={filterCategoria}
           onChange={(e) =>
             setFilterCategoria(
@@ -542,11 +554,11 @@ export default function Productos() {
             fontSize: 12.5,
             fontWeight: 600,
             transition: "all 0.15s",
-            border: `1px solid ${soloPorAgotarse ? "#f59e0b" : cardBorder}`,
+            border: `1px solid ${soloPorAgotarse ? "var(--warn)" : cardBorder}`,
             background: soloPorAgotarse
-              ? "rgba(245,158,11,0.14)"
+              ? "var(--warn-bg)"
               : cardBg,
-            color: soloPorAgotarse ? "#d97706" : textMuted,
+            color: soloPorAgotarse ? "var(--warn)" : textMuted,
           }}
         >
           <span
@@ -554,7 +566,7 @@ export default function Productos() {
               width: 7,
               height: 7,
               borderRadius: "50%",
-              background: porAgotarseCount > 0 ? "#f59e0b" : "#cbd5e1",
+              background: porAgotarseCount > 0 ? "var(--warn)" : "var(--fg-3)",
               flexShrink: 0,
               animation:
                 porAgotarseCount > 0 && !soloPorAgotarse
@@ -568,8 +580,8 @@ export default function Productos() {
               style={{
                 fontSize: 11,
                 fontWeight: 700,
-                background: soloPorAgotarse ? "rgba(245,158,11,0.25)" : "rgba(245,158,11,0.16)",
-                color: "#d97706",
+                background: soloPorAgotarse ? "color-mix(in srgb, var(--warn) 25%, transparent)" : "var(--warn-bg)",
+                color: "var(--warn)",
                 padding: "1px 7px",
                 borderRadius: 99,
               }}
@@ -579,7 +591,7 @@ export default function Productos() {
           )}
         </button>
 
-        <span style={{ color: "#94a3b8", fontSize: 12, marginLeft: 4 }}>
+        <span style={{ color: "var(--fg-3)", fontSize: 12, marginLeft: 4 }}>
           {t("prodCount", { n: filtrados.length })}
         </span>
 
@@ -592,9 +604,9 @@ export default function Productos() {
               padding: "3px 9px",
               borderRadius: 99,
               background: alLimite
-                ? "rgba(239,68,68,0.12)"
-                : "rgba(59,130,246,0.1)",
-              color: alLimite ? "#dc2626" : "#3b82f6",
+                ? "var(--err-bg)"
+                : "var(--info-bg)",
+              color: alLimite ? "var(--err)" : "var(--info)",
             }}
             title={t("prodPlanTitle", { plan: plan?.tipo_plan || "", limit: limite })}
           >
@@ -638,8 +650,8 @@ export default function Productos() {
                 fontWeight: 600,
                 transition: "all 0.15s",
                 background:
-                  view === v.key ? (isDark ? "#0f1117" : "#f0f2f5") : "transparent",
-                color: view === v.key ? "#3b82f6" : textMuted,
+                  view === v.key ? "var(--surface-3)" : "transparent",
+                color: view === v.key ? "var(--info)" : textMuted,
               }}
             >
               <v.Icon />
@@ -665,10 +677,10 @@ export default function Productos() {
           }
           onClick={() => !bloqueadoNuevo && openModal()}
           onMouseEnter={(e) => {
-            if (!bloqueadoNuevo) e.currentTarget.style.background = "#2563eb";
+            if (!bloqueadoNuevo) e.currentTarget.style.background = "var(--accent-hover)";
           }}
           onMouseLeave={(e) => {
-            if (!bloqueadoNuevo) e.currentTarget.style.background = "#3b82f6";
+            if (!bloqueadoNuevo) e.currentTarget.style.background = "var(--accent)";
           }}
         >
           <PlusIcon /> {t("prodNew")}
@@ -683,7 +695,7 @@ export default function Productos() {
               style={{
                 width: 28,
                 height: 28,
-                border: "2px solid #3b82f6",
+                border: "2px solid var(--focus)",
                 borderTopColor: "transparent",
                 borderRadius: "50%",
                 animation: "spin 0.7s linear infinite",
@@ -693,8 +705,8 @@ export default function Productos() {
         </div>
       ) : filtrados.length === 0 ? (
         <div style={S.card}>
-          <div style={{ textAlign: "center", padding: "48px 0", color: "#94a3b8" }}>
-            <div style={{ marginBottom: 8, display: "flex", justifyContent: "center", color: "#cbd5e1" }}>
+          <div style={{ textAlign: "center", padding: "48px 0", color: "var(--fg-3)" }}>
+            <div style={{ marginBottom: 8, display: "flex", justifyContent: "center", color: "var(--fg-3)" }}>
               {q || filterCategoria !== "all" || soloPorAgotarse ? (
                 <SearchIcon size={30} />
               ) : vista === "disponibles" ? (
@@ -723,7 +735,7 @@ export default function Productos() {
         >
           {filtrados.map((p) => {
             const st = getStockState(p);
-            const alertColor = st === "out" ? "#ef4444" : st === "low" ? "#f59e0b" : null;
+            const alertColor = st === "out" ? "var(--err)" : st === "low" ? "var(--warn)" : null;
             return (
               <div
                 key={p.id}
@@ -733,14 +745,14 @@ export default function Productos() {
                   overflow: "hidden",
                   display: "flex",
                   flexDirection: "column",
-                  border: alertColor ? `1px solid ${alertColor}66` : (S.card.border as string),
+                  border: alertColor ? `1px solid color-mix(in srgb, ${alertColor} 40%, transparent)` : (S.card.border as string),
                 }}
               >
                 <div
                   style={{
                     position: "relative",
                     height: 128,
-                    background: isDark ? "#0f1117" : "#f1f5f9",
+                    background: "var(--surface-2)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -758,7 +770,7 @@ export default function Productos() {
                       }}
                     />
                   ) : (
-                    <span style={{ color: "#94a3b8", opacity: 0.55 }}>
+                    <span style={{ color: "var(--fg-3)", opacity: 0.55 }}>
                       <IconImage size={30} />
                     </span>
                   )}
@@ -793,12 +805,12 @@ export default function Productos() {
                     </div>
                   )}
                   <div style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, paddingTop: 2 }}>
-                    <span style={{ ...S.badgeBlue, background: "rgba(59,130,246,0.08)" }}>
+                    <span style={{ ...S.badgeBlue, background: "var(--info-bg)" }}>
                       {p.categoria_nombre}
                     </span>
                     <button
                       onClick={() => openModal(p)}
-                      style={{ background: "none", border: "none", color: "#60a5fa", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0 }}
+                      style={{ background: "none", border: "none", color: "var(--info)", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0 }}
                     >
                       {t("actionEdit")}
                     </button>
@@ -813,7 +825,7 @@ export default function Productos() {
                       border: "none",
                     }}
                   >
-                    <span style={{ width: 5, height: 5, borderRadius: "50%", background: p.disponible ? "#10b981" : "#ef4444" }} />
+                    <span style={{ width: 5, height: 5, borderRadius: "50%", background: p.disponible ? "var(--ok)" : "var(--err)" }} />
                     {p.disponible ? t("statusAvailable") : t("statusUnavailableShort")}
                   </button>
                 </div>
@@ -838,7 +850,7 @@ export default function Productos() {
                     { k: "ord", label: t("colOrderShort") },
                     { k: "act", label: t("colActions") },
                   ].map((h) => (
-                    <th key={h.k} style={S.th}>
+                    <th key={h.k} scope="col" style={S.th}>
                       {h.label}
                     </th>
                   ))}
@@ -847,13 +859,13 @@ export default function Productos() {
               <tbody>
                 {filtrados.map((p) => {
                   const st = getStockState(p);
-                  const alertColor = st === "out" ? "#ef4444" : st === "low" ? "#f59e0b" : null;
+                  const alertColor = st === "out" ? "var(--err)" : st === "low" ? "var(--warn)" : null;
                   return (
                   <tr
                     key={p.id}
                     style={S.tr}
                     onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = "rgba(0,0,0,0.02)")
+                      (e.currentTarget.style.background = "var(--surface-2)")
                     }
                     onMouseLeave={(e) =>
                       (e.currentTarget.style.background = "transparent")
@@ -876,7 +888,7 @@ export default function Productos() {
                             height: 36,
                             borderRadius: 8,
                             objectFit: "cover",
-                            border: "1px solid rgba(0,0,0,0.06)",
+                            border: "1px solid var(--line)",
                           }}
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display = "none";
@@ -888,11 +900,11 @@ export default function Productos() {
                             width: 36,
                             height: 36,
                             borderRadius: 8,
-                            background: "rgba(0,0,0,0.04)",
+                            background: "var(--surface-2)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            color: "#94a3b8",
+                            color: "var(--fg-3)",
                           }}
                         >
                           <IconImage size={18} />
@@ -915,7 +927,7 @@ export default function Productos() {
                       {p.descripcion && (
                         <div
                           style={{
-                            color: "#94a3b8",
+                            color: "var(--fg-3)",
                             fontSize: 11,
                             overflow: "hidden",
                             textOverflow: "ellipsis",
@@ -928,7 +940,7 @@ export default function Productos() {
                       )}
                     </td>
                     <td style={S.td}>
-                      <span style={{ ...S.badgeBlue, background: "rgba(59,130,246,0.08)" }}>
+                      <span style={{ ...S.badgeBlue, background: "var(--info-bg)" }}>
                         <Highlight text={p.categoria_nombre || ""} query={search} />
                       </span>
                     </td>
@@ -942,7 +954,7 @@ export default function Productos() {
                     >
                       {fmt(p.precio)}
                     </td>
-                    <td style={S.td}>{renderStock(p) || <span style={{ color: "#cbd5e1" }}>—</span>}</td>
+                    <td style={S.td}>{renderStock(p) || <span style={{ color: "var(--fg-3)" }}>—</span>}</td>
                     <td style={S.td}>
                       {/* Toggle disponible directamente */}
                       <button
@@ -970,7 +982,7 @@ export default function Productos() {
                             width: 5,
                             height: 5,
                             borderRadius: "50%",
-                            background: p.disponible ? "#10b981" : "#ef4444",
+                            background: p.disponible ? "var(--ok)" : "var(--err)",
                           }}
                         />
                         {p.disponible ? t("statusAvailable") : t("statusUnavailableShort")}
@@ -984,7 +996,7 @@ export default function Productos() {
                           style={{
                             background: "none",
                             border: "none",
-                            color: "#60a5fa",
+                            color: "var(--info)",
                             fontSize: 13,
                             cursor: "pointer",
                             padding: 0,
@@ -1139,52 +1151,11 @@ export default function Productos() {
                     />
                   </div>
                 </div>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    cursor: "pointer",
-                    marginTop: -2,
-                  }}
-                  onClick={() =>
-                    setForm({
-                      ...form,
-                      controlar_stock: !form.controlar_stock,
-                    })
-                  }
-                >
-                  <div
-                    style={{
-                      width: 38,
-                      height: 22,
-                      borderRadius: 11,
-                      background: form.controlar_stock
-                        ? "#10b981"
-                        : "rgba(0,0,0,0.1)",
-                      position: "relative",
-                      transition: "background 0.2s",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 3,
-                        left: form.controlar_stock ? 18 : 3,
-                        width: 16,
-                        height: 16,
-                        borderRadius: "50%",
-                        background: "#fff",
-                        transition: "left 0.2s",
-                        boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                      }}
-                    />
-                  </div>
-                  <span style={{ color: "#64748b", fontSize: 13 }}>
-                    {t("prodControlStock")}
-                  </span>
-                </div>
+                <Switch
+                  checked={!!form.controlar_stock}
+                  onChange={(v) => setForm({ ...form, controlar_stock: v })}
+                  label={t("prodControlStock")}
+                />
                 <div
                   style={{
                     display: "grid",
@@ -1209,48 +1180,12 @@ export default function Productos() {
                     />
                   </div>
                   <div style={{ paddingBottom: 2 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        cursor: "pointer",
-                      }}
-                      onClick={() =>
-                        setForm({ ...form, disponible: !form.disponible })
-                      }
-                    >
-                      <div
-                        style={{
-                          width: 38,
-                          height: 22,
-                          borderRadius: 11,
-                          background: form.disponible
-                            ? "#3b82f6"
-                            : "rgba(0,0,0,0.1)",
-                          position: "relative",
-                          transition: "background 0.2s",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: 3,
-                            left: form.disponible ? 18 : 3,
-                            width: 16,
-                            height: 16,
-                            borderRadius: "50%",
-                            background: "#fff",
-                            transition: "left 0.2s",
-                            boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                          }}
-                        />
-                      </div>
-                      <span style={{ color: "#64748b", fontSize: 13 }}>
-                        {t("prodAvailableField")}
-                      </span>
-                    </div>
+                    <Switch
+                      checked={!!form.disponible}
+                      onChange={(v) => setForm({ ...form, disponible: v })}
+                      label={t("prodAvailableField")}
+                      color="var(--info)"
+                    />
                   </div>
                 </div>
                 <div>
@@ -1266,29 +1201,30 @@ export default function Productos() {
                       <div style={{ position: "relative", flexShrink: 0 }}>
                         <img
                           src={imagePreview}
-                          alt="preview"
+                          alt={t("prodImageField")}
                           style={{
                             width: 72,
                             height: 72,
                             objectFit: "cover",
                             borderRadius: 10,
-                            border: "1px solid rgba(0,0,0,0.08)",
+                            border: "1px solid var(--line)",
                           }}
                         />
                         <button
                           type="button"
                           onClick={removeImage}
+                          aria-label={t("prodRemoveImage")}
                           style={{
                             position: "absolute",
-                            top: -6,
-                            right: -6,
-                            width: 18,
-                            height: 18,
+                            top: -10,
+                            right: -10,
+                            width: 28,
+                            height: 28,
                             borderRadius: "50%",
-                            background: "#ef4444",
-                            border: "none",
-                            color: "#fff",
-                            fontSize: 10,
+                            background: "var(--err)",
+                            border: "2px solid var(--surface)",
+                            color: "var(--surface)",
+                            fontSize: 12,
                             cursor: "pointer",
                             display: "flex",
                             alignItems: "center",
@@ -1299,53 +1235,49 @@ export default function Productos() {
                         </button>
                       </div>
                     )}
-                    <div
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      onChange={handleFile}
+                      style={{ display: "none" }}
+                      tabIndex={-1}
+                      aria-hidden
+                    />
+                    <button
+                      type="button"
                       onClick={() => fileRef.current?.click()}
+                      className="hover:!border-[var(--focus)]"
                       style={{
                         flex: 1,
-                        border: "2px dashed rgba(0,0,0,0.1)",
+                        border: "2px dashed var(--line-strong)",
                         borderRadius: 10,
                         padding: 14,
                         textAlign: "center",
                         cursor: "pointer",
+                        background: "transparent",
+                        font: "inherit",
                         transition: "border-color 0.15s",
                       }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.borderColor =
-                          "rgba(59,130,246,0.4)")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.borderColor =
-                          "rgba(0,0,0,0.1)")
-                      }
                     >
-                      <input
-                        ref={fileRef}
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp,image/gif"
-                        onChange={handleFile}
-                        style={{ display: "none" }}
-                      />
-                      <div style={{ color: "#64748b", fontSize: 12 }}>
+                      <span style={{ display: "block", color: "var(--fg-2)", fontSize: 13, fontWeight: 600 }}>
                         {imagePreview ? t("prodChangeImage") : t("prodSelectImage")}
-                      </div>
-                      <div
-                        style={{ color: "#94a3b8", fontSize: 11, marginTop: 3 }}
-                      >
+                      </span>
+                      <span style={{ display: "block", color: "var(--fg-3)", fontSize: 12, marginTop: 3 }}>
                         {t("prodImageHint")}
-                      </div>
-                    </div>
+                      </span>
+                    </button>
                   </div>
                   {uploadError && (
                     <div
-                      style={{ fontSize: 11, color: "#f87171", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}
+                      style={{ fontSize: 11, color: "var(--err)", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}
                     >
                       <IconAlert size={13} style={{ flexShrink: 0 }} /> {uploadError}
                     </div>
                   )}
                   {imageFile && !uploadError && (
                     <div
-                      style={{ fontSize: 11, color: "#60a5fa", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}
+                      style={{ fontSize: 11, color: "var(--info)", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}
                     >
                       <IconImage size={13} style={{ flexShrink: 0 }} /> {t("prodImageWillUpload", { name: imageFile.name })}
                     </div>
@@ -1355,7 +1287,7 @@ export default function Productos() {
                 {/* Atributos libres por rubro (marca, material, etc.) */}
                 <div
                   style={{
-                    borderTop: "1px solid rgba(0,0,0,0.08)",
+                    borderTop: "1px solid var(--line)",
                     paddingTop: 14,
                   }}
                 >
@@ -1368,10 +1300,10 @@ export default function Productos() {
                     }}
                   >
                     <div>
-                      <div style={{ fontSize: 13.5, fontWeight: 600, color: "#1e293b" }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--fg)" }}>
                         {t("attrTitle")}
                       </div>
-                      <div style={{ fontSize: 11.5, color: "#94a3b8", marginTop: 2 }}>
+                      <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 2 }}>
                         {t("attrSubtitle")}
                       </div>
                     </div>
@@ -1386,9 +1318,9 @@ export default function Productos() {
                         gap: 5,
                         padding: "7px 10px",
                         borderRadius: 8,
-                        border: "1px solid #3b82f6",
-                        color: "#3b82f6",
-                        background: "rgba(59,130,246,0.06)",
+                        border: "1px solid var(--info)",
+                        color: "var(--info)",
+                        background: "var(--info-bg)",
                         cursor: "pointer",
                         fontSize: 13,
                         fontWeight: 600,
@@ -1434,7 +1366,7 @@ export default function Productos() {
                             style={{
                               border: "none",
                               background: "none",
-                              color: "#ef4444",
+                              color: "var(--err)",
                               cursor: "pointer",
                               display: "flex",
                               padding: "0 4px",
@@ -1454,10 +1386,10 @@ export default function Productos() {
                 ) : (
                   <div
                     style={{
-                      borderTop: "1px solid rgba(0,0,0,0.08)",
+                      borderTop: "1px solid var(--line)",
                       paddingTop: 12,
                       fontSize: 12,
-                      color: "#94a3b8",
+                      color: "var(--fg-3)",
                       display: "flex",
                       alignItems: "center",
                       gap: 6,
@@ -1473,9 +1405,9 @@ export default function Productos() {
                     margin: "0 20px",
                     padding: "10px 12px",
                     borderRadius: 8,
-                    background: "rgba(239,68,68,0.1)",
-                    border: "1px solid rgba(239,68,68,0.25)",
-                    color: "#dc2626",
+                    background: "var(--err-bg)",
+                    border: "1px solid color-mix(in srgb, var(--err) 35%, transparent)",
+                    color: "var(--err)",
                     fontSize: 12.5,
                     lineHeight: 1.4,
                     display: "flex",
@@ -1493,11 +1425,11 @@ export default function Productos() {
                   style={{ ...S.btnGhost, flex: 1, justifyContent: "center" }}
                   onMouseEnter={(e) =>
                     (e.currentTarget.style.background =
-                      "rgba(0,0,0,0.08)")
+                      "var(--surface-2)")
                   }
                   onMouseLeave={(e) =>
                     (e.currentTarget.style.background =
-                      "rgba(0,0,0,0.04)")
+                      "var(--surface)")
                   }
                 >
                   {t("actionCancel")}
@@ -1514,11 +1446,11 @@ export default function Productos() {
                   onMouseEnter={(e) => {
                     if (!saving)
                       (e.currentTarget as HTMLButtonElement).style.background =
-                        "#2563eb";
+                        "var(--accent-hover)";
                   }}
                   onMouseLeave={(e) =>
                     ((e.currentTarget as HTMLButtonElement).style.background =
-                      "#3b82f6")
+                      "var(--accent)")
                   }
                 >
                   {saving
@@ -1535,8 +1467,9 @@ export default function Productos() {
       )}
       <style>{`
         @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes stockPulseRed{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.6)}70%{box-shadow:0 0 0 5px rgba(239,68,68,0)}}
-        @keyframes stockPulseAmber{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0.6)}70%{box-shadow:0 0 0 5px rgba(245,158,11,0)}}
+        @keyframes stockPulseRed{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--err) 60%,transparent)}70%{box-shadow:0 0 0 5px transparent}}
+        @keyframes stockPulseAmber{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--warn) 60%,transparent)}70%{box-shadow:0 0 0 5px transparent}}
+        @media (prefers-reduced-motion: reduce){*{animation-name:none!important}}
       `}</style>
     </AdminLayout>
   );

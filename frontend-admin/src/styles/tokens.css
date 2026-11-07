@@ -40,7 +40,7 @@
   --focus: #3b3bf5;
 
   /* Estados */
-  --ok: #0f7a52;
+  --ok: #0c6e49;
   --ok-bg: rgba(18, 160, 107, 0.12);
   --warn: #8f5400;
   --warn-bg: rgba(232, 163, 23, 0.16);
@@ -48,6 +48,9 @@
   --err-bg: rgba(220, 38, 38, 0.1);
   --info: #3b3bf5;
   --info-bg: rgba(59, 59, 245, 0.1);
+  /* Estados de pedido extra: listo (violeta) y en camino (petróleo). */
+  --violet: #7b3fc4;
+  --teal: #0b6f78;
 
   /* Gráficos */
   --chart-1: #3b3bf5;
@@ -102,6 +105,8 @@
   --err-bg: rgba(255, 122, 110, 0.14);
   --info: #9a9aff;
   --info-bg: rgba(140, 140, 255, 0.16);
+  --violet: #c48af0;
+  --teal: #45c4d4;
 
   --chart-1: #8c8cff;
   --chart-2: #ff6a38;
@@ -145,6 +150,8 @@
   --color-err-bg: var(--err-bg);
   --color-info: var(--info);
   --color-info-bg: var(--info-bg);
+  --color-violet: var(--violet);
+  --color-teal: var(--teal);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);

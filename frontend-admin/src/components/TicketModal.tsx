@@ -1,7 +1,6 @@
 // Modal que aparece al entregar un pedido: pregunta si se quiere generar el
 // ticket y ofrece elegir el tipo de impresora (térmica o común).
 
-import { useTheme } from "../context/ThemeContext";
 import { useDialogos } from "../lib/dialogos";
 import Modal from "./Modal";
 import { useNegocio } from "../context/NegocioContext";
@@ -18,7 +17,6 @@ interface Props {
 }
 
 export default function TicketModal({ pedido, config, onClose }: Props) {
-  const { isDark } = useTheme();
   const { moneda } = useNegocio();
   const { t } = useLang();
   const { avisar } = useDialogos();
@@ -31,10 +29,10 @@ export default function TicketModal({ pedido, config, onClose }: Props) {
     Number(pedido.total) ||
     (pedido.items || []).reduce((a, it) => a + Number(it.subtotal || 0), 0);
 
-  const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
-  const textSecondary = isDark ? "#94a3b8" : "#64748b";
-  const textMuted = isDark ? "#475569" : "#94a3b8";
-  const cardBorder = isDark ? "rgba(255,255,255,0.09)" : "rgba(0,0,0,0.08)";
+  const textPrimary = "var(--fg)";
+  const textSecondary = "var(--fg-2)";
+  const textMuted = "var(--fg-3)";
+  const cardBorder = "var(--line)";
 
   const imprimir = (formato: FormatoTicket) => {
     const ok = imprimirTicket(pedido, config, moneda, formato, t);
@@ -62,7 +60,7 @@ export default function TicketModal({ pedido, config, onClose }: Props) {
             justifyContent: "space-between",
             gap: 10,
             margin: "0 0 18px",
-            background: isDark ? "rgba(255,255,255,0.03)" : "#f8fafc",
+            background: "var(--surface-2)",
             border: `1px solid ${cardBorder}`,
             borderRadius: 10,
             padding: "12px 14px",
@@ -82,9 +80,8 @@ export default function TicketModal({ pedido, config, onClose }: Props) {
           <PrinterButton
             title={t("ticketThermal")}
             desc={t("ticketThermalDesc")}
-            accent="#8b5cf6"
+            accent="var(--violet)"
             icon="🧾"
-            isDark={isDark}
             border={cardBorder}
             textPrimary={textPrimary}
             textSecondary={textSecondary}
@@ -93,9 +90,8 @@ export default function TicketModal({ pedido, config, onClose }: Props) {
           <PrinterButton
             title={t("ticketCommon")}
             desc={t("ticketCommonDesc")}
-            accent="#0ea5e9"
+            accent="var(--teal)"
             icon="🖨️"
-            isDark={isDark}
             border={cardBorder}
             textPrimary={textPrimary}
             textSecondary={textSecondary}
@@ -131,7 +127,6 @@ function PrinterButton({
   desc,
   accent,
   icon,
-  isDark,
   border,
   textPrimary,
   textSecondary,
@@ -141,7 +136,6 @@ function PrinterButton({
   desc: string;
   accent: string;
   icon: string;
-  isDark: boolean;
   border: string;
   textPrimary: string;
   textSecondary: string;
@@ -158,18 +152,18 @@ function PrinterButton({
         padding: "12px 14px",
         borderRadius: 11,
         border: `1px solid ${border}`,
-        background: isDark ? "rgba(255,255,255,0.02)" : "#fff",
+        background: "var(--surface)",
         cursor: "pointer",
         textAlign: "left",
         transition: "all 0.15s",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = `${accent}66`;
-        e.currentTarget.style.background = `${accent}12`;
+        e.currentTarget.style.borderColor = `color-mix(in srgb, ${accent} 40%, transparent)`;
+        e.currentTarget.style.background = `color-mix(in srgb, ${accent} 7%, transparent)`;
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.borderColor = border;
-        e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.02)" : "#fff";
+        e.currentTarget.style.background = "var(--surface)";
       }}
     >
       <span
@@ -177,7 +171,7 @@ function PrinterButton({
           width: 38,
           height: 38,
           borderRadius: 10,
-          background: `${accent}18`,
+          background: `color-mix(in srgb, ${accent} 9%, transparent)`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",

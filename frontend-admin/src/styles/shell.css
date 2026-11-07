@@ -414,6 +414,16 @@
 }
 .sh-scrim.is-open { opacity: 1; pointer-events: auto; }
 
+/* Controles con estilos en línea: 44 px de alto en el celular. */
+@media (max-width: 768px) {
+  .tap { min-height: 44px; }
+}
+
+/* Controles con estilos en línea: 44 px de alto en el celular. */
+@media (max-width: 768px) {
+  .tap { min-height: 44px; }
+}
+
 /* Barra inferior: sólo celular */
 .sh-bottom { display: none; }
 

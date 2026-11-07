@@ -35,10 +35,11 @@ const fromServer = (g: VarianteGrupo): EditGrupo => ({
 const inputStyle: React.CSSProperties = {
   padding: "7px 10px",
   borderRadius: 8,
-  border: "1px solid rgba(0,0,0,0.12)",
+  border: "1px solid var(--line-strong)",
+  background: "var(--surface)",
+  color: "var(--fg)",
   fontSize: 13,
   fontFamily: "inherit",
-  outline: "none",
   boxSizing: "border-box",
 };
 
@@ -156,7 +157,7 @@ export default function VariantesEditor({ productoId }: { productoId: number }) 
   return (
     <div
       style={{
-        borderTop: "1px solid rgba(0,0,0,0.08)",
+        borderTop: "1px solid var(--line)",
         paddingTop: 14,
         marginTop: 2,
       }}
@@ -170,10 +171,10 @@ export default function VariantesEditor({ productoId }: { productoId: number }) 
         }}
       >
         <div>
-          <div style={{ fontSize: 13.5, fontWeight: 600, color: "#1e293b" }}>
+          <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--fg)" }}>
             {t("varTitle")}
           </div>
-          <div style={{ fontSize: 11.5, color: "#94a3b8", marginTop: 2 }}>
+          <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 2 }}>
             {t("varSubtitle")}
           </div>
         </div>
@@ -185,9 +186,9 @@ export default function VariantesEditor({ productoId }: { productoId: number }) 
             display: "inline-flex",
             alignItems: "center",
             gap: 5,
-            border: "1px solid #3b82f6",
-            color: "#3b82f6",
-            background: "rgba(59,130,246,0.06)",
+            border: "1px solid var(--info)",
+            color: "var(--info)",
+            background: "var(--info-bg)",
             cursor: "pointer",
             fontWeight: 600,
           }}
@@ -197,15 +198,15 @@ export default function VariantesEditor({ productoId }: { productoId: number }) 
       </div>
 
       {error && (
-        <div style={{ fontSize: 12, color: "#dc2626", margin: "6px 0" }}>{error}</div>
+        <div role="alert" style={{ fontSize: 12, color: "var(--err)", margin: "6px 0" }}>{error}</div>
       )}
 
       {loading ? (
-        <div style={{ fontSize: 12, color: "#94a3b8", padding: "8px 0" }}>
+        <div style={{ fontSize: 12, color: "var(--fg-3)", padding: "8px 0" }}>
           {t("varLoading")}
         </div>
       ) : grupos.length === 0 ? (
-        <div style={{ fontSize: 12, color: "#94a3b8", padding: "8px 0" }}>
+        <div style={{ fontSize: 12, color: "var(--fg-3)", padding: "8px 0" }}>
           {t("varEmpty")}
         </div>
       ) : (
@@ -214,10 +215,10 @@ export default function VariantesEditor({ productoId }: { productoId: number }) 
             <div
               key={g.id ?? `nuevo-${gi}`}
               style={{
-                border: "1px solid rgba(0,0,0,0.1)",
+                border: "1px solid var(--line-strong)",
                 borderRadius: 10,
                 padding: 12,
-                background: "rgba(0,0,0,0.015)",
+                background: "var(--surface-2)",
               }}
             >
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -243,7 +244,7 @@ export default function VariantesEditor({ productoId }: { productoId: number }) 
                     alignItems: "center",
                     gap: 6,
                     fontSize: 12.5,
-                    color: "#64748b",
+                    color: "var(--fg-3)",
                     cursor: "pointer",
                   }}
                 >
@@ -267,7 +268,7 @@ export default function VariantesEditor({ productoId }: { productoId: number }) 
                       onChange={(e) => patchOpcion(gi, oi, { nombre: e.target.value })}
                     />
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      <span style={{ fontSize: 12, color: "#94a3b8" }}>+</span>
+                      <span style={{ fontSize: 12, color: "var(--fg-3)" }}>+</span>
                       <input
                         style={{ ...inputStyle, width: 90 }}
                         type="number"
@@ -289,7 +290,7 @@ export default function VariantesEditor({ productoId }: { productoId: number }) 
                       style={{
                         border: "none",
                         background: "none",
-                        color: "#ef4444",
+                        color: "var(--err)",
                         cursor: "pointer",
                         display: "flex",
                         padding: "0 4px",
@@ -308,9 +309,9 @@ export default function VariantesEditor({ productoId }: { productoId: number }) 
                     alignItems: "center",
                     gap: 5,
                     alignSelf: "flex-start",
-                    border: "1px dashed rgba(0,0,0,0.2)",
+                    border: "1px dashed var(--line-strong)",
                     background: "transparent",
-                    color: "#64748b",
+                    color: "var(--fg-3)",
                     cursor: "pointer",
                   }}
                 >
@@ -328,8 +329,8 @@ export default function VariantesEditor({ productoId }: { productoId: number }) 
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 5,
-                    border: "1px solid rgba(239,68,68,0.4)",
-                    color: "#dc2626",
+                    border: "1px solid color-mix(in srgb, var(--err) 45%, transparent)",
+                    color: "var(--err)",
                     background: "transparent",
                     cursor: "pointer",
                   }}
@@ -343,8 +344,8 @@ export default function VariantesEditor({ productoId }: { productoId: number }) 
                   style={{
                     ...inputStyle,
                     border: "none",
-                    background: "#3b82f6",
-                    color: "#fff",
+                    background: "var(--accent)",
+                    color: "var(--on-accent)",
                     fontWeight: 600,
                     cursor: savingId !== null ? "default" : "pointer",
                     opacity: g._dirty ? 1 : 0.6,

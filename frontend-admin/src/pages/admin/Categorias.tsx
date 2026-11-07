@@ -4,9 +4,9 @@ import { categoriasService, type Categoria } from "../../services/api";
 import AdminLayout from "../../components/AdminLayout";
 import { useStyles } from "../../components/sharedStyles";
 import Modal from "../../components/Modal";
-import { useTheme } from "../../context/ThemeContext";
 import { useLang } from "../../lib/i18n";
 import { SearchIcon, ListIcon, GridIcon, Highlight } from "../../lib/listUi";
+import { MOBILE_QUERY } from "../../lib/useIsMobile";
 import { IconX, IconList } from "../../lib/icons";
 
 type ViewMode = "lista" | "cards";
@@ -27,7 +27,6 @@ export default function Categorias() {
   const S = useStyles();
   const { t } = useLang();
   const { avisar } = useDialogos();
-  const { isDark } = useTheme();
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -35,19 +34,30 @@ export default function Categorias() {
   const [form, setForm] = useState({ nombre: "", orden: 0, activo: true });
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<ViewMode>(
-    () => (localStorage.getItem("cat_view") as ViewMode) || "lista",
-  );
+  // Vista elegida; si nunca eligió: tarjetas en el celular (la tabla no entra).
+  const [view, setView] = useState<ViewMode>(() => {
+    try {
+      const g = localStorage.getItem("cat_view");
+      if (g === "lista" || g === "cards") return g;
+    } catch {
+      /* sin storage */
+    }
+    return window.matchMedia(MOBILE_QUERY).matches ? "cards" : "lista";
+  });
 
   const setViewMode = (v: ViewMode) => {
-    localStorage.setItem("cat_view", v);
+    try {
+      localStorage.setItem("cat_view", v);
+    } catch {
+      /* sin storage */
+    }
     setView(v);
   };
 
-  const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
-  const textMuted = isDark ? "#94a3b8" : "#94a3b8";
-  const cardBg = isDark ? "#1a1d27" : "#ffffff";
-  const cardBorder = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)";
+  const textPrimary = "var(--fg)";
+  const textMuted = "var(--fg-3)";
+  const cardBg = "var(--surface)";
+  const cardBorder = "var(--line)";
 
   const q = search.trim().toLowerCase();
   const filtradas = categorias.filter(
@@ -88,9 +98,8 @@ export default function Categorias() {
     e.preventDefault();
     setSaving(true);
     try {
-      editing
-        ? await categoriasService.update(editing.id, form)
-        : await categoriasService.create(form);
+      if (editing) await categoriasService.update(editing.id, form);
+      else await categoriasService.create(form);
       await fetch_();
       closeModal();
     } catch {
@@ -205,8 +214,8 @@ export default function Categorias() {
                 fontWeight: 600,
                 transition: "all 0.15s",
                 background:
-                  view === v.key ? (isDark ? "#0f1117" : "#f0f2f5") : "transparent",
-                color: view === v.key ? "#3b82f6" : textMuted,
+                  view === v.key ? "var(--surface-3)" : "transparent",
+                color: view === v.key ? "var(--info)" : textMuted,
               }}
             >
               <v.Icon />
@@ -218,8 +227,8 @@ export default function Categorias() {
         <button
           style={S.btnPrimary}
           onClick={() => openModal()}
-          onMouseEnter={(e) => (e.currentTarget.style.background = "#2563eb")}
-          onMouseLeave={(e) => (e.currentTarget.style.background = "#3b82f6")}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--accent-hover)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "var(--accent)")}
         >
           <PlusIcon /> {t("catNew")}
         </button>
@@ -233,7 +242,7 @@ export default function Categorias() {
               style={{
                 width: 28,
                 height: 28,
-                border: "2px solid #3b82f6",
+                border: "2px solid var(--focus)",
                 borderTopColor: "transparent",
                 borderRadius: "50%",
                 animation: "spin 0.7s linear infinite",
@@ -243,8 +252,8 @@ export default function Categorias() {
         </div>
       ) : filtradas.length === 0 ? (
         <div style={S.card}>
-          <div style={{ textAlign: "center", padding: "48px 0", color: "#94a3b8" }}>
-            <div style={{ fontSize: 32, marginBottom: 8, display: "flex", justifyContent: "center", color: "#cbd5e1" }}>
+          <div style={{ textAlign: "center", padding: "48px 0", color: "var(--fg-3)" }}>
+            <div style={{ fontSize: 32, marginBottom: 8, display: "flex", justifyContent: "center", color: "var(--fg-3)" }}>
               {q ? <SearchIcon size={30} /> : "📁"}
             </div>
             <div style={{ fontSize: 14 }}>
@@ -275,7 +284,7 @@ export default function Categorias() {
                     fontSize: 11,
                     fontWeight: 600,
                     color: textMuted,
-                    background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+                    background: "var(--surface-2)",
                     borderRadius: 6,
                     padding: "2px 7px",
                     whiteSpace: "nowrap",
@@ -291,12 +300,12 @@ export default function Categorias() {
                   title={c.activo ? t("clickToDeactivate") : t("clickToActivate")}
                   style={{ ...(c.activo ? S.badgeGreen : S.badgeRed), cursor: "pointer", border: "none" }}
                 >
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: c.activo ? "#10b981" : "#ef4444" }} />
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: c.activo ? "var(--ok)" : "var(--err)" }} />
                   {c.activo ? t("statusActive") : t("statusInactive")}
                 </button>
                 <button
                   onClick={() => openModal(c)}
-                  style={{ background: "none", border: "none", color: "#60a5fa", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0 }}
+                  style={{ background: "none", border: "none", color: "var(--info)", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0 }}
                 >
                   {t("actionEdit")}
                 </button>
@@ -323,7 +332,7 @@ export default function Categorias() {
                   key={c.id}
                   style={S.tr}
                   onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "rgba(0,0,0,0.02)")
+                    (e.currentTarget.style.background = "var(--surface-2)")
                   }
                   onMouseLeave={(e) =>
                     (e.currentTarget.style.background = "transparent")
@@ -360,7 +369,7 @@ export default function Categorias() {
                           width: 5,
                           height: 5,
                           borderRadius: "50%",
-                          background: c.activo ? "#10b981" : "#ef4444",
+                          background: c.activo ? "var(--ok)" : "var(--err)",
                         }}
                       />
                       {c.activo ? t("statusActive") : t("statusInactive")}
@@ -373,7 +382,7 @@ export default function Categorias() {
                         style={{
                           background: "none",
                           border: "none",
-                          color: "#60a5fa",
+                          color: "var(--info)",
                           fontSize: 13,
                           cursor: "pointer",
                           padding: 0,
@@ -444,19 +453,19 @@ export default function Categorias() {
                           flex: 1,
                           padding: "8px 0",
                           borderRadius: 8,
-                          border: `1px solid ${form.activo === val ? (val ? "#10b981" : "#ef4444") : "rgba(0,0,0,0.1)"}`,
+                          border: `1px solid ${form.activo === val ? (val ? "var(--ok)" : "var(--err)") : "var(--line-strong)"}`,
                           background:
                             form.activo === val
                               ? val
-                                ? "rgba(16,185,129,0.08)"
-                                : "rgba(239,68,68,0.08)"
+                                ? "var(--ok-bg)"
+                                : "var(--err-bg)"
                               : "transparent",
                           color:
                             form.activo === val
                               ? val
-                                ? "#059669"
-                                : "#dc2626"
-                              : "#94a3b8",
+                                ? "var(--ok)"
+                                : "var(--err)"
+                              : "var(--fg-3)",
                           fontSize: 13,
                           cursor: "pointer",
                           transition: "all 0.15s",
@@ -475,11 +484,11 @@ export default function Categorias() {
                   style={{ ...S.btnGhost, flex: 1 }}
                   onMouseEnter={(e) =>
                     (e.currentTarget.style.background =
-                      "rgba(0,0,0,0.08)")
+                      "var(--surface-2)")
                   }
                   onMouseLeave={(e) =>
                     (e.currentTarget.style.background =
-                      "rgba(0,0,0,0.04)")
+                      "var(--surface)")
                   }
                 >
                   {t("actionCancel")}
@@ -496,11 +505,11 @@ export default function Categorias() {
                   onMouseEnter={(e) => {
                     if (!saving)
                       (e.currentTarget as HTMLButtonElement).style.background =
-                        "#2563eb";
+                        "var(--accent-hover)";
                   }}
                   onMouseLeave={(e) =>
                     ((e.currentTarget as HTMLButtonElement).style.background =
-                      "#3b82f6")
+                      "var(--accent)")
                   }
                 >
                   {saving

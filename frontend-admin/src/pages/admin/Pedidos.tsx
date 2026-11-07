@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import type { ComponentType } from "react";
 import AdminLayout from "../../components/AdminLayout";
-import { useTheme } from "../../context/ThemeContext";
 import {
   IconReceipt,
   IconUtensils,
@@ -44,10 +43,10 @@ const TIPOS: {
   Icon: ComponentType<{ size?: number }>;
   color: string;
 }[] = [
-  { key: "todos", labelKey: "pedAll", Icon: IconReceipt, color: "#64748b" },
-  { key: "mesa", labelKey: "pedTable", Icon: IconUtensils, color: "#8b5cf6" },
-  { key: "delivery", labelKey: "pedDelivery", Icon: IconTruck, color: "#0ea5e9" },
-  { key: "retiro", labelKey: "pedPickup", Icon: IconBag, color: "#f59e0b" },
+  { key: "todos", labelKey: "pedAll", Icon: IconReceipt, color: "var(--fg-3)" },
+  { key: "mesa", labelKey: "pedTable", Icon: IconUtensils, color: "var(--info)" },
+  { key: "delivery", labelKey: "pedDelivery", Icon: IconTruck, color: "var(--accent-ink)" },
+  { key: "retiro", labelKey: "pedPickup", Icon: IconBag, color: "var(--ok)" },
 ];
 
 // Icono según el tipo de entrega de un pedido.
@@ -62,26 +61,25 @@ const ESTADOS: {
   labelKey: string;
   color: string;
 }[] = [
-  { key: "todos", labelKey: "pedAll", color: "#64748b" },
-  { key: "pendiente", labelKey: "pedPending", color: "#f59e0b" },
-  { key: "preparando", labelKey: "pedPreparing", color: "#3b82f6" },
-  { key: "listo", labelKey: "pedReadyTab", color: "#8b5cf6" },
-  { key: "en_camino", labelKey: "pedOnTheWayTab", color: "#06b6d4" },
-  { key: "entregado", labelKey: "pedDelivered", color: "#10b981" },
-  { key: "cancelado", labelKey: "pedCancelled", color: "#ef4444" },
+  { key: "todos", labelKey: "pedAll", color: "var(--fg-3)" },
+  { key: "pendiente", labelKey: "pedPending", color: "var(--warn)" },
+  { key: "preparando", labelKey: "pedPreparing", color: "var(--info)" },
+  { key: "listo", labelKey: "pedReadyTab", color: "var(--violet)" },
+  { key: "en_camino", labelKey: "pedOnTheWayTab", color: "var(--teal)" },
+  { key: "entregado", labelKey: "pedDelivered", color: "var(--ok)" },
+  { key: "cancelado", labelKey: "pedCancelled", color: "var(--err)" },
 ];
 
 const estadoColor: Record<Pedido["estado"], string> = {
-  pendiente: "#f59e0b",
-  preparando: "#3b82f6",
-  listo: "#8b5cf6",
-  en_camino: "#06b6d4",
-  entregado: "#10b981",
-  cancelado: "#ef4444",
+  pendiente: "var(--warn)",
+  preparando: "var(--info)",
+  listo: "var(--violet)",
+  en_camino: "var(--teal)",
+  entregado: "var(--ok)",
+  cancelado: "var(--err)",
 };
 
 export default function Pedidos() {
-  const { isDark } = useTheme();
   const { moneda } = useNegocio();
   const { t } = useLang();
   const fmt = (n: number) => fmtMoney(n, moneda);
@@ -105,11 +103,11 @@ export default function Pedidos() {
   const [config, setConfig] = useState<Configuracion | null>(null);
   const [ticketPedido, setTicketPedido] = useState<Pedido | null>(null);
 
-  const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
-  const textSecondary = isDark ? "#94a3b8" : "#64748b";
-  const textMuted = isDark ? "#475569" : "#94a3b8";
-  const cardBg = isDark ? "#1a1d27" : "#ffffff";
-  const cardBorder = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)";
+  const textPrimary = "var(--fg)";
+  const textSecondary = "var(--fg-2)";
+  const textMuted = "var(--fg-3)";
+  const cardBg = "var(--surface)";
+  const cardBorder = "var(--line)";
 
   const load = useCallback(async () => {
     try {
@@ -182,6 +180,9 @@ export default function Pedidos() {
               return (
                 <button
                   key={tp.key}
+                  type="button"
+                  className="tap"
+                  aria-pressed={active}
                   onClick={() => setTipoFiltro(tp.key)}
                   style={{
                     display: "inline-flex",
@@ -190,7 +191,7 @@ export default function Pedidos() {
                     padding: "8px 14px",
                     borderRadius: 10,
                     border: `1px solid ${active ? tp.color : cardBorder}`,
-                    background: active ? `${tp.color}18` : cardBg,
+                    background: active ? `color-mix(in srgb, ${tp.color} 9%, transparent)` : cardBg,
                     color: active ? tp.color : textSecondary,
                     fontSize: 13,
                     fontWeight: active ? 700 : 500,
@@ -206,7 +207,7 @@ export default function Pedidos() {
                       padding: "1px 7px",
                       borderRadius: 999,
                       background: active ? tp.color : cardBorder,
-                      color: active ? "#fff" : textMuted,
+                      color: active ? "var(--surface)" : textMuted,
                     }}
                   >
                     {tipoCount(tp.key)}
@@ -234,13 +235,16 @@ export default function Pedidos() {
                 return (
                   <button
                     key={e.key}
+                    type="button"
+                    className="tap"
+                    aria-pressed={active}
                     onClick={() => setFiltro(e.key)}
                     style={{
                       padding: "7px 14px",
                       borderRadius: 999,
                       border: active ? "none" : `1px solid ${cardBorder}`,
                       background: active ? e.color : "transparent",
-                      color: active ? "#fff" : textSecondary,
+                      color: active ? "var(--surface)" : textSecondary,
                       fontSize: 12.5,
                       fontWeight: active ? 600 : 400,
                       cursor: "pointer",
@@ -256,6 +260,8 @@ export default function Pedidos() {
             value={mesa}
             onChange={(e) => setMesa(e.target.value)}
             placeholder={t("pedFilterTable")}
+            aria-label={t("pedFilterTable")}
+            className="tap"
             style={{
               padding: "8px 12px",
               borderRadius: 8,
@@ -263,11 +269,12 @@ export default function Pedidos() {
               background: cardBg,
               color: textPrimary,
               fontSize: 13,
-              outline: "none",
               width: 150,
             }}
           />
           <button
+            type="button"
+            className="tap"
             onClick={load}
             style={{
               padding: "8px 14px",
@@ -288,7 +295,7 @@ export default function Pedidos() {
         <p style={{ color: textMuted }}>{t("pedLoading")}</p>
       ) : visibles.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 0", color: textMuted }}>
-          <div style={{ marginBottom: 10, display: "flex", justifyContent: "center", color: "#cbd5e1" }}>
+          <div style={{ marginBottom: 10, display: "flex", justifyContent: "center", color: "var(--fg-3)" }}>
             <IconReceipt size={40} />
           </div>
           <p style={{ fontSize: 15 }}>{t("pedEmpty")}</p>
@@ -347,9 +354,9 @@ export default function Pedidos() {
                     fontWeight: 700,
                     padding: "3px 10px",
                     borderRadius: 999,
-                    background: `${estadoColor[p.estado]}22`,
+                    background: `color-mix(in srgb, ${estadoColor[p.estado]} 13%, transparent)`,
                     color: estadoColor[p.estado],
-                    border: `1px solid ${estadoColor[p.estado]}44`,
+                    border: `1px solid color-mix(in srgb, ${estadoColor[p.estado]} 27%, transparent)`,
                   }}
                 >
                   {estadoLabel(p.estado)}
@@ -404,7 +411,7 @@ export default function Pedidos() {
                     href={`https://wa.me/${(p.telefono_cliente || "").replace(/\D/g, "").replace(/^0/, "").replace(/^(?!54)/, "549")}`}
                     target="_blank"
                     rel="noreferrer"
-                    style={{ color: "#25d366", fontSize: 11.5, fontWeight: 600, textDecoration: "none" }}
+                    style={{ color: "var(--ok)", fontSize: 11.5, fontWeight: 600, textDecoration: "none" }}
                   >
                     WhatsApp
                   </a>
@@ -447,19 +454,19 @@ export default function Pedidos() {
               {/* Acciones */}
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {p.estado === "pendiente" && (
-                  <EstadoBtn color="#3b82f6" onClick={() => cambiarEstado(p.id, "preparando")}>
+                  <EstadoBtn color="var(--info)" onClick={() => cambiarEstado(p.id, "preparando")}>
                     {t("pedPrepare")}
                   </EstadoBtn>
                 )}
                 {/* Preparando → según el tipo: delivery sale "en camino", retiro
                     queda "listo para retirar"; mesa se entrega directo. */}
                 {p.estado === "preparando" && p.tipo_entrega === "delivery" && (
-                  <EstadoBtn color="#06b6d4" onClick={() => cambiarEstado(p.id, "en_camino")}>
+                  <EstadoBtn color="var(--teal)" onClick={() => cambiarEstado(p.id, "en_camino")}>
                     🛵 {t("pedSend")}
                   </EstadoBtn>
                 )}
                 {p.estado === "preparando" && p.tipo_entrega === "retiro" && (
-                  <EstadoBtn color="#8b5cf6" onClick={() => cambiarEstado(p.id, "listo")}>
+                  <EstadoBtn color="var(--violet)" onClick={() => cambiarEstado(p.id, "listo")}>
                     {t("pedMarkReady")}
                   </EstadoBtn>
                 )}
@@ -468,7 +475,7 @@ export default function Pedidos() {
                   (p.estado === "preparando" &&
                     p.tipo_entrega !== "delivery" &&
                     p.tipo_entrega !== "retiro")) && (
-                  <EstadoBtn color="#10b981" onClick={() => entregar(p)}>
+                  <EstadoBtn color="var(--ok)" onClick={() => entregar(p)}>
                     {t("pedDeliver")}
                   </EstadoBtn>
                 )}
@@ -476,17 +483,17 @@ export default function Pedidos() {
                   p.estado === "preparando" ||
                   p.estado === "listo" ||
                   p.estado === "en_camino") && (
-                  <EstadoBtn color="#ef4444" ghost onClick={() => cambiarEstado(p.id, "cancelado")}>
+                  <EstadoBtn color="var(--err)" ghost onClick={() => cambiarEstado(p.id, "cancelado")}>
                     {t("actionCancel")}
                   </EstadoBtn>
                 )}
                 {p.estado === "entregado" && (
-                  <EstadoBtn color="#8b5cf6" ghost onClick={() => setTicketPedido(p)}>
+                  <EstadoBtn color="var(--violet)" ghost onClick={() => setTicketPedido(p)}>
                     🧾 {t("ticketReprint")}
                   </EstadoBtn>
                 )}
                 {(p.estado === "entregado" || p.estado === "cancelado") && (
-                  <EstadoBtn color="#64748b" ghost onClick={() => cambiarEstado(p.id, "pendiente")}>
+                  <EstadoBtn color="var(--fg-3)" ghost onClick={() => cambiarEstado(p.id, "pendiente")}>
                     {t("pedReopen")}
                   </EstadoBtn>
                 )}
@@ -542,15 +549,17 @@ function EstadoBtn({
 }) {
   return (
     <button
+      type="button"
+      className="tap"
       onClick={onClick}
       style={{
         flex: 1,
         minWidth: 90,
         padding: "8px 12px",
         borderRadius: 8,
-        border: ghost ? `1px solid ${color}55` : "none",
+        border: ghost ? `1px solid color-mix(in srgb, ${color} 33%, transparent)` : "none",
         background: ghost ? "transparent" : color,
-        color: ghost ? color : "#fff",
+        color: ghost ? color : "var(--surface)",
         fontSize: 12.5,
         fontWeight: 600,
         cursor: "pointer",
