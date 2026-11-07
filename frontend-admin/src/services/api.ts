@@ -322,8 +322,6 @@ export interface PedidoItem {
   producto_id: number | null;
   nombre: string;
   precio_unit: number;
-  // Costo congelado al momento de la venta (para calcular ganancia en el ticket).
-  costo_unit?: number;
   cantidad: number;
   subtotal: number;
 }
@@ -412,8 +410,27 @@ export interface Resumen {
   stock_bajo: { id: number; nombre: string; stock: number }[];
 }
 
+export interface HistorialMes extends ResumenMes {
+  anio: number;
+}
+
+export interface Historial {
+  desde: string; // YYYY-MM
+  hasta: string; // YYYY-MM
+  tipo: TipoEntrega | null;
+  meses: HistorialMes[];
+  totales: { ventas: number; costo: number; ganancia: number; pedidos: number };
+  top_productos: { nombre: string; ventas: number; ganancia: number; cantidad: number }[];
+}
+
 export const analiticasService = {
   getResumen: async () => (await api.get<Resumen>("/analiticas/resumen")).data,
+  getHistorial: async (params: { desde: string; hasta: string; tipo?: TipoEntrega | "" }) =>
+    (
+      await api.get<Historial>("/analiticas/historial", {
+        params: { desde: params.desde, hasta: params.hasta, tipo: params.tipo || undefined },
+      })
+    ).data,
 };
 
 export type TipoPlan = "free" | "basic" | "standard" | "premium";

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import AdminLayout from "../../components/AdminLayout";
+import HistorialGanancias from "../../components/HistorialGanancias";
 import { useNegocio } from "../../context/NegocioContext";
 import { fmtMoney } from "../../lib/money";
 import { useLang, LOCALE } from "../../lib/i18n";
@@ -400,6 +401,9 @@ export default function Dashboard() {
             </div>
           </section>
         )}
+
+        {/* ── Historial mensual de ganancias (con filtros) ── */}
+        {puedeVerAnaliticas && <HistorialGanancias />}
 
         {/* ── Pedidos recientes + stock ── */}
         {(puedeVerPedidos || resumen) && (

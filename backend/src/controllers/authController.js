@@ -6,7 +6,7 @@ const { sendPasswordResetEmail } = require("../services/emailService");
 const { getCuentaId } = require("../utils/cuenta");
 const { respondError } = require("../utils/respondError");
 const { TRIAL_DIAS } = require("../utils/suscripcion");
-const { slugify } = require("../utils/slug");
+const { slugUnico } = require("../utils/slug");
 
 // Construye la URL de reseteo a partir de ADMIN_URL (que apunta al login).
 // Ej: "https://panel.app/admin/login" -> "https://panel.app/admin/reset-password?token=..."
@@ -214,7 +214,7 @@ const crearCuentaConNegocio = async ({ nombre, email, origen }) => {
     .insert([
       {
         nombre,
-        slug: `${slugify(nombre, 50) || "negocio"}-${cuenta.id}`,
+        slug: await slugUnico(supabase, nombre),
         activo: true,
         cuenta_id: cuenta.id,
       },

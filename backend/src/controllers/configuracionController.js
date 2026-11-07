@@ -2,6 +2,7 @@ const supabase = require("../config/database");
 const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
 const { avisosDisponibles } = require("../services/avisosPedidoService");
+const { sincronizarSlug } = require("../utils/slug");
 
 // Rubros soportados (multi-rubro). Debe coincidir con el CHECK de la BD
 // (db/multirubro.sql → chk_tipo_rubro).
@@ -136,8 +137,13 @@ const updateConfiguracion = async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    // El link público del menú se arma con el nombre del negocio.
+    const slug = await sincronizarSlug(supabase, negocioId, nombre).catch(() => null);
+
     res.json({
       ...data,
+      ...(slug ? { slug } : {}),
       ...(tipo_rubro !== undefined ? { tipo_rubro } : {}),
       ...(config_campos !== undefined ? { config_campos } : {}),
     });

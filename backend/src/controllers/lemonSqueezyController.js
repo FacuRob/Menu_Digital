@@ -3,7 +3,7 @@ const supabase = require("../config/database");
 const bcrypt = require("bcryptjs");
 const { planPorVariant } = require("../utils/lemonSqueezyPlans");
 const { sendWelcomeEmail } = require("../services/emailService");
-const { slugify } = require("../utils/slug");
+const { slugUnico } = require("../utils/slug");
 
 // ── Helpers ──────────────────────────────────────────────────
 const generarPassword = () => {
@@ -49,7 +49,7 @@ const asegurarNegocio = async (cuenta, nombre, email) => {
     .insert([
       {
         nombre: nombreNeg,
-        slug: `${slugify(nombre || email, 50) || "negocio"}-${cuenta.id}`,
+        slug: await slugUnico(supabase, nombreNeg),
         activo: true,
         cuenta_id: cuenta.id,
       },

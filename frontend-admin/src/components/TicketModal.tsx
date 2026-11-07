@@ -1,6 +1,5 @@
 // Modal que aparece al entregar un pedido: pregunta si se quiere generar el
-// ticket y ofrece elegir el tipo de impresora (térmica o común). Muestra
-// también la ganancia del pedido, para uso interno del dueño.
+// ticket y ofrece elegir el tipo de impresora (térmica o común).
 
 import { useTheme } from "../context/ThemeContext";
 import { useDialogos } from "../lib/dialogos";
@@ -28,15 +27,9 @@ export default function TicketModal({ pedido, config, onClose }: Props) {
 
   const fmt = (n: number) => fmtMoney(n, moneda);
 
-  // Ganancia del pedido = ventas − costo (costo congelado en cada ítem).
   const totalVentas =
     Number(pedido.total) ||
     (pedido.items || []).reduce((a, it) => a + Number(it.subtotal || 0), 0);
-  const totalCosto = (pedido.items || []).reduce(
-    (a, it) => a + Number(it.costo_unit || 0) * Number(it.cantidad || 0),
-    0,
-  );
-  const ganancia = totalVentas - totalCosto;
 
   const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
   const textSecondary = isDark ? "#94a3b8" : "#64748b";
@@ -61,44 +54,23 @@ export default function TicketModal({ pedido, config, onClose }: Props) {
       maxWidth={440}
     >
       <div style={{ padding: "18px 22px 22px" }}>
-        {/* Resumen: total y ganancia */}
+        {/* Total del pedido (sin costo ni ganancia: eso solo se ve en el Dashboard) */}
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
             gap: 10,
             margin: "0 0 18px",
+            background: isDark ? "rgba(255,255,255,0.03)" : "#f8fafc",
+            border: `1px solid ${cardBorder}`,
+            borderRadius: 10,
+            padding: "12px 14px",
           }}
         >
-          <div
-            style={{
-              background: isDark ? "rgba(255,255,255,0.03)" : "#f8fafc",
-              border: `1px solid ${cardBorder}`,
-              borderRadius: 10,
-              padding: "10px 12px",
-            }}
-          >
-            <div style={{ fontSize: 11, color: textMuted, marginBottom: 3 }}>
-              {t("totalLabel")}
-            </div>
-            <div style={{ fontSize: 17, fontWeight: 800, color: textPrimary }}>
-              {fmt(totalVentas)}
-            </div>
-          </div>
-          <div
-            style={{
-              background: isDark ? "rgba(16,185,129,0.08)" : "#ecfdf5",
-              border: "1px solid rgba(16,185,129,0.3)",
-              borderRadius: 10,
-              padding: "10px 12px",
-            }}
-          >
-            <div style={{ fontSize: 11, color: textMuted, marginBottom: 3 }}>
-              {t("ticketProfitLabel")}
-            </div>
-            <div style={{ fontSize: 17, fontWeight: 800, color: "#10b981" }}>
-              {fmt(ganancia)}
-            </div>
+          <div style={{ fontSize: 12, color: textMuted }}>{t("totalLabel")}</div>
+          <div style={{ fontSize: 19, fontWeight: 800, color: textPrimary }}>
+            {fmt(totalVentas)}
           </div>
         </div>
 

@@ -7,6 +7,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { useNegocio } from "../../context/NegocioContext";
 import type { ComponentType } from "react";
 import { useLang } from "../../lib/i18n";
+import { MENU_PUBLIC_BASE, menuPath } from "../../lib/menuUrl";
 import { IconAlert, IconUtensils, IconBag, IconTools, IconBox, IconStore } from "../../lib/icons";
 import {
   negociosService,
@@ -44,6 +45,7 @@ export default function Negocios() {
   const [saving, setSaving] = useState(false);
   const [plan, setPlan] = useState<PlanInfo | null>(null);
   const [saveError, setSaveError] = useState("");
+  const [copiado, setCopiado] = useState<number | null>(null);
 
   const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
   const textMuted = isDark ? "#64748b" : "#94a3b8";
@@ -101,6 +103,18 @@ export default function Negocios() {
       await refresh();
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  // Link público del menú de cada negocio (se arma con su nombre).
+  const linkDe = (n: Negocio) => `${MENU_PUBLIC_BASE}${menuPath(n.slug, n.id)}`;
+  const copiarLink = async (n: Negocio) => {
+    try {
+      await navigator.clipboard.writeText(linkDe(n));
+      setCopiado(n.id);
+      window.setTimeout(() => setCopiado((c) => (c === n.id ? null : c)), 1800);
+    } catch {
+      window.prompt(t("mpPublicLink"), linkDe(n));
     }
   };
 
@@ -225,16 +239,42 @@ export default function Negocios() {
                     <div style={{ color: textPrimary, fontWeight: 600, fontSize: 14 }}>
                       {n.nombre}
                     </div>
-                    <div style={{ color: textMuted, fontSize: 11 }}>
-                      #{n.id} · {n.slug || t("bizNoSlug")}
-                    </div>
+                    <div style={{ color: textMuted, fontSize: 11 }}>#{n.id}</div>
                   </div>
                   {activo && (
                     <span style={{ ...s.badgeBlue }}>{t("statusActive")}</span>
                   )}
                 </div>
 
-                <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+                {/* Link del menú: se arma con el nombre del negocio */}
+                <button
+                  type="button"
+                  onClick={() => copiarLink(n)}
+                  title={t("bizLinkHint")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    width: "100%",
+                    marginTop: 12,
+                    padding: "7px 10px",
+                    borderRadius: 8,
+                    border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+                    background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    fontSize: 12,
+                  }}
+                >
+                  <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: textPrimary }}>
+                    {linkDe(n).replace(/^https?:\/\//, "")}
+                  </span>
+                  <span style={{ flexShrink: 0, fontWeight: 600, color: copiado === n.id ? "#10b981" : "#3b82f6" }}>
+                    {copiado === n.id ? t("dashCopied") : t("dashCopyLink")}
+                  </span>
+                </button>
+
+                <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
                   {!activo && (
                     <button
                       onClick={() => setNegocioId(n.id)}

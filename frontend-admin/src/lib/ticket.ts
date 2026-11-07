@@ -1,12 +1,12 @@
-// Generación e impresión de comprobantes internos de un pedido.
+// Generación e impresión de comprobantes de un pedido.
 //
 // Abre una ventana nueva con el comprobante ya maquetado y dispara la
 // impresión. Soporta dos formatos:
 //   - "termica": rollo de 80mm (impresora tickeadora), monoespaciada y compacta.
 //   - "comun":   hoja A4/carta (impresora común), maqueta tipo factura.
 //
-// El comprobante es de USO INTERNO: además del detalle de venta muestra el
-// costo y la ganancia, para que el dueño tenga el panorama completo.
+// El comprobante NO muestra costo ni ganancia: esa información es privada del
+// negocio y solo se ve en el Dashboard.
 
 import type { Pedido, Configuracion } from "../services/api";
 import { fmtMoney } from "./money";
@@ -44,38 +44,24 @@ interface Linea {
   cantidad: number;
   precioUnit: number;
   subtotal: number;
-  costoLinea: number;
-  gananciaLinea: number;
 }
 
 interface TicketCalc {
   lineas: Linea[];
-  totalVentas: number;
-  totalCosto: number;
-  ganancia: number;
+  total: number;
 }
 
-// Deriva las líneas y totales del pedido (venta, costo y ganancia).
+// Deriva las líneas y el total del pedido.
 const calcular = (pedido: Pedido): TicketCalc => {
   const lineas: Linea[] = (pedido.items || []).map((it) => {
     const cantidad = Number(it.cantidad) || 0;
     const precioUnit = Number(it.precio_unit) || 0;
     const subtotal = Number(it.subtotal) || precioUnit * cantidad;
-    const costoLinea = (Number(it.costo_unit) || 0) * cantidad;
-    return {
-      nombre: it.nombre,
-      cantidad,
-      precioUnit,
-      subtotal,
-      costoLinea,
-      gananciaLinea: subtotal - costoLinea,
-    };
+    return { nombre: it.nombre, cantidad, precioUnit, subtotal };
   });
-  const totalVentas =
-    Number(pedido.total) ||
-    lineas.reduce((a, l) => a + l.subtotal, 0);
-  const totalCosto = lineas.reduce((a, l) => a + l.costoLinea, 0);
-  return { lineas, totalVentas, totalCosto, ganancia: totalVentas - totalCosto };
+  const total =
+    Number(pedido.total) || lineas.reduce((a, l) => a + l.subtotal, 0);
+  return { lineas, total };
 };
 
 // Etiqueta del tipo de entrega del pedido.
@@ -119,14 +105,12 @@ const htmlTermica = (
     <div class="row"><span>${t("ticketOrder")} #${pedido.id}</span><span>${esc(tipoLabel(pedido, t))}</span></div>
     <div class="row sm"><span>${esc(fmtFecha(pedido.created_at))}</span></div>
     ${pedido.cliente ? `<div class="row sm"><span>${t("ticketClient")}: ${esc(pedido.cliente)}</span></div>` : ""}
+    ${pedido.direccion_entrega ? `<div class="row sm"><span>${t("ticketAddress")}: ${esc(pedido.direccion_entrega)}</span></div>` : ""}
     <div class="sep"></div>
     ${filas}
     <div class="sep"></div>
-    <div class="row bold big"><span>${t("totalLabel")}</span><span>${fmt(calc.totalVentas)}</span></div>
-    <div class="sep dashed"></div>
-    <div class="center sm bold">${t("ticketInternal")}</div>
-    <div class="row sm"><span>${t("ticketCostLabel")}</span><span>${fmt(calc.totalCosto)}</span></div>
-    <div class="row sm bold"><span>${t("ticketProfitLabel")}</span><span>${fmt(calc.ganancia)}</span></div>
+    <div class="row bold big"><span>${t("totalLabel")}</span><span>${fmt(calc.total)}</span></div>
+    ${pedido.nota ? `<div class="sep"></div><div class="sm">${t("ticketNote")}: ${esc(pedido.nota)}</div>` : ""}
     <div class="sep"></div>
     <div class="center sm">${t("ticketThanks")}</div>
   </div>`;
@@ -158,7 +142,7 @@ const htmlComun = (
   return `
   <div class="doc">
     <div class="head">
-      <div>
+      <div class="head-local">
         <div class="local">${esc(local)}</div>
         ${config?.direccion ? `<div class="muted">${esc(config.direccion)}</div>` : ""}
         ${config?.telefono ? `<div class="muted">${t("ticketPhoneShort")}: ${esc(config.telefono)}</div>` : ""}
@@ -176,26 +160,22 @@ const htmlComun = (
       ${pedido.direccion_entrega ? `<span><strong>${t("ticketAddress")}:</strong> ${esc(pedido.direccion_entrega)}</span>` : ""}
     </div>
 
-    <table>
-      <thead>
-        <tr>
-          <th>${t("ticketItem")}</th>
-          <th class="num">${t("ticketQty")}</th>
-          <th class="num">${t("ticketUnit")}</th>
-          <th class="num">${t("ticketSubtotal")}</th>
-        </tr>
-      </thead>
-      <tbody>${filas}</tbody>
-    </table>
-
-    <div class="totals">
-      <div class="t-row big"><span>${t("totalLabel")}</span><span>${fmt(calc.totalVentas)}</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>${t("ticketItem")}</th>
+            <th class="num">${t("ticketQty")}</th>
+            <th class="num">${t("ticketUnit")}</th>
+            <th class="num">${t("ticketSubtotal")}</th>
+          </tr>
+        </thead>
+        <tbody>${filas}</tbody>
+      </table>
     </div>
 
-    <div class="internal">
-      <div class="internal-title">${t("ticketInternal")}</div>
-      <div class="t-row"><span>${t("ticketCostLabel")}</span><span>${fmt(calc.totalCosto)}</span></div>
-      <div class="t-row profit"><span>${t("ticketProfitLabel")}</span><span>${fmt(calc.ganancia)}</span></div>
+    <div class="totals">
+      <div class="t-row big"><span>${t("totalLabel")}</span><span>${fmt(calc.total)}</span></div>
     </div>
 
     ${pedido.nota ? `<div class="nota"><strong>${t("ticketNote")}:</strong> ${esc(pedido.nota)}</div>` : ""}
@@ -211,7 +191,8 @@ const estilos = (formato: FormatoTicket): string => {
       * { box-sizing: border-box; }
       body { margin: 0; background: #fff; color: #000;
              font-family: 'Courier New', ui-monospace, monospace; }
-      .ticket { width: 80mm; padding: 6mm 4mm; font-size: 12px; line-height: 1.35; }
+      .ticket { width: 80mm; max-width: 100%; margin: 0 auto; padding: 6mm 4mm;
+                font-size: 12px; line-height: 1.35; }
       .center { text-align: center; }
       .bold { font-weight: 700; }
       .big { font-size: 14px; }
@@ -221,24 +202,30 @@ const estilos = (formato: FormatoTicket): string => {
       .it-nom { font-weight: 700; }
       .it-cant { display: flex; justify-content: space-between; gap: 8px; }
       .sep { border-top: 1px dashed #000; margin: 6px 0; }
-      .sep.dashed { border-top-style: dashed; }
     `;
   }
+  // En pantalla se ve como una hoja sobre fondo gris (vista previa); al
+  // imprimir, la hoja ocupa la página sin sombra ni márgenes extra.
   return `
     @page { size: A4; margin: 16mm; }
     * { box-sizing: border-box; }
-    body { margin: 0; background: #fff; color: #1e293b;
+    body { margin: 0; background: #e2e8f0; color: #1e293b;
            font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-    .doc { max-width: 720px; margin: 0 auto; }
-    .head { display: flex; justify-content: space-between; align-items: flex-start;
+    .content { padding: 24px 16px 32px; }
+    .doc { width: 100%; max-width: 794px; margin: 0 auto; background: #fff;
+           padding: 48px 52px; border-radius: 6px;
+           box-shadow: 0 10px 30px -12px rgba(15,23,42,.35); }
+    .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;
             border-bottom: 2px solid #1e293b; padding-bottom: 14px; margin-bottom: 18px; }
-    .local { font-size: 22px; font-weight: 800; }
+    .head-local { min-width: 0; }
+    .local { font-size: 22px; font-weight: 800; overflow-wrap: anywhere; }
     .muted { color: #64748b; font-size: 13px; margin-top: 2px; }
-    .doc-meta { text-align: right; }
+    .doc-meta { text-align: right; flex-shrink: 0; }
     .doc-title { font-size: 15px; font-weight: 700; letter-spacing: .08em;
                  text-transform: uppercase; color: #334155; }
-    .info { display: flex; flex-wrap: wrap; gap: 18px; font-size: 13px;
+    .info { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px;
             color: #334155; margin-bottom: 16px; }
+    .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th { text-align: left; background: #f1f5f9; color: #334155;
          padding: 9px 10px; border-bottom: 1px solid #e2e8f0; }
@@ -249,15 +236,22 @@ const estilos = (formato: FormatoTicket): string => {
              min-width: 240px; padding: 4px 0; font-size: 14px; }
     .t-row.big { font-size: 18px; font-weight: 800; border-top: 2px solid #1e293b;
                  padding-top: 8px; }
-    .internal { margin: 18px 0 0 auto; min-width: 260px; max-width: 300px;
-                background: #f8fafc; border: 1px dashed #94a3b8; border-radius: 8px;
-                padding: 10px 14px; }
-    .internal-title { font-size: 11px; font-weight: 700; text-transform: uppercase;
-                      letter-spacing: .06em; color: #64748b; margin-bottom: 6px; }
-    .internal .t-row { min-width: 0; font-size: 13px; }
-    .t-row.profit { font-weight: 800; color: #059669; }
     .nota { margin-top: 18px; font-size: 13px; color: #475569; font-style: italic; }
     .foot { margin-top: 26px; text-align: center; color: #94a3b8; font-size: 12px; }
+
+    @media (max-width: 640px) {
+      .content { padding: 12px 8px 20px; }
+      .doc { padding: 24px 18px; }
+      .head { flex-direction: column; }
+      .doc-meta { text-align: left; }
+      .t-row { min-width: 0; width: 100%; gap: 16px; }
+      th, td { padding: 8px 6px; }
+    }
+    @media print {
+      body { background: #fff; }
+      .content { padding: 0; }
+      .doc { max-width: none; padding: 0; border-radius: 0; box-shadow: none; }
+    }
   `;
 };
 
@@ -282,14 +276,14 @@ export const generarTicketHTML = (
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${t("ticketTitle")} #${pedido.id} — ${esc(config?.nombre || "")}</title>
   <style>${estilos(formato)}
-    .toolbar { position: fixed; top: 0; left: 0; right: 0; display: flex; gap: 8px;
+    .toolbar { position: fixed; top: 0; left: 0; right: 0; z-index: 10; display: flex; gap: 8px;
                justify-content: center; padding: 10px; background: #0f172a; }
     .toolbar button { padding: 8px 18px; border: none; border-radius: 6px;
                       font-size: 13px; font-weight: 600; cursor: pointer; }
     .toolbar .print { background: #10b981; color: #fff; }
     .toolbar .close { background: #334155; color: #fff; }
-    .content { margin-top: 54px; }
-    @media print { .toolbar { display: none; } .content { margin-top: 0; } }
+    body { padding-top: 54px; }
+    @media print { .toolbar { display: none; } body { padding-top: 0; } }
   </style>
 </head>
 <body>
@@ -307,6 +301,17 @@ export const generarTicketHTML = (
 </html>`;
 };
 
+// Tamaño de la ventana de vista previa según el formato: el ticket térmico es
+// angosto; la hoja común necesita ancho de A4 para verse sin agrandar.
+const tamanoVentana = (formato: FormatoTicket) => {
+  const [w, h] = formato === "termica" ? [420, 720] : [900, 1000];
+  const width = Math.min(w, window.screen.availWidth - 40);
+  const height = Math.min(h, window.screen.availHeight - 60);
+  const left = Math.max(0, Math.round((window.screen.availWidth - width) / 2));
+  const top = Math.max(0, Math.round((window.screen.availHeight - height) / 2));
+  return `width=${width},height=${height},left=${left},top=${top}`;
+};
+
 // Abre la ventana de impresión con el comprobante. Devuelve false si el
 // navegador bloqueó el popup (para avisar al usuario).
 export const imprimirTicket = (
@@ -317,7 +322,7 @@ export const imprimirTicket = (
   t: T,
 ): boolean => {
   const html = generarTicketHTML(pedido, config, moneda, formato, t);
-  const win = window.open("", "_blank", "width=420,height=640");
+  const win = window.open("", "_blank", tamanoVentana(formato));
   if (!win) return false;
   win.document.open();
   win.document.write(html);

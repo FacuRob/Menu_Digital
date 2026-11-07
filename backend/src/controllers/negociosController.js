@@ -35,18 +35,20 @@ const getNegocioPublicoBySlug = async (req, res) => {
   }
 };
 
-// Listar negocios. Cuenta normal → sólo los suyos. Plataforma → todos.
+// Listar negocios: SIEMPRE sólo los de la cuenta del usuario, también para el
+// HiperAdmin (plataforma). Los negocios de otras cuentas no se mezclan acá.
 const getNegocios = async (req, res) => {
   try {
-    const { cuentaId, esPlataforma } = await getAuthScope(req);
-    if (!cuentaId && !esPlataforma) {
+    const { cuentaId } = await getAuthScope(req);
+    if (!cuentaId) {
       return res.status(403).json({ message: "Usuario sin cuenta asociada" });
     }
 
-    let query = supabase.from("negocios").select("*");
-    if (!esPlataforma) query = query.eq("cuenta_id", cuentaId);
-
-    const { data, error } = await query.order("id", { ascending: true });
+    const { data, error } = await supabase
+      .from("negocios")
+      .select("*")
+      .eq("cuenta_id", cuentaId)
+      .order("id", { ascending: true });
     if (error) throw error;
     res.json(data);
   } catch (error) {

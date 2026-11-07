@@ -155,11 +155,16 @@ const createPedido = async (req, res) => {
       }
     }
 
-    res.status(201).json({ ...pedido, items: itemsData });
+    res.status(201).json({ ...pedido, items: sinCosto(itemsData) });
   } catch (error) {
     return respondError(res, error, "pedidos");
   }
 };
+
+// El costo de cada ítem es información privada del negocio: solo se usa en
+// las analíticas del Dashboard, nunca se envía en las respuestas de pedidos.
+const sinCosto = (items) =>
+  (items || []).map(({ costo_unit, ...it }) => it);
 
 // ── Listar pedidos (protegida) ──
 const getPedidos = async (req, res) => {
@@ -181,7 +186,7 @@ const getPedidos = async (req, res) => {
 
     const result = (data || []).map((p) => {
       const { pedido_items, ...rest } = p;
-      return { ...rest, items: pedido_items || [] };
+      return { ...rest, items: sinCosto(pedido_items) };
     });
 
     res.json(result);
@@ -207,7 +212,7 @@ const getPedidoById = async (req, res) => {
     }
 
     const { pedido_items, ...rest } = data;
-    res.json({ ...rest, items: pedido_items || [] });
+    res.json({ ...rest, items: sinCosto(pedido_items) });
   } catch (error) {
     return respondError(res, error, "pedidos");
   }
