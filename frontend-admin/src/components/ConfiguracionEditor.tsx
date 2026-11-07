@@ -12,7 +12,11 @@ import {
   IconImage,
   IconCheck,
   IconAlert,
+  IconStore,
+  IconTruck,
 } from "../lib/icons";
+import { useIsMobile } from "../lib/useIsMobile";
+import { SideNav, SectionCard } from "./SeccionesUi";
 import {
   configuracionService,
   uploadService,
@@ -95,6 +99,100 @@ const PALETAS = [
   { nameKey: "palAmber", color: "#d97706" },
 ];
 
+// ── Secciones del menú lateral ──
+// Se muestra una sección a la vez. Cada una lista los campos que le
+// pertenecen, para marcar con un punto las que tienen cambios sin guardar.
+type SeccionId =
+  | "datos"
+  | "rubro"
+  | "imagenes"
+  | "color"
+  | "moneda"
+  | "servicio"
+  | "horarios";
+
+type IconoP = { size?: number };
+const svgP = (size = 17) => ({
+  width: size,
+  height: size,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.8,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+});
+const IconPalette = ({ size }: IconoP) => (
+  <svg {...svgP(size)}>
+    <path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.7-.9 1.4-1.9-.3-1 .4-2.1 1.5-2.1H17a4 4 0 0 0 4-4c0-5.5-4-10-9-10z" />
+    <circle cx="7.5" cy="11" r="1" />
+    <circle cx="10" cy="7" r="1" />
+    <circle cx="15" cy="7.5" r="1" />
+  </svg>
+);
+const IconCoin = ({ size }: IconoP) => (
+  <svg {...svgP(size)}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M14.8 9.2c-.5-.8-1.5-1.2-2.8-1.2-1.7 0-2.8.8-2.8 2s1.1 1.7 2.8 2 2.8.8 2.8 2-1.1 2-2.8 2c-1.3 0-2.4-.5-2.9-1.3M12 6.5v11" />
+  </svg>
+);
+const IconClock = ({ size }: IconoP) => (
+  <svg {...svgP(size)}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" />
+  </svg>
+);
+
+const GRUPOS: {
+  labelKey: string;
+  color: string;
+  items: {
+    id: SeccionId;
+    labelKey: string;
+    accent: string;
+    Icon: ComponentType<{ size?: number }>;
+    campos: (keyof Form)[];
+  }[];
+}[] = [
+  {
+    labelKey: "cfgNavBusiness",
+    color: "#3b82f6",
+    items: [
+      {
+        id: "datos",
+        labelKey: "cfgHeading",
+        accent: "#3b82f6",
+        Icon: IconStore,
+        campos: ["nombre", "direccion", "telefono", "whatsapp", "email", "descripcion"],
+      },
+      { id: "rubro", labelKey: "rubroTitle", accent: "#0d9488", Icon: IconBag, campos: ["tipo_rubro"] },
+    ],
+  },
+  {
+    labelKey: "cfgNavLook",
+    color: "#8b5cf6",
+    items: [
+      { id: "imagenes", labelKey: "cfgImagesTitle", accent: "#8b5cf6", Icon: IconImage, campos: ["logo_url", "portada_url"] },
+      { id: "color", labelKey: "cfgColorTitle", accent: "#db2777", Icon: IconPalette, campos: ["color_primario"] },
+    ],
+  },
+  {
+    labelKey: "cfgNavSales",
+    color: "#10b981",
+    items: [
+      { id: "moneda", labelKey: "cfgCurrencyTitle", accent: "#f59e0b", Icon: IconCoin, campos: ["moneda"] },
+      {
+        id: "servicio",
+        labelKey: "cfgServiceTitle",
+        accent: "#10b981",
+        Icon: IconTruck,
+        campos: ["mesas_activo", "mesas_cantidad", "retiro_activo", "delivery_activo"],
+      },
+      { id: "horarios", labelKey: "cfgHours", accent: "#6366f1", Icon: IconClock, campos: ["horarios", "horarios_config"] },
+    ],
+  },
+];
+
 // Template inicial cuando se activan los horarios por día.
 const horariosTemplate = (): HorariosConfig =>
   DIA_KEYS.map((_, i) => ({
@@ -123,10 +221,11 @@ export default function ConfiguracionEditor({
   );
   const [uploading, setUploading] = useState<"logo" | "portada" | null>(null);
   const [usarPorDia, setUsarPorDia] = useState(false);
+  const [seccion, setSeccion] = useState<SeccionId>("datos");
+  const isMobile = useIsMobile();
 
   const textPrimary = isDark ? "#f1f5f9" : "#1e293b";
   const textMuted = isDark ? "#64748b" : "#94a3b8";
-  const cardBg = isDark ? "#1a1d27" : "#ffffff";
   const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
 
   useEffect(() => {
@@ -214,6 +313,19 @@ export default function ConfiguracionEditor({
     !!initial &&
     signature(form, usarPorDia) !== signature(initial.form, initial.usarPorDia);
 
+  // ¿Esta sección tiene cambios sin guardar? (punto en el menú lateral)
+  const seccionCambiada = (id: SeccionId, campos: (keyof Form)[]) => {
+    if (!initial) return false;
+    if (id === "horarios") {
+      const h = (f: Form, u: boolean) =>
+        JSON.stringify([f.horarios, u ? f.horarios_config : null]);
+      return h(form, usarPorDia) !== h(initial.form, initial.usarPorDia);
+    }
+    return campos.some(
+      (c) => JSON.stringify(form[c]) !== JSON.stringify(initial.form[c]),
+    );
+  };
+
   const cancel = () => {
     if (!initial) return;
     setForm(initial.form);
@@ -244,15 +356,50 @@ export default function ConfiguracionEditor({
 
   return (
     <>
+      <style>{`@keyframes cfgSecIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}`}</style>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: isMobile ? "column" : "row",
+          gap: isMobile ? 12 : 20,
+          alignItems: isMobile ? "stretch" : "flex-start",
+        }}
+      >
+        <SideNav
+          value={seccion}
+          onChange={setSeccion}
+          isMobile={isMobile}
+          dirtyTitle={t("cfgUnsaved")}
+          groups={GRUPOS.map((g) => ({
+            label: t(g.labelKey),
+            color: g.color,
+            items: g.items.map((it) => ({
+              id: it.id,
+              label: t(it.labelKey),
+              accent: it.accent,
+              Icon: it.Icon,
+              dirty: seccionCambiada(it.id, it.campos),
+            })),
+          }))}
+        />
+
+        {/* Sección elegida. Alto mínimo fijo para que la ventana no salte
+            de tamaño al pasar de una sección corta a una larga. */}
+        <div
+          key={seccion}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            minHeight: isMobile ? undefined : 460,
+            animation: "cfgSecIn .22s ease both",
+          }}
+        >
       {/* ── Datos del local (identidad) ── */}
+      {seccion === "datos" && (
       <SectionCard
         accent="#3b82f6"
         title={t("cfgHeading")}
         subtitle={t("cfgSubtitle")}
-        textPrimary={textPrimary}
-        textMuted={textMuted}
-        cardBg={cardBg}
-        cardBorder={cardBorder}
       >
         <div
           style={{
@@ -278,16 +425,14 @@ export default function ConfiguracionEditor({
           />
         </div>
       </SectionCard>
+      )}
 
       {/* ── Imágenes ── */}
+      {seccion === "imagenes" && (
       <SectionCard
         accent="#8b5cf6"
         title={t("cfgImagesTitle")}
         subtitle={t("cfgImagesSubtitle")}
-        textPrimary={textPrimary}
-        textMuted={textMuted}
-        cardBg={cardBg}
-        cardBorder={cardBorder}
       >
         <div
           style={{
@@ -316,16 +461,14 @@ export default function ConfiguracionEditor({
           />
         </div>
       </SectionCard>
+      )}
 
       {/* ── Tipo de rubro (multi-rubro) ── */}
+      {seccion === "rubro" && (
       <SectionCard
         accent="#0d9488"
         title={t("rubroTitle")}
         subtitle={t("rubroSubtitle")}
-        textPrimary={textPrimary}
-        textMuted={textMuted}
-        cardBg={cardBg}
-        cardBorder={cardBorder}
       >
         <div
           style={{
@@ -373,16 +516,14 @@ export default function ConfiguracionEditor({
           })}
         </div>
       </SectionCard>
+      )}
 
       {/* ── Apariencia: paleta de colores ── */}
+      {seccion === "color" && (
       <SectionCard
         accent={form.color_primario || "#db2777"}
         title={t("cfgColorTitle")}
         subtitle={t("cfgColorSubtitle")}
-        textPrimary={textPrimary}
-        textMuted={textMuted}
-        cardBg={cardBg}
-        cardBorder={cardBorder}
       >
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
           {PALETAS.map((p) => {
@@ -434,16 +575,14 @@ export default function ConfiguracionEditor({
           </label>
         </div>
       </SectionCard>
+      )}
 
       {/* ── Moneda del menú ── */}
+      {seccion === "moneda" && (
       <SectionCard
         accent="#f59e0b"
         title={t("cfgCurrencyTitle")}
         subtitle={t("cfgCurrencySubtitle")}
-        textPrimary={textPrimary}
-        textMuted={textMuted}
-        cardBg={cardBg}
-        cardBorder={cardBorder}
       >
         <select
           value={form.moneda || "ARS"}
@@ -457,16 +596,14 @@ export default function ConfiguracionEditor({
           ))}
         </select>
       </SectionCard>
+      )}
 
       {/* ── Opciones de servicio ── */}
+      {seccion === "servicio" && (
       <SectionCard
         accent="#10b981"
         title={t("cfgServiceTitle")}
         subtitle={t("cfgServiceSubtitle")}
-        textPrimary={textPrimary}
-        textMuted={textMuted}
-        cardBg={cardBg}
-        cardBorder={cardBorder}
       >
         <div style={{ display: "grid", gap: 12 }}>
           <Toggle
@@ -509,16 +646,14 @@ export default function ConfiguracionEditor({
           />
         </div>
       </SectionCard>
+      )}
 
       {/* ── Horarios ── */}
+      {seccion === "horarios" && (
       <SectionCard
         accent="#6366f1"
         title={t("cfgHours")}
         subtitle={t("cfgHoursSubtitle")}
-        textPrimary={textPrimary}
-        textMuted={textMuted}
-        cardBg={cardBg}
-        cardBorder={cardBorder}
       >
         <Toggle
           isDark={isDark}
@@ -547,6 +682,9 @@ export default function ConfiguracionEditor({
           )}
         </div>
       </SectionCard>
+      )}
+        </div>
+      </div>
 
       {/* Espaciador para que la barra flotante no tape la última tarjeta. */}
       <div style={{ height: dirty ? 76 : 8, transition: "height 0.2s" }} />
@@ -654,53 +792,6 @@ export default function ConfiguracionEditor({
           document.body,
         )}
     </>
-  );
-}
-
-// Tarjeta de sección con encabezado (título + subtítulo) y un borde de acento
-// de color a la izquierda, para dar jerarquía visual clara al modal.
-function SectionCard({
-  accent,
-  title,
-  subtitle,
-  children,
-  textPrimary,
-  textMuted,
-  cardBg,
-  cardBorder,
-}: {
-  accent: string;
-  title: string;
-  subtitle?: string;
-  children: React.ReactNode;
-  textPrimary: string;
-  textMuted: string;
-  cardBg: string;
-  cardBorder: string;
-}) {
-  return (
-    <div
-      style={{
-        background: cardBg,
-        border: `1px solid ${cardBorder}`,
-        borderLeft: `3px solid ${accent}`,
-        borderRadius: 12,
-        marginBottom: 14,
-        overflow: "hidden",
-      }}
-    >
-      <div style={{ padding: "15px 18px 0" }}>
-        <h3 style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: textPrimary }}>
-          {title}
-        </h3>
-        {subtitle && (
-          <p style={{ margin: "3px 0 0", fontSize: 12, color: textMuted, lineHeight: 1.5 }}>
-            {subtitle}
-          </p>
-        )}
-      </div>
-      <div style={{ padding: 18 }}>{children}</div>
-    </div>
   );
 }
 

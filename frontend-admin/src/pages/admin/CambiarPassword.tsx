@@ -14,7 +14,7 @@ export default function CambiarPassword() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { user, logout, setMustChangePassword } = useAuth();
+  const { user, logout, setMustChangePassword, setSession } = useAuth();
   const navigate = useNavigate();
 
   const strength = (() => {
@@ -49,8 +49,9 @@ export default function CambiarPassword() {
     e.preventDefault();
     setError("");
 
-    if (newPassword.length < 6) {
-      return setError(t("errMin6"));
+    // El servidor exige 8 caracteres.
+    if (newPassword.length < 8) {
+      return setError(t("rpErrMin8"));
     }
     if (newPassword !== confirm) {
       return setError(t("pwMismatch"));
@@ -58,8 +59,9 @@ export default function CambiarPassword() {
 
     setLoading(true);
     try {
-      await authService.changePassword(newPassword);
-      setMustChangePassword(false);
+      const res = await authService.changePassword(newPassword);
+      if (res.token && res.user) setSession(res.token, res.user);
+      else setMustChangePassword(false);
       navigate("/admin/dashboard");
     } catch (err: any) {
       setError(err.response?.data?.message || t("errChangeFailed"));
@@ -199,7 +201,7 @@ export default function CambiarPassword() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
-                  placeholder={t("min6")}
+                  placeholder={t("min8")}
                   onFocus={(e) => (e.target.style.borderColor = "#f59e0b")}
                   onBlur={(e) =>
                     (e.target.style.borderColor = "rgba(255,255,255,0.08)")
@@ -307,7 +309,7 @@ export default function CambiarPassword() {
                   {t("pwMismatch")}
                 </p>
               )}
-              {confirm && confirm === newPassword && confirm.length >= 6 && (
+              {confirm && confirm === newPassword && confirm.length >= 8 && (
                 <p
                   style={{ margin: "5px 0 0", fontSize: 11, color: "#34d399" }}
                 >

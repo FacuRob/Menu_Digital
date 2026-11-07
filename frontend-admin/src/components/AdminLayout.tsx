@@ -7,6 +7,7 @@ import { apiPendientes, chatsService, pedidosService, productosService } from ".
 import LoadingScreen from "./LoadingScreen";
 import Modal from "./Modal";
 import ConfiguracionEditor from "./ConfiguracionEditor";
+import CuentaModal, { type CuentaTab } from "./CuentaModal";
 import { useLang, LangSelector } from "../lib/i18n";
 import { BRAND_NAME, BRAND_LOGO, brandTextStyle } from "../lib/brand";
 import { IconBell } from "../lib/icons";
@@ -441,6 +442,8 @@ export default function AdminLayout({
   const atenderRef = useRef<number | null>(null);
   const [negOpen, setNegOpen] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
+  // Pestaña de "Mi cuenta" abierta (null = cerrada).
+  const [cuentaTab, setCuentaTab] = useState<CuentaTab | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
   const [configPos, setConfigPos] = useState<{ left: number; bottom: number }>({
     left: 0,
@@ -1713,29 +1716,13 @@ export default function AdminLayout({
               <span style={configDot("#3b82f6")} />
               {t("cfgGroupProfile")}
             </div>
+            {/* Perfil, email y contraseña viven en pestañas de la misma ventana. */}
             <ConfigSubItem
-              label={t("profileEdit")}
-              soon
-              soonLabel={t("soon")}
-              accent="#3b82f6"
-              textColor={textPrimary}
-              muted={textMuted}
-              hoverBg={navHoverBg}
-            />
-            <ConfigSubItem
-              label={t("profileEmail")}
-              soon
-              soonLabel={t("soon")}
-              accent="#3b82f6"
-              textColor={textPrimary}
-              muted={textMuted}
-              hoverBg={navHoverBg}
-            />
-            <ConfigSubItem
-              label={t("usrChangePw")}
+              label={t("acctTitle")}
               onClick={() => {
                 setConfigOpen(false);
-                navigate("/admin/cambiar-password");
+                setDrawerOpen(false);
+                setCuentaTab("perfil");
               }}
               accent="#3b82f6"
               textColor={textPrimary}
@@ -1807,6 +1794,9 @@ export default function AdminLayout({
           </div>
         </div>
       )}
+
+      {/* Modal: Mi cuenta (perfil, email y contraseña) */}
+      {cuentaTab && <CuentaModal inicial={cuentaTab} onClose={() => setCuentaTab(null)} />}
 
       {/* Modal: editor de configuración del menú */}
       {showConfigModal && (

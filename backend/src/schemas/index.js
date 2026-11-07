@@ -53,10 +53,33 @@ const resetPasswordSchema = z.object({
 });
 
 const changePasswordSchema = z.object({
+  // Obligatoria salvo cuando el sistema exige el cambio (contraseña temporal).
+  currentPassword: z.string().max(200).optional(),
   newPassword: z
     .string()
     .min(8, "La contraseña debe tener al menos 8 caracteres")
     .max(200),
+});
+
+// Perfil propio: nombre visible y usuario de acceso.
+const updateProfileSchema = z.object({
+  nombre: z.string().trim().max(120).optional().nullable(),
+  username: z
+    .string()
+    .trim()
+    .min(3, "El usuario debe tener al menos 3 caracteres")
+    .max(50)
+    .regex(
+      /^[A-Za-z0-9._@+-]+$/,
+      "El usuario sólo puede tener letras, números y . _ @ + -",
+    )
+    .optional(),
+});
+
+// Cambio de email propio: pide la contraseña actual.
+const changeEmailSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Email inválido").max(120),
+  currentPassword: z.string().min(1, "Ingresá tu contraseña actual").max(200),
 });
 
 // ── Productos ────────────────────────────────────────────────
@@ -146,6 +169,8 @@ module.exports = {
   forgotPasswordSchema,
   resetPasswordSchema,
   changePasswordSchema,
+  updateProfileSchema,
+  changeEmailSchema,
   createPedidoSchema,
   productoSchema,
   varianteGrupoSchema,

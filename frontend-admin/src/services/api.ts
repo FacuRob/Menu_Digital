@@ -124,6 +124,7 @@ export interface Usuario {
   id: number;
   username: string;
   nombre: string | null;
+  email?: string | null;
   rol: string;
   activo: boolean;
   permisos: string[];
@@ -189,8 +190,24 @@ export const authService = {
     });
     return response.data;
   },
-  changePassword: async (newPassword: string) => {
-    const response = await api.post("/auth/change-password", { newPassword });
+  // currentPassword: obligatoria salvo en el cambio forzado (contraseña temporal).
+  changePassword: async (newPassword: string, currentPassword?: string) => {
+    const response = await api.post<LoginResponse>("/auth/change-password", {
+      newPassword,
+      ...(currentPassword ? { currentPassword } : {}),
+    });
+    return response.data;
+  },
+  // Las acciones de "Mi cuenta" devuelven un token nuevo + el usuario al día.
+  updateProfile: async (data: { nombre?: string | null; username?: string }) => {
+    const response = await api.put<LoginResponse>("/auth/profile", data);
+    return response.data;
+  },
+  changeEmail: async (email: string, currentPassword: string) => {
+    const response = await api.put<LoginResponse>("/auth/email", {
+      email,
+      currentPassword,
+    });
     return response.data;
   },
 };

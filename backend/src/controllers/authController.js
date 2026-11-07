@@ -526,16 +526,38 @@ const resetPassword = async (req, res) => {
   }
 };
 
+// Usuario logueado (con su hash) para las acciones de "Mi cuenta".
+const getUsuarioActual = async (id) => {
+  const { data } = await supabase
+    .from("usuarios")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  return data && data.activo ? data : null;
+};
+
+const USUARIO_NO_ENCONTRADO = { message: "Usuario inactivo o no encontrado" };
+const PASSWORD_ACTUAL_MAL = { message: "La contraseña actual no es correcta" };
+
 // ─── CHANGE PASSWORD ─────────────────────────────────────────
+// Si el sistema exige el cambio (contraseña temporal) alcanza con la nueva.
+// Si es un cambio voluntario, primero se verifica la contraseña actual.
 const changePassword = async (req, res) => {
   try {
-    const { newPassword } = req.body;
-    const userId = req.user.id;
+    const { currentPassword, newPassword } = req.body;
+    const user = await getUsuarioActual(req.user.id);
+    if (!user) return res.status(401).json(USUARIO_NO_ENCONTRADO);
 
-    if (!newPassword || newPassword.length < 8) {
-      return res
-        .status(400)
-        .json({ message: "La contraseña debe tener al menos 8 caracteres" });
+    if (!user.must_change_password) {
+      const ok =
+        !!currentPassword &&
+        (await bcrypt.compare(currentPassword, user.password));
+      if (!ok) return res.status(400).json(PASSWORD_ACTUAL_MAL);
+      if (currentPassword === newPassword) {
+        return res.status(400).json({
+          message: "La nueva contraseña tiene que ser distinta a la actual",
+        });
+      }
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -548,17 +570,112 @@ const changePassword = async (req, res) => {
         must_change_password: false,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", userId);
+      .eq("id", user.id);
 
     if (error) throw error;
 
-    res.json({ message: "Contraseña actualizada exitosamente" });
+    // Token nuevo: el anterior todavía decía must_change_password.
+    const session = await issueSession({ ...user, must_change_password: false });
+    res.json({ message: "Contraseña actualizada exitosamente", ...session });
   } catch (error) {
     return respondError(res, error, "changePassword");
   }
 };
 
+// ─── UPDATE PROFILE ──────────────────────────────────────────
+// Nombre visible y usuario de acceso del propio usuario.
+const updateProfile = async (req, res) => {
+  try {
+    const user = await getUsuarioActual(req.user.id);
+    if (!user) return res.status(401).json(USUARIO_NO_ENCONTRADO);
+
+    const cambios = { updated_at: new Date().toISOString() };
+    if (req.body.nombre !== undefined) cambios.nombre = req.body.nombre || null;
+
+    const { username } = req.body;
+    if (username !== undefined && username !== user.username) {
+      const { data: existe } = await supabase
+        .from("usuarios")
+        .select("id")
+        .eq("username", username)
+        .neq("id", user.id)
+        .maybeSingle();
+      if (existe) {
+        return res
+          .status(400)
+          .json({ message: "Ese nombre de usuario ya está en uso" });
+      }
+      cambios.username = username;
+    }
+
+    const { data: actualizado, error } = await supabase
+      .from("usuarios")
+      .update(cambios)
+      .eq("id", user.id)
+      .select("*")
+      .single();
+    if (error) throw error;
+
+    // Token nuevo: el usuario de acceso viaja dentro del token.
+    const session = await issueSession(actualizado);
+    res.json({ message: "Perfil actualizado", ...session });
+  } catch (error) {
+    return respondError(res, error, "updateProfile");
+  }
+};
+
+// ─── CHANGE EMAIL ────────────────────────────────────────────
+// El email sirve para recuperar la contraseña, así que se pide la actual.
+const changeEmail = async (req, res) => {
+  try {
+    const { email, currentPassword } = req.body;
+    const user = await getUsuarioActual(req.user.id);
+    if (!user) return res.status(401).json(USUARIO_NO_ENCONTRADO);
+
+    if (!(await bcrypt.compare(currentPassword, user.password))) {
+      return res.status(400).json(PASSWORD_ACTUAL_MAL);
+    }
+    if ((user.email || "").toLowerCase() === email) {
+      return res.status(400).json({ message: "Ese ya es tu email actual" });
+    }
+
+    // Mismo criterio que el alta: el email no puede estar en otro usuario ni
+    // en otra cuenta.
+    let cuentasQ = supabase.from("cuentas").select("id").eq("email", email);
+    if (user.cuenta_id) cuentasQ = cuentasQ.neq("id", user.cuenta_id);
+    const [{ data: uExist }, { data: cExist }] = await Promise.all([
+      supabase
+        .from("usuarios")
+        .select("id")
+        .eq("email", email)
+        .neq("id", user.id)
+        .limit(1),
+      cuentasQ.limit(1),
+    ]);
+    if (uExist?.length || cExist?.length) {
+      return res
+        .status(400)
+        .json({ message: "Ese email ya está en uso por otra cuenta" });
+    }
+
+    const { data: actualizado, error } = await supabase
+      .from("usuarios")
+      .update({ email, updated_at: new Date().toISOString() })
+      .eq("id", user.id)
+      .select("*")
+      .single();
+    if (error) throw error;
+
+    const session = await issueSession(actualizado);
+    res.json({ message: "Email actualizado", ...session });
+  } catch (error) {
+    return respondError(res, error, "changeEmail");
+  }
+};
+
 module.exports = {
+  updateProfile,
+  changeEmail,
   register,
   login,
   signup,

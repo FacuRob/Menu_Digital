@@ -9,6 +9,8 @@ const {
   forgotPassword,
   resetPassword,
   changePassword,
+  updateProfile,
+  changeEmail,
 } = require("../controllers/authController");
 const authMiddleware = require("../middleware/authMiddleware");
 const checkPermiso = require("../middleware/checkPermiso");
@@ -22,6 +24,8 @@ const {
   forgotPasswordSchema,
   resetPasswordSchema,
   changePasswordSchema,
+  updateProfileSchema,
+  changeEmailSchema,
 } = require("../schemas");
 
 // Públicas (con rate-limit anti fuerza bruta / spam + validación)
@@ -53,12 +57,27 @@ router.post(
 // Verificar token
 router.get("/verify", authMiddleware, verifyToken);
 
-// Cambiar contraseña (usuario autenticado con must_change_password)
+// "Mi cuenta" del usuario logueado. Cambiar contraseña y email piden la
+// contraseña actual, por eso llevan rate-limit.
 router.post(
   "/change-password",
   authMiddleware,
+  authLimiter,
   validate(changePasswordSchema),
   changePassword,
+);
+router.put(
+  "/profile",
+  authMiddleware,
+  validate(updateProfileSchema),
+  updateProfile,
+);
+router.put(
+  "/email",
+  authMiddleware,
+  authLimiter,
+  validate(changeEmailSchema),
+  changeEmail,
 );
 
 module.exports = router;
