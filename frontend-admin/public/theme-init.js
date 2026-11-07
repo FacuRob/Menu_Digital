@@ -14,7 +14,7 @@
   if (t !== "dark" && t !== "light") {
     t = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   }
-  var acceso = /\/admin\/(login|reset-password)|^\/$|^\/admin\/?$/.test(location.pathname);
+  var acceso = /\/admin\/(login|reset-password|cambiar-password|onboarding)|^\/$|^\/admin\/?$/.test(location.pathname);
   html.setAttribute("data-theme", t);
   var bg = acceso ? "#efede6" : t === "dark" ? "#0d0e11" : "#f4f2ec";
   html.style.background = bg;

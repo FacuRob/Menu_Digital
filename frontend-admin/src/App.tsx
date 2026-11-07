@@ -34,7 +34,7 @@ const AdminShell = lazy(() => import("./components/AdminLayout").then((m) => ({ 
 // pantalla de carga animada; en el login y el menú público, sólo el fondo.
 function Cargando() {
   const path = window.location.pathname;
-  const enLogin = /\/admin\/(login|reset-password)/.test(path);
+  const enLogin = /\/admin\/(login|reset-password|cambiar-password|onboarding)/.test(path);
   if (path.startsWith("/admin/") && !enLogin) return <LoadingScreen />;
   return <div style={{ minHeight: "100vh", background: enLogin ? "#efede6" : "var(--bg)" }} />;
 }

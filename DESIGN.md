@@ -293,6 +293,14 @@ Configuración, Mi cuenta, Usuarios, Negocios, QR, WhatsApp, Suscripción y Plat
 
 Los roles de usuario usan `--info` (SuperAdmin), `--teal` (Admin) y `--violet` (Staff). Los campos de formulario tienen el borde `--field-border` (3:1 contra el fondo). El texto sobre ají va en `--on-accent` (tinta); sobre los demás colores plenos, en `--surface`. Los interruptores apagados usan `--fg-3`, que se ve en los dos temas.
 
-## Pendiente (fase 6, ver `docs/auditoria-panel-admin.md`)
+## Pantallas de acceso (fase 6)
 
-- Pantallas siempre oscuras: Onboarding, CambiarPassword y ResetPassword. Se pasan al estilo "Hora pico", como el login.
+Restablecer contraseña, Cambiar contraseña y Onboarding usan el mundo del login: fondo hueso, tarjeta blanca, letra Archivo, botón ají (`.hp-btn`) y campos `.auth-input`. Son siempre claras, aunque el panel esté en oscuro: `theme-init.js` y `App.tsx` las tratan como pantallas de acceso.
+
+Comparten `components/Acceso.tsx`:
+- `AccesoLayout`: logo, idioma, tarjeta y título;
+- `CampoClave`: contraseña con botón para mostrarla de 44 px y label asociado;
+- `ErrorAcceso`: con `role="alert"`;
+- `AvisoAcceso`.
+
+Con esto, el rediseño del panel está completo (fases 0 a 6).
