@@ -1,0 +1,174 @@
+/* Landing DinexFlow: mundo "Hora pico".
+   Bloques de color plenos que se alternan (hueso, ají, tinta, cobalto),
+   grotesca ensanchada gigante y escenas que se mueven con el scroll.
+   Sólo lo carga la landing. */
+
+.dx {
+  --hueso: #efede6;
+  --hueso-2: #e4e1d8;
+  --aji: #ff5b24;
+  --aji-deep: #e8470f;
+  --tinta: #111216;
+  --tinta-2: #1c1d23;
+  --cobalto: #3b3bf5;
+  --cobalto-deep: #2626c9;
+  --blanco: #ffffff;
+  --gris: #5b5d66;      /* texto secundario sobre hueso */
+  --gris-claro: #a9abb4; /* texto secundario sobre tinta */
+  --wa-header: #0b3d36;
+  --wa-ground: #efeae2;
+  --wa-bubble: #d9fdd3;
+  --wa-ink: #111b21;
+  --wa-meta: #4a5a63;
+  --wa-tick: #2f8fc6;
+  --focus: var(--cobalto);
+  --radio: 28px;
+
+  font-family: "Archivo Variable", system-ui, sans-serif;
+  font-stretch: 100%;
+  color: var(--tinta);
+  background: var(--hueso);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.dx ::selection { background: var(--aji); color: var(--tinta); }
+
+.dx :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.dx-sobre-oscuro { --focus: var(--aji); }
+.dx-sobre-cobalto { --focus: var(--blanco); }
+/* Barra fija: el anillo de foco toma el color del texto (oscuro o claro según la sección). */
+.dx-nav { --focus: currentColor; }
+.dx-sobre-aji { --focus: var(--tinta); }
+
+.dx a { text-underline-offset: 0.2em; text-decoration-thickness: 1.5px; }
+
+/* Grotesca ensanchada para titulares gigantes. */
+.dx-display {
+  font-family: "Archivo Variable", system-ui, sans-serif;
+  font-stretch: 118%;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.92;
+}
+.dx-display-xl { font-stretch: 125%; letter-spacing: -0.045em; line-height: 0.82; }
+.dx-serif { font-family: "Bodoni Moda", Georgia, serif; font-style: italic; font-weight: 400; letter-spacing: -0.015em; }
+.dx-label {
+  font-stretch: 112%;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.dx-tabular { font-variant-numeric: tabular-nums; }
+
+/* Acción principal: pastilla ají. */
+.dx-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 3.25rem;
+  padding: 0 1.6rem;
+  border-radius: 999px;
+  font-stretch: 112%;
+  font-weight: 700;
+  font-size: 1.0625rem;
+  background: var(--aji);
+  color: var(--tinta);
+  transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1), transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dx-btn:hover { background: var(--aji-deep); }
+.dx-btn:active { transform: scale(0.97); }
+.dx-btn .dx-btn-flecha { transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1); }
+.dx-btn:hover .dx-btn-flecha { transform: translateX(3px); }
+
+/* Variante oscura, para fondos ají. */
+.dx-btn.dx-btn-oscuro { background: var(--tinta); color: var(--blanco); }
+.dx-btn.dx-btn-oscuro:hover { background: var(--cobalto); }
+/* En la barra fija: un filete de tinta la separa de cualquier fondo (también del ají). */
+.dx-btn.dx-btn-nav { box-shadow: 0 0 0 2px var(--tinta); }
+
+.dx-btn-borde {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 3.25rem;
+  padding: 0 1.6rem;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  font-stretch: 112%;
+  font-weight: 700;
+  font-size: 1.0625rem;
+  transition: background-color 160ms, color 160ms;
+}
+
+
+/* Selector Mensual/Anual. */
+.dx-toggle input:focus-visible { outline: none; }
+.dx-toggle label:has(input:focus-visible) { outline: 3px solid var(--cobalto); outline-offset: 2px; }
+
+/* Rubros: letra calada. */
+.dx-calado { color: transparent; -webkit-text-stroke: 2px var(--tinta); }
+
+/* FAQ nativa sin el triángulo del navegador. */
+.dx summary { list-style: none; }
+.dx summary::-webkit-details-marker { display: none; }
+.dx details[open] .dx-faq-mark { transform: rotate(45deg); }
+
+/* ── Escenas con scroll ──────────────────────────────────────────
+   Todo se ve completo por defecto. Las reglas de abajo sólo aplican cuando
+   el JS confirmó que hay movimiento (clase dx-motion en la raíz). */
+
+/* Inicio: el portal de tinta crece desde la ficha QR. */
+.dx-portal { display: none; }
+/* Sólo en pantallas grandes: en el celular el inicio no se fija ni se cubre. */
+@media (min-width: 1024px) {
+  .dx-motion .dx-portal { display: block; }
+}
+
+/* Escena del teléfono: pantallas apiladas; sin movimiento se ve la última. */
+.dx-pantalla { display: none; height: 100%; }
+.dx-pantalla:last-child { display: flex; }
+.dx-motion .dx-pantalla { display: flex; position: absolute; inset: 0; }
+
+@media (max-width: 1023px) {
+  /* En el celular el paso activo se superpone sobre los demás. */
+  .dx-motion .dx-pasos { display: grid; }
+  .dx-motion .dx-pasos > li { grid-area: 1 / 1; }
+}
+
+/* Funciones: con movimiento, se resalta la que cruza el centro; las demás
+   quedan legibles (contraste >= 3:1 en texto grande). */
+.dx-motion .dx-funcion-titulo { color: color-mix(in srgb, var(--hueso) 48%, var(--tinta)); }
+.dx-motion .dx-funcion-texto { opacity: 0.75; }
+.dx-motion .is-activa .dx-funcion-titulo { color: var(--aji); }
+.dx-motion .is-activa .dx-funcion-texto { opacity: 1; }
+
+/* Contador gigante de la escena del teléfono. */
+.dx-contador { display: none; }
+@media (min-width: 1024px) {
+  .dx-motion .dx-contador { display: flex; }
+}
+
+/* Manifiesto: palabras que se "encienden" con el scroll (piso legible). */
+.dx-motion .dx-palabra { opacity: 0.4; }
+
+/* Rubros sin movimiento: las filas se envuelven y se leen completas. */
+.dx:not(.dx-motion) [data-fila] > div { width: auto; flex-wrap: wrap; white-space: normal; }
+@supports not (-webkit-text-stroke: 1px black) { .dx-calado { color: var(--tinta); } }
+
+/* Lenis */
+html.lenis, html.lenis body { height: auto; }
+.lenis:not(.lenis-autoToggle).lenis-stopped { overflow: clip; }
+.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-smooth iframe { pointer-events: none; }
+
+html:has(.dx) { scrollbar-color: var(--tinta, #111216) #e4e1d8; }
+
+/* Con el contador gigante a la vista, los pasos no repiten su número. */
+@media (min-width: 1024px) {
+  .dx-motion .dx-paso-num { display: none; }
+  .dx-motion .dx-paso-texto { padding-left: 0; }
+}

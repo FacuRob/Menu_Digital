@@ -1,537 +1,377 @@
-import { useEffect, useState, type ReactNode } from "react";
-import PhoneCarousel from "../components/landing/PhoneCarousel";
-import { DEMOS } from "../components/landing/demos";
+import { useEffect, useRef, useState, type RefObject } from "react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useGSAP } from "@gsap/react";
+import "@fontsource-variable/archivo/wdth.css";
+import "@fontsource/bodoni-moda/latin-400-italic.css";
+import "../components/landing/landing.css";
 import { ADMIN_LOGIN_URL, ADMIN_SIGNUP_URL } from "../lib/links";
-// Ícono ya recortado y chico (6 KB) en vez del PNG completo (75 KB).
-import logo from "../assets/brand/logo-icon.jpg";
+import { useSmoothScroll } from "../components/landing/useSmoothScroll";
+import OrderDemo from "../components/landing/OrderDemo";
+import Telefono from "../components/landing/Telefono";
+import QrCodigo from "../components/landing/QrCodigo";
+import { IconArrow, IconCheck, IconClose, IconMenu, LogoMark } from "../components/landing/icons";
+
+gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 const BRAND = "DinexFlow";
 const TRIAL_DIAS = 14;
+const CONTENEDOR = "mx-auto w-full max-w-[1600px] px-5 sm:px-8 lg:px-12";
 
-// ── Utilidades ───────────────────────────────────────────────
-
-// Revela con animación los elementos `.lp-reveal` al entrar en pantalla.
-// Lo que ya está a la vista se muestra al instante, y lo que viene se anima
-// un poco antes de llegar (así nunca se ve un hueco vacío al scrollear).
-function useReveal() {
-  useEffect(() => {
-    const els = Array.from(document.querySelectorAll<HTMLElement>(".lp-reveal"));
-    const mostrar = (el: Element) => el.classList.add("is-visible");
-    if (!("IntersectionObserver" in window)) {
-      els.forEach(mostrar);
-      return;
-    }
-    const altura = window.innerHeight;
-    els.filter((el) => el.getBoundingClientRect().top < altura).forEach(mostrar);
-
-    const io = new IntersectionObserver(
-      (entries) =>
-        entries.forEach((e) => {
-          if (e.isIntersecting) {
-            mostrar(e.target);
-            io.unobserve(e.target);
-          }
-        }),
-      { threshold: 0, rootMargin: "0px 0px 15% 0px" },
-    );
-    els.filter((el) => !el.classList.contains("is-visible")).forEach((el) => io.observe(el));
-    // Recién ahora el CSS oculta lo pendiente (si el JS no corre, todo se ve).
-    document.documentElement.classList.add("lp-js");
-    return () => {
-      io.disconnect();
-      document.documentElement.classList.remove("lp-js");
-    };
-  }, []);
+function Flecha() {
+  return <IconArrow className="dx-btn-flecha h-4 w-4" />;
 }
 
-function Logo({ size = 40 }: { size?: number }) {
-  return (
-    <img
-      src={logo}
-      alt=""
-      width={size}
-      height={size}
-      decoding="async"
-      className="inline-block shrink-0 rounded-xl bg-white shadow-lg shadow-cyan-500/10"
-      style={{ width: size, height: size }}
-    />
-  );
-}
-
-const GRADIENT_TEXT =
-  "bg-gradient-to-r from-cyan-300 via-teal-200 to-amber-300 bg-clip-text text-transparent";
-
-function SectionTitle({
-  eyebrow,
-  title,
-  desc,
-}: {
-  eyebrow: string;
-  title: ReactNode;
-  desc?: string;
-}) {
-  return (
-    <div className="lp-reveal mx-auto max-w-2xl text-center">
-      <span className="inline-block rounded-full border border-cyan-400/20 bg-cyan-400/5 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-cyan-300">
-        {eyebrow}
-      </span>
-      <h2 className="mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">{title}</h2>
-      {desc && <p className="mt-4 text-base text-slate-400 sm:text-lg">{desc}</p>}
-    </div>
-  );
-}
-
-function Check({ className = "" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" className={`h-5 w-5 shrink-0 ${className}`}>
-      <path
-        fillRule="evenodd"
-        d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 111.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
-}
-
-// ── Navbar ───────────────────────────────────────────────────
+// ── Navegación ───────────────────────────────────────────────
 const NAV = [
-  { href: "#producto", label: "Producto" },
   { href: "#como-funciona", label: "Cómo funciona" },
+  { href: "#probalo", label: "Probalo" },
   { href: "#precios", label: "Precios" },
-  { href: "#faq", label: "Preguntas" },
+  { href: "#preguntas", label: "Preguntas" },
 ];
 
-function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
+type TemaNav = "claro" | "oscuro";
+
+function Navbar({ textoRef }: { textoRef: RefObject<HTMLDivElement | null> }) {
   const [open, setOpen] = useState(false);
+  const botonRef = useRef<HTMLButtonElement>(null);
+
+  // Escape cierra el menú y devuelve el foco al botón.
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      botonRef.current?.focus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
   return (
-    <header
-      className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
-        scrolled || open
-          ? "border-b border-white/10 bg-[#060912]/95 md:bg-[#060912]/80 md:backdrop-blur-xl"
-          : "border-b border-transparent"
-      }`}
-    >
-      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <a href="#top" className="flex items-center gap-2.5">
-          <Logo size={36} />
-          <span className="text-lg font-bold tracking-tight text-white">{BRAND}</span>
-        </a>
-
-        <div className="hidden items-center gap-1 md:flex">
-          {NAV.map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              className="rounded-lg px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-            >
-              {l.label}
-            </a>
-          ))}
+    <header>
+      {/* Capa de fondo y texto: toma el color de la sección que tiene debajo, así nada se imprime debajo de los links. */}
+      <div
+        ref={textoRef}
+        data-tema="claro"
+        className="dx-nav pointer-events-none fixed inset-x-0 top-0 z-50 bg-[var(--nav-fondo,var(--hueso))] text-[var(--tinta)] transition-[color,background-color] duration-300 data-[tema=oscuro]:text-[var(--hueso)]"
+      >
+        <div className={`${CONTENEDOR} flex h-[4.5rem] items-center gap-4`}>
+          <span aria-hidden className="dx-display ml-[2.75rem] hidden text-[1.375rem] sm:inline">
+            {BRAND.toLowerCase()}
+          </span>
+          <nav aria-label="Principal" className="pointer-events-auto mx-auto hidden lg:block">
+            <ul className="flex items-center gap-1">
+              {NAV.map((l) => (
+                <li key={l.href}>
+                  <a href={l.href} className="inline-flex min-h-11 items-center px-3 text-[0.9375rem] font-medium hover:underline">
+                    {l.label}
+                  </a>
+                </li>
+              ))}
+              <li>
+                <a href={ADMIN_LOGIN_URL} className="inline-flex min-h-11 items-center px-3 text-[0.9375rem] font-medium hover:underline">
+                  Ingresar
+                </a>
+              </li>
+            </ul>
+          </nav>
         </div>
+      </div>
 
-        <div className="hidden items-center gap-2 md:flex">
-          <a
-            href={ADMIN_LOGIN_URL}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:text-white"
-          >
-            Ingresar
+      {/* Capa de acciones: logo, botón principal y menú del celular. */}
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-[51]">
+        <div className={`${CONTENEDOR} flex h-[4.5rem] items-center justify-between gap-4`}>
+          <a href="#top" className="pointer-events-auto flex min-h-11 items-center" aria-label={`${BRAND}, ir al inicio`}>
+            <LogoMark size={34} />
           </a>
-          <a
-            href={ADMIN_SIGNUP_URL}
-            className="rounded-xl bg-gradient-to-r from-cyan-400 to-teal-300 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-500/25 transition-transform hover:-translate-y-0.5"
-          >
+
+          <div className="pointer-events-auto flex items-center gap-2">
+          <a href={ADMIN_SIGNUP_URL} className="dx-btn dx-btn-nav min-h-11 whitespace-nowrap px-4 text-[0.9375rem] sm:px-5">
             Probar gratis
           </a>
+          <button
+            ref={botonRef}
+            type="button"
+            className="grid h-11 w-11 place-items-center rounded-full bg-[var(--tinta)] text-[var(--hueso)] ring-2 ring-[var(--hueso)]/70 lg:hidden"
+            aria-label={open ? "Cerrar menú" : "Abrir menú"}
+            aria-expanded={open}
+            aria-controls={open ? "menu-movil" : undefined}
+            onClick={() => setOpen((v) => !v)}
+          >
+            {open ? <IconClose /> : <IconMenu />}
+          </button>
         </div>
-
-        <button
-          type="button"
-          className="grid h-10 w-10 place-items-center rounded-lg text-slate-200 ring-1 ring-white/10 md:hidden"
-          aria-label={open ? "Cerrar menú" : "Abrir menú"}
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-        >
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2}>
-            {open ? (
-              <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
-            ) : (
-              <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
-            )}
-          </svg>
-        </button>
-      </nav>
+        </div>
+      </div>
 
       {open && (
-        <div className="border-t border-white/10 px-4 pb-5 pt-2 md:hidden">
-          {NAV.map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              onClick={() => setOpen(false)}
-              className="block rounded-lg px-3 py-3 text-base text-slate-200 hover:bg-white/5"
-            >
-              {l.label}
-            </a>
-          ))}
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <a
-              href={ADMIN_LOGIN_URL}
-              className="rounded-xl px-4 py-3 text-center text-sm font-medium text-white ring-1 ring-white/15"
-            >
-              Ingresar
-            </a>
-            <a
-              href={ADMIN_SIGNUP_URL}
-              className="rounded-xl bg-gradient-to-r from-cyan-400 to-teal-300 px-4 py-3 text-center text-sm font-semibold text-slate-950"
-            >
-              Probar gratis
-            </a>
-          </div>
-        </div>
+        <nav
+          id="menu-movil"
+          aria-label="Menú"
+          className="dx-sobre-oscuro fixed inset-x-3 top-[4.75rem] z-[52] rounded-[var(--radio)] bg-[var(--tinta)] px-6 pb-6 pt-3 text-[var(--hueso)] lg:hidden"
+        >
+          <ul>
+            {NAV.map((l) => (
+              <li key={l.href}>
+                <a
+                  href={l.href}
+                  onClick={() => setOpen(false)}
+                  className="dx-display flex min-h-14 items-center border-b border-white/10 text-[1.75rem]"
+                >
+                  {l.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+          <a href={ADMIN_LOGIN_URL} className="mt-3 flex min-h-12 items-center text-lg font-medium text-[var(--gris-claro)]">
+            Ingresar a mi panel
+          </a>
+        </nav>
       )}
     </header>
   );
 }
 
-// ── Hero ─────────────────────────────────────────────────────
-function Hero() {
-  const [demo, setDemo] = useState(0);
-  const accent = DEMOS[demo].accent;
-
+// ── 1. Inicio: el QR se abre hasta llenar la pantalla ────────
+function Hero({ qrUrl }: { qrUrl: string }) {
   return (
-    <section id="top" className="relative overflow-hidden pt-28 pb-16 sm:pt-32 lg:pt-36 lg:pb-24">
-      {/* Fondo */}
-      <div className="lp-grid-bg pointer-events-none absolute inset-0" />
-      {/* Manchas de luz con degradado radial (sin filtro blur: mucho más liviano en iPhone). */}
-      <div
-        className="lp-blob lp-glow pointer-events-none absolute -left-64 -top-16 h-[720px] w-[720px]"
-        style={{ ["--glow" as string]: "rgba(6,182,212,0.22)" }}
-      />
-      <div
-        className="lp-blob lp-glow pointer-events-none absolute -right-56 top-20 h-[760px] w-[760px]"
-        style={{ ["--glow" as string]: `${accent}3d`, animationDelay: "-6s" }}
-      />
+    <section id="top" data-hero data-nav="claro" data-fondo="hueso" aria-labelledby="hero-titulo" className="relative min-h-[100svh] overflow-hidden bg-[var(--hueso)]">
+      <div data-hero-contenido className={`${CONTENEDOR} flex min-h-[100svh] flex-col justify-center gap-10 pb-8 pt-28 lg:gap-16 lg:pb-12 lg:pt-28`}>
+        <h1
+          id="hero-titulo"
+          data-hero-titulo
+          className="dx-display text-[clamp(2.75rem,6.1vw,7.5rem)]"
+        >
+          <span className="block">Tu carta en el celu.</span>
+          <span className="block text-[var(--aji)]">El pedido, en tu WhatsApp.</span>
+        </h1>
 
-      <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:gap-8 lg:px-8">
-        <div className="text-center lg:text-left">
-          <a
-            href="#producto"
-            className="lp-rise inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 py-1 pl-1 pr-3 text-xs text-slate-300 transition-colors hover:border-white/20"
-          >
-            <span className="rounded-full bg-gradient-to-r from-amber-300 to-orange-400 px-2 py-0.5 font-semibold text-slate-950">
-              Nuevo
-            </span>
-            Pedidos directo a tu WhatsApp
-            <span aria-hidden>→</span>
-          </a>
-
-          <h1
-            className="lp-rise mt-6 text-4xl font-extrabold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-6xl xl:text-7xl"
-            style={{ animationDelay: "80ms" }}
-          >
-            Tu menú digital
-            <br />
-            <span className={`lp-shine ${GRADIENT_TEXT}`}>que vende solo.</span>
-          </h1>
-
-          <p
-            className="lp-rise mx-auto mt-6 max-w-xl text-base leading-relaxed text-slate-400 sm:text-lg lg:mx-0"
-            style={{ animationDelay: "160ms" }}
-          >
-            Creá la carta de tu restaurante, bar o cafetería en minutos. Tus clientes escanean el QR,
-            eligen y te piden por WhatsApp. Vos controlás pedidos, stock y ventas desde un solo panel.
-          </p>
-
-          <div
-            className="lp-rise mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start"
-            style={{ animationDelay: "240ms" }}
-          >
-            <a
-              href={ADMIN_SIGNUP_URL}
-              className="group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-cyan-400 via-teal-300 to-amber-300 px-7 py-4 text-base font-bold text-slate-950 shadow-2xl shadow-cyan-500/30 transition-transform hover:-translate-y-0.5 sm:w-auto"
-            >
-              Empezar gratis {TRIAL_DIAS} días
-              <span className="transition-transform group-hover:translate-x-1" aria-hidden>
-                →
-              </span>
-            </a>
-            <a
-              href="#precios"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-7 py-4 text-base font-semibold text-white transition-colors hover:bg-white/10 sm:w-auto"
-            >
-              Ver planes
-            </a>
+        <div className="grid items-end gap-10 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div data-hero-bajada>
+            <p className="max-w-[38rem] text-lg leading-relaxed text-[var(--gris)] sm:text-xl">
+              Tus clientes escanean el QR, eligen y te piden. Vos recibís el pedido ordenado y manejás pedidos, stock y
+              ventas desde un solo panel.
+            </p>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
+              <a href={ADMIN_SIGNUP_URL} className="dx-btn">
+                Probar {TRIAL_DIAS} días gratis
+                <Flecha />
+              </a>
+              <a href="#como-funciona" className="inline-flex min-h-12 items-center justify-center font-semibold underline underline-offset-[6px]">
+                Ver cómo funciona
+              </a>
+            </div>
+            <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-[0.9375rem] text-[var(--gris)]">
+              {["Sin tarjeta de crédito", "Sin app para tus clientes", "Cancelás cuando quieras"].map((t) => (
+                <li key={t} className="flex items-center gap-2">
+                  <IconCheck className="h-4 w-4 text-[var(--tinta)]" />
+                  {t}
+                </li>
+              ))}
+            </ul>
           </div>
 
-          <ul
-            className="lp-rise mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-400 lg:justify-start"
-            style={{ animationDelay: "320ms" }}
-          >
-            {["Sin tarjeta de crédito", "Listo en 5 minutos", "Cancelás cuando quieras"].map((t) => (
-              <li key={t} className="flex items-center gap-1.5">
-                <Check className="h-4 w-4 text-teal-300" />
-                {t}
+          {/* La ficha QR: real, abre la demo de esta página. */}
+          <figure className="relative z-30 flex items-end gap-4 lg:flex-col lg:items-end" data-tile>
+            <div className="w-[clamp(9rem,18vw,17rem)] rounded-[var(--radio)] bg-[var(--tinta)] p-3">
+              <QrCodigo texto={qrUrl} className="block w-full rounded-[18px] bg-white text-[var(--tinta)]" />
+            </div>
+            <figcaption className="max-w-[12rem] text-sm text-[var(--gris)] lg:text-right">
+              Escanealo con tu celular: abre un menú de ejemplo. <a href="#probalo" className="font-semibold text-[var(--tinta)] underline">O probalo acá.</a>
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+
+      {/* Portal de tinta (sólo con movimiento): crece desde la ficha QR. */}
+      <div data-portal aria-hidden className="dx-portal pointer-events-none absolute inset-0 z-20 bg-[var(--tinta)]">
+        <p
+          data-portal-texto
+          className="dx-display absolute inset-0 grid place-items-center px-5 text-center text-[clamp(3.5rem,13vw,13rem)] text-[var(--hueso)] opacity-0"
+        >
+          <span>
+            Escaneá. <span className="dx-serif block text-[0.55em] text-[var(--aji)]">y pedí.</span>
+          </span>
+        </p>
+      </div>
+    </section>
+  );
+}
+
+// ── 2. Manifiesto: se enciende palabra por palabra ───────────
+const MANIFIESTO =
+  "Sin app, sin PDF, sin reimprimir la carta. Tus clientes escanean el QR, eligen y el pedido te llega anotado a WhatsApp.";
+
+function Manifiesto() {
+  return (
+    <section data-manifiesto data-nav="oscuro" data-fondo="tinta" aria-label="Qué hace DinexFlow" className="dx-sobre-oscuro relative -mt-px bg-[var(--tinta)] py-28 text-[var(--hueso)] sm:py-40">
+      <div className={CONTENEDOR}>
+        <p className="dx-display max-w-[22ch] text-[clamp(2.1rem,5.4vw,5.5rem)] font-bold [font-stretch:112%]">
+          {MANIFIESTO.split(" ").map((w, i) => (
+            <span key={i} className="dx-palabra">
+              {w}{" "}
+            </span>
+          ))}
+          <span className="dx-serif dx-palabra text-[var(--aji)]">Vos sólo lo preparás.</span>
+        </p>
+      </div>
+    </section>
+  );
+}
+
+// ── 3. Escena fija: del QR al WhatsApp ───────────────────────
+const PASOS = [
+  {
+    titulo: "Escanea",
+    texto: "Tu cliente apunta la cámara al QR de la mesa y tu carta se abre en el navegador. No baja nada.",
+  },
+  {
+    titulo: "Elige",
+    texto: "Recorre tu carta con fotos y precios y arma el pedido, con tamaños y extras.",
+  },
+  {
+    titulo: "Te llega",
+    texto: "El pedido te llega ordenado a WhatsApp y lo seguís por estado en tu panel.",
+  },
+];
+
+function EscenaTelefono() {
+  return (
+    <section id="como-funciona" data-escena data-nav="claro" data-fondo="aji" aria-labelledby="como-titulo" className="dx-sobre-aji bg-[var(--aji)] text-[var(--tinta)]">
+      <div className={`${CONTENEDOR} grid min-h-[100svh] items-center gap-5 pb-6 pt-20 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,0.7fr)] lg:gap-12 lg:py-24`}>
+        <div>
+          <h2 id="como-titulo" className="dx-display text-balance text-[clamp(2.4rem,5.6vw,5.75rem)]">
+            Del QR a tu WhatsApp
+          </h2>
+          <ol className="dx-pasos mt-5 lg:mt-14 lg:space-y-8">
+            {PASOS.map((p, i) => (
+              <li key={p.titulo} data-paso={i} className="mb-6 lg:mb-0">
+                <div className="flex items-baseline gap-4">
+                  <span className="dx-paso-num dx-display dx-tabular text-[clamp(1.5rem,2.4vw,2.25rem)]" aria-hidden>
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <h3 className="dx-display text-[clamp(1.9rem,3.6vw,3.5rem)]">{p.titulo}</h3>
+                </div>
+                <p className="dx-paso-texto mt-2 max-w-[34rem] text-lg leading-relaxed sm:pl-14">{p.texto}</p>
               </li>
             ))}
-          </ul>
+          </ol>
         </div>
-
-        {/* Carrusel + tarjetas flotantes */}
-        <div className="lp-rise relative" style={{ animationDelay: "200ms" }}>
-          <PhoneCarousel onChange={setDemo} />
-
-          <div className="lp-float pointer-events-none absolute left-0 top-10 hidden w-56 rounded-2xl border border-white/10 bg-slate-900/80 p-3 shadow-2xl backdrop-blur-xl sm:block xl:-left-6">
-            <div className="flex items-center gap-3">
-              <span className="relative grid h-9 w-9 place-items-center rounded-xl bg-emerald-400/15 text-lg">
-                <span className="lp-ping-soft absolute inset-0 rounded-xl bg-emerald-400/30" />
-                🔔
+        <div className="mx-auto w-[max(10rem,min(15.5rem,62vw,calc((100svh-24rem)*0.47)))] lg:w-[min(23rem,26vw,calc((100svh-12rem)*0.47))]">
+          <Telefono />
+        </div>
+        {/* Contador gigante del paso (sólo con movimiento, en pantallas grandes). */}
+        <div aria-hidden className="dx-contador dx-display dx-display-xl items-end justify-self-end leading-none">
+          <span className="grid overflow-hidden">
+            {PASOS.map((p, i) => (
+              <span key={p.titulo} data-contador={i} className="text-[clamp(7rem,13vw,14rem)] [grid-area:1/1]">
+                {String(i + 1).padStart(2, "0")}
               </span>
-              <div className="min-w-0">
-                <div className="text-xs font-semibold text-white">Nuevo pedido #128</div>
-                <div className="text-[11px] text-slate-400">Mesa 4 · $24.600</div>
-              </div>
-            </div>
-          </div>
-
-          <div
-            className="lp-float-slow pointer-events-none absolute bottom-28 right-0 hidden w-48 rounded-2xl border border-white/10 bg-slate-900/80 p-3 shadow-2xl backdrop-blur-xl sm:block xl:-right-4"
-            style={{ animationDelay: "-3s" }}
-          >
-            <div className="text-[11px] text-slate-400">Escaneos de QR hoy</div>
-            <div className="mt-1 flex items-end justify-between">
-              <span className="text-2xl font-bold text-white">342</span>
-              <span className="rounded-md bg-emerald-400/15 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-300">
-                +18%
-              </span>
-            </div>
-            <div className="mt-2 flex h-8 items-end gap-1">
-              {[40, 55, 35, 70, 60, 85, 100].map((h, i) => (
-                <span
-                  key={i}
-                  className="flex-1 rounded-sm bg-gradient-to-t from-cyan-500/40 to-teal-300"
-                  style={{ height: `${h}%` }}
-                />
-              ))}
-            </div>
-          </div>
+            ))}
+          </span>
+          <span className="pb-[0.12em] text-[clamp(1.5rem,2.4vw,2.5rem)]">/03</span>
         </div>
       </div>
     </section>
   );
 }
 
-// ── Cinta de rubros ──────────────────────────────────────────
-const RUBROS = [
-  "🍔 Hamburgueserías",
-  "☕ Cafeterías",
-  "🍕 Pizzerías",
-  "🍣 Sushi",
-  "🍦 Heladerías",
-  "🍸 Bares",
-  "🥗 Comida saludable",
-  "🥐 Panaderías",
-  "🌮 Food trucks",
-  "🍝 Restaurantes",
-  "🧋 Bubble tea",
-  "🍩 Pastelerías",
+// ── 4. Funciones: la que pasa por el centro se ilumina ───────
+type Funcion = { titulo: string; texto: string; plan: string };
+const FUNCIONES: Funcion[] = [
+  { titulo: "Carta con QR", texto: "Cambiás precios, fotos o productos y se ve al momento. El QR es siempre el mismo.", plan: "Todos los planes" },
+  { titulo: "Pedidos por WhatsApp", texto: "El cliente arma el pedido y te llega ordenado, listo para preparar.", plan: "Todos los planes" },
+  { titulo: "Pedidos y tickets", texto: "Seguí cada pedido por estado (pendiente, listo, entregado) e imprimí el ticket.", plan: "Todos los planes" },
+  { titulo: "Variantes y extras", texto: "Tamaños, agregados y modificadores, como los pide la gente.", plan: "Todos los planes" },
+  { titulo: "Tu marca", texto: "Logo, colores, portada y horarios. La carta se ve como tu local.", plan: "Todos los planes" },
+  { titulo: "Carta en 3 idiomas", texto: "Español, inglés y portugués, para que el turista también pida.", plan: "Todos los planes" },
+  { titulo: "Varios locales", texto: "Todas tus sucursales en una cuenta y tu equipo con permisos por rol.", plan: "Según el plan" },
+  { titulo: "Analíticas", texto: "Productos estrella, horarios pico y cuánto vendés por día.", plan: "Standard y Premium" },
+  { titulo: "Control de stock", texto: "Avisos de stock bajo para no vender lo que no tenés.", plan: "Standard y Premium" },
 ];
 
-function Marquee() {
-  const row = [...RUBROS, ...RUBROS];
+function Funciones() {
   return (
-    <section className="relative border-y border-white/5 bg-white/[0.02] py-6">
-      <p className="mb-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-        Pensado para cualquier negocio gastronómico
-      </p>
-      <div className="relative overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
-        <div className="lp-marquee flex w-max gap-3">
-          {row.map((r, i) => (
-            <span
-              key={i}
-              className="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-5 py-2.5 text-sm text-slate-300"
-            >
-              {r}
-            </span>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ── Funcionalidades (bento) ──────────────────────────────────
-type Feature = { icon: string; title: string; desc: string; span?: string; accent: string };
-const FEATURES: Feature[] = [
-  {
-    icon: "📱",
-    title: "Menú con QR al instante",
-    desc: "Generá el QR de tu local, imprimilo y listo. Cambiás precios o fotos y se actualiza al momento, sin reimprimir nada.",
-    span: "md:col-span-2",
-    accent: "from-cyan-400/20",
-  },
-  {
-    icon: "💬",
-    title: "Pedidos por WhatsApp",
-    desc: "El cliente arma su pedido y te llega ordenado a tu WhatsApp, listo para preparar.",
-    accent: "from-emerald-400/20",
-  },
-  {
-    icon: "🧾",
-    title: "Panel de pedidos y tickets",
-    desc: "Seguí cada pedido por estado e imprimí tickets desde el panel.",
-    accent: "from-amber-400/20",
-  },
-  {
-    icon: "📊",
-    title: "Analíticas de ventas",
-    desc: "Descubrí tus productos estrella, horarios pico y cuánto vendés por día.",
-    accent: "from-fuchsia-400/20",
-  },
-  {
-    icon: "🎨",
-    title: "Tu marca, tu estilo",
-    desc: "Logo, colores, portada y horarios. Tu menú se ve como tu local, no como una plantilla.",
-    accent: "from-sky-400/20",
-  },
-  {
-    icon: "📦",
-    title: "Stock y variantes",
-    desc: "Tamaños, extras y modificadores. Avisos de stock bajo para no vender lo que no tenés.",
-    accent: "from-orange-400/20",
-  },
-  {
-    icon: "🏪",
-    title: "Varios locales y equipo",
-    desc: "Administrá todas tus sucursales desde una cuenta y sumá a tu equipo con permisos por rol.",
-    span: "md:col-span-2",
-    accent: "from-teal-400/20",
-  },
-  {
-    icon: "🌎",
-    title: "Multi-idioma",
-    desc: "Tu menú en español, inglés y portugués para recibir turistas sin barreras.",
-    accent: "from-violet-400/20",
-  },
-];
-
-function Features() {
-  return (
-    <section id="producto" className="relative scroll-mt-20 py-24 sm:py-32">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <SectionTitle
-          eyebrow="Producto"
-          title={
-            <>
-              Todo lo que tu local necesita,{" "}
-              <span className={GRADIENT_TEXT}>en un solo lugar</span>
-            </>
-          }
-          desc="Dejá de pelearte con PDFs y cartas impresas. DinexFlow convierte tu menú en una herramienta de ventas."
-        />
-
-        <div className="mt-16 grid gap-4 md:grid-cols-4">
-          {FEATURES.map((f, i) => (
-            <div
-              key={f.title}
-              className={`lp-reveal group relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-6 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.05] ${f.span ?? ""}`}
-              style={{ transitionDelay: `${(i % 4) * 70}ms` }}
-            >
-              <div
-                className={`pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-radial ${f.accent} to-transparent to-70% opacity-70 transition-opacity group-hover:opacity-100`}
-              />
-              <div className="relative">
-                <div className="grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-white/5 text-2xl">
-                  {f.icon}
+    <section data-nav="oscuro" data-fondo="tinta" aria-labelledby="funciones-titulo" className="dx-sobre-oscuro bg-[var(--tinta)] py-24 text-[var(--hueso)] sm:py-32">
+      <div className={CONTENEDOR}>
+        <h2 id="funciones-titulo" className="dx-serif text-[clamp(1.75rem,3vw,2.75rem)] text-[var(--gris-claro)]">
+          Todo lo que pasa después, en un solo panel
+        </h2>
+        <ul className="mt-10 border-t border-white/15">
+          {FUNCIONES.map((f, i) => {
+            return (
+              <li
+                key={f.titulo}
+                data-funcion={i}
+                className="grid gap-x-10 gap-y-2 border-b border-white/15 py-5 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-center lg:py-6"
+              >
+                <h3 className="dx-funcion-titulo dx-display text-[clamp(2rem,5.4vw,5.25rem)] transition-colors duration-300">
+                  {f.titulo}
+                </h3>
+                <div className="dx-funcion-texto transition-opacity duration-300">
+                  <p className="text-lg leading-relaxed">{f.texto}</p>
+                  <p className="dx-label mt-2 text-[var(--gris-claro)]">{f.plan}</p>
                 </div>
-                <h3 className="mt-5 text-lg font-semibold text-white">{f.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-400">{f.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+              </li>
+            );
+          })}
+        </ul>
       </div>
     </section>
   );
 }
 
-// ── Cómo funciona ────────────────────────────────────────────
-const STEPS = [
-  {
-    n: "01",
-    title: "Creá tu cuenta",
-    desc: `Registrate gratis y elegí el rubro de tu negocio. Tenés ${TRIAL_DIAS} días para probar todo.`,
-  },
-  {
-    n: "02",
-    title: "Cargá tu menú",
-    desc: "Sumá categorías, productos, fotos y precios. Personalizá colores, logo y horarios.",
-  },
-  {
-    n: "03",
-    title: "Compartí tu QR",
-    desc: "Poné el QR en las mesas, en Instagram o en tu vidriera. Los pedidos empiezan a llegar.",
-  },
-];
+// ── 5. Rubros: dos filas que se deslizan con el scroll ───────
+const RUBROS = ["Hamburgueserías", "Cafeterías", "Pizzerías", "Heladerías", "Bares", "Sushi", "Panaderías", "Food trucks"];
 
-function HowItWorks() {
+function Rubros() {
+  const fila = (calado: boolean) => (
+    <div className="flex w-max items-center gap-8 whitespace-nowrap pr-8">
+      {[...RUBROS, ...RUBROS].map((r, i) => (
+        <span key={i} className="flex items-center gap-8">
+          <span className={`dx-display text-[clamp(3rem,8.5vw,8.5rem)] ${calado ? "dx-calado" : ""}`}>{r}</span>
+          <span className="h-[0.6em] w-[0.6em] shrink-0 rounded-[30%] bg-[var(--aji)] text-[clamp(3rem,8.5vw,8.5rem)]" />
+        </span>
+      ))}
+    </div>
+  );
   return (
-    <section id="como-funciona" className="relative scroll-mt-20 py-24 sm:py-32">
-      <div className="pointer-events-none absolute inset-x-0 top-1/2 h-[600px] -translate-y-1/2 bg-[radial-gradient(ellipse_at_center,rgba(20,184,166,0.10),transparent_70%)]" />
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <SectionTitle
-          eyebrow="Cómo funciona"
-          title={
-            <>
-              De cero a recibir pedidos <span className={GRADIENT_TEXT}>en 3 pasos</span>
-            </>
-          }
-        />
-
-        <div className="relative mt-16 grid gap-6 md:grid-cols-3">
-          <div className="pointer-events-none absolute left-[16%] right-[16%] top-10 hidden h-px bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent md:block" />
-          {STEPS.map((s, i) => (
-            <div
-              key={s.n}
-              className="lp-reveal relative rounded-3xl border border-white/10 bg-[#0a0f1c]/90 p-7 text-center"
-              style={{ transitionDelay: `${i * 120}ms` }}
-            >
-              <div className="mx-auto grid h-20 w-20 place-items-center rounded-full border border-cyan-400/30 bg-gradient-to-br from-cyan-400/20 to-teal-400/5 text-2xl font-extrabold text-cyan-200 shadow-[0_0_40px_-10px] shadow-cyan-400/50">
-                {s.n}
-              </div>
-              <h3 className="mt-6 text-xl font-semibold text-white">{s.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-400">{s.desc}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Números */}
-        <div className="lp-reveal mt-16 grid grid-cols-2 gap-px overflow-hidden rounded-3xl border border-white/10 bg-white/10 md:grid-cols-4">
-          {[
-            { v: "5 min", l: "para tener tu menú online" },
-            { v: "0", l: "reimpresiones de carta" },
-            { v: "24/7", l: "tu menú siempre disponible" },
-            { v: "3", l: "idiomas para tus clientes" },
-          ].map((s) => (
-            <div key={s.l} className="bg-[#070b15] p-6 text-center sm:p-8">
-              <div className={`text-3xl font-extrabold sm:text-4xl ${GRADIENT_TEXT}`}>{s.v}</div>
-              <div className="mt-1 text-xs text-slate-400 sm:text-sm">{s.l}</div>
-            </div>
-          ))}
+    <section data-rubros data-nav="claro" data-fondo="hueso" aria-label="Para qué locales sirve" className="overflow-hidden bg-[var(--hueso)] py-20 sm:py-28">
+      <p className="sr-only">Sirve para {RUBROS.join(", ").toLowerCase()} y cualquier local gastronómico.</p>
+      <div aria-hidden>
+        <div data-fila="1">{fila(false)}</div>
+        <div data-fila="2" className="mt-2">
+          {fila(true)}
         </div>
       </div>
     </section>
   );
 }
 
-// ── Precios ──────────────────────────────────────────────────
+// ── 6. Probalo ───────────────────────────────────────────────
+function Probalo() {
+  return (
+    <section id="probalo" data-nav="oscuro" data-fondo="cobalto" aria-labelledby="probalo-titulo" className="dx-sobre-cobalto scroll-mt-16 bg-[var(--cobalto)] py-24 text-white sm:py-32">
+      <div className={CONTENEDOR}>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-end">
+          <h2 id="probalo-titulo" className="dx-display text-[clamp(2.75rem,7vw,7rem)]">
+            Probalo vos
+          </h2>
+          <p className="max-w-[36rem] text-lg leading-relaxed text-white/85 sm:text-xl">
+            Hacé de cliente un minuto: elegí un local, sumá productos y mirá el pedido que le llegaría al local. Los locales
+            y precios son de ejemplo.
+          </p>
+        </div>
+        <div className="mt-12">
+          <OrderDemo />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── 7. Precios ───────────────────────────────────────────────
 // Deben coincidir con el catálogo del panel (frontend-admin › Suscripcion).
 type Plan = {
   code: string;
@@ -540,8 +380,7 @@ type Plan = {
   mensual: number;
   anual: number;
   perks: string[];
-  highlight?: boolean;
-  cta: string;
+  estilo: "claro" | "aji" | "tinta";
 };
 const PLANES: Plan[] = [
   {
@@ -550,31 +389,17 @@ const PLANES: Plan[] = [
     desc: "Para arrancar con tu primer local.",
     mensual: 9.99,
     anual: 99,
-    perks: [
-      "Hasta 3 negocios",
-      "50 productos por negocio",
-      "Menú con QR ilimitado",
-      "Pedidos por WhatsApp",
-      "Variantes y modificadores",
-      "Personalización del menú",
-    ],
-    cta: "Empezar con Basic",
+    perks: ["Hasta 3 negocios", "50 productos por negocio", "Carta con QR ilimitada", "Pedidos por WhatsApp", "Variantes y modificadores", "Personalización de la carta"],
+    estilo: "claro",
   },
   {
     code: "standard",
     name: "Standard",
-    desc: "El favorito de los locales que crecen.",
+    desc: "Para locales que crecen.",
     mensual: 19.99,
     anual: 199,
-    perks: [
-      "Todo lo de Basic",
-      "Hasta 10 negocios",
-      "100 productos por negocio",
-      "Analíticas de ventas",
-      "Control de stock",
-    ],
-    highlight: true,
-    cta: "Elegir Standard",
+    perks: ["Todo lo de Basic", "Hasta 10 negocios", "100 productos por negocio", "Analíticas de ventas", "Control de stock"],
+    estilo: "aji",
   },
   {
     code: "premium",
@@ -582,255 +407,158 @@ const PLANES: Plan[] = [
     desc: "Para cadenas y franquicias.",
     mensual: 39.99,
     anual: 399,
-    perks: [
-      "Todo lo de Standard",
-      "Negocios ilimitados",
-      "Productos ilimitados",
-      "Soporte prioritario",
-    ],
-    cta: "Elegir Premium",
+    perks: ["Todo lo de Standard", "Negocios ilimitados", "Productos ilimitados", "Soporte prioritario"],
+    estilo: "tinta",
   },
 ];
 
-const usd = (v: number) =>
-  v.toLocaleString("es-AR", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 });
+const ESTILO_PLAN = {
+  claro: { card: "bg-white text-[var(--tinta)]", sub: "text-[var(--gris)]", btn: "bg-[var(--tinta)] text-white hover:bg-[var(--cobalto)]" },
+  aji: { card: "bg-[var(--aji)] text-[var(--tinta)] dx-sobre-aji", sub: "text-[var(--tinta)]/80", btn: "bg-[var(--tinta)] text-white hover:bg-[var(--cobalto)]" },
+  tinta: { card: "bg-[var(--tinta)] text-[var(--hueso)] dx-sobre-oscuro", sub: "text-[var(--gris-claro)]", btn: "bg-[var(--aji)] text-[var(--tinta)] hover:bg-[var(--aji-deep)]" },
+} as const;
 
-function Pricing() {
+const usd = (v: number) => v.toLocaleString("es-AR", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 });
+const MESES_GRATIS = Math.min(...PLANES.map((p) => Math.round(12 - p.anual / p.mensual)));
+
+function Precios() {
   const [anual, setAnual] = useState(false);
-
   return (
-    <section id="precios" className="relative scroll-mt-20 py-24 sm:py-32">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <SectionTitle
-          eyebrow="Precios"
-          title={
-            <>
-              Planes simples, <span className={GRADIENT_TEXT}>sin sorpresas</span>
-            </>
-          }
-          desc={`Empezá con ${TRIAL_DIAS} días gratis. Sin tarjeta. Después elegí el plan que mejor le queda a tu negocio.`}
-        />
-
-        {/* Toggle mensual / anual */}
-        <div className="lp-reveal mt-10 flex justify-center">
-          <div className="relative inline-flex items-center rounded-full border border-white/10 bg-white/5 p-1">
-            <span
-              className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full bg-white shadow transition-transform duration-300"
-              style={{ transform: anual ? "translateX(100%)" : "translateX(0)" }}
-            />
-            {[
-              { v: false, l: "Mensual" },
-              { v: true, l: "Anual" },
-            ].map((o) => (
-              <button
-                key={o.l}
-                type="button"
-                onClick={() => setAnual(o.v)}
-                aria-pressed={anual === o.v}
-                className={`relative z-10 w-28 rounded-full py-2 text-sm font-semibold transition-colors sm:w-32 ${
-                  anual === o.v ? "text-slate-900" : "text-slate-300"
-                }`}
-              >
-                {o.l}
-              </button>
-            ))}
+    <section id="precios" data-nav="claro" data-fondo="hueso" aria-labelledby="precios-titulo" className="scroll-mt-16 bg-[var(--hueso)] py-24 sm:py-32">
+      <div className={CONTENEDOR}>
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <h2 id="precios-titulo" className="dx-display text-[clamp(2.75rem,7vw,7rem)]">
+              Planes simples
+            </h2>
+            <p className="mt-5 max-w-[42rem] text-lg leading-relaxed text-[var(--gris)]">
+              Empezás con {TRIAL_DIAS} días gratis, sin tarjeta. Después elegís el plan desde el panel y lo pagás online con
+              tarjeta, en dólares. Subís, bajás o cancelás cuando quieras.
+            </p>
           </div>
-        </div>
-        <p className="mt-3 text-center text-sm text-amber-300">
-          🎁 Pagando anual te llevás 2 meses gratis
-        </p>
-
-        <div className="mt-12 grid items-stretch gap-6 lg:grid-cols-3">
-          {PLANES.map((p, i) => {
-            const precio = anual ? p.anual : p.mensual;
-            return (
-              <div
-                key={p.code}
-                className={`lp-reveal relative flex flex-col rounded-3xl p-[1px] ${
-                  p.highlight
-                    ? "bg-gradient-to-b from-cyan-300 via-teal-400/60 to-amber-300/60 shadow-2xl shadow-cyan-500/20 lg:-my-4"
-                    : "bg-white/10"
-                }`}
-                style={{ transitionDelay: `${i * 100}ms` }}
-              >
-                <div
-                  className={`flex h-full flex-col rounded-[23px] p-7 sm:p-8 ${
-                    p.highlight ? "bg-[#0a1220]" : "bg-[#080c17]"
+          <fieldset className="dx-toggle">
+            <legend className="sr-only">Forma de pago</legend>
+            <div className="inline-grid grid-cols-2 rounded-full border-2 border-[var(--tinta)] p-1">
+              {[
+                { v: false, l: "Mensual" },
+                { v: true, l: "Anual" },
+              ].map((o) => (
+                <label
+                  key={o.l}
+                  className={`flex min-h-11 cursor-pointer items-center justify-center rounded-full px-6 font-semibold transition-colors ${
+                    anual === o.v ? "bg-[var(--tinta)] text-white" : "hover:bg-[var(--tinta)]/5"
                   }`}
                 >
-                  {p.highlight && (
-                    <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-cyan-300 to-amber-300 px-3 py-1 text-xs font-bold text-slate-950 shadow-lg">
-                      ⭐ Más elegido
-                    </span>
-                  )}
-                  <h3 className="text-xl font-bold text-white">{p.name}</h3>
-                  <p className="mt-1 text-sm text-slate-400">{p.desc}</p>
+                  <input type="radio" name="periodo" className="sr-only" checked={anual === o.v} onChange={() => setAnual(o.v)} />
+                  {o.l}
+                </label>
+              ))}
+            </div>
+            <p className="mt-2 text-[0.9375rem] font-medium">Pagando anual, {MESES_GRATIS} meses te salen gratis.</p>
+            <p className="sr-only" aria-live="polite">
+              Mostrando precios {anual ? "anuales" : "mensuales"}.
+            </p>
+          </fieldset>
+        </div>
 
-                  <div className="mt-6 flex items-end gap-1">
-                    <span className="text-lg font-semibold text-slate-400">US$</span>
-                    <span className="text-5xl font-extrabold tracking-tight text-white">{usd(precio)}</span>
-                    <span className="mb-1.5 text-sm text-slate-400">/{anual ? "año" : "mes"}</span>
+        <ul className="mt-14 grid gap-5 md:grid-cols-3">
+          {PLANES.map((p) => {
+            const e = ESTILO_PLAN[p.estilo];
+            const precio = anual ? p.anual : p.mensual;
+            return (
+              <li key={p.code}>
+                <article className={`flex h-full flex-col rounded-[var(--radio)] p-7 sm:p-8 ${e.card}`}>
+                  <div className="flex min-h-[2.75rem] flex-wrap items-center gap-x-3 gap-y-2">
+                    <h3 className="dx-display text-[2.25rem]">{p.name}</h3>
+                    {p.estilo === "aji" && (
+                      <span className="dx-label rounded-full bg-[var(--tinta)] px-3 py-1 text-white">Recomendado</span>
+                    )}
                   </div>
-                  <p className="mt-1 h-5 text-xs text-teal-300">
-                    {anual ? `Equivale a US$ ${usd(Math.round((p.anual / 12) * 100) / 100)}/mes` : ""}
+                  <p className={`mt-1.5 ${e.sub}`}>{p.desc}</p>
+                  <div className="mt-8 flex items-baseline gap-1.5">
+                    <span className={`dx-label ${e.sub}`}>US$</span>
+                    <span className="dx-display dx-tabular text-[3.75rem]">{usd(precio)}</span>
+                    <span className={e.sub}>/{anual ? "año" : "mes"}</span>
+                  </div>
+                  <p className={`h-5 text-sm ${e.sub}`}>
+                    {anual ? `Equivale a US$ ${usd(Math.round((p.anual / 12) * 100) / 100)} por mes` : ""}
                   </p>
-
-                  <a
-                    href={ADMIN_SIGNUP_URL}
-                    className={`mt-6 block rounded-2xl py-3.5 text-center text-sm font-bold transition-transform hover:-translate-y-0.5 ${
-                      p.highlight
-                        ? "bg-gradient-to-r from-cyan-400 to-teal-300 text-slate-950 shadow-lg shadow-cyan-500/25"
-                        : "bg-white/10 text-white ring-1 ring-white/10 hover:bg-white/15"
-                    }`}
-                  >
-                    {p.cta}
-                  </a>
-
-                  <ul className="mt-7 space-y-3 text-sm">
+                  <ul className="mt-6 flex-1 space-y-2.5">
                     {p.perks.map((perk) => (
-                      <li key={perk} className="flex items-start gap-2.5 text-slate-300">
-                        <Check className={p.highlight ? "text-cyan-300" : "text-teal-400/80"} />
+                      <li key={perk} className="flex items-start gap-2.5">
+                        <IconCheck className="mt-0.5 h-5 w-5 shrink-0" />
                         {perk}
                       </li>
                     ))}
                   </ul>
-                </div>
-              </div>
+                  <a href={ADMIN_SIGNUP_URL} className={`mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-5 font-semibold transition-colors ${e.btn}`}>
+                    Probar gratis
+                    <span className="sr-only"> con el plan {p.name}</span>
+                    <IconArrow className="h-4 w-4" />
+                  </a>
+                </article>
+              </li>
             );
           })}
-        </div>
-
-        <div className="lp-reveal mx-auto mt-10 flex max-w-3xl flex-col items-center justify-between gap-4 rounded-3xl border border-dashed border-white/15 bg-white/[0.02] p-6 text-center sm:flex-row sm:text-left">
-          <div>
-            <div className="font-semibold text-white">¿Querés probar antes de decidir?</div>
-            <div className="text-sm text-slate-400">
-              Prueba gratis de {TRIAL_DIAS} días con todas las funciones. Sin tarjeta de crédito.
-            </div>
-          </div>
-          <a
-            href={ADMIN_SIGNUP_URL}
-            className="shrink-0 rounded-xl bg-white px-5 py-3 text-sm font-bold text-slate-900 transition-transform hover:-translate-y-0.5"
-          >
-            Crear cuenta gratis
-          </a>
-        </div>
+        </ul>
       </div>
     </section>
   );
 }
 
-// ── Preguntas frecuentes ─────────────────────────────────────
+// ── 8. Preguntas ─────────────────────────────────────────────
 const FAQS = [
-  {
-    q: "¿Necesito saber de tecnología?",
-    a: "No. Si sabés usar WhatsApp, sabés usar DinexFlow. Cargás tus productos desde el panel y el menú se arma solo.",
-  },
-  {
-    q: "¿Cómo adquiero el servicio?",
-    a: `Creás tu cuenta gratis y usás todo durante ${TRIAL_DIAS} días. Cuando quieras, desde el panel entrás a "Suscripción", elegís un plan y pagás online con tarjeta. Se activa al instante.`,
-  },
-  {
-    q: "¿Mis clientes tienen que descargar una app?",
-    a: "No. Escanean el QR con la cámara del celular y el menú se abre en el navegador, al instante.",
-  },
-  {
-    q: "¿Puedo cambiar precios cuando quiera?",
-    a: "Sí, todas las veces que quieras. Los cambios se ven en el menú en el momento, sin reimprimir el QR.",
-  },
-  {
-    q: "¿Puedo cancelar o cambiar de plan?",
-    a: "Sí. Podés subir, bajar o cancelar tu plan cuando quieras desde el panel, sin permanencia mínima.",
-  },
-  {
-    q: "¿Sirve para varios locales?",
-    a: "Sí. Según tu plan podés administrar varios negocios desde una sola cuenta, cada uno con su propio menú y QR.",
-  },
+  { q: "¿Necesito saber de tecnología?", a: `No. Si sabés usar WhatsApp, sabés usar ${BRAND}. Cargás tus productos desde el panel y la carta se arma sola.` },
+  { q: "¿Mis clientes tienen que descargar una app?", a: "No. Escanean el QR con la cámara del celular y la carta se abre en el navegador, al instante." },
+  { q: "¿Cómo contrato el servicio?", a: `Creás tu cuenta gratis y usás todo durante ${TRIAL_DIAS} días. Cuando quieras, en el panel entrás a "Suscripción", elegís un plan y pagás online con tarjeta. Se activa al instante.` },
+  { q: "¿Puedo cambiar precios cuando quiera?", a: "Sí, todas las veces que quieras. Los cambios se ven en la carta en el momento, sin reimprimir el QR." },
+  { q: "¿Puedo cancelar o cambiar de plan?", a: "Sí. Subís, bajás o cancelás tu plan cuando quieras desde el panel, sin permanencia mínima." },
+  { q: "¿Sirve para varios locales?", a: "Sí. Según tu plan administrás varios negocios desde una sola cuenta, cada uno con su carta y su QR." },
 ];
 
-function Faq() {
-  const [open, setOpen] = useState<number | null>(0);
+function Preguntas() {
   return (
-    <section id="faq" className="relative scroll-mt-20 py-24 sm:py-32">
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-        <SectionTitle eyebrow="Preguntas" title="Preguntas frecuentes" />
-        <div className="mt-12 space-y-3">
-          {FAQS.map((f, i) => {
-            const isOpen = open === i;
-            return (
-              <div
-                key={f.q}
-                className={`lp-reveal overflow-hidden rounded-2xl border transition-colors ${
-                  isOpen ? "border-cyan-400/30 bg-cyan-400/[0.04]" : "border-white/10 bg-white/[0.02]"
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => setOpen(isOpen ? null : i)}
-                  aria-expanded={isOpen}
-                  className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left sm:px-6"
-                >
-                  <span className="font-medium text-white">{f.q}</span>
-                  <span
-                    className={`grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/5 text-slate-300 transition-transform duration-300 ${
-                      isOpen ? "rotate-45" : ""
-                    }`}
-                    aria-hidden
-                  >
-                    +
-                  </span>
-                </button>
-                <div
-                  className="grid transition-[grid-template-rows] duration-300 ease-out"
-                  style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }}
-                >
-                  <div className="overflow-hidden">
-                    <p className="px-5 pb-5 text-sm leading-relaxed text-slate-400 sm:px-6">{f.a}</p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+    <section id="preguntas" data-nav="claro" data-fondo="hueso" aria-labelledby="preguntas-titulo" className="scroll-mt-16 bg-[var(--hueso)] pb-24 sm:pb-32">
+      <div className={`${CONTENEDOR} grid gap-10 border-t border-[var(--tinta)]/15 pt-16 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-16`}>
+        <h2 id="preguntas-titulo" className="dx-display text-[clamp(2.4rem,5vw,4.75rem)]">
+          Preguntas
+        </h2>
+        <div className="border-t-2 border-[var(--tinta)]">
+          {FAQS.map((f) => (
+            <details key={f.q} className="border-b border-[var(--tinta)]/15">
+              <summary className="flex min-h-16 cursor-pointer items-center justify-between gap-6 py-5 text-xl font-semibold transition-colors hover:text-[var(--cobalto)]">
+                {f.q}
+                <span aria-hidden className="dx-faq-mark grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--tinta)] text-white transition-transform duration-200">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                </span>
+              </summary>
+              <p className="max-w-[62ch] pb-6 text-lg leading-relaxed text-[var(--gris)]">{f.a}</p>
+            </details>
+          ))}
         </div>
       </div>
     </section>
   );
 }
 
-// ── CTA final + footer ───────────────────────────────────────
-function FinalCta() {
+// ── 9. Cierre + pie con la marca gigante ─────────────────────
+function Cierre() {
   return (
-    <section className="px-4 pb-24 sm:px-6 lg:px-8">
-      <div className="lp-reveal relative mx-auto max-w-6xl overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-cyan-500/20 via-teal-500/10 to-amber-500/20 px-6 py-16 text-center sm:px-12 sm:py-20">
-        <div className="lp-grid-bg pointer-events-none absolute inset-0 opacity-60" />
-        <div
-          className="lp-blob lp-glow pointer-events-none absolute -left-32 -top-32 h-[26rem] w-[26rem]"
-          style={{ ["--glow" as string]: "rgba(34,211,238,0.30)" }}
-        />
-        <div
-          className="lp-blob lp-glow pointer-events-none absolute -bottom-36 -right-28 h-[26rem] w-[26rem]"
-          style={{ ["--glow" as string]: "rgba(251,191,36,0.25)", animationDelay: "-8s" }}
-        />
-        <div className="relative">
-          <h2 className="mx-auto max-w-3xl text-3xl font-extrabold tracking-tight text-white sm:text-5xl">
-            Tu próximo cliente ya tiene el celular en la mano.
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-base text-slate-300 sm:text-lg">
-            Dale un menú que lo haga pedir. Creá el tuyo hoy, gratis.
-          </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <a
-              href={ADMIN_SIGNUP_URL}
-              className="w-full rounded-2xl bg-white px-7 py-4 text-base font-bold text-slate-900 shadow-2xl transition-transform hover:-translate-y-0.5 sm:w-auto"
-            >
-              Crear mi menú gratis →
-            </a>
-            <a
-              href={ADMIN_LOGIN_URL}
-              className="w-full rounded-2xl border border-white/20 px-7 py-4 text-base font-semibold text-white transition-colors hover:bg-white/10 sm:w-auto"
-            >
-              Ya tengo cuenta
-            </a>
-          </div>
+    <section data-cierre data-nav="claro" data-fondo="aji" aria-labelledby="cierre-titulo" className="dx-sobre-aji overflow-hidden bg-[var(--aji)] py-24 text-[var(--tinta)] sm:py-32">
+      <div className={CONTENEDOR}>
+        <h2 id="cierre-titulo" data-cierre-titulo className="dx-display max-w-[16ch] origin-left text-[clamp(2.75rem,7.6vw,8rem)]">
+          Tu próximo cliente ya tiene el celular en la mano.
+        </h2>
+        <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+          <a href={ADMIN_SIGNUP_URL} className="dx-btn dx-btn-oscuro">
+            Probar {TRIAL_DIAS} días gratis
+            <Flecha />
+          </a>
+          <a href={ADMIN_LOGIN_URL} className="dx-btn-borde hover:bg-[var(--tinta)] hover:text-white">
+            Ya tengo cuenta
+          </a>
         </div>
       </div>
     </section>
@@ -839,58 +567,273 @@ function FinalCta() {
 
 function Footer() {
   return (
-    <footer className="border-t border-white/5 py-10">
-      <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-4 sm:flex-row sm:px-6 lg:px-8">
-        <div className="flex items-center gap-2.5">
-          <Logo size={32} />
-          <span className="font-semibold text-white">{BRAND}</span>
-          <span className="text-sm text-slate-500">· Menús digitales que venden</span>
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-5 text-sm text-slate-400">
-          {NAV.map((l) => (
-            <a key={l.href} href={l.href} className="hover:text-white">
-              {l.label}
-            </a>
-          ))}
-          <a href={ADMIN_LOGIN_URL} className="hover:text-white">
-            Panel admin
-          </a>
-          <a href="/privacidad" className="hover:text-white">
-            Privacidad
-          </a>
-        </div>
-        <div className="text-xs text-slate-500">© {new Date().getFullYear()} {BRAND}</div>
+    <footer data-nav="oscuro" data-fondo="tinta" className="dx-sobre-oscuro overflow-hidden bg-[var(--tinta)] pt-14 text-[var(--hueso)]">
+      <div className={`${CONTENEDOR} flex flex-col gap-6 md:flex-row md:items-center md:justify-between`}>
+        <nav aria-label="Pie de página">
+          <ul className="flex flex-wrap gap-x-2 gap-y-1">
+            {NAV.map((l) => (
+              <li key={l.href}>
+                <a href={l.href} className="inline-flex min-h-11 items-center px-2 text-[var(--gris-claro)] hover:text-white">
+                  {l.label}
+                </a>
+              </li>
+            ))}
+            <li>
+              <a href="/privacidad" className="inline-flex min-h-11 items-center px-2 text-[var(--gris-claro)] hover:text-white">
+                Privacidad
+              </a>
+            </li>
+          </ul>
+        </nav>
+        <p className="text-sm text-[var(--gris-claro)]">
+          © {new Date().getFullYear()} {BRAND}
+        </p>
       </div>
+      <p data-marca aria-hidden className="dx-display dx-display-xl mt-10 select-none pb-[2vw] whitespace-nowrap text-center text-[17.5vw] text-[var(--hueso)]">
+        {BRAND.toLowerCase()}
+      </p>
     </footer>
   );
 }
 
-export default function Landing() {
-  useReveal();
+// ── Página ───────────────────────────────────────────────────
+// URL del QR del inicio: la pública si está configurada (en localhost un
+// celular no podría abrirla), si no el origen actual.
+const QR_URL = `${((import.meta.env.VITE_PUBLIC_URL as string | undefined) || window.location.origin).replace(/\/+$/, "")}/#probalo`;
 
+// Posición de un elemento dentro de otro sin contar transforms (la ficha QR
+// se escala durante la escena y getBoundingClientRect lo incluiría).
+function cajaDentro(el: HTMLElement, contenedor: HTMLElement) {
+  let x = 0;
+  let y = 0;
+  let n: HTMLElement | null = el;
+  while (n && n !== contenedor) {
+    x += n.offsetLeft;
+    y += n.offsetTop;
+    n = n.offsetParent as HTMLElement | null;
+  }
+  return {
+    top: y,
+    left: x,
+    right: contenedor.offsetWidth - x - el.offsetWidth,
+    bottom: contenedor.offsetHeight - y - el.offsetHeight,
+  };
+}
+
+export default function Landing() {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLDivElement>(null);
+
+  useSmoothScroll();
+
+  // Fondo del <html> en tono hueso sólo mientras se ve la landing.
   useEffect(() => {
-    const prev = document.title;
-    document.title = `${BRAND} · Menú digital con QR y pedidos por WhatsApp`;
     const html = document.documentElement;
-    const prevScroll = html.style.scrollBehavior;
-    html.style.scrollBehavior = "smooth";
-    return () => {
-      document.title = prev;
-      html.style.scrollBehavior = prevScroll;
-    };
+    html.classList.add("dx-home");
+    return () => html.classList.remove("dx-home");
   }, []);
 
+  useGSAP(
+    () => {
+      const root = rootRef.current!;
+      const q = gsap.utils.selector(root);
+      const mm = gsap.matchMedia();
+      const condiciones = { movimiento: "(prefers-reduced-motion: no-preference)", escritorio: "(min-width: 1024px)" };
+      // Color de la barra: atributo y variable en el DOM, sin estado de React
+      // (no re-renderiza la página). El fondo copia el de la sección de abajo.
+      const ponerTema = (t: TemaNav, fondo: string) => {
+        const nav = navRef.current;
+        if (!nav) return;
+        nav.setAttribute("data-tema", t);
+        nav.style.setProperty("--nav-fondo", `var(--${fondo})`);
+      };
+      // Avance de la escena del QR (0 a 1): define el color de la barra sobre el inicio.
+      let avanceHero = () => 0;
+
+      mm.add(condiciones, (ctx) => {
+        const { movimiento, escritorio } = ctx.conditions as { movimiento: boolean; escritorio: boolean };
+        if (!movimiento) return;
+        root.classList.add("dx-motion");
+
+        // 1. Inicio (sólo en pantallas grandes, donde entra completo): el
+        //    portal de tinta crece desde la ficha QR. En el celular el inicio
+        //    no se fija, para no tapar nada.
+        if (escritorio) {
+          const hero = q("[data-hero]")[0];
+          const contenido = q("[data-hero-contenido]")[0];
+          const tile = q("[data-tile] > div")[0];
+          const desdeFicha = () => {
+            const c = cajaDentro(tile, hero);
+            return `inset(${c.top}px ${c.right}px ${c.bottom}px ${c.left}px round 28px)`;
+          };
+          // Desplazamiento que lleva la ficha QR al centro de la pantalla.
+          const alCentro = () => {
+            const c = cajaDentro(tile, hero);
+            return {
+              x: hero.offsetWidth / 2 - (c.left + tile.offsetWidth / 2),
+              y: window.innerHeight / 2 - (c.top + tile.offsetHeight / 2),
+            };
+          };
+          const tlHero = gsap
+            .timeline({
+              scrollTrigger: {
+                trigger: hero,
+                start: "top top",
+                end: "+=110%",
+                pin: true,
+                anticipatePin: 1,
+                scrub: 0.6,
+                invalidateOnRefresh: true,
+                onUpdate: (self) => {
+                  const cubierto = self.progress > 0.45;
+                  // Con la tinta encima: barra clara y el contenido tapado fuera del foco.
+                  ponerTema(cubierto ? "oscuro" : "claro", cubierto ? "tinta" : "hueso");
+                  contenido.toggleAttribute("inert", cubierto);
+                },
+              },
+            })
+            .fromTo(q("[data-portal]"), { clipPath: desdeFicha }, { clipPath: "inset(0px 0px 0px 0px round 0px)", ease: "power2.inOut", duration: 1 }, 0)
+            .to(q("[data-tile] figcaption"), { opacity: 0, duration: 0.12 }, 0)
+            .to(tile, { x: () => alCentro().x, y: () => alCentro().y, scale: 2.1, duration: 0.55, ease: "power2.inOut" }, 0)
+            .to(tile, { scale: 2.8, opacity: 0, duration: 0.2, ease: "power1.in" }, 0.55)
+            .to(q("[data-hero-titulo], [data-hero-bajada]"), { yPercent: -18, ease: "none", duration: 0.8 }, 0)
+            .to(q("[data-portal-texto]"), { opacity: 1, duration: 0.25 }, 0.72)
+            .from(q("[data-portal-texto] > span"), { scale: 0.86, duration: 0.35, ease: "power2.out" }, 0.7);
+          avanceHero = () => tlHero.scrollTrigger?.progress ?? 0;
+        }
+
+        // 2. Manifiesto: palabra por palabra; termina encendido con el texto centrado.
+        gsap.to(q(".dx-palabra"), {
+          opacity: 1,
+          stagger: 0.12,
+          ease: "none",
+          scrollTrigger: { trigger: q("[data-manifiesto]")[0], start: "top 70%", end: "center 45%", scrub: true },
+        });
+
+        // 3. Escena del teléfono: queda fija y avanza tres pasos.
+        const escena = q("[data-escena]")[0];
+        const pasos = q("[data-paso]");
+        const apagado = escritorio ? 0.45 : 0;
+        gsap.set(pasos.slice(1), { opacity: apagado });
+        gsap.set(q('[data-pantalla="2"], [data-pantalla="3"]'), { yPercent: 100 });
+        const contador = q("[data-contador]");
+        gsap.set(contador.slice(1), { yPercent: 100 });
+        // El escáner sólo se mueve mientras la escena está en pantalla.
+        gsap.fromTo(
+          q("[data-escaner]"),
+          { y: -56 },
+          {
+            y: 56,
+            duration: 1.1,
+            ease: "sine.inOut",
+            repeat: -1,
+            yoyo: true,
+            scrollTrigger: { trigger: escena, start: "top bottom", end: "bottom top", toggleActions: "play pause resume pause" },
+          },
+        );
+        gsap
+          .timeline({
+            scrollTrigger: { trigger: escena, start: "top top", end: "+=230%", pin: true, anticipatePin: 1, scrub: 0.6 },
+          })
+          .to({}, { duration: 0.6 })
+          .to(pasos[0], { opacity: apagado, duration: 0.3 }, 1)
+          .to(pasos[1], { opacity: 1, duration: 0.3 }, 1)
+          .to(q('[data-pantalla="2"]'), { yPercent: 0, duration: 0.8, ease: "power2.inOut" }, 0.9)
+          .to(contador[0], { yPercent: -100, duration: 0.6, ease: "power3.inOut" }, 0.95)
+          .to(contador[1], { yPercent: 0, duration: 0.6, ease: "power3.inOut" }, 0.95)
+          .from(q("[data-sumar]"), { scale: 0.6, backgroundColor: "#ff5b24", stagger: 0.15, duration: 0.3 }, 1.5)
+          .to(pasos[1], { opacity: apagado, duration: 0.3 }, 2.4)
+          .to(pasos[2], { opacity: 1, duration: 0.3 }, 2.4)
+          .to(q('[data-pantalla="3"]'), { yPercent: 0, duration: 0.8, ease: "power2.inOut" }, 2.3)
+          .to(contador[1], { yPercent: -100, duration: 0.6, ease: "power3.inOut" }, 2.35)
+          .to(contador[2], { yPercent: 0, duration: 0.6, ease: "power3.inOut" }, 2.35)
+          .to({}, { duration: 0.7 });
+
+        // 4. Funciones: se resalta la que cruza el centro (clase, sin estado de React).
+        q("[data-funcion]").forEach((el) => {
+          ScrollTrigger.create({
+            trigger: el,
+            start: "top 55%",
+            end: "bottom 55%",
+            onToggle: (self) => el.classList.toggle("is-activa", self.isActive),
+          });
+        });
+
+        // 5. Rubros: las filas se deslizan en sentidos opuestos.
+        const rubros = q("[data-rubros]")[0];
+        gsap.fromTo(q('[data-fila="1"]'), { xPercent: 0 }, { xPercent: -22, ease: "none", scrollTrigger: { trigger: rubros, start: "top bottom", end: "bottom top", scrub: true } });
+        gsap.fromTo(q('[data-fila="2"]'), { xPercent: -30 }, { xPercent: -8, ease: "none", scrollTrigger: { trigger: rubros, start: "top bottom", end: "bottom top", scrub: true } });
+
+        // 9. Cierre y marca gigante del pie.
+        gsap.from(q("[data-cierre-titulo]"), {
+          scale: 0.82,
+          ease: "none",
+          scrollTrigger: { trigger: q("[data-cierre]")[0], start: "top bottom", end: "top 25%", scrub: true },
+        });
+        gsap.from(q("[data-marca]"), {
+          yPercent: 45,
+          ease: "none",
+          scrollTrigger: { trigger: q("[data-marca]")[0], start: "top bottom", end: "bottom bottom", scrub: true },
+        });
+
+        return () => {
+          root.classList.remove("dx-motion");
+          q("[data-hero-contenido]")[0]?.removeAttribute("inert");
+          avanceHero = () => 0;
+        };
+      });
+
+      // Color de la barra según la sección que pasa por debajo. Va en otro
+      // mm.add registrado después: cuando cambia una media query se recrea
+      // siempre detrás de las escenas fijas, con sus medidas ya incluidas.
+      mm.add(condiciones, () => {
+        q("[data-nav]").forEach((el) => {
+          const esHero = el.hasAttribute("data-hero");
+          const fijada = el.parentElement?.classList.contains("pin-spacer") ? el.parentElement : el;
+          ScrollTrigger.create({
+            trigger: fijada,
+            start: "top 36px",
+            end: "bottom 36px",
+            onToggle: (self) => {
+              if (!self.isActive) return;
+              // Sobre el inicio, con la tinta ya desplegada, la barra va clara.
+              const d = (el as HTMLElement).dataset;
+              if (esHero && avanceHero() > 0.45) ponerTema("oscuro", "tinta");
+              else ponerTema(d.nav as TemaNav, d.fondo ?? "hueso");
+            },
+          });
+        });
+      });
+
+      // Las fuentes cambian medidas: recalcular una vez cuando terminan de cargar.
+      let vivo = true;
+      document.fonts?.ready.then(() => vivo && ScrollTrigger.refresh());
+      return () => {
+        vivo = false;
+      };
+    },
+    { scope: rootRef },
+  );
+
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#060912] font-sans text-slate-200 antialiased selection:bg-cyan-400/30">
-      <Navbar />
-      <main>
-        <Hero />
-        <Marquee />
-        <Features />
-        <HowItWorks />
-        <Pricing />
-        <Faq />
-        <FinalCta />
+    <div ref={rootRef} className="dx min-h-screen">
+      <a
+        href="#contenido"
+        className="sr-only z-[60] rounded-full bg-[var(--aji)] px-5 py-3 font-semibold text-[var(--tinta)] focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+      >
+        Saltar al contenido
+      </a>
+      <Navbar textoRef={navRef} />
+      <main id="contenido">
+        <Hero qrUrl={QR_URL} />
+        <Manifiesto />
+        <EscenaTelefono />
+        <Probalo />
+        <Funciones />
+        <Rubros />
+        <Precios />
+        <Preguntas />
+        <Cierre />
       </main>
       <Footer />
     </div>

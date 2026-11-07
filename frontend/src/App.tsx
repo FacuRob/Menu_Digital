@@ -8,8 +8,9 @@ const Landing = lazy(() => import("./pages/Landing"));
 const Menu = lazy(() => import("./pages/Menu"));
 const Privacidad = lazy(() => import("./pages/Privacidad"));
 
-// Mientras llega el código de la página: fondo oscuro (sin flash blanco).
-const Cargando = () => <div style={{ minHeight: "100vh", background: "#060912" }} />;
+// Mientras llega el código de la página se ve el fondo del <html>
+// (index.html elige el color según la ruta: sin flash blanco).
+const Cargando = () => <div role="status" aria-busy="true" aria-label="Cargando" style={{ minHeight: "100vh" }} />;
 
 function NotFound() {
   const { t } = useLang();

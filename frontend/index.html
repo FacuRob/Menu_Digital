@@ -1,21 +1,34 @@
 <!doctype html>
-<html lang="es">
+<html lang="es-AR">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <!-- Barra del navegador del celular del mismo color que la página -->
-    <meta name="theme-color" content="#060912" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#efede6" />
+    <title>DinexFlow · Carta digital con QR y pedidos por WhatsApp</title>
     <meta
       name="description"
-      content="DinexFlow: menú digital con QR y pedidos por WhatsApp para restaurantes, bares y cafeterías. Probalo gratis 14 días."
+      content="DinexFlow: carta digital con QR y pedidos que llegan ordenados a tu WhatsApp, para restaurantes, bares y cafeterías. Probalo gratis 14 días, sin tarjeta."
     />
-    <title>DinexFlow · Menú digital con QR</title>
-    <!-- Fondo oscuro desde el primer instante (evita el flash blanco en iPhone) -->
+    <!-- Vista previa al compartir el link (WhatsApp, Instagram, etc.) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="es_AR" />
+    <meta property="og:site_name" content="DinexFlow" />
+    <meta property="og:title" content="DinexFlow · Tu carta en el celu, el pedido a tu WhatsApp" />
+    <meta
+      property="og:description"
+      content="Carta digital con QR y pedidos por WhatsApp para tu local. Probalo gratis 14 días, sin tarjeta."
+    />
+    <meta name="twitter:card" content="summary" />
+    <!-- Color de fondo desde el primer instante (sin flash): hueso en la
+         landing, oscuro en el menú público. -->
     <style>
       html, body { background: #060912; margin: 0; }
+      html.dx-home, html.dx-home body { background: #efede6; }
     </style>
+    <script>
+      if (location.pathname === "/") document.documentElement.classList.add("dx-home");
+    </script>
   </head>
   <body>
     <div id="root"></div>

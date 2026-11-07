@@ -1,0 +1,206 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-07T20:46:51.272Z",
+  "title": "Design System: DinexFlow",
+  "extensions": {
+    "scope": "Landing pública (frontend/src/pages/Landing.tsx + frontend/src/components/landing/). Tokens en landing.css bajo .dx. Menu.tsx y frontend-admin no migrados.",
+    "colorMeta": {
+      "hueso": {
+        "role": "neutral",
+        "displayName": "Hueso",
+        "canonical": "#efede6"
+      },
+      "hueso-2": {
+        "role": "neutral",
+        "displayName": "Hueso hundido",
+        "canonical": "#e4e1d8"
+      },
+      "aji": {
+        "role": "primary",
+        "displayName": "Ají",
+        "canonical": "#ff5b24"
+      },
+      "aji-deep": {
+        "role": "primary",
+        "displayName": "Ají tostado",
+        "canonical": "#e8470f"
+      },
+      "tinta": {
+        "role": "neutral",
+        "displayName": "Tinta",
+        "canonical": "#111216"
+      },
+      "tinta-2": {
+        "role": "neutral",
+        "displayName": "Tinta alzada",
+        "canonical": "#1c1d23"
+      },
+      "cobalto": {
+        "role": "secondary",
+        "displayName": "Cobalto",
+        "canonical": "#3b3bf5"
+      },
+      "cobalto-deep": {
+        "role": "secondary",
+        "displayName": "Cobalto profundo",
+        "canonical": "#2626c9"
+      },
+      "gris": {
+        "role": "neutral",
+        "displayName": "Gris sobre hueso",
+        "canonical": "#5b5d66"
+      },
+      "gris-claro": {
+        "role": "neutral",
+        "displayName": "Gris sobre tinta",
+        "canonical": "#a9abb4"
+      },
+      "wa-bubble": {
+        "role": "quoted",
+        "displayName": "Burbuja WhatsApp (citado)",
+        "canonical": "#d9fdd3"
+      }
+    },
+    "typographyMeta": {
+      "display-xl": {
+        "family": "Archivo Variable",
+        "stretch": "125%",
+        "weight": 800,
+        "use": "Contador 01/02/03, wordmark, rubros"
+      },
+      "display": {
+        "family": "Archivo Variable",
+        "stretch": "118%",
+        "weight": 800,
+        "use": "h1 en dos bloques, h2, títulos de pasos y planes"
+      },
+      "accent": {
+        "family": "Bodoni Moda",
+        "style": "italic",
+        "weight": 400,
+        "use": "Frases cortas de acento (portal del inicio)"
+      },
+      "label": {
+        "family": "Archivo Variable",
+        "stretch": "112%",
+        "weight": 600,
+        "use": "Rótulos en mayúscula"
+      },
+      "body": {
+        "family": "Archivo Variable",
+        "weight": 400,
+        "use": "Párrafos"
+      }
+    },
+    "shadows": [],
+    "motion": {
+      "library": "GSAP 3 + ScrollTrigger + Lenis",
+      "smoothScroll": {
+        "lerp": 0.11,
+        "anchorOffset": -72
+      },
+      "gate": "gsap.matchMedia (prefers-reduced-motion: no-preference); portal y contador sólo >=1024px; clase .dx-motion habilita las reglas CSS de movimiento",
+      "scenes": [
+        {
+          "name": "Portal del inicio",
+          "pin": "+=110%",
+          "note": "clip-path desde la ficha QR hasta inset(0); la ficha viaja al centro y crece"
+        },
+        {
+          "name": "Manifiesto",
+          "note": "palabras de 0.4 a 1 de opacidad"
+        },
+        {
+          "name": "Del QR a tu WhatsApp",
+          "pin": "+=230%",
+          "note": "tres pantallas, pasos encendidos y contador 01/02/03"
+        },
+        {
+          "name": "Funciones",
+          "note": "fila activa por ScrollTrigger"
+        },
+        {
+          "name": "Rubros",
+          "note": "filas en xPercent"
+        },
+        {
+          "name": "Cierre y pie",
+          "note": "título desde scale 0.82; wordmark sube"
+        }
+      ],
+      "easing": {
+        "scene": "power2.inOut",
+        "counter": "power3.inOut",
+        "micro": "cubic-bezier(0.16,1,0.3,1)"
+      }
+    },
+    "breakpoints": {
+      "sm": "640px",
+      "lg": "1024px"
+    }
+  },
+  "components": [
+    {
+      "name": "Pastilla ají (primario)",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Acción principal: Probar gratis, Probar 14 días gratis, Armá la tuya gratis.",
+      "html": "<a href=\"#\" class=\"ds-btn\">Probar 14 días gratis <svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 12h15M13 6l6 6-6 6\"/></svg></a>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:0 25.6px;border-radius:999px;font-family:'Archivo Variable', system-ui, sans-serif;font-stretch:112%;font-weight:700;font-size:1.0625rem;text-decoration:none;transition:background-color 160ms cubic-bezier(0.16,1,0.3,1),transform 160ms cubic-bezier(0.16,1,0.3,1);background:#ff5b24;color:#111216;}.ds-btn:hover{background:#e8470f;}.ds-btn:active{transform:scale(0.97);}.ds-btn:focus-visible{outline:3px solid #3b3bf5;outline-offset:3px;}"
+    },
+    {
+      "name": "Pastilla tinta (sobre ají)",
+      "kind": "button",
+      "refersTo": "button-dark",
+      "description": "Acción principal sobre bloques ají (cierre).",
+      "html": "<a href=\"#\" class=\"ds-btn-oscuro\">Probar 14 días gratis <svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 12h15M13 6l6 6-6 6\"/></svg></a>",
+      "css": ".ds-btn-oscuro{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:0 25.6px;border-radius:999px;font-family:'Archivo Variable', system-ui, sans-serif;font-stretch:112%;font-weight:700;font-size:1.0625rem;text-decoration:none;transition:background-color 160ms cubic-bezier(0.16,1,0.3,1),transform 160ms cubic-bezier(0.16,1,0.3,1);background:#111216;color:#fff;}.ds-btn-oscuro:hover{background:#3b3bf5;}.ds-btn-oscuro:focus-visible{outline:3px solid #111216;outline-offset:3px;}"
+    },
+    {
+      "name": "Pastilla con borde",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Acción secundaria.",
+      "html": "<button type=\"button\" class=\"ds-btn-borde\">Armar otro pedido</button>",
+      "css": ".ds-btn-borde{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:0 25.6px;border-radius:999px;font-family:'Archivo Variable', system-ui, sans-serif;font-stretch:112%;font-weight:700;font-size:1.0625rem;text-decoration:none;transition:background-color 160ms cubic-bezier(0.16,1,0.3,1),transform 160ms cubic-bezier(0.16,1,0.3,1);background:transparent;color:#111216;border:2px solid currentColor;}.ds-btn-borde:hover{background:#111216;color:#efede6;}"
+    },
+    {
+      "name": "Badge Recomendado",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "En línea junto al nombre del plan Standard.",
+      "html": "<span class=\"ds-badge\">Recomendado</span>",
+      "css": ".ds-badge{display:inline-block;padding:4px 12px;border-radius:999px;background:#111216;color:#fff;font-family:'Archivo Variable', system-ui, sans-serif;font-stretch:112%;font-weight:600;font-size:0.8125rem;letter-spacing:0.04em;text-transform:uppercase;}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Hora pico",
+    "overview": "La página se mueve como un local en plena hora pico: el scroll es el servicio. El QR del inicio se abre hasta llenar la pantalla de tinta, el manifiesto se enciende palabra por palabra, el teléfono queda fijo mientras el pedido viaja del cliente al WhatsApp del local y los bloques de color cambian de golpe como cambia el turno.\n\nBloques plenos a todo el ancho (hueso, ají, tinta, cobalto), grotesca Archivo ensanchada gigante, Bodoni Moda itálica como acento corto, pastillas para acciones, esquinas de 28px y ninguna sombra. La barra fija copia el color de la sección que tiene debajo.\n\nEl movimiento usa Lenis + GSAP ScrollTrigger con escenas fijadas, y desaparece por completo con prefers-reduced-motion: la página se ve entera y quieta por defecto.",
+    "keyCharacteristics": [
+      "Un bloque de color pleno por sección; la barra copia ese bloque.",
+      "Titulares gigantes en Archivo ensanchado 800; Bodoni Moda itálica sólo de acento.",
+      "Escena firma fijada: teléfono al centro, pasos a la izquierda, contador 01/02/03 a la derecha.",
+      "Portal de tinta que se abre desde una ficha QR real.",
+      "Sin sombras, degradados ni teléfonos flotantes.",
+      "Ejemplos siempre rotulados; nada de pruebas inventadas."
+    ],
+    "rules": [
+      {
+        "name": "Bloques plenos",
+        "body": "Un color por sección a todo el ancho; sin degradados ni medios tonos."
+      },
+      {
+        "name": "La barra copia la sección",
+        "body": "data-tema y --nav-fondo se toman de data-nav y data-fondo de la sección debajo."
+      },
+      {
+        "name": "Visible por defecto",
+        "body": "Toda regla que oculta o apila depende de .dx-motion, puesta por JS."
+      },
+      {
+        "name": "Sin texto blanco sobre ají",
+        "body": "Sobre ají el texto y el foco son tinta."
+      }
+    ]
+  }
+}
