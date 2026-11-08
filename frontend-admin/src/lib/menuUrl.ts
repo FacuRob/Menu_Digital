@@ -1,7 +1,7 @@
 // URLs del menú público (el otro frontend).
 //
 // MENU_PUBLIC_BASE  → la URL real que ven los clientes (QR, "copiar link").
-//                     VITE_MENU_URL; si falta, la de Netlify.
+//                     VITE_MENU_URL; si falta, la de Render.
 // MENU_PREVIEW_BASE → la que se carga en la vista previa del panel
 //                     (/menu/:slug). En desarrollo apunta al menú local
 //                     (VITE_MENU_DEV_URL o http://localhost:3000) para ver
@@ -10,7 +10,7 @@ const clean = (u: string) => u.replace(/\/+$/, "");
 
 export const MENU_PUBLIC_BASE = clean(
   (import.meta.env.VITE_MENU_URL as string | undefined) ||
-    "https://menu-digital-publico.netlify.app",
+    "https://menu-digital-frontend-qxjm.onrender.com",
 );
 
 export const MENU_PREVIEW_BASE = import.meta.env.DEV

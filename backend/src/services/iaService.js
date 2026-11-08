@@ -34,7 +34,7 @@ const modeloParams = () => {
 const ESPERA_MS = () => Number(process.env.IA_ESPERA_MS ?? 4000);
 const TZ = () => process.env.NEGOCIO_TZ || "America/Argentina/Buenos_Aires";
 const MENU_URL = () =>
-  (process.env.VITE_MENU_URL || "https://menu-digital-publico.netlify.app").replace(/\/+$/, "");
+  (process.env.VITE_MENU_URL || "https://menu-digital-frontend-qxjm.onrender.com").replace(/\/+$/, "");
 const MAX_HISTORIAL = 20;
 const MAX_INSTRUCCIONES = 2000;
 
