@@ -1,5 +1,21 @@
 # Menú Digital — SaaS: Suscripciones, Hotmart y Multi-Tenant
 
+> ✅ **VIGENTE (2026-11-08): Mercado Pago, mensual, en pesos.** Lemon Squeezy y
+> el plan anual se eliminaron. Planes: **Básico $20.000**, **Estándar $41.000**
+> (120 productos por negocio), **Premium $65.000** por mes. Prueba gratis de
+> **15 días** con los límites de Estándar; al vencer, el backend responde 402 y
+> el panel muestra "Terminaron tus días de prueba" en Suscripción.
+> - Precios: `backend/src/utils/planPrecios.js` (fijos en código; las variables
+>   `PLAN_PRECIO_*` ya no se usan). La landing tiene su copia en `Landing.tsx`.
+> - Cobro: `utils/mercadoPago.js` crea una suscripción (preapproval) y el panel
+>   redirige a su `init_point`. Webhook: `POST /api/webhooks/mercadopago`
+>   (`controllers/mercadoPagoController.js`), valida `x-signature` y consulta la
+>   suscripción a la API de MP. Al cambiar de plan cancela la suscripción anterior.
+> - Variables: `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, `ADMIN_URL`, `FREE_TRIAL_DAYS=15`.
+> - En Mercado Pago (Tus integraciones → Webhooks): URL
+>   `https://<backend>/api/webhooks/mercadopago`, evento **Planes y suscripciones**.
+> - Migración: `backend/db/mercadopago.sql`.
+
 > ⚠️ **DEPRECADO (pasarela de pago):** la integración con **Hotmart** fue
 > reemplazada por **Lemon Squeezy** (webhook con firma HMAC, checkout, portal
 > de cliente y free trial con vencimiento). El código de Hotmart
@@ -39,7 +55,7 @@ cuentas (plan + estado + límites)
 | ---------- | -------------------------------- | -------------------------------- |
 | `free`     | 1 (sin multi-tenant)             | 10                               |
 | `basic`    | 3                                | 50                               |
-| `standard` | 10                               | 100                              |
+| `standard` | 10                               | 120                              |
 | `premium`  | 9999 (ilimitado)                 | 9999                             |
 
 Los **límites los deriva un trigger** en la BD a partir de `tipo_plan`: el
@@ -252,15 +268,8 @@ HOTMART_PRODUCTS_BASIC=1234567
 HOTMART_PRODUCTS_STANDARD=2345678,2345679   # listas CSV de product_id
 HOTMART_PRODUCTS_PREMIUM=3456789
 
-# Precios de planes en USD → ganancia mensual (MRR) del panel (§6.1).
-# Mensuales:
-PLAN_PRECIO_BASIC_MONTHLY=7.99
-PLAN_PRECIO_STANDARD_MONTHLY=14.99
-PLAN_PRECIO_PREMIUM_MONTHLY=24.99
-# Anuales (el MRR prorratea /12 según el ciclo de cada cuenta):
-PLAN_PRECIO_BASIC_ANNUAL=79.90
-PLAN_PRECIO_STANDARD_ANNUAL=149.90
-PLAN_PRECIO_PREMIUM_ANNUAL=249.90
+# (Histórico) PLAN_PRECIO_* ya no se usan: los precios en ARS están fijos en
+# backend/src/utils/planPrecios.js.
 
 # Opcional: product_ids ANUALES de Hotmart (para detectar el ciclo).
 # Si un id no está acá, la compra se toma como 'mensual'.

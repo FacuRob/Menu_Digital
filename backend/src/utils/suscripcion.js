@@ -10,14 +10,14 @@
 const MS_DIA = 24 * 60 * 60 * 1000;
 
 // Días de prueba gratis para cuentas nuevas.
-const TRIAL_DIAS = Math.max(0, parseInt(process.env.FREE_TRIAL_DAYS, 10) || 14);
+const TRIAL_DIAS = Math.max(0, parseInt(process.env.FREE_TRIAL_DAYS, 10) || 15);
 
 // Límites por plan. Deben coincidir con el trigger set_limites_por_plan de la BD
 // (db/suscripciones.sql), que es quien los guarda en la tabla `cuentas`.
 const LIMITES_POR_PLAN = {
   free: { negocios: 1, productos: 10 },
   basic: { negocios: 3, productos: 50 },
-  standard: { negocios: 10, productos: 100 },
+  standard: { negocios: 10, productos: 120 },
   premium: { negocios: 9999, productos: 9999 },
 };
 

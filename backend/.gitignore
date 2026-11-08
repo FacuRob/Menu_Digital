@@ -5,6 +5,7 @@
 .env.test
 .env.production
 .env.*.local
+.env.backup*
 
 # Dependencias de Node.js
 node_modules/

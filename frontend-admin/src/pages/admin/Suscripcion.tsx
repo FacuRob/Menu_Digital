@@ -9,7 +9,6 @@ import {
   suscripcionService,
   getApiErrorMessage,
   type SuscripcionEstado,
-  type CicloFacturacion,
   type PlanCatalogo,
 } from "../../services/api";
 
@@ -24,18 +23,19 @@ const ESTADO_INFO: Record<
   vencido: { key: "subStatusExpired", color: "var(--err)", bg: "var(--err-bg)" },
 };
 
-// Perks por plan (claves de traducción; además de los límites del backend).
-const PERK_KEYS: Record<string, string[]> = {
-  basic: ["subPerkVariantes", "subPerkWhatsapp", "subPerkCustom"],
-  standard: ["subPerkAllBasic", "subPerkAnalytics", "subPerkStock"],
-  premium: ["subPerkAllStandard", "subPerkUnlimBiz", "subPerkPriority"],
+// Beneficios por plan (claves de traducción). "Todo lo del plan anterior" va
+// primero; después, los límites del backend y lo que suma cada plan.
+const PERKS: Record<string, { incluye?: string; extras: string[] }> = {
+  basic: { extras: ["subPerkQr", "subPerkVariantes", "subPerkCustom", "subPerkAnalytics", "subPerkDiscounts"] },
+  standard: { incluye: "subPerkAllBasic", extras: ["subPerkStock"] },
+  premium: { incluye: "subPerkAllStandard", extras: [] },
 };
 
-// Catálogo de respaldo: si el backend no responde, la vista igual muestra planes.
+// Catálogo de respaldo (mismos precios que backend/src/utils/planPrecios.js).
 const FALLBACK_PLANES: PlanCatalogo[] = [
-  { code: "basic", precio_mensual: 9.99, precio_anual: 99, limites: { negocios: 3, productos: 50 } },
-  { code: "standard", precio_mensual: 19.99, precio_anual: 199, limites: { negocios: 10, productos: 100 } },
-  { code: "premium", precio_mensual: 39.99, precio_anual: 399, limites: { negocios: 9999, productos: 9999 } },
+  { code: "basic", precio_mensual: 20000, limites: { negocios: 3, productos: 50 } },
+  { code: "standard", precio_mensual: 41000, limites: { negocios: 10, productos: 120 } },
+  { code: "premium", precio_mensual: 65000, limites: { negocios: 9999, productos: 9999 } },
 ];
 
 export default function Suscripcion() {
@@ -46,7 +46,6 @@ export default function Suscripcion() {
   const [data, setData] = useState<SuscripcionEstado | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [ciclo, setCiclo] = useState<CicloFacturacion>("mensual");
   const [redirecting, setRedirecting] = useState<string>("");
 
   const textPrimary = "var(--fg)";
@@ -69,7 +68,11 @@ export default function Suscripcion() {
   }, []);
 
   const money = (n: number) =>
-    `${(data?.moneda ?? "USD") === "USD" ? "US$" : ""}${n.toFixed(2)}`;
+    new Intl.NumberFormat("es-AR", {
+      style: "currency",
+      currency: data?.moneda ?? "ARS",
+      maximumFractionDigits: 0,
+    }).format(n);
 
   const fmtFecha = (iso: string | null) =>
     iso
@@ -81,29 +84,23 @@ export default function Suscripcion() {
       : "—";
 
   const planNombre = (code: string) =>
-    code === "free"
-      ? t("subPlanFree")
-      : code.charAt(0).toUpperCase() + code.slice(1);
+    ({
+      free: t("subPlanFree"),
+      basic: t("subPlanBasic"),
+      standard: t("subPlanStandard"),
+      premium: t("subPlanPremium"),
+    })[code] ?? code;
 
   const irACheckout = async (plan: PlanCatalogo["code"]) => {
     try {
       setRedirecting(plan);
-      const { url } = await suscripcionService.checkout(plan, ciclo);
+      const { url } = await suscripcionService.checkout(plan);
       window.location.assign(url);
     } catch (e) {
       setError(getApiErrorMessage(e, t("subCheckoutError")));
       setRedirecting("");
-    }
-  };
-
-  const gestionar = async () => {
-    try {
-      setRedirecting("portal");
-      const { url } = await suscripcionService.portal();
-      window.location.assign(url);
-    } catch (e) {
-      setError(getApiErrorMessage(e, t("subPortalError")));
-      setRedirecting("");
+      // El aviso está arriba de todo: sin esto, el botón parece no hacer nada.
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
@@ -116,7 +113,8 @@ export default function Suscripcion() {
   }
 
   const estado = data?.estado_suscripcion || "trial";
-  const info = ESTADO_INFO[estado] || ESTADO_INFO.trial;
+  // Prueba o período vencido (aunque la BD todavía diga "trial") → se muestra como vencido.
+  const info = data && !data.vigente ? ESTADO_INFO.vencido : ESTADO_INFO[estado] || ESTADO_INFO.trial;
   const dias = data?.dias_restantes ?? null;
   const esFree = data?.tipo_plan === "free" || estado === "trial";
 
@@ -139,6 +137,36 @@ export default function Suscripcion() {
             }}
           >
             <IconAlert size={15} style={{ flexShrink: 0 }} /> {error}
+          </div>
+        )}
+
+        {/* ── Aviso de bloqueo: prueba terminada o suscripción vencida ── */}
+        {data && !data.es_plataforma && !data.vigente && (
+          <div
+            role="alert"
+            style={{
+              marginBottom: 18,
+              padding: "16px 18px",
+              borderRadius: 12,
+              background: "var(--err-bg)",
+              border: "1px solid color-mix(in srgb, var(--err) 30%, transparent)",
+              color: "var(--err)",
+              display: "flex",
+              gap: 12,
+              alignItems: "flex-start",
+            }}
+          >
+            <IconAlert size={20} style={{ flexShrink: 0, marginTop: 1 }} />
+            {esFree ? (
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>{t("subTrialEndedTitle")}</div>
+                <p style={{ margin: "4px 0 0", fontSize: 13.5, lineHeight: 1.5 }}>
+                  {t("subTrialEndedBody", { n: data.trial_dias })}
+                </p>
+              </div>
+            ) : (
+              <div style={{ fontSize: 13.5, fontWeight: 600 }}>{t("subBlocked")}</div>
+            )}
           </div>
         )}
 
@@ -199,7 +227,7 @@ export default function Suscripcion() {
                   >
                     <span>
                       {dias === 0
-                        ? estado === "vencido"
+                        ? !data.vigente
                           ? t("subExpiredShort")
                           : t("subDueToday")
                         : t(dias === 1 ? "subDayLeft" : "subDaysLeft", { n: dias ?? 0 })}
@@ -222,35 +250,15 @@ export default function Suscripcion() {
                 </p>
               )}
 
-              {/* Aviso de bloqueo */}
-              {!data.vigente && (
-                <div
-                  style={{
-                    marginTop: 14,
-                    padding: "10px 12px",
-                    borderRadius: 8,
-                    background: "var(--err-bg)",
-                    border: "1px solid color-mix(in srgb, var(--err) 30%, transparent)",
-                    color: "var(--err)",
-                    fontSize: 12.5,
-                  }}
-                >
-                  {t("subBlocked")}
-                </div>
-              )}
-
               {data.tipo_plan !== "free" && (
-                <button
-                  onClick={gestionar}
-                  disabled={redirecting === "portal"}
-                  style={{
-                    ...S.btnGhost,
-                    marginTop: 16,
-                    opacity: redirecting === "portal" ? 0.6 : 1,
-                  }}
+                <a
+                  href={data.portal_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ ...S.btnGhost, marginTop: 16, textDecoration: "none", display: "inline-flex" }}
                 >
-                  {redirecting === "portal" ? t("subOpening") : t("subManage")}
-                </button>
+                  {t("subManageMp")}
+                </a>
               )}
             </div>
 
@@ -284,36 +292,11 @@ export default function Suscripcion() {
         )}
 
         {/* ── Planes ── */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "6px 2px 14px" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "baseline", justifyContent: "space-between", margin: "6px 2px 14px" }}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: textPrimary }}>
             {data?.vigente ? t("subChangePlan") : t("subChoosePlan")}
           </h3>
-          {/* Toggle mensual/anual */}
-          <div style={{ display: "flex", background: "var(--surface-2)", borderRadius: 10, padding: 3 }}>
-            {(["mensual", "anual"] as CicloFacturacion[]).map((c) => (
-              <button
-                key={c}
-                onClick={() => setCiclo(c)}
-                aria-pressed={ciclo === c}
-                className="tap"
-                style={{
-                  padding: "6px 16px",
-                  borderRadius: 8,
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: 12.5,
-                  fontWeight: 600,
-                  background: ciclo === c ? "var(--surface-inv)" : "transparent",
-                  color: ciclo === c ? "var(--fg-inv)" : textMuted,
-                }}
-              >
-                {c === "mensual" ? t("subMonthly") : t("subAnnual")}
-                {c === "anual" && (
-                  <span style={{ marginLeft: 6, fontSize: 10.5, opacity: 0.9 }}>{t("subTwoFree")}</span>
-                )}
-              </button>
-            ))}
-          </div>
+          <span style={{ fontSize: 12.5, color: textMuted }}>{t("subPayNote")}</span>
         </div>
 
         <div
@@ -324,7 +307,6 @@ export default function Suscripcion() {
           }}
         >
           {(data?.planes ?? FALLBACK_PLANES).map((p) => {
-            const precio = ciclo === "anual" ? p.precio_anual : p.precio_mensual;
             const esActual = data?.tipo_plan === p.code;
             const destacado = p.code === "standard";
             const bizFeature =
@@ -369,20 +351,18 @@ export default function Suscripcion() {
                 </div>
                 <div style={{ margin: "8px 0 2px", display: "flex", alignItems: "baseline", gap: 5 }}>
                   <span style={{ fontSize: 26, fontWeight: 800, color: textPrimary }}>
-                    {money(precio)}
+                    {money(p.precio_mensual)}
                   </span>
-                  <span style={{ fontSize: 12.5, color: textMuted }}>
-                    /{ciclo === "anual" ? t("subPerYear") : t("subPerMonth")}
-                  </span>
+                  <span style={{ fontSize: 12.5, color: textMuted }}>/{t("subPerMonth")}</span>
                 </div>
-                {ciclo === "anual" && p.precio_mensual > 0 && (
-                  <div style={{ fontSize: 11.5, color: "var(--ok)" }}>
-                    {t("subEquiv", { v: money(p.precio_anual / 12) })}
-                  </div>
-                )}
 
-                <ul style={{ listStyle: "none", padding: 0, margin: "14px 0 18px", display: "grid", gap: 8, flex: 1 }}>
-                  {[bizFeature, prodFeature, ...(PERK_KEYS[p.code] || []).map((k) => t(k))].map((f, i) => (
+                <ul style={{ listStyle: "none", padding: 0, margin: "14px 0 18px", display: "grid", gap: 8, flex: 1, alignContent: "start" }}>
+                  {[
+                    ...(PERKS[p.code]?.incluye ? [t(PERKS[p.code].incluye!)] : []),
+                    bizFeature,
+                    prodFeature,
+                    ...(PERKS[p.code]?.extras || []).map((k) => t(k)),
+                  ].map((f, i) => (
                     <li key={i} style={{ display: "flex", gap: 8, fontSize: 12.5, color: textMuted }}>
                       <span style={{ color: "var(--ok)", fontWeight: 800 }}>✓</span>
                       {f}

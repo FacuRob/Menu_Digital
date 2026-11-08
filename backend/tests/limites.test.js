@@ -8,7 +8,7 @@ afterEach(() => {
 
 test("limitesEfectivos: en trial usa los límites de Standard (no los de Free)", () => {
   const cuenta = { estado_suscripcion: "trial", limite_negocios: 1, limite_productos: 10 };
-  assert.deepEqual(limitesEfectivos(cuenta), { negocios: 10, productos: 100 });
+  assert.deepEqual(limitesEfectivos(cuenta), { negocios: 10, productos: 120 });
 });
 
 test("limitesEfectivos: TRIAL_PLAN permite elegir otro plan de prueba", () => {

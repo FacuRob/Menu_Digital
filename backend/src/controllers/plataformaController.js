@@ -66,7 +66,7 @@ const getResumen = async (req, res) => {
     const [cuentasRes, negociosRes] = await Promise.all([
       supabase
         .from("cuentas")
-        .select("tipo_plan, ciclo_facturacion, estado_suscripcion, origen, created_at"),
+        .select("tipo_plan, estado_suscripcion, origen, mp_preapproval_id, created_at"),
       supabase.from("negocios").select("id"),
     ]);
 
@@ -78,12 +78,11 @@ const getResumen = async (req, res) => {
     const precios = preciosPorPlan();
     const porPlan = { free: 0, basic: 0, standard: 0, premium: 0 };
     // MRR = ingresos recurrentes; sólo cuenta suscripciones ACTIVAS.
-    // Anuales prorrateadas /12 según el ciclo de cada cuenta.
     const mrrPorPlan = { basic: 0, standard: 0, premium: 0 };
     let activas = 0;
     let canceladas = 0;
-    // Altas provenientes de una pasarela de pago (Hotmart histórico o
-    // Lemon Squeezy), frente a las cargadas a mano.
+    // Cuentas que pagan por una pasarela (Mercado Pago, o Hotmart / Lemon
+    // Squeezy históricos), frente a las cargadas a mano.
     let porPago = 0;
 
     for (const c of cuentas) {
@@ -91,16 +90,12 @@ const getResumen = async (req, res) => {
       if (c.estado_suscripcion === "activo") {
         activas += 1;
         if (mrrPorPlan[c.tipo_plan] !== undefined) {
-          mrrPorPlan[c.tipo_plan] += mrrDeCuenta(
-            precios,
-            c.tipo_plan,
-            c.ciclo_facturacion,
-          );
+          mrrPorPlan[c.tipo_plan] += mrrDeCuenta(c.tipo_plan);
         }
       } else if (c.estado_suscripcion === "cancelado") {
         canceladas += 1;
       }
-      if (c.origen === "hotmart" || c.origen === "lemonsqueezy") porPago += 1;
+      if (c.mp_preapproval_id || ["hotmart", "lemonsqueezy"].includes(c.origen)) porPago += 1;
     }
 
     const mrr = mrrPorPlan.basic + mrrPorPlan.standard + mrrPorPlan.premium;

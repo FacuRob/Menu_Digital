@@ -7,19 +7,19 @@ const {
   LIMITES_POR_PLAN: LIMITES,
 } = require("../utils/suscripcion");
 const { preciosPorPlan } = require("../utils/planPrecios");
-const { checkoutUrl } = require("../utils/lemonSqueezyPlans");
+const { crearSuscripcion, PORTAL_URL } = require("../utils/mercadoPago");
 
-// Catálogo de planes para las tarjetas del frontend (precios desde env).
+// Catálogo de planes para las tarjetas del frontend (precio mensual en ARS).
 const catalogoPlanes = () => {
   const p = preciosPorPlan();
   const orden = ["basic", "standard", "premium"];
   return {
     moneda: p.moneda,
     trial_dias: TRIAL_DIAS,
+    portal_url: PORTAL_URL,
     planes: orden.map((code) => ({
       code,
       precio_mensual: p.mensual[code],
-      precio_anual: p.anual[code],
       limites: LIMITES[code],
     })),
   };
@@ -48,37 +48,22 @@ const getEstado = async (req, res) => {
       return res.status(403).json({ message: "Usuario sin cuenta asociada" });
     }
 
-    // Columnas base (siempre existen).
     const { data: cuenta, error } = await supabase
       .from("cuentas")
-      .select("tipo_plan, ciclo_facturacion, estado_suscripcion, created_at")
+      .select("tipo_plan, estado_suscripcion, periodo_fin, created_at")
       .eq("id", cuentaId)
       .single();
     if (error || !cuenta) {
       return res.status(404).json({ message: "Cuenta no encontrada" });
     }
 
-    // `periodo_fin` puede no existir si la migración lemonsqueezy.sql aún no
-    // corrió. Se lee aparte y se tolera su ausencia (la vista igual carga,
-    // sin línea de tiempo, en vez de romper todo el endpoint).
-    let periodoFin = null;
-    const pfRes = await supabase
-      .from("cuentas")
-      .select("periodo_fin")
-      .eq("id", cuentaId)
-      .single();
-    if (!pfRes.error) periodoFin = pfRes.data?.periodo_fin ?? null;
-
-    const cuentaFull = { ...cuenta, periodo_fin: periodoFin };
-
     res.json({
       es_plataforma: false,
       tipo_plan: cuenta.tipo_plan,
-      ciclo_facturacion: cuenta.ciclo_facturacion,
       estado_suscripcion: cuenta.estado_suscripcion,
-      vigente: estaVigente(cuentaFull),
-      periodo_fin: periodoFin,
-      dias_restantes: diasRestantes(periodoFin),
+      vigente: estaVigente(cuenta),
+      periodo_fin: cuenta.periodo_fin,
+      dias_restantes: diasRestantes(cuenta.periodo_fin),
       creado_at: cuenta.created_at,
       ...catalogo,
     });
@@ -87,97 +72,63 @@ const getEstado = async (req, res) => {
   }
 };
 
-// GET /api/suscripcion/checkout/:plan?ciclo=mensual|anual  → { url }
+// Página del panel a la que Mercado Pago devuelve al cliente después de pagar.
+const urlDeVuelta = () => {
+  const base = process.env.ADMIN_URL || "http://localhost:3001/admin/login";
+  try {
+    return `${new URL(base).origin}/admin/suscripcion`;
+  } catch {
+    return "http://localhost:3001/admin/suscripcion";
+  }
+};
+
+// GET /api/suscripcion/checkout/:plan  → { url }  (checkout de Mercado Pago)
 const getCheckout = async (req, res) => {
   try {
     const plan = String(req.params.plan || "").toLowerCase();
-    const ciclo = req.query.ciclo === "anual" ? "anual" : "mensual";
     if (!["basic", "standard", "premium"].includes(plan)) {
       return res.status(400).json({ message: "Plan inválido" });
     }
-
-    const base = checkoutUrl(plan, ciclo);
-    if (!base) {
+    if (!process.env.MP_ACCESS_TOKEN) {
       return res.status(503).json({
-        message:
-          "Checkout no configurado. Definí LEMONSQUEEZY_CHECKOUT_* en el backend.",
+        message: "Pagos no configurados. Definí MP_ACCESS_TOKEN en el backend.",
       });
     }
 
-    // El pago se vincula a la cuenta por su id (custom data que Lemon Squeezy
-    // reenvía en el webhook), NO por el email: el cliente puede pagar con
-    // otro email y la suscripción igual llega a su cuenta.
     const cuentaId = req.user?.cuenta_id;
     if (!cuentaId) {
       return res.status(403).json({ message: "Usuario sin cuenta asociada" });
     }
-    const params = [`checkout[custom][cuenta_id]=${encodeURIComponent(cuentaId)}`];
 
-    // Prefill del email (el JWT no lo trae: se lee del usuario en la BD).
-    if (req.user?.id) {
-      const { data: u } = await supabase
-        .from("usuarios")
-        .select("email")
-        .eq("id", req.user.id)
-        .maybeSingle();
-      if (u?.email) params.push(`checkout[email]=${encodeURIComponent(u.email)}`);
+    // Mercado Pago exige el email del pagador (el JWT no lo trae).
+    const { data: u } = await supabase
+      .from("usuarios")
+      .select("email")
+      .eq("id", req.user?.id)
+      .maybeSingle();
+    if (!u?.email) {
+      return res.status(400).json({
+        message: "Tu usuario no tiene email. Cargalo en tu cuenta para poder pagar.",
+      });
     }
 
-    const sep = base.includes("?") ? "&" : "?";
-    res.json({ url: `${base}${sep}${params.join("&")}` });
+    const sub = await crearSuscripcion({
+      cuentaId,
+      plan,
+      email: u.email,
+      backUrl: urlDeVuelta(),
+    });
+    if (!sub?.init_point) {
+      return res.status(502).json({ message: "Mercado Pago no devolvió el link de pago" });
+    }
+    res.json({ url: sub.init_point });
   } catch (error) {
+    if (error.status) {
+      console.error("[MercadoPago] checkout:", error.message);
+      return res.status(502).json({ message: "No se pudo iniciar el pago con Mercado Pago" });
+    }
     return respondError(res, error, "suscripcion");
   }
 };
 
-// GET /api/suscripcion/portal  → { url }  (portal de cliente de LS)
-// Requiere LEMONSQUEEZY_API_KEY y que la cuenta tenga ls_subscription_id.
-const getPortal = async (req, res) => {
-  try {
-    const cuentaId = req.user?.cuenta_id;
-    if (!cuentaId) {
-      return res.status(403).json({ message: "Usuario sin cuenta asociada" });
-    }
-    const apiKey = process.env.LEMONSQUEEZY_API_KEY;
-    if (!apiKey) {
-      return res.status(503).json({ message: "LEMONSQUEEZY_API_KEY no configurada" });
-    }
-
-    const { data: cuenta } = await supabase
-      .from("cuentas")
-      .select("ls_subscription_id")
-      .eq("id", cuentaId)
-      .single();
-
-    if (!cuenta?.ls_subscription_id) {
-      return res
-        .status(404)
-        .json({ message: "La cuenta no tiene una suscripción de Lemon Squeezy" });
-    }
-
-    const resp = await fetch(
-      `https://api.lemonsqueezy.com/v1/subscriptions/${cuenta.ls_subscription_id}`,
-      {
-        headers: {
-          Accept: "application/vnd.api+json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-      },
-    );
-    if (!resp.ok) {
-      return res
-        .status(502)
-        .json({ message: "No se pudo obtener el portal de Lemon Squeezy" });
-    }
-    const json = await resp.json();
-    const portal = json?.data?.attributes?.urls?.customer_portal || null;
-    if (!portal) {
-      return res.status(404).json({ message: "Portal no disponible" });
-    }
-    res.json({ url: portal });
-  } catch (error) {
-    return respondError(res, error, "suscripcion");
-  }
-};
-
-module.exports = { getEstado, getCheckout, getPortal };
+module.exports = { getEstado, getCheckout };

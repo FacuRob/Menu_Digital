@@ -1,39 +1,19 @@
-// Precios de los planes del SaaS (en USD), para calcular la ganancia
-// recurrente (MRR) del panel de plataforma. Configurable por env.
-//
-//   PLAN_PRECIO_BASIC_MONTHLY=7.99      PLAN_PRECIO_BASIC_ANNUAL=79.90
-//   PLAN_PRECIO_STANDARD_MONTHLY=14.99  PLAN_PRECIO_STANDARD_ANNUAL=149.90
-//   PLAN_PRECIO_PREMIUM_MONTHLY=24.99   PLAN_PRECIO_PREMIUM_ANNUAL=249.90
-//
-// `free` siempre vale 0. Si una var no está seteada, ese precio cuenta 0.
-const MONEDA = "USD";
+// Precios mensuales de los planes del SaaS, en pesos argentinos.
+// Única fuente de verdad del backend: los usa el catálogo del panel, el cobro
+// por Mercado Pago y el MRR de plataforma. La landing tiene su copia en
+// frontend/src/pages/Landing.tsx (mantener alineadas).
+const MONEDA = "ARS";
 
-const num = (v) => {
-  const n = Number(v);
-  return Number.isFinite(n) && n >= 0 ? n : 0;
+const PRECIOS_MENSUALES = {
+  free: 0,
+  basic: 20000,
+  standard: 41000,
+  premium: 65000,
 };
 
-const preciosPorPlan = () => ({
-  moneda: MONEDA,
-  mensual: {
-    free: 0,
-    basic: num(process.env.PLAN_PRECIO_BASIC_MONTHLY),
-    standard: num(process.env.PLAN_PRECIO_STANDARD_MONTHLY),
-    premium: num(process.env.PLAN_PRECIO_PREMIUM_MONTHLY),
-  },
-  anual: {
-    free: 0,
-    basic: num(process.env.PLAN_PRECIO_BASIC_ANNUAL),
-    standard: num(process.env.PLAN_PRECIO_STANDARD_ANNUAL),
-    premium: num(process.env.PLAN_PRECIO_PREMIUM_ANNUAL),
-  },
-});
+const preciosPorPlan = () => ({ moneda: MONEDA, mensual: { ...PRECIOS_MENSUALES } });
 
-// Aporte mensual de UNA cuenta al MRR según su plan y ciclo.
-// Anual → se prorratea dividiendo por 12.
-const mrrDeCuenta = (precios, plan, ciclo) => {
-  if (ciclo === "anual") return (precios.anual[plan] || 0) / 12;
-  return precios.mensual[plan] || 0;
-};
+// Aporte mensual de UNA cuenta al MRR según su plan.
+const mrrDeCuenta = (plan) => PRECIOS_MENSUALES[plan] || 0;
 
-module.exports = { preciosPorPlan, mrrDeCuenta, MONEDA };
+module.exports = { preciosPorPlan, mrrDeCuenta, PRECIOS_MENSUALES, MONEDA };

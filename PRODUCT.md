@@ -30,8 +30,9 @@ Menú con QR + pedido armado que llega directo al WhatsApp del local, sin app pa
 ## Capabilities and Constraints
 
 - Menú con QR, pedidos por WhatsApp, panel de pedidos y tickets, analíticas de ventas, personalización (logo, colores, portada, horarios), stock y variantes/modificadores, varios locales y equipo con roles, menú en español/inglés/portugués.
-- Prueba gratis de 14 días sin tarjeta. Pago online desde el panel (Lemon Squeezy), se cancela o cambia de plan cuando quiera.
-- Planes (deben coincidir con el panel admin): Basic US$9,99/mes o 99/año (3 negocios, 50 productos c/u); Standard US$19,99/mes o 199/año (10 negocios, 100 productos, analíticas, stock) — destacado; Premium US$39,99/mes o 399/año (ilimitado, soporte prioritario). Anual = 2 meses gratis.
+- Prueba gratis de 15 días sin tarjeta, con todo lo del plan Estándar. Al terminar, el panel avisa que hay que elegir un plan mensual para seguir operando.
+- Pago mensual desde el panel con Mercado Pago, en pesos argentinos. Se cancela o cambia de plan cuando quiera. No hay plan anual.
+- Planes (deben coincidir con `backend/src/utils/planPrecios.js`, el panel y la landing): Básico $20.000/mes (3 negocios, 50 productos c/u, carta con QR, variantes, personalización, analíticas, descuentos); Estándar $41.000/mes (todo lo del Básico, 10 negocios, 120 productos, control de stock) — destacado; Premium $65.000/mes (todo lo del Estándar, ilimitado).
 - Stack: React 19 + Vite + Tailwind v4, landing en `frontend/src/pages/Landing.tsx`, deploy en Netlify.
 
 ## Brand Commitments
@@ -46,7 +47,7 @@ Ninguna prueba real todavía: **no hay clientes, testimonios, logos, fotos ni m�
 
 1. Mostrar el producto funcionando antes que describirlo.
 2. Hablarle al dueño de local en su idioma: simple, concreto, de vos.
-3. Una acción principal: probar gratis 14 días.
+3. Una acción principal: probar gratis 15 días.
 4. Nada inventado: sin testimonios ni números falsos.
 5. Rápido en celulares modestos y con datos móviles.
 

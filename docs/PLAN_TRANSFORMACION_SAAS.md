@@ -1,5 +1,7 @@
 # Plan de Transformación SaaS — Menú Digital → Plataforma Multi-rubro
 
+> ⚠️ **2026-11-08:** la Fase 3 (Lemon Squeezy) quedó reemplazada por **Mercado Pago**, solo mensual y en pesos. Ver el aviso al principio de `SAAS_SUSCRIPCIONES.md`.
+>
 > Decisiones tomadas: **(1)** Migrar de Hotmart a **Lemon Squeezy** · **(2)** Realinear roles a **SuperAdmin / Admin / Staff** · **(3)** **Multi-rubro** es prioridad #1 · **(4)** Ejecutar por fases previa aprobación.
 
 Este documento es el plan maestro. Cada fase es autónoma, con criterios de "hecho" y rollback. No se ejecuta ninguna fase sin tu OK.

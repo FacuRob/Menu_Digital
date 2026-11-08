@@ -25,11 +25,11 @@ const fmtFecha = (s?: string, lang: Lang = "es") =>
       })
     : "—";
 
-const fmtMoney = (n: number, moneda = "USD") =>
-  new Intl.NumberFormat("en-US", {
+const fmtMoney = (n: number, moneda = "ARS") =>
+  new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: moneda,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 0,
   }).format(n || 0);
 
 export default function Plataforma() {
@@ -117,33 +117,6 @@ export default function Plataforma() {
         </div>
       )}
 
-      {/* Aviso si no hay precios configurados → MRR sería $0 */}
-      {resumen &&
-        resumen.precios.mensual.basic === 0 &&
-        resumen.precios.mensual.standard === 0 &&
-        resumen.precios.mensual.premium === 0 &&
-        resumen.precios.anual.basic === 0 &&
-        resumen.precios.anual.standard === 0 &&
-        resumen.precios.anual.premium === 0 && (
-          <div
-            style={{
-              padding: "10px 14px",
-              borderRadius: 10,
-              background: "var(--warn-bg)",
-              border: "1px solid color-mix(in srgb, var(--warn) 30%, transparent)",
-              color: "var(--warn)",
-              fontSize: 12.5,
-              marginBottom: 20,
-            }}
-          >
-            {t("pfPriceWarnA")}
-            <code>PLAN_PRECIO_*_MONTHLY</code>
-            {t("pfPriceWarnMid")}
-            <code>PLAN_PRECIO_*_ANNUAL</code>
-            {t("pfPriceWarnB")}
-          </div>
-        )}
-
       {/* Distribución por plan */}
       {resumen && (
         <div
@@ -220,7 +193,6 @@ export default function Plataforma() {
                     { label: t("pfColAccount"), left: true },
                     { label: t("colEmail"), left: true },
                     { label: t("pfColPlan"), left: false },
-                    { label: t("pfColCycle"), left: false },
                     { label: t("colStatus"), left: false },
                     { label: t("pfColOrigin"), left: false },
                     { label: t("navNegocios"), left: false },
@@ -272,9 +244,6 @@ export default function Plataforma() {
                       >
                         {c.tipo_plan}
                       </span>
-                    </td>
-                    <td style={{ padding: "11px 14px", textAlign: "center", color: "var(--fg-2)", borderBottom: `1px solid ${cardBorder}`, textTransform: "capitalize" }}>
-                      {c.ciclo_facturacion || t("pfCycleMonthly")}
                     </td>
                     <td style={{ padding: "11px 14px", textAlign: "center", borderBottom: `1px solid ${cardBorder}` }}>
                       <span

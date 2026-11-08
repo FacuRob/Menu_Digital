@@ -15,7 +15,7 @@ import { IconArrow, IconCheck, IconClose, IconMenu, LogoMark } from "../componen
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 const BRAND = "DinexFlow";
-const TRIAL_DIAS = 14;
+const TRIAL_DIAS = 15;
 const CONTENEDOR = "mx-auto w-full max-w-[1600px] px-5 sm:px-8 lg:px-12";
 
 function Flecha() {
@@ -372,42 +372,47 @@ function Probalo() {
 }
 
 // ── 7. Precios ───────────────────────────────────────────────
-// Deben coincidir con el catálogo del panel (frontend-admin › Suscripcion).
+// Precio mensual en pesos. Deben coincidir con backend/src/utils/planPrecios.js
+// (el panel y Mercado Pago cobran desde ahí).
 type Plan = {
   code: string;
   name: string;
   desc: string;
   mensual: number;
-  anual: number;
   perks: string[];
   estilo: "claro" | "aji" | "tinta";
 };
 const PLANES: Plan[] = [
   {
     code: "basic",
-    name: "Basic",
+    name: "Básico",
     desc: "Para arrancar con tu primer local.",
-    mensual: 9.99,
-    anual: 99,
-    perks: ["Hasta 3 negocios", "50 productos por negocio", "Carta con QR ilimitada", "Pedidos por WhatsApp", "Variantes y modificadores", "Personalización de la carta"],
+    mensual: 20000,
+    perks: [
+      "Hasta 3 negocios",
+      "50 productos por negocio",
+      "Carta con QR",
+      "Variantes y modificadores",
+      "Personalización del menú",
+      "Analíticas de ventas",
+      "Configuración de descuentos",
+    ],
     estilo: "claro",
   },
   {
     code: "standard",
-    name: "Standard",
+    name: "Estándar",
     desc: "Para locales que crecen.",
-    mensual: 19.99,
-    anual: 199,
-    perks: ["Todo lo de Basic", "Hasta 10 negocios", "100 productos por negocio", "Analíticas de ventas", "Control de stock"],
+    mensual: 41000,
+    perks: ["Todo lo del Básico", "Hasta 10 negocios", "120 productos por negocio", "Control de stock"],
     estilo: "aji",
   },
   {
     code: "premium",
     name: "Premium",
     desc: "Para cadenas y franquicias.",
-    mensual: 39.99,
-    anual: 399,
-    perks: ["Todo lo de Standard", "Negocios ilimitados", "Productos ilimitados", "Soporte prioritario"],
+    mensual: 65000,
+    perks: ["Todo lo del Estándar", "Negocios ilimitados", "Productos ilimitados"],
     estilo: "tinta",
   },
 ];
@@ -418,11 +423,9 @@ const ESTILO_PLAN = {
   tinta: { card: "bg-[var(--tinta)] text-[var(--hueso)] dx-sobre-oscuro", sub: "text-[var(--gris-claro)]", btn: "bg-[var(--aji)] text-[var(--tinta)] hover:bg-[var(--aji-deep)]" },
 } as const;
 
-const usd = (v: number) => v.toLocaleString("es-AR", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 });
-const MESES_GRATIS = Math.min(...PLANES.map((p) => Math.round(12 - p.anual / p.mensual)));
+const pesos = (v: number) => v.toLocaleString("es-AR", { maximumFractionDigits: 0 });
 
 function Precios() {
-  const [anual, setAnual] = useState(false);
   return (
     <section id="precios" data-nav="claro" data-fondo="hueso" aria-labelledby="precios-titulo" className="scroll-mt-16 bg-[var(--hueso)] py-24 sm:py-32">
       <div className={CONTENEDOR}>
@@ -432,39 +435,15 @@ function Precios() {
               Planes simples
             </h2>
             <p className="mt-5 max-w-[42rem] text-lg leading-relaxed text-[var(--gris)]">
-              Empezás con {TRIAL_DIAS} días gratis, sin tarjeta. Después elegís el plan desde el panel y lo pagás online con
-              tarjeta, en dólares. Subís, bajás o cancelás cuando quieras.
+              Empezás con {TRIAL_DIAS} días gratis, sin tarjeta y con todo lo del plan Estándar. Después elegís tu plan
+              desde el panel y lo pagás mes a mes con Mercado Pago, en pesos. Subís, bajás o cancelás cuando quieras.
             </p>
           </div>
-          <fieldset className="dx-toggle">
-            <legend className="sr-only">Forma de pago</legend>
-            <div className="inline-grid grid-cols-2 rounded-full border-2 border-[var(--tinta)] p-1">
-              {[
-                { v: false, l: "Mensual" },
-                { v: true, l: "Anual" },
-              ].map((o) => (
-                <label
-                  key={o.l}
-                  className={`flex min-h-11 cursor-pointer items-center justify-center rounded-full px-6 font-semibold transition-colors ${
-                    anual === o.v ? "bg-[var(--tinta)] text-white" : "hover:bg-[var(--tinta)]/5"
-                  }`}
-                >
-                  <input type="radio" name="periodo" className="sr-only" checked={anual === o.v} onChange={() => setAnual(o.v)} />
-                  {o.l}
-                </label>
-              ))}
-            </div>
-            <p className="mt-2 text-[0.9375rem] font-medium">Pagando anual, {MESES_GRATIS} meses te salen gratis.</p>
-            <p className="sr-only" aria-live="polite">
-              Mostrando precios {anual ? "anuales" : "mensuales"}.
-            </p>
-          </fieldset>
         </div>
 
         <ul className="mt-14 grid gap-5 md:grid-cols-3">
           {PLANES.map((p) => {
             const e = ESTILO_PLAN[p.estilo];
-            const precio = anual ? p.anual : p.mensual;
             return (
               <li key={p.code}>
                 <article className={`flex h-full flex-col rounded-[var(--radio)] p-7 sm:p-8 ${e.card}`}>
@@ -475,14 +454,11 @@ function Precios() {
                     )}
                   </div>
                   <p className={`mt-1.5 ${e.sub}`}>{p.desc}</p>
-                  <div className="mt-8 flex items-baseline gap-1.5">
-                    <span className={`dx-label ${e.sub}`}>US$</span>
-                    <span className="dx-display dx-tabular text-[3.75rem]">{usd(precio)}</span>
-                    <span className={e.sub}>/{anual ? "año" : "mes"}</span>
+                  <div className="mt-8 flex flex-wrap items-baseline gap-x-1.5">
+                    <span className={`dx-label ${e.sub}`}>$</span>
+                    <span className="dx-display dx-tabular text-[clamp(2.5rem,4.2vw,3.5rem)]">{pesos(p.mensual)}</span>
+                    <span className={e.sub}>/mes</span>
                   </div>
-                  <p className={`h-5 text-sm ${e.sub}`}>
-                    {anual ? `Equivale a US$ ${usd(Math.round((p.anual / 12) * 100) / 100)} por mes` : ""}
-                  </p>
                   <ul className="mt-6 flex-1 space-y-2.5">
                     {p.perks.map((perk) => (
                       <li key={perk} className="flex items-start gap-2.5">
@@ -510,7 +486,7 @@ function Precios() {
 const FAQS = [
   { q: "¿Necesito saber de tecnología?", a: `No. Si sabés usar WhatsApp, sabés usar ${BRAND}. Cargás tus productos desde el panel y la carta se arma sola.` },
   { q: "¿Mis clientes tienen que descargar una app?", a: "No. Escanean el QR con la cámara del celular y la carta se abre en el navegador, al instante." },
-  { q: "¿Cómo contrato el servicio?", a: `Creás tu cuenta gratis y usás todo durante ${TRIAL_DIAS} días. Cuando quieras, en el panel entrás a "Suscripción", elegís un plan y pagás online con tarjeta. Se activa al instante.` },
+  { q: "¿Cómo contrato el servicio?", a: `Creás tu cuenta gratis y usás todo durante ${TRIAL_DIAS} días. Cuando quieras, en el panel entrás a "Suscripción", elegís un plan y lo pagás con Mercado Pago. Se renueva solo cada mes y se activa al instante.` },
   { q: "¿Puedo cambiar precios cuando quiera?", a: "Sí, todas las veces que quieras. Los cambios se ven en la carta en el momento, sin reimprimir el QR." },
   { q: "¿Puedo cancelar o cambiar de plan?", a: "Sí. Subís, bajás o cancelás tu plan cuando quieras desde el panel, sin permanencia mínima." },
   { q: "¿Sirve para varios locales?", a: "Sí. Según tu plan administrás varios negocios desde una sola cuenta, cada uno con su carta y su QR." },

@@ -503,7 +503,6 @@ export interface Cuenta {
   nombre: string;
   email: string | null;
   tipo_plan: TipoPlan;
-  ciclo_facturacion?: "mensual" | "anual";
   estado_suscripcion: "activo" | "cancelado";
   limite_negocios: number;
   limite_productos: number;
@@ -528,7 +527,6 @@ export interface PlataformaResumen {
   precios: {
     moneda: string;
     mensual: { free: number; basic: number; standard: number; premium: number };
-    anual: { free: number; basic: number; standard: number; premium: number };
   };
 }
 
@@ -539,21 +537,18 @@ export const plataformaService = {
     (await api.get<PlataformaResumen>("/plataforma/resumen")).data,
 };
 
-// ── Suscripción (Lemon Squeezy + trial) ──────────────────────
+// ── Suscripción (Mercado Pago, mensual en ARS + prueba gratis) ──
 export type EstadoSuscripcion = "trial" | "activo" | "cancelado" | "vencido";
-export type CicloFacturacion = "mensual" | "anual";
 
 export interface PlanCatalogo {
   code: "basic" | "standard" | "premium";
   precio_mensual: number;
-  precio_anual: number;
   limites: { negocios: number; productos: number };
 }
 
 export interface SuscripcionEstado {
   es_plataforma: boolean;
   tipo_plan: TipoPlan;
-  ciclo_facturacion?: CicloFacturacion;
   estado_suscripcion: EstadoSuscripcion;
   vigente: boolean;
   periodo_fin: string | null;
@@ -561,21 +556,14 @@ export interface SuscripcionEstado {
   creado_at?: string;
   moneda: string;
   trial_dias: number;
+  portal_url: string;
   planes: PlanCatalogo[];
 }
 
 export const suscripcionService = {
   get: async () => (await api.get<SuscripcionEstado>("/suscripcion")).data,
-  checkout: async (
-    plan: PlanCatalogo["code"],
-    ciclo: CicloFacturacion,
-  ) =>
-    (
-      await api.get<{ url: string }>(`/suscripcion/checkout/${plan}`, {
-        params: { ciclo },
-      })
-    ).data,
-  portal: async () => (await api.get<{ url: string }>("/suscripcion/portal")).data,
+  checkout: async (plan: PlanCatalogo["code"]) =>
+    (await api.get<{ url: string }>(`/suscripcion/checkout/${plan}`)).data,
 };
 
 // ── Avisos de pedido por WhatsApp ──────────────────────────────

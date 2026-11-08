@@ -162,7 +162,7 @@ export default function OrderDemo() {
                 Armá la tuya gratis
                 <IconArrow className="dx-btn-flecha h-4 w-4" />
               </a>
-              <span className="text-white/85">14 días, sin tarjeta.</span>
+              <span className="text-white/85">15 días, sin tarjeta.</span>
             </div>
           </div>
         )}

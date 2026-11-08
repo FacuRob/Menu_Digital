@@ -161,7 +161,7 @@ Ficha tinta con un QR real (`QrCodigo`, un solo `<path>` SVG con zona de silenci
 Lista de filas en tinta; la fila activa (clase `is-activa`, por ScrollTrigger) pasa a hueso pleno, las demás quedan mezcladas al 48%.
 
 ### Precios
-Tres planes (Basic, Standard recomendado en ají, Premium en tinta). Selector Mensual/Anual con radios reales (`fieldset.dx-toggle`) y línea `aria-live`. Precio en USD, "pagás online con tarjeta, en dólares".
+Tres planes (Básico, Estándar recomendado en ají, Premium en tinta). Solo precio mensual, en pesos argentinos ("$ 20.000 /mes"), pagado con Mercado Pago. El número usa `clamp()` para no desbordar la tarjeta con montos de cinco o seis cifras.
 
 ### Demo "Probalo"
 `OrderDemo.tsx` sobre cobalto: el visitante elige un local de ejemplo, suma productos, envía y ve el mensaje de WhatsApp; al enviar, el mensaje recibe foco y aparece "Armá la tuya gratis".

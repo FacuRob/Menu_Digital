@@ -22,9 +22,7 @@ const checkPermiso = require("./middleware/checkPermiso");
 const scopeNegocio = require("./middleware/scopeNegocio");
 const requirePlataforma = require("./middleware/requirePlataforma");
 const checkSuscripcion = require("./middleware/checkSuscripcion");
-const {
-  lemonSqueezyWebhook,
-} = require("./controllers/lemonSqueezyController");
+const { mercadoPagoWebhook } = require("./controllers/mercadoPagoController");
 const whatsappRoutes = require("./routes/whatsapp");
 const {
   verificarWebhook: verificarWebhookWhatsapp,
@@ -88,13 +86,9 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// ── Webhook Lemon Squeezy — DEBE ir antes de express.json() ──
-// La verificación de firma HMAC requiere el body CRUDO (Buffer).
-app.post(
-  "/api/webhooks/lemonsqueezy",
-  express.raw({ type: "*/*" }),
-  lemonSqueezyWebhook,
-);
+// ── Webhook Mercado Pago (suscripciones) ──
+// La firma (x-signature) se calcula sobre data.id, no sobre el body.
+app.post("/api/webhooks/mercadopago", express.json(), mercadoPagoWebhook);
 
 // ── Webhook WhatsApp (Meta) — también con body CRUDO para la firma ──
 app.get("/api/webhooks/whatsapp", verificarWebhookWhatsapp);

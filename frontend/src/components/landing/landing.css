@@ -104,11 +104,6 @@
   transition: background-color 160ms, color 160ms;
 }
 
-
-/* Selector Mensual/Anual. */
-.dx-toggle input:focus-visible { outline: none; }
-.dx-toggle label:has(input:focus-visible) { outline: 3px solid var(--cobalto); outline-offset: 2px; }
-
 /* Rubros: letra calada. */
 .dx-calado { color: transparent; -webkit-text-stroke: 2px var(--tinta); }
 
