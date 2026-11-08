@@ -36,7 +36,7 @@ const getNegocioPublicoBySlug = async (req, res) => {
 };
 
 // Listar negocios: SIEMPRE sólo los de la cuenta del usuario, también para el
-// HiperAdmin (plataforma). Los negocios de otras cuentas no se mezclan acá.
+// Tech (plataforma). Los negocios de otras cuentas no se mezclan acá.
 const getNegocios = async (req, res) => {
   try {
     const { cuentaId } = await getAuthScope(req);

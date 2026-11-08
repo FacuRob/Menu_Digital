@@ -157,7 +157,7 @@ const NAV: ItemNav[] = [
 // Barra inferior del celular: lo de todos los días. El resto va en "Más".
 const RUTAS_ABAJO = ["/admin/dashboard", "/admin/pedidos", "/admin/chats", "/admin/productos"];
 
-// Label visible del rol (clave DB → nombre de negocio). El "HiperAdmin"
+// Label visible del rol (clave DB → nombre de negocio). El "Tech"
 // (es_plataforma) se resuelve aparte porque es un flag, no un rol.
 const rolLabel: Record<string, string> = {
   admin: "SuperAdmin",
@@ -643,7 +643,7 @@ export function AdminShell() {
                 </span>
                 <div className="sh-user-text">
                   <div className="sh-user-name">{user.nombre || user.username}</div>
-                  <div className="sh-user-rol">{isPlataforma ? "HiperAdmin" : rolLabel[user.rol] || user.rol}</div>
+                  <div className="sh-user-rol">{isPlataforma ? "Tech" : rolLabel[user.rol] || user.rol}</div>
                 </div>
               </div>
             )}

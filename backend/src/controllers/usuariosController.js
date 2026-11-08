@@ -1,10 +1,10 @@
 const supabase = require("../config/database");
 const bcrypt = require("bcryptjs");
-const { getCuentaId, getAuthScope } = require("../utils/cuenta");
+const { getCuentaId } = require("../utils/cuenta");
 const { respondError } = require("../utils/respondError");
 
 // Labels visibles → claves DB:
-//   HiperAdmin = flag es_plataforma (nunca asignable vía API)
+//   Tech       = flag es_plataforma (nunca asignable vía API)
 //   SuperAdmin = 'admin'   (dueño; se crea en el registro, no acá)
 //   Admin      = 'manager' (segundo jefe; crea SOLO staff)
 //   Staff      = 'staff'
@@ -32,19 +32,18 @@ const getTargetUsuario = async (id) => {
 
 const getUsuarios = async (req, res) => {
   try {
-    const { cuentaId, esPlataforma } = await getAuthScope(req);
-    if (!cuentaId && !esPlataforma) {
+    const cuentaId = await getCuentaId(req);
+    if (!cuentaId) {
       return res.status(403).json({ message: "Usuario sin cuenta asociada" });
     }
 
-    let query = supabase
+    // Siempre sólo los usuarios de la propia cuenta, también para Tech
+    // (plataforma): las otras cuentas se ven desde "Plataforma".
+    const { data, error } = await supabase
       .from("usuarios")
-      .select("id, username, nombre, email, rol, activo, created_at");
-    if (!esPlataforma) query = query.eq("cuenta_id", cuentaId);
-
-    const { data, error } = await query.order("created_at", {
-      ascending: true,
-    });
+      .select("id, username, nombre, email, rol, activo, created_at")
+      .eq("cuenta_id", cuentaId)
+      .order("created_at", { ascending: true });
     if (error) throw error;
     res.json(data);
   } catch (error) {
@@ -55,8 +54,8 @@ const getUsuarios = async (req, res) => {
 const getUsuarioById = async (req, res) => {
   try {
     const { id } = req.params;
-    const { cuentaId, esPlataforma } = await getAuthScope(req);
-    if (!cuentaId && !esPlataforma) {
+    const cuentaId = await getCuentaId(req);
+    if (!cuentaId) {
       return res.status(403).json({ message: "Usuario sin cuenta asociada" });
     }
 
@@ -64,7 +63,7 @@ const getUsuarioById = async (req, res) => {
       .from("usuarios")
       .select("id, username, nombre, email, rol, activo, created_at")
       .eq("id", id);
-    if (!esPlataforma) q = q.eq("cuenta_id", cuentaId);
+    q = q.eq("cuenta_id", cuentaId);
     const { data, error } = await q.single();
     if (error || !data)
       return res.status(404).json({ message: "Usuario no encontrado" });
@@ -190,8 +189,8 @@ const updateUsuario = async (req, res) => {
           .json({ message: "El email ya está en uso por otro usuario" });
     }
 
-    const { cuentaId, esPlataforma } = await getAuthScope(req);
-    if (!cuentaId && !esPlataforma) {
+    const cuentaId = await getCuentaId(req);
+    if (!cuentaId) {
       return res.status(403).json({ message: "Usuario sin cuenta asociada" });
     }
 
@@ -203,7 +202,7 @@ const updateUsuario = async (req, res) => {
     if (activo !== undefined) updateData.activo = activo;
 
     let q = supabase.from("usuarios").update(updateData).eq("id", id);
-    if (!esPlataforma) q = q.eq("cuenta_id", cuentaId);
+    q = q.eq("cuenta_id", cuentaId);
     const { data, error } = await q
       .select("id, username, nombre, email, rol, activo, created_at")
       .single();
@@ -227,8 +226,8 @@ const cambiarPassword = async (req, res) => {
         .json({ message: "La contraseña debe tener al menos 6 caracteres" });
     }
 
-    const { cuentaId, esPlataforma } = await getAuthScope(req);
-    if (!cuentaId && !esPlataforma) {
+    const cuentaId = await getCuentaId(req);
+    if (!cuentaId) {
       return res.status(403).json({ message: "Usuario sin cuenta asociada" });
     }
 
@@ -255,7 +254,7 @@ const cambiarPassword = async (req, res) => {
         updated_at: new Date().toISOString(),
       })
       .eq("id", id);
-    if (!esPlataforma) q = q.eq("cuenta_id", cuentaId);
+    q = q.eq("cuenta_id", cuentaId);
     const { data, error } = await q.select("id, username").single();
 
     if (error || !data)
@@ -274,8 +273,8 @@ const deleteUsuario = async (req, res) => {
         .status(400)
         .json({ message: "No podés eliminar tu propio usuario" });
     }
-    const { cuentaId, esPlataforma } = await getAuthScope(req);
-    if (!cuentaId && !esPlataforma) {
+    const cuentaId = await getCuentaId(req);
+    if (!cuentaId) {
       return res.status(403).json({ message: "Usuario sin cuenta asociada" });
     }
     // Jerarquía: sólo se puede borrar a usuarios de un rol que el nivel del
@@ -289,7 +288,7 @@ const deleteUsuario = async (req, res) => {
         .json({ message: "No tenés permiso para eliminar a este usuario" });
     }
     let q = supabase.from("usuarios").delete().eq("id", id);
-    if (!esPlataforma) q = q.eq("cuenta_id", cuentaId);
+    q = q.eq("cuenta_id", cuentaId);
     const { data, error } = await q.select("id, username").single();
     if (error || !data)
       return res.status(404).json({ message: "Usuario no encontrado" });

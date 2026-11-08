@@ -19,7 +19,7 @@ const buildResetUrl = (token) => {
 
 // Roles asignables por el endpoint /register (protegido con permiso "*", o sea
 // el dueño). Labels: admin=SuperAdmin (dueño), manager=Admin (2º jefe),
-// staff=Staff. El "HiperAdmin" es el flag es_plataforma, no un rol asignable.
+// staff=Staff. El "Tech" es el flag es_plataforma, no un rol asignable.
 const rolesValidos = ["admin", "manager", "staff"];
 
 // ─── REGISTER ───────────────────────────────────────────────
