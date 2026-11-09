@@ -40,7 +40,8 @@ const createPedido = async (req, res) => {
     if (ids.length > 0) {
       const { data: prods, error: prodErr } = await supabase
         .from("productos")
-        .select("id, nombre, precio, costo, stock, controlar_stock")
+        // "*" y no una lista: así no falla si `unidad_venta` aún no existe.
+        .select("*")
         .eq("negocio_id", negocioId)
         .in("id", ids);
       if (prodErr) throw prodErr;
@@ -68,8 +69,12 @@ const createPedido = async (req, res) => {
     }
 
     const itemsCalc = items.map((i) => {
-      const cantidad = Math.max(1, parseInt(i.cantidad, 10) || 1);
       const prod = prodsDB[i.producto_id];
+      // Por peso: cantidad en kg con gramos (mínimo 100 g); si no, unidades enteras.
+      const porPeso = prod?.unidad_venta === "kg";
+      const cantidad = porPeso
+        ? Math.min(99, Math.max(0.1, Math.round((Number(i.cantidad) || 0.1) * 1000) / 1000))
+        : Math.max(1, parseInt(i.cantidad, 10) || 1);
       const base = prod ? Number(prod.precio) : Number(i.precio) || 0;
 
       // Opciones válidas de este ítem (que pertenezcan al negocio).
@@ -93,8 +98,16 @@ const createPedido = async (req, res) => {
         costo_unit,
         cantidad,
         subtotal: +(precio_unit * cantidad).toFixed(2),
+        ...(porPeso ? { unidad: "kg" } : {}),
       };
     });
+
+    // En un insert de varias filas Supabase manda null en las columnas que
+    // faltan: si algún ítem es por peso, todos llevan `unidad`. Si ninguno lo
+    // es, no se manda (el pedido funciona aunque la migración no haya corrido).
+    if (itemsCalc.some((i) => i.unidad)) {
+      for (const i of itemsCalc) i.unidad = i.unidad || "unidad";
+    }
 
     const total = +itemsCalc.reduce((acc, i) => acc + i.subtotal, 0).toFixed(2);
 
@@ -133,7 +146,7 @@ const createPedido = async (req, res) => {
       itemsCalc.map(async (i) => {
         const prod = prodsDB[i.producto_id];
         if (!prod || !prod.controlar_stock) return;
-        const nuevoStock = Math.max(0, Number(prod.stock) - i.cantidad);
+        const nuevoStock = Math.max(0, +(Number(prod.stock) - i.cantidad).toFixed(3));
         await supabase
           .from("productos")
           .update({ stock: nuevoStock, updated_at: new Date().toISOString() })
@@ -167,29 +180,50 @@ const sinCosto = (items) =>
   (items || []).map(({ costo_unit, ...it }) => it);
 
 // ── Listar pedidos (protegida) ──
+// Filtros opcionales:
+//   estado, mesa
+//   vista=curso      → pendiente, preparando, listo y en camino
+//   vista=historial  → entregados y cancelados
+//   desde, hasta     → fechas ISO sobre created_at (hasta es exclusivo)
+//   limit, offset    → paginado; con `limit` responde { pedidos, total }
+// Sin `limit` responde la lista como antes, con un tope de seguridad.
+const EN_CURSO = ["pendiente", "preparando", "listo", "en_camino"];
+const CERRADOS = ["entregado", "cancelado"];
+const fechaISO = (s) => (s && !Number.isNaN(Date.parse(s)) ? new Date(s).toISOString() : null);
+
 const getPedidos = async (req, res) => {
   try {
     const negocioId = getNegocioId(req);
-    const { estado, mesa } = req.query;
+    const { estado, mesa, vista } = req.query;
+    const paginado = req.query.limit !== undefined;
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
+    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+    const desde = fechaISO(req.query.desde);
+    const hasta = fechaISO(req.query.hasta);
 
     let query = supabase
       .from("pedidos")
-      .select("*, pedido_items(*)")
+      .select("*, pedido_items(*)", paginado ? { count: "exact" } : undefined)
       .eq("negocio_id", negocioId)
       .order("created_at", { ascending: false });
 
     if (estado) query = query.eq("estado", estado);
+    else if (vista === "curso") query = query.in("estado", EN_CURSO);
+    else if (vista === "historial") query = query.in("estado", CERRADOS);
     if (mesa) query = query.eq("mesa", mesa);
+    if (desde) query = query.gte("created_at", desde);
+    if (hasta) query = query.lt("created_at", hasta);
+    query = paginado ? query.range(offset, offset + limit - 1) : query.limit(500);
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
     if (error) throw error;
 
-    const result = (data || []).map((p) => {
+    const pedidos = (data || []).map((p) => {
       const { pedido_items, ...rest } = p;
       return { ...rest, items: sinCosto(pedido_items) };
     });
 
-    res.json(result);
+    res.json(paginado ? { pedidos, total: count ?? pedidos.length } : pedidos);
   } catch (error) {
     return respondError(res, error, "pedidos");
   }
@@ -274,9 +308,36 @@ const updateEstadoPedido = async (req, res) => {
   }
 };
 
+// ── Eliminar un pedido cancelado (protegida) ──
+// Sólo cancelados: los entregados son ventas y alimentan el Dashboard.
+const deletePedido = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const negocioId = getNegocioId(req);
+    const { data: pedido } = await supabase
+      .from("pedidos")
+      .select("id, estado")
+      .eq("id", id)
+      .eq("negocio_id", negocioId)
+      .maybeSingle();
+
+    if (!pedido) return res.status(404).json({ message: "Pedido no encontrado" });
+    if (pedido.estado !== "cancelado") {
+      return res.status(400).json({ message: "Sólo se pueden eliminar pedidos cancelados" });
+    }
+
+    const { error } = await supabase.from("pedidos").delete().eq("id", id).eq("negocio_id", negocioId);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (error) {
+    return respondError(res, error, "pedidos");
+  }
+};
+
 module.exports = {
   createPedido,
   getPedidos,
   getPedidoById,
   updateEstadoPedido,
+  deletePedido,
 };

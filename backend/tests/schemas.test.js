@@ -202,3 +202,21 @@ test("varianteGrupoSchema: coacciona precio_extra string→number en opciones", 
   assert.equal(r.success, true);
   assert.equal(r.data.opciones[0].precio_extra, 1.5);
 });
+
+// ── Venta por peso ───────────────────────────────────────────
+test("createPedidoSchema: acepta cantidades en kg con decimales", () => {
+  const r = createPedidoSchema.safeParse({ items: [{ producto_id: 3, cantidad: 0.35 }] });
+  assert.equal(r.success, true);
+  assert.equal(r.data.items[0].cantidad, 0.35);
+});
+
+test("createPedidoSchema: rechaza cantidad 0 o negativa", () => {
+  assert.equal(createPedidoSchema.safeParse({ items: [{ producto_id: 3, cantidad: 0 }] }).success, false);
+  assert.equal(createPedidoSchema.safeParse({ items: [{ producto_id: 3, cantidad: -1 }] }).success, false);
+});
+
+test("productoSchema: unidad_venta sólo 'unidad' o 'kg', y stock con decimales", () => {
+  const base = { nombre: "Jamón crudo", precio: 12000, categoria_id: 1 };
+  assert.equal(productoSchema.safeParse({ ...base, unidad_venta: "kg", stock: 4.75 }).success, true);
+  assert.equal(productoSchema.safeParse({ ...base, unidad_venta: "litro" }).success, false);
+});

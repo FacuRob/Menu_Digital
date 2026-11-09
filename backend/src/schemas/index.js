@@ -103,8 +103,11 @@ const productoSchema = z.object({
   categoria_id: z.coerce.number().int().positive(),
   disponible: z.coerce.boolean().optional(),
   orden: z.coerce.number().int().min(0).max(999999).optional(),
-  stock: z.coerce.number().int().min(0).max(9999999).optional(),
+  // Por peso el stock va en kg con decimales (0.350 = 350 g).
+  stock: z.coerce.number().min(0).max(9999999).optional(),
   controlar_stock: z.coerce.boolean().optional(),
+  // "unidad" (como siempre) o "kg" (precio por kilo).
+  unidad_venta: z.enum(["unidad", "kg"]).optional(),
   sku: z.string().trim().max(60).optional().nullable(),
   atributos: atributosSchema.optional(),
 });
@@ -138,7 +141,9 @@ const updateVarianteGrupoSchema = varianteGrupoSchema.partial().extend({
 // desde la BD), pero acota tipos y longitudes para evitar payloads abusivos.
 const pedidoItemSchema = z.object({
   producto_id: z.number().int().positive().optional(),
-  cantidad: z.coerce.number().int().min(1).max(999).optional(),
+  // Unidades enteras, o kg con decimales si el producto se vende por peso
+  // (el controller decide según el producto real).
+  cantidad: z.coerce.number().positive().max(999).optional(),
   precio: z.coerce.number().min(0).optional(),
   nombre: z.string().max(200).optional(),
   // Ids de opciones de variante elegidas (multi-rubro). El backend

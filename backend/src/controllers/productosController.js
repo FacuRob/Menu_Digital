@@ -137,6 +137,7 @@ const createProducto = async (req, res) => {
       controlar_stock,
       sku,
       atributos,
+      unidad_venta,
     } = req.body;
 
     const { data, error } = await supabase
@@ -155,6 +156,8 @@ const createProducto = async (req, res) => {
           controlar_stock: !!controlar_stock,
           sku: sku || null,
           atributos: atributos || {},
+          // Sólo si viene: así el alta no falla si la migración aún no corrió.
+          ...(unidad_venta ? { unidad_venta } : {}),
           negocio_id: negocioId,
         },
       ])
@@ -185,6 +188,7 @@ const updateProducto = async (req, res) => {
       controlar_stock,
       sku,
       atributos,
+      unidad_venta,
     } = req.body;
 
     const { data: current } = await supabase
@@ -230,6 +234,7 @@ const updateProducto = async (req, res) => {
         controlar_stock: !!controlar_stock,
         ...(sku !== undefined ? { sku: sku || null } : {}),
         ...(atributos !== undefined ? { atributos: atributos || {} } : {}),
+        ...(unidad_venta !== undefined ? { unidad_venta } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
