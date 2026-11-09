@@ -6,7 +6,6 @@ interface AuthContextType {
   user: Usuario | null;
   token: string | null;
   permisos: string[];
-  login: (username: string, password: string) => Promise<void>;
   setSession: (token: string, user: Usuario) => void;
   logout: () => void;
   isAuthenticated: boolean;
@@ -52,16 +51,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     verifyToken();
   }, []);
 
-  const login = async (username: string, password: string) => {
-    const response = await authService.login(username, password);
-    setUser(response.user);
-    setToken(response.token);
-    setPermisos(response.user.permisos || []);
-    setMustChangePassword(response.user.must_change_password || false);
-    localStorage.setItem("token", response.token);
-  };
-
-  // Fija la sesión a partir de una respuesta de auth (signup / Google).
+  // Fija la sesión a partir de una respuesta de auth (login / signup / Google / 2FA).
   const setSession = (newToken: string, newUser: Usuario) => {
     setUser(newUser);
     setToken(newToken);
@@ -89,7 +79,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         token,
         permisos,
-        login,
         setSession,
         logout,
         isAuthenticated: !!token && !!user,

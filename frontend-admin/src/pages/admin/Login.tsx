@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { authService } from "../../services/api";
+import { authService, pide2fa, type LoginResponse, type Requiere2fa } from "../../services/api";
 import { useLang, LangSelector } from "../../lib/i18n";
 import { BRAND_NAME } from "../../lib/brand";
 import "@fontsource-variable/archivo/wdth.css";
@@ -17,7 +17,7 @@ import {
   IconLock,
 } from "../../lib/icons";
 
-type View = "login" | "signup" | "forgot" | "forgot_sent";
+type View = "login" | "signup" | "forgot" | "forgot_sent" | "2fa";
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as
   | string
@@ -195,11 +195,15 @@ export default function Login() {
   const [signupPwd, setSignupPwd] = useState("");
   // Forgot
   const [forgotUser, setForgotUser] = useState("");
+  // 2º paso (verificación en dos pasos)
+  const [desafio, setDesafio] = useState("");
+  const [codigo2fa, setCodigo2fa] = useState("");
+  const codigoRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
   const [showSignupPwd, setShowSignupPwd] = useState(false);
-  const { login, setSession } = useAuth();
+  const { setSession } = useAuth();
   const navigate = useNavigate();
   const googleLoginRef = useRef<HTMLDivElement>(null);
   const googleSignupRef = useRef<HTMLDivElement>(null);
@@ -226,6 +230,8 @@ export default function Login() {
           ? forgotUserRef.current
           : view === "forgot_sent"
             ? sentTitleRef.current
+            : view === "2fa"
+              ? codigoRef.current
             : antes === "forgot"
               ? forgotLinkRef.current
               : loginUserRef.current;
@@ -246,13 +252,25 @@ export default function Login() {
     window.history.replaceState(null, "", url);
   };
 
+  // Respuesta de /login o /google: sesión directa, o pedir el código de 2FA.
+  const entrar = (res: LoginResponse | Requiere2fa) => {
+    if (pide2fa(res)) {
+      setDesafio(res.desafio);
+      setCodigo2fa("");
+      go("2fa");
+      return;
+    }
+    setSession(res.token, res.user);
+    // Si Google acaba de crear la cuenta → onboarding; si no, al panel.
+    navigate(res.nuevo ? "/admin/onboarding" : "/admin/dashboard");
+  };
+
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      await login(username, password);
-      navigate("/admin/dashboard");
+      entrar(await authService.login(username, password));
     } catch (err) {
       setError(errMsg(err, t("errInvalidCreds")));
     } finally {
@@ -296,12 +314,24 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      const res = await authService.google(resp.credential);
-      setSession(res.token, res.user);
-      // Si Google acaba de crear la cuenta → onboarding; si no, al panel.
-      navigate(res.nuevo ? "/admin/onboarding" : "/admin/dashboard");
+      entrar(await authService.google(resp.credential));
     } catch (err) {
       setError(errMsg(err, t("errRequest")));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handle2fa = async (e: FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const res = await authService.verificar2fa(desafio, codigo2fa);
+      setSession(res.token, res.user);
+      navigate("/admin/dashboard");
+    } catch (err) {
+      setError(errMsg(err, t("tfaErr")));
     } finally {
       setLoading(false);
     }
@@ -451,7 +481,7 @@ export default function Login() {
           {/* ── LOGIN (+ recuperar contraseña) ── */}
           <section id="panel-login" role="tabpanel" aria-labelledby="tab-login" className={`auth-panel auth-login ${panelBase}`} inert={isSignup}>
 
-            {view !== "forgot" && view !== "forgot_sent" && (
+            {view !== "forgot" && view !== "forgot_sent" && view !== "2fa" && (
               <form key="login" onSubmit={handleLogin} aria-busy={loading} className="auth-fade-up flex flex-col gap-[clamp(0.75rem,1.9svh,1.125rem)]">
                 <div>
                   <h1 className={titulo}>{t("authLoginTitle")}</h1>
@@ -512,6 +542,44 @@ export default function Login() {
                   {loading && spinner}
                   {loading ? t("signingIn") : t("signIn")}
                 </button>
+              </form>
+            )}
+
+            {view === "2fa" && (
+              <form key="2fa" onSubmit={handle2fa} aria-busy={loading} className="auth-fade-up flex flex-col gap-[clamp(0.75rem,1.9svh,1.125rem)]">
+                <h1 className={titulo}>{t("tfaTitle")}</h1>
+                <div className="flex gap-3 rounded-2xl bg-[var(--hueso)] px-4 py-3.5 text-[0.9375rem] leading-relaxed">
+                  <IconInfo size={17} style={{ flexShrink: 0, marginTop: 3, color: "var(--cobalto)" }} />
+                  {t("tfaInfo")}
+                </div>
+                <Field label={t("tfaCode")} icon={<IconLock size={17} />}>
+                  <input
+                    ref={codigoRef}
+                    className="auth-input tracking-[0.2em]"
+                    type="text"
+                    name="one-time-code"
+                    inputMode="text"
+                    autoComplete="one-time-code"
+                    aria-invalid={!!error}
+                    aria-describedby={error ? "err-2fa" : undefined}
+                    value={codigo2fa}
+                    onChange={(e) => setCodigo2fa(e.target.value.slice(0, 20))}
+                    required
+                    placeholder="123456"
+                  />
+                </Field>
+
+                {errorBox(true, "err-2fa")}
+
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button type="button" onClick={() => go("login")} className="hp-btn-borde sm:flex-1">
+                    ← {t("back")}
+                  </button>
+                  <button type="submit" disabled={loading} className="hp-btn sm:flex-1">
+                    {loading && spinner}
+                    {loading ? t("tfaVerifying") : t("tfaVerify")}
+                  </button>
+                </div>
               </form>
             )}
 

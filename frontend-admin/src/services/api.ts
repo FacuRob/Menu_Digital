@@ -132,6 +132,8 @@ export interface Usuario {
   cuenta_id?: number;
   es_plataforma?: boolean;
   created_at?: string;
+  // Verificación en dos pasos (2FA) activa.
+  totp_activo?: boolean;
 }
 
 export interface RolPermiso {
@@ -148,6 +150,14 @@ export interface LoginResponse {
   nuevo?: boolean;
 }
 
+// Con 2FA activo, /login y /google no dan sesión: piden el código.
+export interface Requiere2fa {
+  requiere_2fa: true;
+  desafio: string;
+}
+export const pide2fa = (r: LoginResponse | Requiere2fa): r is Requiere2fa =>
+  "requiere_2fa" in r && r.requiere_2fa === true;
+
 export interface UploadResponse {
   url: string;
   public_id: string;
@@ -155,7 +165,7 @@ export interface UploadResponse {
 
 export const authService = {
   login: async (username: string, password: string) => {
-    const response = await api.post<LoginResponse>("/auth/login", {
+    const response = await api.post<LoginResponse | Requiere2fa>("/auth/login", {
       username,
       password,
     });
@@ -170,7 +180,7 @@ export const authService = {
     return response.data;
   },
   google: async (credential: string) => {
-    const response = await api.post<LoginResponse>("/auth/google", {
+    const response = await api.post<LoginResponse | Requiere2fa>("/auth/google", {
       credential,
     });
     return response.data;
@@ -203,6 +213,15 @@ export const authService = {
     const response = await api.put<LoginResponse>("/auth/profile", data);
     return response.data;
   },
+  // ── Verificación en dos pasos ──
+  verificar2fa: async (desafio: string, codigo: string) =>
+    (await api.post<LoginResponse>("/auth/2fa/verificar", { desafio, codigo })).data,
+  iniciar2fa: async () =>
+    (await api.post<{ secreto: string; otpauth: string }>("/auth/2fa/iniciar")).data,
+  activar2fa: async (codigo: string) =>
+    (await api.post<{ codigos: string[] }>("/auth/2fa/activar", { codigo })).data,
+  desactivar2fa: async (codigo: string) =>
+    (await api.post("/auth/2fa/desactivar", { codigo })).data,
   changeEmail: async (email: string, currentPassword: string) => {
     const response = await api.put<LoginResponse>("/auth/email", {
       email,

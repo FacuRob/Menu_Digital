@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import QRCodeLib from "qrcode";
 import Modal from "./Modal";
 import { useStyles } from "./sharedStyles";
 import { SideNav, SectionCard } from "./SeccionesUi";
@@ -9,7 +10,7 @@ import { useLang } from "../lib/i18n";
 import { useIsMobile } from "../lib/useIsMobile";
 import { IconAlert, IconCheck, IconEye, IconEyeOff, IconLock, IconUser } from "../lib/icons";
 
-export type CuentaTab = "perfil" | "email" | "password";
+export type CuentaTab = "perfil" | "email" | "password" | "seguridad";
 
 const IconMail = ({ size = 16 }: { size?: number }) => (
   <svg
@@ -27,6 +28,22 @@ const IconMail = ({ size = 16 }: { size?: number }) => (
   </svg>
 );
 
+const IconShield = ({ size = 16 }: { size?: number }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.8}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z" />
+    <path d="m9 12 2 2 4-4" />
+  </svg>
+);
+
 // "Mi cuenta": el usuario logueado edita su perfil, su email y su contraseña.
 // Mismo diseño que "Configuración del menú": menú lateral + tarjeta.
 // Cada guardado devuelve un token nuevo con los datos al día.
@@ -40,7 +57,7 @@ export default function CuentaModal({
   const { t } = useLang();
   const S = useStyles();
   const isMobile = useIsMobile();
-  const { user, setSession } = useAuth();
+  const { user, token, setSession } = useAuth();
   const [tab, setTab] = useState<CuentaTab>(inicial);
 
   const [nombre, setNombre] = useState(user?.nombre || "");
@@ -223,6 +240,7 @@ export default function CuentaModal({
                   Icon: IconLock,
                   dirty: !!(actual || nueva || confirmar),
                 },
+                { id: "seguridad", label: t("tfaTab"), accent: "var(--ok)", Icon: IconShield },
               ],
             },
           ]}
@@ -351,6 +369,22 @@ export default function CuentaModal({
               </SectionCard>
             </form>
           </Panel>
+
+          <Panel visible={tab === "seguridad"}>
+            <SectionCard accent="var(--ok)" title={t("tfaTitle")} subtitle={t("tfaSub")}>
+              <DosFactores
+                S={S}
+                activo={!!user?.totp_activo}
+                avisar={avisar}
+                errorDe={errorDe}
+                // Refresca el usuario de la sesión (totp_activo) tras activar/desactivar.
+                refrescar={async () => {
+                  const res = await authService.verify();
+                  if (token && res?.user) setSession(token, res.user);
+                }}
+              />
+            </SectionCard>
+          </Panel>
         </div>
       </div>
 
@@ -391,6 +425,175 @@ export default function CuentaModal({
 }
 
 type Estilos = ReturnType<typeof useStyles>;
+
+// Verificación en dos pasos: QR para la app de autenticación + códigos de respaldo.
+function DosFactores({
+  S,
+  activo,
+  avisar,
+  errorDe,
+  refrescar,
+}: {
+  S: Estilos;
+  activo: boolean;
+  avisar: (type: "ok" | "err", text: string) => void;
+  errorDe: (err: unknown) => string;
+  refrescar: () => Promise<void>;
+}) {
+  const { t } = useLang();
+  const [paso, setPaso] = useState<"inicio" | "qr" | "codigos">("inicio");
+  const [qr, setQr] = useState("");
+  const [secreto, setSecreto] = useState("");
+  const [codigo, setCodigo] = useState("");
+  const [respaldo, setRespaldo] = useState<string[]>([]);
+  const [ocupado, setOcupado] = useState(false);
+
+  const correr = async (fn: () => Promise<void>) => {
+    setOcupado(true);
+    try {
+      await fn();
+    } catch (err) {
+      avisar("err", errorDe(err));
+    } finally {
+      setOcupado(false);
+    }
+  };
+
+  const empezar = () =>
+    correr(async () => {
+      const r = await authService.iniciar2fa();
+      setSecreto(r.secreto);
+      setQr(await QRCodeLib.toDataURL(r.otpauth, { width: 200, margin: 1 }));
+      setCodigo("");
+      setPaso("qr");
+    });
+
+  const confirmar = (e: FormEvent) => {
+    e.preventDefault();
+    void correr(async () => {
+      const r = await authService.activar2fa(codigo);
+      setRespaldo(r.codigos);
+      setCodigo("");
+      setPaso("codigos");
+      await refrescar();
+      avisar("ok", t("tfaActivated"));
+    });
+  };
+
+  const apagar = (e: FormEvent) => {
+    e.preventDefault();
+    void correr(async () => {
+      await authService.desactivar2fa(codigo);
+      setCodigo("");
+      setPaso("inicio");
+      await refrescar();
+      avisar("ok", t("tfaDeactivated"));
+    });
+  };
+
+  const texto: React.CSSProperties = { margin: 0, fontSize: 13, color: "var(--fg-2)", lineHeight: 1.55 };
+  const btn = (label: string, extra?: React.CSSProperties) => (
+    <button type="submit" disabled={ocupado} style={{ ...S.btnPrimary, padding: "9px 18px", opacity: ocupado ? 0.6 : 1, ...extra }}>
+      {ocupado ? t("saving") : label}
+    </button>
+  );
+  const inputCodigo = (
+    <input
+      style={{ ...S.input, letterSpacing: "0.2em", maxWidth: 220 }}
+      value={codigo}
+      inputMode="text"
+      autoComplete="one-time-code"
+      placeholder="123456"
+      onChange={(e) => setCodigo(e.target.value.slice(0, 20))}
+      aria-label={t("tfaCode")}
+    />
+  );
+
+  if (paso === "codigos") {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <p style={texto}>{t("tfaBackupInfo")}</p>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+            gap: 8,
+            padding: 14,
+            borderRadius: 10,
+            background: "var(--surface-2)",
+            fontFamily: "ui-monospace, Consolas, monospace",
+            fontSize: 14,
+          }}
+        >
+          {respaldo.map((c) => (
+            <span key={c}>{c}</span>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            style={{ ...S.btnGhost, padding: "9px 18px" }}
+            onClick={() => {
+              void navigator.clipboard?.writeText(respaldo.join("\n"));
+              avisar("ok", t("tfaCopied"));
+            }}
+          >
+            {t("tfaCopy")}
+          </button>
+          <button type="button" style={{ ...S.btnPrimary, padding: "9px 18px" }} onClick={() => setPaso("inicio")}>
+            {t("tfaSavedThem")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (activo) {
+    return (
+      <form onSubmit={apagar} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <p style={{ ...texto, color: "var(--ok)", fontWeight: 600 }}>✓ {t("tfaOn")}</p>
+        <p style={texto}>{t("tfaOffInfo")}</p>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          {inputCodigo}
+          {btn(t("tfaDeactivate"), { background: "var(--err)" })}
+        </div>
+      </form>
+    );
+  }
+
+  if (paso === "qr") {
+    return (
+      <form onSubmit={confirmar} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <p style={texto}>{t("tfaScan")}</p>
+        <div style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
+          {qr && (
+            <img src={qr} alt={t("tfaQrAlt")} width={168} height={168} style={{ borderRadius: 10, background: "#fff", padding: 6 }} />
+          )}
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <p style={{ ...texto, fontSize: 12 }}>{t("tfaManual")}</p>
+            <code style={{ display: "block", marginTop: 6, fontSize: 12.5, wordBreak: "break-all", color: "var(--fg)" }}>{secreto}</code>
+          </div>
+        </div>
+        <p style={texto}>{t("tfaEnterFirst")}</p>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          {inputCodigo}
+          {btn(t("tfaActivate"))}
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <p style={texto}>{t("tfaIntro")}</p>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button type="button" onClick={empezar} disabled={ocupado} style={{ ...S.btnPrimary, padding: "9px 18px", opacity: ocupado ? 0.6 : 1 }}>
+          {ocupado ? t("saving") : t("tfaStart")}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // Contenido de una pestaña. Las ocultas siguen ocupando lugar (visibility)
 // para que la ventana tenga siempre el alto de la pestaña más larga.

@@ -7,6 +7,7 @@ const { getCuentaId } = require("../utils/cuenta");
 const { respondError } = require("../utils/respondError");
 const { TRIAL_DIAS } = require("../utils/suscripcion");
 const { slugUnico } = require("../utils/slug");
+const { crearDesafio } = require("../utils/dosFactores");
 
 // Construye la URL de reseteo a partir de ADMIN_URL (que apunta al login).
 // Ej: "https://panel.app/admin/login" -> "https://panel.app/admin/reset-password?token=..."
@@ -108,42 +109,13 @@ const login = async (req, res) => {
     if (!isValid)
       return res.status(401).json({ message: "Credenciales inválidas" });
 
-    const { data: rolData } = await supabase
-      .from("roles_permisos")
-      .select("permisos")
-      .eq("rol", user.rol)
-      .single();
+    // Con 2FA activo, la contraseña sola no alcanza: se pide el código.
+    if (user.totp_activo) {
+      return res.json({ requiere_2fa: true, desafio: crearDesafio(user.id) });
+    }
 
-    const permisos = rolData?.permisos || [];
-
-    const token = jwt.sign(
-      {
-        id: user.id,
-        username: user.username,
-        rol: user.rol,
-        cuenta_id: user.cuenta_id,
-        es_plataforma: user.es_plataforma === true,
-        must_change_password: user.must_change_password,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "24h" },
-    );
-
-    res.json({
-      message: "Login exitoso",
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        nombre: user.nombre,
-        email: user.email,
-        rol: user.rol,
-        cuenta_id: user.cuenta_id,
-        es_plataforma: user.es_plataforma === true,
-        permisos,
-        must_change_password: user.must_change_password,
-      },
-    });
+    const session = await issueSession(user);
+    res.json({ message: "Login exitoso", ...session });
   } catch (error) {
     return respondError(res, error, "login");
   }
@@ -182,6 +154,7 @@ const issueSession = async (user) => {
       es_plataforma: user.es_plataforma === true,
       permisos,
       must_change_password: user.must_change_password,
+      totp_activo: user.totp_activo === true,
     },
   };
 };
@@ -363,6 +336,11 @@ const googleAuth = async (req, res) => {
       return res.status(401).json({ message: "Usuario inactivo" });
     }
 
+    // Google también pasa por el segundo factor si el usuario lo activó.
+    if (user.totp_activo) {
+      return res.json({ requiere_2fa: true, desafio: crearDesafio(user.id) });
+    }
+
     const session = await issueSession(user);
     // nuevo:true sólo si se acaba de crear la cuenta → onboarding inicial.
     return res.json({
@@ -389,7 +367,7 @@ const verifyToken = async (req, res) => {
     const { data: user } = await supabase
       .from("usuarios")
       .select(
-        "id, username, nombre, email, rol, activo, must_change_password, cuenta_id, es_plataforma",
+        "id, username, nombre, email, rol, activo, must_change_password, cuenta_id, es_plataforma, totp_activo",
       )
       .eq("id", req.user.id)
       .single();
@@ -674,6 +652,7 @@ const changeEmail = async (req, res) => {
 };
 
 module.exports = {
+  issueSession,
   updateProfile,
   changeEmail,
   register,

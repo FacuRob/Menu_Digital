@@ -12,6 +12,7 @@ const {
   updateProfile,
   changeEmail,
 } = require("../controllers/authController");
+const dosFactores = require("../controllers/dosFactoresController");
 const authMiddleware = require("../middleware/authMiddleware");
 const checkPermiso = require("../middleware/checkPermiso");
 const { authLimiter } = require("../middleware/rateLimiters");
@@ -26,6 +27,8 @@ const {
   changePasswordSchema,
   updateProfileSchema,
   changeEmailSchema,
+  codigo2faSchema,
+  verificar2faSchema,
 } = require("../schemas");
 
 // Públicas (con rate-limit anti fuerza bruta / spam + validación)
@@ -79,5 +82,12 @@ router.put(
   validate(changeEmailSchema),
   changeEmail,
 );
+
+// Doble factor (2FA). "verificar" es el 2º paso del login (público, con el
+// desafío que devuelve /login o /google). El resto es "Mi cuenta".
+router.post("/2fa/verificar", authLimiter, validate(verificar2faSchema), dosFactores.verificar);
+router.post("/2fa/iniciar", authMiddleware, dosFactores.iniciar);
+router.post("/2fa/activar", authMiddleware, authLimiter, validate(codigo2faSchema), dosFactores.activar);
+router.post("/2fa/desactivar", authMiddleware, authLimiter, validate(codigo2faSchema), dosFactores.desactivar);
 
 module.exports = router;

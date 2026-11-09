@@ -161,7 +161,18 @@ const createPedidoSchema = z.object({
   acepta_whatsapp: z.boolean().optional(),
 });
 
+// ── Doble factor (2FA) ───────────────────────────────────────
+// Código de la app (6 dígitos) o de respaldo (xxxxx-xxxxx).
+const codigo2fa = z.string().trim().min(6, "Ingresá el código").max(20);
+const codigo2faSchema = z.object({ codigo: codigo2fa });
+const verificar2faSchema = z.object({
+  desafio: z.string().min(10).max(1000),
+  codigo: codigo2fa,
+});
+
 module.exports = {
+  codigo2faSchema,
+  verificar2faSchema,
   loginSchema,
   registerSchema,
   signupSchema,
