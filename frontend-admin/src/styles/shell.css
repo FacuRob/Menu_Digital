@@ -125,6 +125,8 @@
   flex-shrink: 0;
 }
 .sh-badge.is-warn { background: var(--warn-bg); color: var(--warn); }
+/* Etiqueta de plan ("Estándar") en lo que el plan actual no incluye. */
+.sh-badge.is-plan { background: var(--info-bg); color: var(--info); font-size: 12px; }
 .sh-dot {
   position: absolute;
   top: 6px;

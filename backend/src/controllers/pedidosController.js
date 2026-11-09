@@ -3,6 +3,7 @@ const { getNegocioId } = require("../utils/negocio");
 const { respondError } = require("../utils/respondError");
 const { notificarPedido } = require("../services/avisosPedidoService");
 const { mesaValida, normalizarMesa } = require("../utils/mesaQr");
+const { firmaValida, linkPedido } = require("../utils/linksPedido");
 
 // Dispara el aviso de WhatsApp en segundo plano (nunca bloquea la respuesta).
 const avisarEnSegundoPlano = (pedido, estado) => {
@@ -296,6 +297,48 @@ const getPedidoById = async (req, res) => {
   }
 };
 
+// ── Ticket público (link firmado que llega por WhatsApp) ──
+// Sin teléfono ni dirección del cliente: sólo lo que va en un ticket.
+const getTicketPublico = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(404).json({ message: "Ticket no encontrado" });
+
+    const { data: p, error } = await supabase
+      .from("pedidos")
+      .select("id, negocio_id, cliente, tipo_entrega, mesa, total, estado, created_at, entregado_at, pedido_items(*)")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!p || p.estado !== "entregado" || !firmaValida("ticket", p.id, p.negocio_id, req.query.t)) {
+      return res.status(404).json({ message: "Ticket no encontrado" });
+    }
+
+    const { data: local } = await supabase
+      .from("configuracion")
+      .select("nombre, direccion, telefono, logo_url, color_primario, moneda")
+      .eq("negocio_id", p.negocio_id)
+      .maybeSingle();
+
+    res.json({
+      id: p.id,
+      cliente: p.cliente,
+      tipo_entrega: p.tipo_entrega,
+      mesa: p.mesa,
+      total: p.total,
+      estado: p.estado,
+      created_at: p.created_at,
+      entregado_at: p.entregado_at,
+      items: (p.pedido_items || []).map(({ nombre, cantidad, precio_unit, subtotal, unidad }) => ({
+        nombre, cantidad, precio_unit, subtotal, unidad: unidad || "unidad",
+      })),
+      local: local || { nombre: "El local" },
+    });
+  } catch (error) {
+    return respondError(res, error, "pedidos");
+  }
+};
+
 // ── Actualizar estado (protegida) ──
 //   pendiente → preparando → (listo: para retirar | en_camino: delivery) → entregado
 //   cancelado en cualquier momento.
@@ -332,19 +375,25 @@ const updateEstadoPedido = async (req, res) => {
       .eq("negocio_id", negocioId)
       .maybeSingle();
 
+    if (!previo) return res.status(404).json({ message: "Pedido no encontrado" });
+
+    // Condicionado al estado leído: si el repartidor lo cambió en el medio
+    // (link de reparto), no se pisa ni se avisa dos veces.
     const { data, error } = await supabase
       .from("pedidos")
       .update(patch)
       .eq("id", id)
       .eq("negocio_id", negocioId)
+      .eq("estado", previo.estado)
       .select()
-      .single();
+      .maybeSingle();
 
-    if (error || !data) {
-      return res.status(404).json({ message: "Pedido no encontrado" });
+    if (error) throw error;
+    if (!data) {
+      return res.status(409).json({ message: "El pedido cambió mientras tanto. Recargá la lista." });
     }
 
-    if (previo && previo.estado !== estado) avisarEnSegundoPlano(data, estado);
+    if (previo.estado !== estado) avisarEnSegundoPlano(data, estado);
 
     res.json(data);
   } catch (error) {
@@ -384,4 +433,5 @@ module.exports = {
   getPedidoById,
   updateEstadoPedido,
   deletePedido,
+  getTicketPublico,
 };

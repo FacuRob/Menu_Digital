@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import {
   negociosService,
   configuracionService,
+  planService,
   type Negocio,
 } from "../services/api";
 import { useAuth } from "./AuthContext";
@@ -12,6 +13,8 @@ interface NegocioContextType {
   negocios: Negocio[];
   moneda: string;
   slug: string | null;
+  // ¿El plan incluye WhatsApp, chats, IA y mapa? null mientras no se sabe.
+  conWhatsapp: boolean | null;
   setNegocioId: (id: number) => void;
   refresh: () => Promise<void>;
 }
@@ -35,6 +38,7 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
   const [negocios, setNegocios] = useState<Negocio[]>([]);
   const [moneda, setMoneda] = useState<string>("ARS");
   const [slug, setSlug] = useState<string | null>(null);
+  const [conWhatsapp, setConWhatsapp] = useState<boolean | null>(null);
 
   // Mantener el header del api sincronizado desde el arranque.
   useEffect(() => {
@@ -51,6 +55,26 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
         setSlug(cfg.slug || null);
       })
       .catch(() => {});
+  }, [isAuthenticated, negocioId, userId]);
+
+  // Qué incluye el plan (para bloquear WhatsApp, chats e IA en el Básico).
+  // Sólo se marca "sin WhatsApp" si el plan no lo trae: una cuenta Estándar
+  // vencida no ve "mejorá tu plan" (el panel ya le pide renovar).
+  useEffect(() => {
+    setConWhatsapp(null); // descartar el dato de la sesión o negocio anterior
+    if (!isAuthenticated) return;
+    let vigente = true;
+    planService
+      .get()
+      .then((p) => {
+        if (!vigente) return;
+        const trae = p.plan_efectivo === "standard" || p.plan_efectivo === "premium";
+        setConWhatsapp(p.whatsapp === true ? true : p.whatsapp === false && !trae ? false : null);
+      })
+      .catch(() => vigente && setConWhatsapp(null));
+    return () => {
+      vigente = false;
+    };
   }, [isAuthenticated, negocioId, userId]);
 
   const refresh = async () => {
@@ -90,7 +114,7 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <NegocioContext.Provider
-      value={{ negocioId, negocios, moneda, slug, setNegocioId, refresh }}
+      value={{ negocioId, negocios, moneda, slug, conWhatsapp, setNegocioId, refresh }}
     >
       {children}
     </NegocioContext.Provider>

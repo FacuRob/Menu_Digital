@@ -2,7 +2,9 @@
 
 > ✅ **VIGENTE (2026-11-08): Mercado Pago, mensual, en pesos.** Lemon Squeezy y
 > el plan anual se eliminaron. Planes: **Básico $20.000**, **Estándar $41.000**
-> (120 productos por negocio), **Premium $65.000** por mes. Prueba gratis de
+> (3 negocios, 180 productos repartidos entre ellos, WhatsApp + IA + mapa),
+> **Premium $65.000** (5 negocios, 1.000 productos repartidos) por mes. Ver la tabla de
+> "Planes y límites" (actualizada el 2026-11-09). Prueba gratis de
 > **15 días** con los límites de Estándar; al vencer, el backend responde 402 y
 > el panel muestra "Terminaron tus días de prueba" en Suscripción.
 > - Precios: `backend/src/utils/planPrecios.js` (fijos en código; las variables
@@ -51,12 +53,23 @@ cuentas (plan + estado + límites)
 
 ### Planes y límites
 
-| Plan       | `limite_negocios` (multi-tenant) | `limite_productos` (por negocio) |
+| Plan       | `limite_negocios` (multi-tenant) | `limite_productos` (total, repartido) |
 | ---------- | -------------------------------- | -------------------------------- |
 | `free`     | 1 (sin multi-tenant)             | 10                               |
-| `basic`    | 3                                | 50                               |
-| `standard` | 10                               | 120                              |
-| `premium`  | 9999 (ilimitado)                 | 9999                             |
+| `basic`    | 1                                | 50                               |
+| `standard` | 3                                | 180 → 180 / 90 / 60 por negocio  |
+| `premium`  | 5                                | 1000 → 1000 / 500 / 334-333 / 250 / 200 |
+
+El total de productos se reparte en partes iguales entre los negocios de la
+cuenta (`cupoPorNegocio`; si no da exacto, los primeros negocios se llevan uno
+más). Además se controla el total de la cuenta (`checkLimiteProductos`).
+
+WhatsApp (avisos y chats), el bot con IA y el mapa del repartidor son de
+`standard` y `premium` (y de la prueba gratis): `incluyeWhatsapp()` en
+`backend/src/utils/suscripcion.js` y el middleware `requiereWhatsapp`.
+Desde 2026-11-09 el backend toma los límites de `LIMITES_POR_PLAN` según
+`tipo_plan` (no de las columnas guardadas); `db/planes_2026_11.sql` deja la
+base igual.
 
 Los **límites los deriva un trigger** en la BD a partir de `tipo_plan`: el
 backend solo setea el plan y la base recalcula los dos límites. Imposible que

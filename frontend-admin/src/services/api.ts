@@ -422,6 +422,9 @@ export const pedidosService = {
     (await api.get<Pedido>(`/pedidos/${id}`)).data,
   updateEstado: async (id: number, estado: Pedido["estado"]) =>
     (await api.put<Pedido>(`/pedidos/${id}/estado`, { estado })).data,
+  // Link firmado para el repartidor (sólo pedidos delivery).
+  linkReparto: async (id: number) =>
+    (await api.get<{ url: string }>(`/pedidos/${id}/link-reparto`)).data.url,
 };
 
 export interface Negocio {
@@ -525,6 +528,10 @@ export interface PlanInfo {
   negocios_usados: number;
   limite_productos: number;
   productos_usados: number;
+  // Plan que rige hoy (en prueba gratis, el de prueba).
+  plan_efectivo?: TipoPlan | null;
+  // WhatsApp, chats, bot con IA y mapa del repartidor (Estándar y Premium).
+  whatsapp?: boolean;
 }
 
 // Firmas de los QR por mesa: la URL lleva ?mesa=N&t=<firma> y el backend

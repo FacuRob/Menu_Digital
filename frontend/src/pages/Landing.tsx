@@ -285,10 +285,11 @@ const FUNCIONES: Funcion[] = [
   { titulo: "Pedidos y tickets", texto: "Seguí cada pedido por estado (pendiente, listo, entregado) e imprimí el ticket.", plan: "Todos los planes" },
   { titulo: "Variantes y extras", texto: "Tamaños, agregados y modificadores, como los pide la gente.", plan: "Todos los planes" },
   { titulo: "Tu marca", texto: "Logo, colores, portada y horarios. La carta se ve como tu local.", plan: "Todos los planes" },
-  { titulo: "Carta en 3 idiomas", texto: "Español, inglés y portugués, para que el turista también pida.", plan: "Todos los planes" },
   { titulo: "Varios locales", texto: "Todas tus sucursales en una cuenta y tu equipo con permisos por rol.", plan: "Según el plan" },
-  { titulo: "Analíticas", texto: "Productos estrella, horarios pico y cuánto vendés por día.", plan: "Standard y Premium" },
-  { titulo: "Control de stock", texto: "Avisos de stock bajo para no vender lo que no tenés.", plan: "Standard y Premium" },
+  { titulo: "Analíticas", texto: "Productos estrella, horarios pico y cuánto vendés por día.", plan: "Todos los planes" },
+  { titulo: "Control de stock", texto: "Avisos de stock bajo para no vender lo que no tenés.", plan: "Estándar y Premium" },
+  { titulo: "Avisos y chats con IA", texto: "Avisos automáticos de cada pedido por WhatsApp, chats con tus clientes y un bot que responde por vos.", plan: "Estándar y Premium" },
+  { titulo: "Repartidor en el mapa", texto: "Tu cliente sigue el delivery en vivo desde el celular, sin instalar nada.", plan: "Estándar y Premium" },
 ];
 
 function Funciones() {
@@ -389,13 +390,12 @@ const PLANES: Plan[] = [
     desc: "Para arrancar con tu primer local.",
     mensual: 20000,
     perks: [
-      "Hasta 3 negocios",
-      "50 productos por negocio",
+      "Un solo negocio",
+      "Hasta 50 productos",
       "Carta con QR",
       "Variantes y modificadores",
       "Personalización del menú",
       "Analíticas de ventas",
-      "Configuración de descuentos",
     ],
     estilo: "claro",
   },
@@ -404,7 +404,15 @@ const PLANES: Plan[] = [
     name: "Estándar",
     desc: "Para locales que crecen.",
     mensual: 41000,
-    perks: ["Todo lo del Básico", "Hasta 10 negocios", "120 productos por negocio", "Control de stock"],
+    perks: [
+      "Todo lo del Básico",
+      "Hasta 3 negocios",
+      "180 productos repartidos entre tus negocios (60 c/u con 3)",
+      "Control de stock",
+      "Avisos automáticos y chats por WhatsApp",
+      "Bot con IA que responde en WhatsApp",
+      "Seguimiento del repartidor en el mapa",
+    ],
     estilo: "aji",
   },
   {
@@ -412,7 +420,7 @@ const PLANES: Plan[] = [
     name: "Premium",
     desc: "Para cadenas y franquicias.",
     mensual: 65000,
-    perks: ["Todo lo del Estándar", "Negocios ilimitados", "Productos ilimitados"],
+    perks: ["Todo lo del Estándar", "Hasta 5 negocios", "1.000 productos repartidos entre tus negocios (200 c/u con 5)"],
     estilo: "tinta",
   },
 ];

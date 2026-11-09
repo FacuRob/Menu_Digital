@@ -117,7 +117,7 @@ const estadoColor: Record<Pedido["estado"], string> = {
 };
 
 export default function Pedidos() {
-  const { moneda } = useNegocio();
+  const { moneda, conWhatsapp } = useNegocio();
   const { t } = useLang();
   const fmt = (n: number) => fmtMoney(n, moneda);
   const estadoLabel = (e: Pedido["estado"]) =>
@@ -131,7 +131,7 @@ export default function Pedidos() {
         cancelado: "pedStateCancelado",
       }[e],
     );
-  const { confirmar } = useDialogos();
+  const { confirmar, avisar } = useDialogos();
   const [vista, setVista] = useState<Vista>("curso");
   const [periodo, setPeriodo] = useState<Periodo>("hoy");
   const [rangoDesde, setRangoDesde] = useState("");
@@ -238,9 +238,26 @@ export default function Pedidos() {
   const cambiarEstado = async (id: number, estado: Pedido["estado"]) => {
     try {
       await pedidosService.updateEstado(id, estado);
-      load();
     } catch (e) {
+      console.error(e); // p. ej. 409: el repartidor lo cambió desde su link
+    }
+    load();
+  };
+
+  // Compartir por WhatsApp el link del repartidor (elige el contacto en WhatsApp).
+  // La pestaña se abre antes del pedido al backend para que no la bloqueen.
+  const compartirReparto = async (p: Pedido) => {
+    const ventana = window.open("", "_blank");
+    try {
+      const url = await pedidosService.linkReparto(p.id);
+      const texto = `${t("pedCourierMsg", { id: p.id })} ${url}`;
+      const wa = `https://wa.me/?text=${encodeURIComponent(texto)}`;
+      if (ventana) ventana.location.href = wa;
+      else window.location.href = wa;
+    } catch (e) {
+      ventana?.close();
       console.error(e);
+      void avisar({ mensaje: t("pedCourierError"), tipo: "error" });
     }
   };
 
@@ -632,6 +649,14 @@ export default function Pedidos() {
                 {p.estado === "preparando" && p.tipo_entrega === "delivery" && (
                   <EstadoBtn color="var(--teal)" onClick={() => cambiarEstado(p.id, "en_camino")}>
                     🛵 {t("pedSend")}
+                  </EstadoBtn>
+                )}
+                {/* Mapa del repartidor: plan Estándar o Premium. */}
+                {p.tipo_entrega === "delivery" &&
+                  conWhatsapp !== false &&
+                  ["pendiente", "preparando", "en_camino"].includes(p.estado) && (
+                  <EstadoBtn color="var(--teal)" ghost onClick={() => compartirReparto(p)}>
+                    📍 {t("pedCourier")}
                   </EstadoBtn>
                 )}
                 {p.estado === "preparando" && p.tipo_entrega === "retiro" && (

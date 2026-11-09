@@ -6,10 +6,14 @@ const {
   updateEstadoPedido,
   deletePedido,
 } = require("../controllers/pedidosController");
+const { getLinkReparto } = require("../controllers/repartoController");
+const requiereWhatsapp = require("../middleware/requiereWhatsapp");
 
 // Rutas para el administrador (protegidas por el middleware al montarlas)
 router.get("/", getPedidos);
 router.get("/:id", getPedidoById);
+// Mapa del repartidor: plan Estándar o Premium.
+router.get("/:id/link-reparto", requiereWhatsapp, getLinkReparto);
 router.put("/:id/estado", updateEstadoPedido);
 router.delete("/:id", deletePedido);
 

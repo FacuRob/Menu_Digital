@@ -27,7 +27,7 @@
       html.dx-home, html.dx-home body { background: #efede6; }
     </style>
     <script>
-      if (location.pathname === "/") document.documentElement.classList.add("dx-home");
+      if (location.pathname === "/" || /^\/(ticket|reparto|seguimiento)\//.test(location.pathname)) document.documentElement.classList.add("dx-home");
     </script>
   </head>
   <body>

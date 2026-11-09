@@ -1,7 +1,7 @@
-const supabase = require("../config/database");
 const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
-const { limitesEfectivos } = require("../utils/suscripcion");
+const { limitesEfectivos, incluyeWhatsapp, planEfectivo } = require("../utils/suscripcion");
+const { cupoProductos } = require("../utils/planNegocio");
 
 /**
  * Devuelve el plan de la cuenta dueña del negocio activo + el uso actual.
@@ -13,46 +13,26 @@ const { limitesEfectivos } = require("../utils/suscripcion");
 const getPlan = async (req, res) => {
   try {
     const negocioId = getNegocioId(req);
-
-    // Negocio activo + plan de su cuenta.
-    const { data: negocio, error: negocioError } = await supabase
-      .from("negocios")
-      .select(
-        "cuenta_id, cuentas ( tipo_plan, estado_suscripcion, limite_negocios, limite_productos )",
-      )
-      .eq("id", negocioId)
-      .single();
-
-    if (negocioError || !negocio || !negocio.cuentas) {
-      return res
-        .status(404)
-        .json({ message: "Negocio o cuenta no encontrados" });
-    }
-
-    const cuenta = negocio.cuentas;
-
-    // Uso: negocios de la cuenta + productos del negocio activo.
-    const [{ count: negociosUsados }, { count: productosUsados }] =
-      await Promise.all([
-        supabase
-          .from("negocios")
-          .select("id", { count: "exact", head: true })
-          .eq("cuenta_id", negocio.cuenta_id),
-        supabase
-          .from("productos")
-          .select("id", { count: "exact", head: true })
-          .eq("negocio_id", negocioId),
-      ]);
+    const c = await cupoProductos(negocioId);
+    if (!c) return res.status(404).json({ message: "Negocio o cuenta no encontrados" });
 
     // Límites vigentes (en prueba gratis, los del plan de prueba).
-    const limites = limitesEfectivos(cuenta);
+    const limites = limitesEfectivos(c.cuenta);
     res.json({
-      tipo_plan: cuenta.tipo_plan,
-      estado_suscripcion: cuenta.estado_suscripcion,
+      tipo_plan: c.cuenta.tipo_plan,
+      estado_suscripcion: c.cuenta.estado_suscripcion,
       limite_negocios: limites.negocios,
-      negocios_usados: negociosUsados ?? 0,
-      limite_productos: limites.productos,
-      productos_usados: productosUsados ?? 0,
+      negocios_usados: c.negocios,
+      // Productos: la parte de ESTE negocio (el total del plan repartido
+      // entre los negocios de la cuenta) y el total de la cuenta.
+      limite_productos: c.cupo,
+      productos_usados: c.usados,
+      limite_productos_total: c.total,
+      productos_usados_cuenta: c.usadosCuenta,
+      // Plan que rige hoy (en prueba gratis, el de prueba) y si incluye
+      // WhatsApp, chats, bot con IA y mapa del repartidor.
+      plan_efectivo: planEfectivo(c.cuenta),
+      whatsapp: incluyeWhatsapp(c.cuenta),
     });
   } catch (error) {
     return respondError(res, error, "plan");

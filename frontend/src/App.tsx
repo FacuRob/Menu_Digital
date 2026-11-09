@@ -7,6 +7,9 @@ import { LanguageProvider, useLang } from "./lib/i18n";
 const Landing = lazy(() => import("./pages/Landing"));
 const Menu = lazy(() => import("./pages/Menu"));
 const Privacidad = lazy(() => import("./pages/Privacidad"));
+const Ticket = lazy(() => import("./pages/Ticket"));
+const Reparto = lazy(() => import("./pages/Reparto"));
+const Seguimiento = lazy(() => import("./pages/Seguimiento"));
 
 // Mientras llega el código de la página se ve el fondo del <html>
 // (index.html elige el color según la ruta: sin flash blanco).
@@ -48,6 +51,11 @@ function App() {
         <Route path="/menu/:slug" element={<Menu key="uno" />} />
         {/* Menú general: todos los negocios de la cuenta (QR general). */}
         <Route path="/menu/:slug/todos" element={<Menu key="todos" general />} />
+        {/* Ticket de un pedido (link firmado que llega por WhatsApp). */}
+        <Route path="/ticket/:id" element={<Ticket />} />
+        {/* Seguimiento del delivery: repartidor y cliente (links firmados). */}
+        <Route path="/reparto/:id" element={<Reparto />} />
+        <Route path="/seguimiento/:id" element={<Seguimiento />} />
 
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -6,6 +6,11 @@ const { createSupabaseMock, injectModule } = require("./helpers/supabaseMock");
 // ── Inyección de dependencias ANTES de requerir los módulos ──
 const db = createSupabaseMock();
 injectModule(require.resolve("../src/config/database"), db);
+// Plan de la cuenta: por defecto incluye WhatsApp (Estándar/Premium).
+let planConWhatsapp = true;
+injectModule(require.resolve("../src/utils/planNegocio"), {
+  negocioConWhatsapp: async () => planConWhatsapp,
+});
 
 const { normalizarTelefono } = require("../src/services/whatsappService");
 const {
@@ -21,6 +26,7 @@ let enviados; // requests a la API de Meta
 const fetchOriginal = global.fetch;
 
 beforeEach(() => {
+  planConWhatsapp = true;
   ops = [];
   enviados = [];
   configNegocio = { activo: true, estados: {} };
@@ -91,6 +97,13 @@ test("notificarPedido: sin consentimiento del cliente no envía nada", async () 
   assert.equal(enviados.length, 0);
 });
 
+test("notificarPedido: plan Básico (sin WhatsApp) no envía", async () => {
+  planConWhatsapp = false;
+  const r = await notificarPedido(pedido(), "preparando");
+  assert.equal(r.motivo, "plan");
+  assert.equal(enviados.length, 0);
+});
+
 test("notificarPedido: si el local apagó los avisos no envía", async () => {
   configNegocio = { activo: false, estados: {} };
   const r = await notificarPedido(pedido(), "preparando");
@@ -98,7 +111,8 @@ test("notificarPedido: si el local apagó los avisos no envía", async () => {
   assert.equal(enviados.length, 0);
 });
 
-test("notificarPedido: 'entregado' viene apagado por defecto", async () => {
+test("notificarPedido: si el local apagó 'entregado' no envía", async () => {
+  configNegocio = { activo: true, estados: { entregado: false } };
   const r = await notificarPedido(pedido(), "entregado");
   assert.equal(r.motivo, "desactivado");
 });
@@ -181,4 +195,28 @@ test("webhook: rechaza firmas inválidas y acepta las válidas", async () => {
   const bueno = resMock();
   await recibirWebhook({ body: raw, headers: { "x-hub-signature-256": `sha256=${sig}` } }, bueno);
   assert.equal(bueno.code, 200);
+});
+
+test("notificarPedido: al entregar manda la plantilla con el link firmado al ticket", async () => {
+  process.env.JWT_SECRET = "jwt-test";
+  process.env.VITE_MENU_URL = "https://menu.test/";
+  const r = await notificarPedido(pedido({ estado: "entregado" }), "entregado");
+  assert.equal(r.ok, true);
+  const tpl = enviados[0].body.template;
+  assert.equal(tpl.name, "pedido_entregado_ticket");
+  const [nombre, local, id, link] = tpl.components[0].parameters.map((p) => p.text);
+  assert.deepEqual([nombre, local, id], ["Juan", "Bar Test", "128"]);
+  const { firmar } = require("../src/utils/linksPedido");
+  const firmarTicket = (id, neg) => firmar("ticket", id, neg);
+  assert.equal(link, `https://menu.test/ticket/128?t=${firmarTicket(128, 5)}`);
+  delete process.env.VITE_MENU_URL;
+});
+
+test("notificarPedido: 'en camino' manda la plantilla con el link al mapa", async () => {
+  process.env.JWT_SECRET = "jwt-test";
+  const r = await notificarPedido(pedido({ estado: "en_camino" }), "en_camino");
+  assert.equal(r.ok, true);
+  const tpl = enviados[0].body.template;
+  assert.equal(tpl.name, "pedido_en_camino_mapa");
+  assert.match(tpl.components[0].parameters[3].text, /\/seguimiento\/128\?t=/);
 });

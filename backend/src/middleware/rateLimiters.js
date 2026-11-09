@@ -24,4 +24,14 @@ const pedidosLimiter = rateLimit({
   },
 });
 
-module.exports = { authLimiter, pedidosLimiter };
+// Links públicos del delivery: el repartidor manda su ubicación cada ~10 s y
+// el cliente consulta el mapa cada ~10 s. Alcanza con holgura para eso.
+const repartoLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Demasiadas solicitudes. Esperá un momento." },
+});
+
+module.exports = { authLimiter, pedidosLimiter, repartoLimiter };

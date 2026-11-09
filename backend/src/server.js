@@ -21,6 +21,7 @@ const authMiddleware = require("./middleware/authMiddleware");
 const checkPermiso = require("./middleware/checkPermiso");
 const scopeNegocio = require("./middleware/scopeNegocio");
 const requirePlataforma = require("./middleware/requirePlataforma");
+const requiereWhatsapp = require("./middleware/requiereWhatsapp");
 const checkSuscripcion = require("./middleware/checkSuscripcion");
 const { mercadoPagoWebhook } = require("./controllers/mercadoPagoController");
 const whatsappRoutes = require("./routes/whatsapp");
@@ -38,14 +39,15 @@ const {
 } = require("./controllers/productosController");
 const { getCategoriasActivas } = require("./controllers/categoriasController");
 const { getConfiguracion } = require("./controllers/configuracionController");
-const { createPedido } = require("./controllers/pedidosController");
+const { createPedido, getTicketPublico } = require("./controllers/pedidosController");
 const {
   getNegocioPublicoBySlug,
   getGrupoPublico,
 } = require("./controllers/negociosController");
 const { keepAlive } = require("./controllers/keepAliveController");
 const { startKeepAlive } = require("./services/keepAlive");
-const { pedidosLimiter } = require("./middleware/rateLimiters");
+const { pedidosLimiter, repartoLimiter } = require("./middleware/rateLimiters");
+const reparto = require("./controllers/repartoController");
 const { validate } = require("./middleware/validate");
 const { createPedidoSchema } = require("./schemas");
 
@@ -123,14 +125,22 @@ app.get("/api/keep-alive", keepAlive);
 app.get("/api/categorias/activas", getCategoriasActivas);
 app.get("/api/productos/disponibles", getProductosDisponibles);
 app.get("/api/configuracion", getConfiguracion);
-// Resolver el negocio del menú público por su slug (/menu/:slug).
 // Lectura del panel: misma data, pero con el negocio validado contra la cuenta
 // (la ruta pública confía en X-Negocio-Id, que puede quedar viejo en el navegador).
 app.get("/api/panel/configuracion", authMiddleware, scopeNegocio, getConfiguracion);
+// Resolver el negocio del menú público por su slug (/menu/:slug).
 app.get("/api/negocios/publico/:slug", getNegocioPublicoBySlug);
 // Menú general: todos los negocios activos de la cuenta (/menu/:slug/todos).
 app.get("/api/negocios/publico/:slug/grupo", getGrupoPublico);
 app.post("/api/pedidos", pedidosLimiter, validate(createPedidoSchema), createPedido);
+// Ticket de un pedido (link firmado que llega por WhatsApp).
+app.get("/api/tickets/:id", getTicketPublico);
+// Seguimiento del delivery (links firmados del repartidor y del cliente).
+app.get("/api/reparto/:id", repartoLimiter, reparto.getReparto);
+app.post("/api/reparto/:id/salir", repartoLimiter, reparto.salir);
+app.post("/api/reparto/:id/ubicacion", repartoLimiter, reparto.ubicacion);
+app.post("/api/reparto/:id/entregar", repartoLimiter, reparto.entregar);
+app.get("/api/seguimiento/:id", repartoLimiter, reparto.getSeguimiento);
 
 // ============================================
 // RUTAS PROTEGIDAS
@@ -212,6 +222,7 @@ app.use(
   authMiddleware,
   scopeNegocio,
   checkSuscripcion,
+  requiereWhatsapp,
   checkPermiso("pedidos"),
   whatsappRoutes.chatsRouter,
 );
@@ -222,6 +233,7 @@ app.use(
   authMiddleware,
   scopeNegocio,
   checkSuscripcion,
+  requiereWhatsapp,
   checkPermiso("configuracion"),
   whatsappRoutes,
 );

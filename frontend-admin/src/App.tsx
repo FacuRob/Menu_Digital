@@ -5,6 +5,7 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { NegocioProvider } from "./context/NegocioContext";
 import { LanguageProvider, useLang } from "./lib/i18n";
 import ProtectedRoute from "./components/ProtectedRoute";
+import SoloConWhatsapp from "./components/PlanBloqueado";
 import LoadingScreen from "./components/LoadingScreen";
 import { DialogosProvider } from "./components/Dialogos";
 
@@ -102,7 +103,9 @@ function App() {
               path="/admin/chats"
               element={
                 <ProtectedRoute permiso="pedidos">
-                  <Chats />
+                  <SoloConWhatsapp tituloKey="navChats">
+                    <Chats />
+                  </SoloConWhatsapp>
                 </ProtectedRoute>
               }
             />
@@ -134,7 +137,9 @@ function App() {
               path="/admin/whatsapp"
               element={
                 <ProtectedRoute permiso="configuracion">
-                  <WhatsApp />
+                  <SoloConWhatsapp tituloKey="navWhatsapp">
+                    <WhatsApp />
+                  </SoloConWhatsapp>
                 </ProtectedRoute>
               }
             />

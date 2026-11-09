@@ -4,6 +4,11 @@ const { createSupabaseMock, injectModule } = require("./helpers/supabaseMock");
 
 const db = createSupabaseMock();
 injectModule(require.resolve("../src/config/database"), db);
+// Plan de la cuenta: por defecto incluye WhatsApp (Estándar/Premium).
+let planConWhatsapp = true;
+injectModule(require.resolve("../src/utils/planNegocio"), {
+  negocioConWhatsapp: async () => planConWhatsapp,
+});
 
 const ia = require("../src/services/iaService");
 const chats = require("../src/services/chatsService");
@@ -18,6 +23,7 @@ const HORA = 60 * 60 * 1000;
 const cumple = (fila, filtros) => Object.entries(filtros).every(([k, v]) => fila[k] === v);
 
 beforeEach(() => {
+  planConWhatsapp = true;
   llamadas = [];
   enviados = [];
   respuestaModelo = { content: "¡Hola! Abrimos a las 20 hs. 🍔" };
@@ -94,6 +100,14 @@ afterEach(() => {
   delete process.env.WHATSAPP_TOKEN;
   delete process.env.WHATSAPP_PHONE_NUMBER_ID;
   delete process.env.OPENROUTER_API_KEY;
+});
+
+test("responderConIA: con plan Básico (sin WhatsApp) el bot no responde", async () => {
+  planConWhatsapp = false;
+  const r = await ia.responderConIA(1);
+  assert.strictEqual(r.motivo, "plan");
+  assert.strictEqual(llamadas.length, 0);
+  assert.strictEqual(enviados.length, 0);
 });
 
 test("responderConIA: contesta con los datos del local y lo registra como IA", async () => {

@@ -67,14 +67,20 @@ Categoría **Utility**, idioma **Spanish (ARG) — es_AR**. El **nombre** y el
 **cuerpo** tienen que ser exactamente estos. Variables:
 `{{1}}` nombre del cliente · `{{2}}` nombre del local · `{{3}}` número de pedido.
 Meta pide un ejemplo para cada variable: `Juan`, `Bar la Esquina`, `128`.
+`pedido_entregado_ticket` lleva `{{4}}` = link al ticket (ejemplo:
+`https://menu-digital-frontend-qxjm.onrender.com/ticket/128?t=abc123`) y
+`pedido_en_camino_mapa` lleva `{{4}}` = link al mapa (ejemplo:
+`https://menu-digital-frontend-qxjm.onrender.com/seguimiento/128?t=abc123`).
+El link abre `/ticket/<id>` en el menú público; va firmado, así que no se
+pueden ver tickets ajenos cambiando el número.
 
 | Nombre | Cuerpo |
 |---|---|
 | `pedido_recibido` | Hola {{1}}, {{2}} recibió tu pedido #{{3}}. Te vamos a avisar por acá cuando cambie de estado. |
 | `pedido_en_preparacion` | Hola {{1}}, tu pedido #{{3}} de {{2}} ya se está preparando. |
-| `pedido_en_camino` | Hola {{1}}, tu pedido #{{3}} de {{2}} ya salió y va en camino. |
+| `pedido_en_camino_mapa` | Hola {{1}}, tu pedido #{{3}} de {{2}} ya salió y va en camino. Seguilo en el mapa: {{4}} ¡Ya llega! |
 | `pedido_listo_retirar` | Hola {{1}}, tu pedido #{{3}} de {{2}} está listo para retirar. |
-| `pedido_entregado` | ¡Gracias {{1}}! Tu pedido #{{3}} de {{2}} fue entregado. ¡Que lo disfrutes! |
+| `pedido_entregado_ticket` | ¡Gracias {{1}}! Tu pedido #{{3}} de {{2}} fue entregado. Mirá tu ticket acá: {{4}} ¡Que lo disfrutes! |
 | `pedido_cancelado` | Hola {{1}}, lamentamos avisarte que tu pedido #{{3}} de {{2}} fue cancelado. Si tenés dudas, respondé este mensaje. |
 
 Los textos viven en `backend/src/services/avisosPedidoService.js` (`AVISOS`):
@@ -119,3 +125,11 @@ escribió son gratis.
 - Espera unos segundos (`IA_ESPERA_MS`, default 4000) para juntar varios mensajes seguidos del cliente.
 - Variables en Render: `OPENROUTER_API_KEY` (obligatoria), `OPENROUTER_MODEL` (default `anthropic/claude-haiku-5.5`; acepta hasta 3 separados por coma como respaldo), `NEGOCIO_TZ` (default `America/Argentina/Buenos_Aires`).
 - Base de datos: volver a correr `backend/db/whatsapp_avisos.sql` (agrega `whatsapp_ia` y columnas nuevas).
+
+## Seguimiento del delivery en el mapa
+
+- En **Pedidos**, los pedidos delivery tienen el botón **Repartidor**: comparte por WhatsApp un link firmado (`/reparto/<id>`).
+- El repartidor lo abre en el celular (sin app): ve dirección, teléfono y detalle, y usa **Salí con el pedido** (pasa a *En camino*, avisa al cliente y empieza a mandar su ubicación cada ~10 s) y **Entregué** (pasa a *Entregado* y manda el ticket).
+- El cliente recibe en el aviso de "en camino" el link `/seguimiento/<id>` con el mapa (OpenStreetMap), que se actualiza solo.
+- Límite: el repartidor tiene que dejar la página abierta; si la cierra o el celular bloquea el navegador, deja de mandar la ubicación (al volver a abrirla sigue).
+- Base de datos: correr `backend/db/seguimiento_delivery.sql`.

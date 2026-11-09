@@ -5,8 +5,10 @@
 // Todo es "fire-and-forget": nunca rompe ni demora la respuesta al admin
 // o al cliente; si algo falla, queda registrado en whatsapp_mensajes.
 const supabase = require("../config/database");
+const { negocioConWhatsapp } = require("../utils/planNegocio");
 const { enviarPlantilla, estaConfigurado } = require("./whatsappService");
 const { asegurarChat, tocarChat } = require("./chatsService");
+const { linkPedido } = require("../utils/linksPedido");
 
 // Un aviso por estado del pedido. `texto` es el cuerpo EXACTO que hay que
 // cargar como plantilla en Meta (categoría "Utility", idioma es_AR):
@@ -25,10 +27,12 @@ const AVISOS = [
     texto: "Hola {{1}}, tu pedido #{{3}} de {{2}} ya se está preparando.",
   },
   {
+    // {{4}} = link al mapa con la ubicación del repartidor.
     estado: "en_camino",
-    plantilla: "pedido_en_camino",
+    plantilla: "pedido_en_camino_mapa",
+    link: "seguimiento",
     porDefecto: true,
-    texto: "Hola {{1}}, tu pedido #{{3}} de {{2}} ya salió y va en camino.",
+    texto: "Hola {{1}}, tu pedido #{{3}} de {{2}} ya salió y va en camino. Seguilo en el mapa: {{4}} ¡Ya llega!",
   },
   {
     estado: "listo",
@@ -37,10 +41,12 @@ const AVISOS = [
     texto: "Hola {{1}}, tu pedido #{{3}} de {{2}} está listo para retirar.",
   },
   {
+    // {{4}} = link al ticket del pedido.
     estado: "entregado",
-    plantilla: "pedido_entregado",
-    porDefecto: false,
-    texto: "¡Gracias {{1}}! Tu pedido #{{3}} de {{2}} fue entregado. ¡Que lo disfrutes!",
+    plantilla: "pedido_entregado_ticket",
+    link: "ticket",
+    porDefecto: true,
+    texto: "¡Gracias {{1}}! Tu pedido #{{3}} de {{2}} fue entregado. Mirá tu ticket acá: {{4}} ¡Que lo disfrutes!",
   },
   {
     estado: "cancelado",
@@ -97,6 +103,7 @@ async function guardarConfig(negocioId, { activo, estados }) {
 // ¿El menú debe ofrecer la casilla "avisarme por WhatsApp"?
 async function avisosDisponibles(negocioId) {
   if (!estaConfigurado()) return false;
+  if (!(await negocioConWhatsapp(negocioId))) return false; // plan Básico
   return (await obtenerConfig(negocioId)).activo;
 }
 
@@ -162,6 +169,7 @@ async function notificarPedido(pedido, estado = pedido?.estado) {
       return { ok: false, motivo: "sin_consentimiento" };
     }
     if (!estaConfigurado()) return { ok: false, motivo: "no_configurado" };
+    if (!(await negocioConWhatsapp(pedido.negocio_id))) return { ok: false, motivo: "plan" };
 
     const cfg = await obtenerConfig(pedido.negocio_id);
     if (!cfg.activo || !cfg.estados[estado]) return { ok: false, motivo: "desactivado" };
@@ -174,7 +182,12 @@ async function notificarPedido(pedido, estado = pedido?.estado) {
       aviso,
       etiqueta: estado,
       nombre: (pedido.cliente || "").trim() || null,
-      params: [(pedido.cliente || "").trim() || "cliente", local, pedido.id],
+      params: [
+        (pedido.cliente || "").trim() || "cliente",
+        local,
+        pedido.id,
+        ...(aviso.link ? [linkPedido(aviso.link, pedido)] : []),
+      ],
     });
   } catch (err) {
     console.error("[Avisos] Error inesperado:", err.message);

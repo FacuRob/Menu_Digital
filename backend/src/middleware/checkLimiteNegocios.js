@@ -6,10 +6,9 @@ const { limitesEfectivos } = require("../utils/suscripcion");
  * Middleware que valida el plan de la cuenta antes de permitir crear un
  * NEGOCIO nuevo (multi-tenant).
  *
- *   free     → 1 negocio  (sin multi-tenant)
- *   basic    → 3 negocios
- *   standard → 10 negocios
- *   premium  → ilimitado
+ *   free / basic → 1 negocio  (sin multi-negocio)
+ *   standard     → 3 negocios
+ *   premium      → 5 negocios
  *
  * Bloquea con 403 si la suscripción está cancelada o si la cuenta ya
  * alcanzó su `limite_negocios`.
@@ -28,7 +27,7 @@ const checkLimiteNegocios = async (req, res, next) => {
 
     const { data: cuenta, error: cuentaError } = await supabase
       .from("cuentas")
-      .select("limite_negocios, estado_suscripcion")
+      .select("tipo_plan, limite_negocios, estado_suscripcion")
       .eq("id", cuentaId)
       .single();
 

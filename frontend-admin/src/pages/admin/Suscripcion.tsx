@@ -26,16 +26,19 @@ const ESTADO_INFO: Record<
 // Beneficios por plan (claves de traducción). "Todo lo del plan anterior" va
 // primero; después, los límites del backend y lo que suma cada plan.
 const PERKS: Record<string, { incluye?: string; extras: string[] }> = {
-  basic: { extras: ["subPerkQr", "subPerkVariantes", "subPerkCustom", "subPerkAnalytics", "subPerkDiscounts"] },
-  standard: { incluye: "subPerkAllBasic", extras: ["subPerkStock"] },
+  basic: { extras: ["subPerkQr", "subPerkVariantes", "subPerkCustom", "subPerkAnalytics"] },
+  standard: {
+    incluye: "subPerkAllBasic",
+    extras: ["subPerkStock", "subPerkWhatsapp", "subPerkIA", "subPerkTracking"],
+  },
   premium: { incluye: "subPerkAllStandard", extras: [] },
 };
 
 // Catálogo de respaldo (mismos precios que backend/src/utils/planPrecios.js).
 const FALLBACK_PLANES: PlanCatalogo[] = [
-  { code: "basic", precio_mensual: 20000, limites: { negocios: 3, productos: 50 } },
-  { code: "standard", precio_mensual: 41000, limites: { negocios: 10, productos: 120 } },
-  { code: "premium", precio_mensual: 65000, limites: { negocios: 9999, productos: 9999 } },
+  { code: "basic", precio_mensual: 20000, limites: { negocios: 1, productos: 50 } },
+  { code: "standard", precio_mensual: 41000, limites: { negocios: 3, productos: 180 } },
+  { code: "premium", precio_mensual: 65000, limites: { negocios: 5, productos: 1000 } },
 ];
 
 export default function Suscripcion() {
@@ -312,11 +315,18 @@ export default function Suscripcion() {
             const bizFeature =
               p.limites.negocios >= 9999
                 ? t("subUnlimBiz")
-                : t(p.limites.negocios === 1 ? "subUpToBiz1" : "subUpToBiz", { n: p.limites.negocios });
+                : t(p.limites.negocios === 1 ? "subOneBiz" : "subUpToBiz", { n: p.limites.negocios });
+            // Productos: el total del plan, repartido entre los negocios.
             const prodFeature =
               p.limites.productos >= 9999
                 ? t("subUnlimProds")
-                : t("subProdsPer", { n: p.limites.productos });
+                : p.limites.negocios === 1
+                  ? t("subUpToProds", { n: p.limites.productos })
+                  : t("subProdsShared", {
+                      total: p.limites.productos.toLocaleString("es-AR"),
+                      per: Math.floor(p.limites.productos / p.limites.negocios),
+                      n: p.limites.negocios,
+                    });
             return (
               <div
                 key={p.code}

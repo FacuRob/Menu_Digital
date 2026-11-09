@@ -262,7 +262,9 @@ export function AdminShell() {
   };
   const { user, logout, hasPermiso, isSuperAdmin, isPlataforma, isAuthenticated } = useAuth();
   const { t } = useLang();
-  const { negocioId, negocios, slug, setNegocioId } = useNegocio();
+  const { negocioId, negocios, slug, setNegocioId, conWhatsapp } = useNegocio();
+  // Con plan Básico, Chats y WhatsApp llevan la etiqueta del plan que los incluye.
+  const esDeWhatsapp = (ruta: string) => ruta === "/admin/chats" || ruta === "/admin/whatsapp";
   const { isDark, setTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -346,7 +348,7 @@ export function AdminShell() {
   }, [isAuthenticated, negocioId]);
 
   useEffect(() => {
-    if (!isAuthenticated || !hasPermiso("pedidos")) return;
+    if (!isAuthenticated || !hasPermiso("pedidos") || conWhatsapp === false) return;
     let active = true;
     atenderRef.current = null;
     const check = async () => {
@@ -374,7 +376,7 @@ export function AdminShell() {
       window.removeEventListener("chats-cambio", check);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, negocioId]);
+  }, [isAuthenticated, negocioId, conWhatsapp]);
 
   useEffect(() => {
     if (!isAuthenticated || !hasPermiso("productos")) return;
@@ -601,7 +603,14 @@ export function AdminShell() {
                 >
                   {item.icon}
                   <span className={collapsed ? "sr-only" : "sh-label"}>{t(item.labelKey)}</span>
-                  {avisoChats(item.ruta === "/admin/chats")}
+                  {conWhatsapp === false && esDeWhatsapp(item.ruta) ? (
+                    <span className="sh-badge is-plan">
+                      <span className="sr-only">{t("planTagNeeds")} </span>
+                      {t("planTagStandard")}
+                    </span>
+                  ) : (
+                    avisoChats(item.ruta === "/admin/chats")
+                  )}
                 </NavLink>
               ),
             )}

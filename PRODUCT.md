@@ -32,7 +32,7 @@ Menú con QR + pedido armado que llega directo al WhatsApp del local, sin app pa
 - Menú con QR, pedidos por WhatsApp, panel de pedidos y tickets, analíticas de ventas, personalización (logo, colores, portada, horarios), stock y variantes/modificadores, varios locales y equipo con roles, menú en español/inglés/portugués.
 - Prueba gratis de 15 días sin tarjeta, con todo lo del plan Estándar. Al terminar, el panel avisa que hay que elegir un plan mensual para seguir operando.
 - Pago mensual desde el panel con Mercado Pago, en pesos argentinos. Se cancela o cambia de plan cuando quiera. No hay plan anual.
-- Planes (deben coincidir con `backend/src/utils/planPrecios.js`, el panel y la landing): Básico $20.000/mes (3 negocios, 50 productos c/u, carta con QR, variantes, personalización, analíticas, descuentos); Estándar $41.000/mes (todo lo del Básico, 10 negocios, 120 productos, control de stock) — destacado; Premium $65.000/mes (todo lo del Estándar, ilimitado).
+- Planes (deben coincidir con `backend/src/utils/planPrecios.js`, el panel y la landing): Básico $20.000/mes (1 negocio, hasta 50 productos, carta con QR, variantes, personalización, analíticas); Estándar $41.000/mes (todo lo del Básico, hasta 3 negocios, 180 productos repartidos entre los negocios (180/90/60), control de stock, avisos y chats por WhatsApp, bot con IA y seguimiento del repartidor en el mapa) — destacado; Premium $65.000/mes (todo lo del Estándar, hasta 5 negocios, 1.000 productos repartidos entre los negocios (1000/500/334-333/250/200)). La prueba gratis de 15 días es igual al Estándar.
 - Stack: React 19 + Vite + Tailwind v4, landing en `frontend/src/pages/Landing.tsx`, deploy en Netlify.
 
 ## Brand Commitments

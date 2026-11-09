@@ -268,8 +268,8 @@ const es: Dict = {
   prodUnavailable: "No disponibles",
   prodAllCategories: "Todas las categorías",
   prodCount: "{n} productos",
-  prodPlanUsage: "{used} / {limit} productos del plan",
-  prodPlanTitle: "Plan {plan}: hasta {limit} productos por negocio",
+  prodPlanUsage: "{used} / {limit} productos de este negocio",
+  prodPlanTitle: "Plan {plan}: el total de productos se reparte entre tus negocios; a este le tocan {limit}",
   prodSubCancelled: "Suscripción cancelada",
   prodLimitReached: "Alcanzaste el límite de {limit} productos de tu plan",
   prodNew: "Nuevo producto",
@@ -357,6 +357,9 @@ const es: Dict = {
   navWhatsapp: "WhatsApp",
   pedReadyTab: "Listos",
   pedOnTheWayTab: "En camino",
+  pedCourier: "Repartidor",
+  pedCourierMsg: "Pedido #{id} para entregar. Abrí este link, tocá \"Salí con el pedido\" y dejalo abierto hasta entregar:",
+  pedCourierError: "No se pudo generar el link del repartidor.",
   pedStateListo: "Listo para retirar",
   pedStateEnCamino: "En camino",
   pedSend: "Enviar",
@@ -495,6 +498,19 @@ const es: Dict = {
   subRecommended: "RECOMENDADO",
   subPerMonth: "mes",
   subUpToBiz: "Hasta {n} negocios",
+  subOneBiz: "Un solo negocio",
+  subUpToProds: "Hasta {n} productos",
+  subProdsShared: "{total} productos repartidos entre tus negocios ({per} c/u con {n})",
+  subPerkWhatsapp: "Avisos automáticos del pedido y chats por WhatsApp",
+  subPerkIA: "Bot con IA que responde en WhatsApp",
+  subPerkTracking: "Seguimiento del repartidor en el mapa",
+  planTagStandard: "Estándar",
+  planTagNeeds: "Requiere el plan",
+  planLockedAskOwner: "Pedile al dueño de la cuenta que cambie al plan Estándar o Premium.",
+  planLockedTitle: "Disponible en el plan Estándar",
+  planLockedDesc:
+    "Los avisos automáticos por WhatsApp, los chats con tus clientes, el bot con IA que responde por vos y el seguimiento del repartidor en el mapa vienen en los planes Estándar y Premium.",
+  planLockedCta: "Ver planes",
   subUpToBiz1: "Hasta {n} negocio",
   subUnlimBiz: "Negocios ilimitados",
   subProdsPer: "{n} productos por negocio",
@@ -1189,6 +1205,9 @@ const en: Dict = {
   navWhatsapp: "WhatsApp",
   pedReadyTab: "Ready",
   pedOnTheWayTab: "On the way",
+  pedCourier: "Courier",
+  pedCourierMsg: "Order #{id} to deliver. Open this link, tap \"Salí con el pedido\" and keep it open until delivered:",
+  pedCourierError: "Could not create the courier link.",
   pedStateListo: "Ready for pickup",
   pedStateEnCamino: "On the way",
   pedSend: "Send out",
@@ -2015,6 +2034,9 @@ const pt: Dict = {
   navWhatsapp: "WhatsApp",
   pedReadyTab: "Prontos",
   pedOnTheWayTab: "A caminho",
+  pedCourier: "Entregador",
+  pedCourierMsg: "Pedido #{id} para entregar. Abra este link, toque \"Salí con el pedido\" e deixe aberto até entregar:",
+  pedCourierError: "Não foi possível gerar o link do entregador.",
   pedStateListo: "Pronto para retirar",
   pedStateEnCamino: "A caminho",
   pedSend: "Enviar",
@@ -2519,7 +2541,12 @@ const pt: Dict = {
 
 const DICTS: Record<Lang, Dict> = { es, en, pt };
 
+// Por ahora todo el sistema va en español: sin selector y sin detectar el
+// idioma del navegador. Las traducciones quedan para reactivarlo a futuro.
+export const MULTI_IDIOMA = false;
+
 const detectLang = (): Lang => {
+  if (!MULTI_IDIOMA) return "es";
   const saved = localStorage.getItem("admin_lang");
   if (saved && saved in DICTS) return saved as Lang;
   const nav = (navigator.language || "es").slice(0, 2).toLowerCase();
@@ -2528,12 +2555,7 @@ const detectLang = (): Lang => {
 
 interface I18nContextType {
   lang: Lang;
-// Por ahora todo el sistema va en español: sin selector y sin detectar el
-// idioma del navegador. Las traducciones quedan para reactivarlo a futuro.
-export const MULTI_IDIOMA = false;
-
   setLang: (l: Lang) => void;
-  if (!MULTI_IDIOMA) return "es";
   t: (key: string, vars?: Record<string, string | number>) => string;
 }
 
@@ -2573,6 +2595,7 @@ export const useLang = () => {
 // variant "hp": pastilla del mundo "Hora pico" (pantalla de acceso).
 export function LangSelector({ isDark = false, variant }: { isDark?: boolean; variant?: "hp" }) {
   const { lang, setLang } = useLang();
+  if (!MULTI_IDIOMA) return null;
   const current = LANGS.find((l) => l.code === lang) || LANGS[0];
   const hp = variant === "hp";
   return (
@@ -2582,7 +2605,6 @@ export function LangSelector({ isDark = false, variant }: { isDark?: boolean; va
         alignItems: "center",
         gap: 5,
         position: "relative",
-  if (!MULTI_IDIOMA) return null;
         cursor: "pointer",
       }}
       title="Idioma / Language"

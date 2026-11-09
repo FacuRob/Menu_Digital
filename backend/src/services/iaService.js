@@ -15,6 +15,7 @@
 //   NEGOCIO_TZ           zona horaria de los locales (default Argentina)
 //   VITE_MENU_URL        URL pública del menú (para pasarle el link al cliente)
 const supabase = require("../config/database");
+const { negocioConWhatsapp } = require("../utils/planNegocio");
 const { normalizarTelefono } = require("./whatsappService");
 const chats = require("./chatsService");
 
@@ -396,6 +397,8 @@ async function responderConIA(chatId) {
     if (chats.iaPausada(chat)) return { ok: false, motivo: "pausada" };
     if (!chats.ventanaAbierta(chat)) return { ok: false, motivo: "ventana_cerrada" };
 
+    // El bot con IA es del plan Estándar o Premium.
+    if (!(await negocioConWhatsapp(chat.negocio_id))) return { ok: false, motivo: "plan" };
     const cfgIA = await obtenerConfigIA(chat.negocio_id);
     if (!cfgIA.activo) return { ok: false, motivo: "desactivada" };
 
