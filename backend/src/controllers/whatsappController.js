@@ -108,7 +108,9 @@ const getResumenChats = async (req, res) => {
 // GET /api/whatsapp/chats/:id/mensajes
 const getMensajesChat = async (req, res) => {
   try {
-    const r = await chats.mensajesDelChat(getNegocioId(req), req.params.id);
+    const r = await chats.mensajesDelChat(getNegocioId(req), req.params.id, {
+      marcarLeido: req.user?.solo_lectura !== true,
+    });
     if (!r) return res.status(404).json({ message: "Chat no encontrado." });
     res.json(r);
   } catch (error) {

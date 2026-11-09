@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const checkPermiso = require("../middleware/checkPermiso");
+const noSoloLectura = require("../middleware/noSoloLectura");
 const { getEstado, getCheckout } = require("../controllers/suscripcionController");
 
 // Todas requieren estar logueado (se monta authMiddleware en server.js).
@@ -12,6 +13,6 @@ const { getEstado, getCheckout } = require("../controllers/suscripcionController
 // se exige el permiso "suscripcion", que sólo cubre el "*" del rol 'admin'.
 // El "Admin" (manager) y el staff quedan fuera.
 router.get("/", getEstado);
-router.get("/checkout/:plan", checkPermiso("suscripcion"), getCheckout);
+router.get("/checkout/:plan", noSoloLectura, checkPermiso("suscripcion"), getCheckout);
 
 module.exports = router;

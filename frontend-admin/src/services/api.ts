@@ -1,4 +1,5 @@
 import axios from "axios";
+import { salirDeVerComo, verComoActivo } from "../lib/verComo";
 
 // En dev usamos "/api" (proxy de Vite → localhost:5000).
 // En producción se define VITE_API_URL con la URL del backend.
@@ -41,6 +42,8 @@ api.interceptors.response.use(
   },
   (error) => {
     terminar();
+    // Venció "Ver como el cliente" en medio de la sesión: vuelve a la cuenta de Tech.
+    if (error?.response?.status === 401 && verComoActivo()) salirDeVerComo();
     const data = error?.response?.data as { error?: string } | undefined;
     if (
       error?.response?.status === 402 &&
@@ -133,6 +136,8 @@ export interface Usuario {
   must_change_password?: boolean;
   cuenta_id?: number;
   es_plataforma?: boolean;
+  // Tech viendo esta cuenta con "Ver como el cliente" (no se puede cambiar nada).
+  solo_lectura?: boolean;
   created_at?: string;
   // Verificación en dos pasos (2FA) activa.
   totp_activo?: boolean;
@@ -586,6 +591,13 @@ export const plataformaService = {
     (await api.get<Cuenta[]>("/plataforma/cuentas")).data,
   getResumen: async () =>
     (await api.get<PlataformaResumen>("/plataforma/resumen")).data,
+  // Token de solo lectura para "Ver como el cliente".
+  verComo: async (cuentaId: number) =>
+    (
+      await api.post<{ token: string; cuenta: { id: number; nombre: string }; minutos: number }>(
+        `/plataforma/cuentas/${cuentaId}/ver`,
+      )
+    ).data,
 };
 
 // ── Suscripción (Mercado Pago, mensual en ARS + prueba gratis) ──

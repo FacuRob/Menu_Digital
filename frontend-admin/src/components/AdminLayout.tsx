@@ -13,6 +13,7 @@ import { useLang, LangSelector } from "../lib/i18n";
 import { BRAND_NAME, BRAND_LOGO } from "../lib/brand";
 import { menuPath } from "../lib/menuUrl";
 import { useIsMobile } from "../lib/useIsMobile";
+import { salirDeVerComo, verComoActivo } from "../lib/verComo";
 import "../styles/shell.css";
 import { TituloCtx, useTituloPagina } from "./tituloPagina";
 
@@ -174,6 +175,44 @@ const rolLabel: Record<string, string> = {
   editor: "Staff",
   visor: "Staff",
 };
+
+// Tech viendo una cuenta con "Ver como el cliente": aviso fijo, hora de
+// cierre y botón para volver. Al vencer, vuelve solo.
+function CartelVerComo() {
+  const { logout } = useAuth();
+  const v = verComoActivo();
+  useEffect(() => {
+    if (!v) return;
+    const id = setTimeout(salirDeVerComo, Math.max(0, v.hasta - Date.now()));
+    return () => clearTimeout(id);
+  }, [v?.hasta]); // eslint-disable-line react-hooks/exhaustive-deps
+  const hora = v ? new Date(v.hasta).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : "";
+  return (
+    <section
+      aria-label="Modo solo lectura"
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b-2 border-warn bg-warn-bg px-4 py-2 text-sm text-warn"
+    >
+      <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0">
+        <path d="M2.5 12C3.7 7.9 7.5 5 12 5s8.3 2.9 9.5 7c-1.2 4.1-5 7-9.5 7s-8.3-2.9-9.5-7z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+      <p className="min-w-0 flex-1">
+        <strong className="font-semibold">
+          Solo lectura · Viendo como el cliente{v ? `: ${v.nombre}` : ""}
+        </strong>
+        <span> · No se puede cambiar nada{hora ? ` · Hasta las ${hora}` : ""}</span>
+      </p>
+      <button
+        type="button"
+        // Sin la sesión de Tech guardada (storage borrado) sólo queda salir.
+        onClick={v ? salirDeVerComo : logout}
+        className="min-h-[44px] cursor-pointer rounded-lg bg-surface-inv px-3 text-sm font-semibold text-fg-inv"
+      >
+        Volver a mi cuenta
+      </button>
+    </section>
+  );
+}
 
 // Envoltorio de cada pantalla: sólo informa el título. La estructura (menú,
 // barra superior, avisos) es AdminShell, que se monta una sola vez como
@@ -871,6 +910,8 @@ export function AdminShell() {
               )}
             </div>
           </header>
+
+          {user?.solo_lectura && <CartelVerComo />}
 
           <main id="contenido" ref={mainRef} className="sh-content" tabIndex={-1}>
             <Suspense

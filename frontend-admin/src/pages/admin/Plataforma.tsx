@@ -8,6 +8,7 @@ import {
   type PlataformaResumen,
   type TipoPlan,
 } from "../../services/api";
+import { entrarComo } from "../../lib/verComo";
 
 const planColor: Record<TipoPlan, string> = {
   free: "var(--fg-3)",
@@ -38,6 +39,23 @@ export default function Plataforma() {
   const [cuentas, setCuentas] = useState<Cuenta[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [entrando, setEntrando] = useState<number | null>(null);
+
+  // "Ver como el cliente": abre el panel de esa cuenta en solo lectura.
+  const verComo = async (c: Cuenta) => {
+    setEntrando(c.id);
+    setError(null);
+    try {
+      const r = await plataformaService.verComo(c.id);
+      if (!entrarComo(r.token, r.cuenta.nombre || c.nombre)) {
+        setError("Ya estás viendo otra cuenta (quizás en otra pestaña). Volvé a tu cuenta primero.");
+        setEntrando(null);
+      }
+    } catch (e) {
+      setError(getApiErrorMessage(e, "No se pudo abrir el panel de esa cuenta."));
+      setEntrando(null);
+    }
+  };
 
   useEffect(() => {
     // Cargamos resumen y cuentas por separado: si uno falla, el otro igual
@@ -191,6 +209,7 @@ export default function Plataforma() {
                 <tr>
                   {[
                     { label: t("pfColAccount"), left: true },
+                    { label: "Panel", left: false },
                     { label: t("colEmail"), left: true },
                     { label: t("pfColPlan"), left: false },
                     { label: t("colStatus"), left: false },
@@ -226,6 +245,18 @@ export default function Plataforma() {
                     <td style={{ padding: "11px 14px", color: textPrimary, fontWeight: 600, borderBottom: `1px solid ${cardBorder}`, whiteSpace: "nowrap" }}>
                       {c.nombre}
                       <span style={{ color: textMuted, fontWeight: 400, marginLeft: 6, fontSize: 11 }}>#{c.id}</span>
+                    </td>
+                    <td style={{ padding: "6px 14px", textAlign: "center", borderBottom: `1px solid ${cardBorder}` }}>
+                      <button
+                        type="button"
+                        onClick={() => verComo(c)}
+                        disabled={entrando !== null}
+                        aria-label={`Ver como cliente: ${c.nombre} (solo lectura)`}
+                        aria-busy={entrando === c.id}
+                        className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border border-line px-3 text-sm font-semibold text-fg transition-colors hover:bg-surface-2 disabled:cursor-wait disabled:opacity-60"
+                      >
+                        {entrando === c.id ? "Abriendo…" : "Ver como cliente"}
+                      </button>
                     </td>
                     <td style={{ padding: "11px 14px", color: "var(--fg-2)", borderBottom: `1px solid ${cardBorder}`, whiteSpace: "nowrap" }}>
                       {c.email || "—"}

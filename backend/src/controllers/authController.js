@@ -378,6 +378,13 @@ const verifyToken = async (req, res) => {
         .json({ message: "Usuario inactivo o no encontrado" });
     }
 
+    // "Ver como el cliente": el panel muestra el cartel y no pide cambiar la contraseña.
+    if (req.user.solo_lectura === true) {
+      return res.json({
+        message: "Token válido",
+        user: { ...user, permisos, must_change_password: false, solo_lectura: true },
+      });
+    }
     res.json({ message: "Token válido", user: { ...user, permisos } });
   } catch (error) {
     return respondError(res, error, "verifyToken");

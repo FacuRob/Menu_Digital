@@ -211,8 +211,8 @@ async function chatDelNegocio(negocioId, chatId) {
   return data || null;
 }
 
-// Mensajes de un chat (y lo marca como leído).
-async function mensajesDelChat(negocioId, chatId) {
+// Mensajes de un chat (y lo marca como leído, salvo en modo solo lectura).
+async function mensajesDelChat(negocioId, chatId, { marcarLeido = true } = {}) {
   const chat = await chatDelNegocio(negocioId, chatId);
   if (!chat) return null;
   const { data } = await supabase
@@ -221,11 +221,11 @@ async function mensajesDelChat(negocioId, chatId) {
     .eq("chat_id", chat.id)
     .order("created_at", { ascending: false })
     .limit(200);
-  if (chat.no_leidos) {
+  if (chat.no_leidos && marcarLeido) {
     await supabase.from("whatsapp_chats").update({ no_leidos: 0 }).eq("id", chat.id);
   }
   return {
-    chat: { ...chat, no_leidos: 0, puede_responder: ventanaAbierta(chat), ia_pausada: iaPausada(chat) },
+    chat: { ...chat, no_leidos: marcarLeido ? 0 : chat.no_leidos, puede_responder: ventanaAbierta(chat), ia_pausada: iaPausada(chat) },
     mensajes: (data || []).reverse(),
   };
 }

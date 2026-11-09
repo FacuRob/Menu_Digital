@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import { authService, type Usuario } from "../services/api";
+import { olvidarVerComo, saliendoDeVerComo, salirDeVerComo, verComoActivo } from "../lib/verComo";
 
 interface AuthContextType {
   user: Usuario | null;
@@ -39,6 +40,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setToken(savedToken);
           setMustChangePassword(response.user.must_change_password || false);
         } catch {
+          // Venció "Ver como el cliente": se vuelve a la cuenta de Tech.
+          if (saliendoDeVerComo()) return;
+          if (verComoActivo()) return salirDeVerComo();
           localStorage.removeItem("token");
           setToken(null);
           setUser(null);
@@ -51,8 +55,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     verifyToken();
   }, []);
 
+  // Otra pestaña cambió la sesión (entró o salió de "Ver como el cliente",
+  // inició o cerró sesión): se recarga para no mezclar cuentas.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "token" && e.oldValue !== e.newValue) window.location.reload();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   // Fija la sesión a partir de una respuesta de auth (login / signup / Google / 2FA).
   const setSession = (newToken: string, newUser: Usuario) => {
+    olvidarVerComo();
     setUser(newUser);
     setToken(newToken);
     setPermisos(newUser.permisos || []);
@@ -66,6 +81,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setPermisos([]);
     setMustChangePassword(false);
     localStorage.removeItem("token");
+    olvidarVerComo();
   };
 
   const hasPermiso = (permiso: string): boolean => {

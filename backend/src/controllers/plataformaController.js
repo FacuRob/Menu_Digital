@@ -1,3 +1,4 @@
+const jwt = require("jsonwebtoken");
 const supabase = require("../config/database");
 const { respondError } = require("../utils/respondError");
 const { preciosPorPlan, mrrDeCuenta } = require("../utils/planPrecios");
@@ -117,4 +118,68 @@ const getResumen = async (req, res) => {
   }
 };
 
-module.exports = { getCuentas, getResumen };
+// Cuánto dura "Ver como el cliente". Después hay que volver a entrar.
+const VER_COMO_MINUTOS = 30;
+
+// POST /api/plataforma/cuentas/:id/ver → token de SOLO LECTURA para ver el
+// panel de esa cuenta tal como lo ve su dueño. authMiddleware bloquea
+// cualquier cambio con este token (ver middleware/authMiddleware.js).
+const verComoCliente = async (req, res) => {
+  try {
+    const cuentaId = Number(req.params.id);
+    if (!Number.isInteger(cuentaId) || cuentaId <= 0) {
+      return res.status(400).json({ message: "Cuenta inválida." });
+    }
+    // El rol Tech sale del token (dura 24 h): acá se confirma en la base, por
+    // si se lo quitaron a alguien.
+    const { data: tech, error: errTech } = await supabase
+      .from("usuarios")
+      .select("id")
+      .eq("id", req.user.id)
+      .eq("activo", true)
+      .eq("es_plataforma", true)
+      .maybeSingle();
+    if (errTech) throw errTech;
+    if (!tech) return res.status(403).json({ message: "No autorizado." });
+
+    const [{ data: cuenta, error: errC }, { data: usuarios, error: errU }] = await Promise.all([
+      supabase.from("cuentas").select("id, nombre").eq("id", cuentaId).maybeSingle(),
+      supabase
+        .from("usuarios")
+        .select("id, username, rol, es_plataforma")
+        .eq("cuenta_id", cuentaId)
+        .eq("activo", true)
+        .order("id", { ascending: true }),
+    ]);
+    if (errC) throw errC;
+    if (errU) throw errU;
+    if (!cuenta) return res.status(404).json({ message: "No encontramos esa cuenta." });
+
+    // Se entra como el dueño (rol admin); si no hay, el primer usuario activo.
+    // Nunca como otro usuario Tech.
+    const candidatos = (usuarios || []).filter((u) => u.es_plataforma !== true);
+    const u = candidatos.find((x) => x.rol === "admin") || candidatos[0];
+    if (!u) return res.status(404).json({ message: "Esta cuenta no tiene usuarios activos." });
+
+    const token = jwt.sign(
+      {
+        id: u.id,
+        username: u.username,
+        rol: u.rol,
+        cuenta_id: cuentaId,
+        es_plataforma: false,
+        must_change_password: false,
+        solo_lectura: true,
+        tech_id: req.user.id,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: `${VER_COMO_MINUTOS}m` },
+    );
+    console.info(`[plataforma] Tech ${req.user.id} ve la cuenta ${cuentaId} como el usuario ${u.id} (solo lectura)`);
+    res.json({ token, cuenta: { id: cuenta.id, nombre: cuenta.nombre }, minutos: VER_COMO_MINUTOS });
+  } catch (error) {
+    return respondError(res, error, "plataforma.verComo");
+  }
+};
+
+module.exports = { getCuentas, getResumen, verComoCliente };

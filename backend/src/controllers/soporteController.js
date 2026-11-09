@@ -174,7 +174,7 @@ const ver = async (req, res) => {
 
     const campo = scope.esPlataforma ? "sin_leer_tech" : "sin_leer_cliente";
     // Sólo si no llegó nada nuevo mientras tanto (si no, se perdería el aviso).
-    if (ticket[campo]) {
+    if (ticket[campo] && req.user.solo_lectura !== true) {
       const { error: errLeido } = await supabase
         .from("soporte_tickets")
         .update({ [campo]: false })
