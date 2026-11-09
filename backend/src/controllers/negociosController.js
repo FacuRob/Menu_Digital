@@ -35,6 +35,42 @@ const getNegocioPublicoBySlug = async (req, res) => {
   }
 };
 
+// Menú general (RUTA PÚBLICA): a partir del slug de un negocio, devuelve el
+// nombre de la cuenta y todos sus negocios activos. Lo usa /menu/:slug/todos
+// (el QR "general" de las cuentas con varios negocios). El negocio del slug
+// puede estar inactivo: igual sirve para encontrar la cuenta.
+const getGrupoPublico = async (req, res) => {
+  try {
+    const slug = slugify(req.params.slug, 80);
+    if (!slug) return res.status(404).json({ message: "Negocio no encontrado" });
+
+    const { data: base, error } = await supabase
+      .from("negocios")
+      .select("cuenta_id")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (error) throw error;
+    if (!base?.cuenta_id) return res.status(404).json({ message: "Negocio no encontrado" });
+
+    const [negRes, cuentaRes] = await Promise.all([
+      supabase
+        .from("negocios")
+        .select("id, nombre, slug")
+        .eq("cuenta_id", base.cuenta_id)
+        .eq("activo", true)
+        .order("id", { ascending: true }),
+      supabase.from("cuentas").select("nombre").eq("id", base.cuenta_id).maybeSingle(),
+    ]);
+    if (negRes.error) throw negRes.error;
+    const negocios = negRes.data || [];
+    if (!negocios.length) return res.status(404).json({ message: "Negocio no encontrado" });
+
+    res.json({ nombre: cuentaRes.data?.nombre || negocios[0].nombre, negocios });
+  } catch (error) {
+    return respondError(res, error, "negocios");
+  }
+};
+
 // Listar negocios: SIEMPRE sólo los de la cuenta del usuario, también para el
 // Tech (plataforma). Los negocios de otras cuentas no se mezclan acá.
 const getNegocios = async (req, res) => {
@@ -192,6 +228,7 @@ const deleteNegocio = async (req, res) => {
 module.exports = {
   getNegocios,
   getNegocioPublicoBySlug,
+  getGrupoPublico,
   createNegocio,
   updateNegocio,
   deleteNegocio,

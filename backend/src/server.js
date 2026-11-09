@@ -41,6 +41,7 @@ const { getConfiguracion } = require("./controllers/configuracionController");
 const { createPedido } = require("./controllers/pedidosController");
 const {
   getNegocioPublicoBySlug,
+  getGrupoPublico,
 } = require("./controllers/negociosController");
 const { keepAlive } = require("./controllers/keepAliveController");
 const { startKeepAlive } = require("./services/keepAlive");
@@ -127,6 +128,8 @@ app.get("/api/configuracion", getConfiguracion);
 // (la ruta pública confía en X-Negocio-Id, que puede quedar viejo en el navegador).
 app.get("/api/panel/configuracion", authMiddleware, scopeNegocio, getConfiguracion);
 app.get("/api/negocios/publico/:slug", getNegocioPublicoBySlug);
+// Menú general: todos los negocios activos de la cuenta (/menu/:slug/todos).
+app.get("/api/negocios/publico/:slug/grupo", getGrupoPublico);
 app.post("/api/pedidos", pedidosLimiter, validate(createPedidoSchema), createPedido);
 
 // ============================================

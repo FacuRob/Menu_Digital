@@ -747,6 +747,12 @@ const es: Dict = {
   pfOriginManual: "manual",
   // ── Código QR ──
   qrHeading: "Código QR del menú",
+  qrForLabel: "QR de",
+  qrAllBiz: "Todos los negocios (menú general)",
+  qrAllName: "Todos los negocios",
+  qrAllLine: "Menú general",
+  qrAllSub: "Apunta al menú general: los productos de todos tus negocios, separados por negocio. Cada pedido llega al negocio que corresponde.",
+  qrAllNoSlug: "Para el menú general, el primer negocio necesita una dirección web (slug). Cargala en Negocios.",
   qrSubA: "Apunta a ",
   qrSubB:
     ". Descargalo o imprimilo para colocarlo en tus mesas; los clientes lo escanean y acceden al menú al instante.",

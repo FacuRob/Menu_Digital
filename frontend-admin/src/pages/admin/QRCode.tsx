@@ -15,7 +15,12 @@ const SIN_MESAS: { mesa: string; t: string }[] = [];
 export default function QRCode() {
   const S = useStyles();
   const { t } = useLang();
-  const { negocioId, negocios, slug } = useNegocio();
+  const { negocioId, negocios, slug, setNegocioId } = useNegocio();
+  // QR general: un solo QR para el menú con todos los negocios de la cuenta.
+  // Sólo tiene sentido con 2 o más negocios. Lo arma el slug del primero.
+  const [general, setGeneral] = useState(false);
+  const principal = negocios[0];
+  const verGeneral = general && negocios.length > 1;
   const [qrUrl, setQrUrl] = useState("");
   const [menuUrl, setMenuUrl] = useState("");
   const [copied, setCopied] = useState(false);
@@ -37,9 +42,9 @@ export default function QRCode() {
   const textPrimary = "var(--fg)";
   const textSecondary = "var(--fg-2)";
   const cardBg = "var(--surface)";
-  const negocioNombre =
-    negocios.find((n) => n.id === negocioId)?.nombre ||
-    t("bizFallback", { n: negocioId });
+  const negocioNombre = verGeneral
+    ? t("qrAllName")
+    : negocios.find((n) => n.id === negocioId)?.nombre || t("bizFallback", { n: negocioId });
 
   // Traer las mesas (con su firma) del negocio activo.
   useEffect(() => {
@@ -75,9 +80,17 @@ export default function QRCode() {
     let url = slug
       ? `${MENU_BASE}/menu/${slug}`
       : `${MENU_BASE}/menu?negocio=${negocioId}`;
+    if (verGeneral) {
+      if (!principal?.slug) {
+        setMenuUrl("");
+        setQrUrl("");
+        return;
+      }
+      url = `${MENU_BASE}/menu/${principal.slug}/todos`;
+    }
     // QR de mesa: lleva la firma; sin ella el menú no deja pedir "en mesa".
     const firma = mesas.find((m) => m.mesa === mesa)?.t;
-    if (mesa && firma) {
+    if (!verGeneral && mesa && firma) {
       url += `${slug ? "?" : "&"}mesa=${encodeURIComponent(mesa)}&t=${encodeURIComponent(firma)}`;
     }
     setMenuUrl(url);
@@ -91,11 +104,11 @@ export default function QRCode() {
         .then(() => setQrUrl(ref.current!.toDataURL("image/png")))
         .catch(console.error);
     }
-  }, [negocioId, slug, mesa, mesas]);
+  }, [negocioId, slug, mesa, mesas, verGeneral, principal?.slug]);
 
   const download = () => {
     const a = document.createElement("a");
-    a.download = `qr-${negocioNombre}${mesa ? `-mesa-${mesa}` : ""}.png`;
+    a.download = verGeneral ? "qr-menu-general.png" : `qr-${negocioNombre}${mesa ? `-mesa-${mesa}` : ""}.png`;
     a.href = qrUrl;
     a.click();
   };
@@ -161,7 +174,7 @@ export default function QRCode() {
               {negocioNombre}
             </div>
             <div style={{ color: "var(--info)", fontSize: 13, fontWeight: 600, marginTop: 3 }}>
-              {mesa ? t("pedTableN", { n: mesa }) : t("qrGeneral")}
+              {verGeneral ? t("qrAllLine") : mesa ? t("pedTableN", { n: mesa }) : t("qrGeneral")}
             </div>
           </div>
           <p style={{ color: textSecondary, fontSize: 12.5, margin: 0, maxWidth: 320, lineHeight: 1.5 }}>
@@ -186,14 +199,49 @@ export default function QRCode() {
                 {t("qrHeading")}
               </h2>
               <p style={{ color: textSecondary, fontSize: 13, margin: 0, lineHeight: 1.6 }}>
-                {t("qrSubA")}
-                <strong>{negocioNombre}</strong>
-                {t("qrSubB")}
+                {verGeneral ? (
+                  t("qrAllSub")
+                ) : (
+                  <>
+                    {t("qrSubA")}
+                    <strong>{negocioNombre}</strong>
+                    {t("qrSubB")}
+                  </>
+                )}
               </p>
+              {verGeneral && !principal?.slug && (
+                <p style={{ color: "var(--err)", fontSize: 13, margin: "8px 0 0" }}>{t("qrAllNoSlug")}</p>
+              )}
             </div>
 
+            {/* Para qué negocio es el QR (o el general), con 2+ negocios.
+                Elegir otro negocio lo deja activo en todo el panel. */}
+            {negocios.length > 1 && (
+              <div>
+                <label htmlFor="qr-para" style={S.label}>{t("qrForLabel")}</label>
+                <select
+                  id="qr-para"
+                  value={verGeneral ? "todos" : String(negocioId)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === "todos") return setGeneral(true);
+                    setGeneral(false);
+                    setNegocioId(Number(v));
+                  }}
+                  style={{ ...S.input, cursor: "pointer" } as React.CSSProperties}
+                >
+                  <option value="todos">{t("qrAllBiz")}</option>
+                  {negocios.map((n) => (
+                    <option key={n.id} value={n.id}>
+                      {n.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Selector de mesa (si el negocio usa mesas) */}
-            {mesas.length > 0 && (
+            {!verGeneral && mesas.length > 0 && (
               <div>
                 <label style={S.label}>{t("qrTableLabel")}</label>
                 <select

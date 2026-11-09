@@ -21,6 +21,13 @@ type Dict = Record<string, string>;
 // Sólo textos de la interfaz. El contenido del negocio (nombre de
 // productos, descripciones) queda en el idioma que lo cargó el local.
 const es: Dict = {
+  // Menú general (todos los negocios de la cuenta)
+  generalIntro: "Los menús de {n} negocios en un solo lugar. Cada pedido se hace a un solo negocio.",
+  businesses: "Negocios",
+  switchBizTitle: "¿Cambiar de negocio?",
+  switchBizDesc: "Tu pedido tiene productos de {actual}. Cada pedido se hace a un solo negocio: para pedir en {nuevo} hay que vaciar tu pedido actual.",
+  switchBizOk: "Vaciar pedido y pedir en {nuevo}",
+  switchBizCancel: "Seguir con {actual}",
   loading: "Cargando el menú…",
   defaultTitle: "Nuestro Menú",
   notFoundTitle: "Menú no encontrado",

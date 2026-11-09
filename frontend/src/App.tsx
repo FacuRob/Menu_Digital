@@ -45,7 +45,9 @@ function App() {
         <Route path="/privacidad" element={<Privacidad />} />
         <Route path="/menu" element={<Menu />} />
         {/* Menú por negocio (multi-tenant): /menu/:slug */}
-        <Route path="/menu/:slug" element={<Menu />} />
+        <Route path="/menu/:slug" element={<Menu key="uno" />} />
+        {/* Menú general: todos los negocios de la cuenta (QR general). */}
+        <Route path="/menu/:slug/todos" element={<Menu key="todos" general />} />
 
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -11,10 +11,11 @@ import type {
   Producto,
   Categoria,
   Configuracion,
+  NegocioPublico,
   HorariosConfig,
   DiaHorario,
 } from "../services/api";
-import { useCart } from "../hooks/useCart";
+import { useCart, type SelectedOption } from "../hooks/useCart";
 import {
   PRIMARY,
   PRIMARY_ON,
@@ -75,7 +76,12 @@ const abiertoAhora = (hc?: HorariosConfig | null): boolean | null => {
 const suave = (): ScrollBehavior =>
   window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
 
-const Menu = () => {
+// Negocio del menú general, con su configuración (horarios, entregas…).
+type NegocioMenu = NegocioPublico & { config: Configuracion | null };
+
+// general: /menu/:slug/todos → todos los negocios de la cuenta, separados.
+// El carrito es de un negocio a la vez (cada pedido va a un solo negocio).
+const Menu = ({ general = false }: { general?: boolean }) => {
   const { t } = useLang();
   const { slug } = useParams<{ slug?: string }>();
   // /menu a secas (sin slug ni ?negocio, que usan los QR viejos) es la demo.
@@ -83,6 +89,13 @@ const Menu = () => {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [config, setConfig] = useState<Configuracion | null>(null);
+  const [negocios, setNegocios] = useState<NegocioMenu[]>([]);
+  // Cambio de negocio del pedido pendiente de confirmar (menú general).
+  const [cambio, setCambio] = useState<{
+    prod: Producto;
+    qty: number;
+    opciones: SelectedOption[];
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [search, setSearch] = useState("");
@@ -125,6 +138,47 @@ const Menu = () => {
         setLoading(true);
         setNotFound(false);
 
+        // Menú general: los datos de cada negocio de la cuenta, en orden.
+        if (general && slug) {
+          let grupo;
+          try {
+            grupo = await negociosPublicoService.getGrupo(slug);
+          } catch {
+            setNotFound(true);
+            return;
+          }
+          // Si falla un negocio se omite; el resto del menú se muestra igual.
+          const datos = (
+            await Promise.all(
+              grupo.negocios.map(async (n) => {
+                try {
+                  const [p, c, cfg] = await Promise.all([
+                    productosService.getDisponibles(n.id),
+                    categoriasService.getActivas(n.id),
+                    configuracionService.get(n.id).catch(() => null),
+                  ]);
+                  return {
+                    neg: { ...n, config: cfg },
+                    // Cada producto queda marcado con su negocio (para el carrito).
+                    prods: (Array.isArray(p) ? p : []).map((x) => ({ ...x, negocio_id: n.id })),
+                    cats: Array.isArray(c) ? c : [],
+                  };
+                } catch {
+                  return null;
+                }
+              }),
+            )
+          ).filter((d) => d !== null);
+          setNegocios(datos.map((d) => d.neg));
+          setProductos(datos.flatMap((d) => d.prods));
+          setCategorias(datos.flatMap((d) => d.cats));
+          // Cabecera: el nombre de la cuenta con el color del primer negocio.
+          const primero = datos[0]?.neg.config;
+          setConfig({ nombre: grupo.nombre, color_primario: primero?.color_primario } as Configuracion);
+          setMonedaMenu(primero?.moneda);
+          return;
+        }
+
         // Multi-tenant: si la URL es /menu/:slug, resolver el slug al negocio
         // antes de pedir los datos. Si no existe, mostrar "no encontrado".
         if (slug) {
@@ -152,7 +206,7 @@ const Menu = () => {
         setLoading(false);
       }
     })();
-  }, [slug, demo]);
+  }, [slug, demo, general]);
 
   // Título de la pestaña con el nombre del local.
   useEffect(() => {
@@ -183,6 +237,58 @@ const Menu = () => {
     [categorias, filtered],
   );
 
+  // Menú general: cada negocio con sus categorías (sólo los que tienen
+  // productos a la vista). Las secciones de la barra son los negocios.
+  const porNegocio = useMemo(
+    () =>
+      negocios
+        .map((neg) => ({
+          neg,
+          cats: porCategoria
+            .map(({ cat, prods }) => ({ cat, prods: prods.filter((p) => p.negocio_id === neg.id) }))
+            .filter((pc) => pc.prods.length > 0),
+        }))
+        .filter((g) => g.cats.length > 0),
+    [negocios, porCategoria],
+  );
+  // Secciones navegables: negocios (menú general) o categorías.
+  const secciones = useMemo(
+    () =>
+      general
+        ? porNegocio.map((g) => ({ id: g.neg.id, nombre: g.neg.config?.nombre || g.neg.nombre }))
+        : porCategoria.map((pc) => ({ id: pc.cat.id, nombre: pc.cat.nombre })),
+    [general, porNegocio, porCategoria],
+  );
+
+  // Agregar al carrito. En el menú general, si el pedido ya tiene productos
+  // de otro negocio, se pregunta antes de vaciarlo.
+  // El negocio del pedido sale de lo que ya hay en el carrito.
+  const cartNeg = cart.lines[0]?.producto.negocio_id ?? null;
+  const agregar = (prod: Producto, qty: number, opciones: SelectedOption[] = []) => {
+    if (general) {
+      const neg = prod.negocio_id ?? null;
+      if (cart.count > 0 && neg !== cartNeg) {
+        setCambio({ prod, qty, opciones });
+        return;
+      }
+      if (neg !== null) setNegocioActivo(neg); // el pedido se crea en ese negocio
+    }
+    cart.add(prod, qty, opciones);
+  };
+  const confirmarCambio = () => {
+    if (!cambio) return;
+    cart.clear();
+    if (cambio.prod.negocio_id != null) setNegocioActivo(cambio.prod.negocio_id);
+    cart.add(cambio.prod, cambio.qty, cambio.opciones);
+    setCambio(null);
+  };
+  const negNombre = (id: number | null | undefined) => {
+    const n = negocios.find((x) => x.id === id);
+    return n?.config?.nombre || n?.nombre || "";
+  };
+  // Configuración que usa el carrito: la del negocio del pedido.
+  const cfgCarrito = general ? (negocios.find((n) => n.id === cartNeg)?.config ?? null) : config;
+
   // Alto de la barra fija (buscador + categorías) para compensar el scroll.
   const stickyOffset = () => (stickyRef.current?.offsetHeight || 120) + 12;
 
@@ -197,20 +303,20 @@ const Menu = () => {
   // Scroll-spy: resalta la categoría cuya sección estás mirando. Recorre las
   // secciones y marca como activa la última cuyo tope ya pasó el offset.
   useEffect(() => {
-    if (!porCategoria.length) return;
+    if (!secciones.length) return;
     const onScroll = () => {
       const offset = stickyOffset() + 40;
-      let current = porCategoria[0].cat.id;
-      for (const { cat } of porCategoria) {
-        const el = sectionRefs.current[cat.id];
-        if (el && el.getBoundingClientRect().top - offset <= 0) current = cat.id;
+      let current = secciones[0].id;
+      for (const { id } of secciones) {
+        const el = sectionRefs.current[id];
+        if (el && el.getBoundingClientRect().top - offset <= 0) current = id;
       }
       setActiveCat(current);
     };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [porCategoria]);
+  }, [secciones]);
 
   const pageStyle = paletteVars(config?.color_primario);
 
@@ -253,7 +359,7 @@ const Menu = () => {
 
   return (
     <div className="mn min-h-screen" style={pageStyle}>
-      <div inert={!!modalProd || cartOpen}>
+      <div inert={!!modalProd || cartOpen || !!cambio}>
       {demo && (
         <div className="mn-sobre-tinta flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-[var(--fg)] px-4 py-2.5 text-center text-[13px] text-[var(--bg)]">
           <span>{t("demoBanner")}</span>
@@ -310,7 +416,14 @@ const Menu = () => {
             </p>
           )}
 
+          {general && negocios.length > 1 && (
+            <p className="mn-in mt-3 text-[15px] sm:text-base" style={{ animationDelay: "60ms" }}>
+              {t("generalIntro", { n: negocios.length })}
+            </p>
+          )}
+
           {/* Estado + modos de entrega */}
+          {!general && (
           <div className="mn-in mt-5 flex flex-wrap items-center gap-2" style={{ animationDelay: "100ms" }}>
             {mesa && config?.mesas_activo && (
               <span className="mn-chip mn-chip-lleno">
@@ -337,6 +450,7 @@ const Menu = () => {
               </span>
             ))}
           </div>
+          )}
 
           {/* Contacto */}
           {(config?.direccion || config?.telefono || config?.email || config?.whatsapp) && (
@@ -394,8 +508,15 @@ const Menu = () => {
             )}
           </label>
 
-          {categorias.length > 0 && !q ? (
-            <CategoryBar categorias={categorias} onPick={scrollToCat} active={activeCat} rubro={config?.tipo_rubro} />
+          {secciones.length > 0 && !q ? (
+            <CategoryBar
+              categorias={general ? secciones : categorias}
+              onPick={scrollToCat}
+              active={activeCat}
+              rubro={config?.tipo_rubro}
+              sinIcono={general}
+              label={general ? t("businesses") : undefined}
+            />
           ) : (
             <div className="h-3" />
           )}
@@ -404,7 +525,7 @@ const Menu = () => {
 
       {/* ══ Productos ══ */}
       <main className="mx-auto max-w-6xl px-4 pt-8 sm:px-6">
-        {porCategoria.length === 0 ? (
+        {secciones.length === 0 ? (
           q ? (
             <div className="py-20 text-center">
               <p className="mn-display text-2xl">{t("noResults")}</p>
@@ -418,6 +539,48 @@ const Menu = () => {
               <p className="mt-3 text-[var(--fg-2)]">{t("preparingSubtitle")}</p>
             </div>
           )
+        ) : general ? (
+          <div className="flex flex-col gap-16">
+            {porNegocio.map(({ neg, cats }) => (
+              <section
+                key={neg.id}
+                aria-labelledby={`neg-${neg.id}`}
+                ref={(el) => {
+                  sectionRefs.current[neg.id] = el;
+                }}
+              >
+                <NegocioCabecera neg={neg} />
+                <div className="mt-6 flex flex-col gap-10">
+                  {cats.map(({ cat, prods }) => (
+                    <div key={cat.id}>
+                      <h3 className="mb-4 flex items-baseline gap-3">
+                        <span className="mn-display text-[clamp(1.375rem,5vw,1.875rem)]">{cat.nombre}</span>
+                        <span className="mn-num text-sm font-semibold text-[var(--fg-2)]">{prods.length}</span>
+                      </h3>
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                        {prods.map((prod, i) => (
+                          <ProductCard
+                            key={prod.id}
+                            prod={prod}
+                            index={i}
+                            titulo="h4"
+                            onOpen={() => setModalProd(prod)}
+                            onAdd={() => {
+                              if ((prod.variantes && prod.variantes.length > 0) || esPorPeso(prod)) {
+                                setModalProd(prod);
+                              } else {
+                                agregar(prod, 1);
+                              }
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
         ) : (
           <div className="flex flex-col gap-12">
             {porCategoria.map(({ cat, prods }) => (
@@ -444,7 +607,7 @@ const Menu = () => {
                         if ((prod.variantes && prod.variantes.length > 0) || esPorPeso(prod)) {
                           setModalProd(prod);
                         } else {
-                          cart.add(prod, 1);
+                          agregar(prod, 1);
                         }
                       }}
                     />
@@ -536,7 +699,7 @@ const Menu = () => {
         <ProductModal
           producto={modalProd}
           onClose={() => setModalProd(null)}
-          onAdd={(p, cantidad, opciones) => cart.add(p, cantidad, opciones)}
+          onAdd={(p, cantidad, opciones) => agregar(p, cantidad, opciones)}
         />
       )}
 
@@ -547,9 +710,128 @@ const Menu = () => {
         cart={cart}
         mesa={mesa}
         mesaToken={mesaToken}
-        config={config}
+        config={cfgCarrito}
         demo={demo}
       />
+
+      {/* Menú general: el pedido ya tiene productos de otro negocio. */}
+      {cambio && (
+        <CambioNegocio
+          actual={negNombre(cartNeg)}
+          nuevo={negNombre(cambio.prod.negocio_id)}
+          onConfirm={confirmarCambio}
+          onCancel={() => setCambio(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+// ── Menú general: cabecera de cada negocio (nombre, estado, entregas) ──
+const NegocioCabecera = ({ neg }: { neg: NegocioMenu }) => {
+  const { t } = useLang();
+  const cfg = neg.config;
+  const abierto = abiertoAhora(cfg?.horarios_config);
+  const hoyTxt = tieneHorarios(cfg?.horarios_config)
+    ? `${t("today")}: ${horarioHoy(cfg?.horarios_config) || t("closedToday")}`
+    : cfg?.horarios || "";
+  const entregas = [
+    cfg?.mesas_activo && (cfg.mesas_cantidad || 0) > 0 ? { k: "mesa", l: t("deliveryTable") } : null,
+    cfg?.retiro_activo ? { k: "bolsa", l: t("deliveryPickup") } : null,
+    cfg?.delivery_activo ? { k: "moto", l: t("deliveryDelivery") } : null,
+  ].filter(Boolean) as { k: string; l: string }[];
+  return (
+    <div className="border-b-2 border-[var(--fg)] pb-4">
+      <div className="flex items-center gap-3 sm:gap-4">
+        {cfg?.logo_url && (
+          <img src={cfg.logo_url} alt="" className="h-12 w-12 shrink-0 rounded-[14px] bg-white object-cover sm:h-14 sm:w-14" />
+        )}
+        <h2 id={`neg-${neg.id}`} className="mn-display min-w-0 break-words text-[clamp(2rem,8vw,3.25rem)]">
+          {cfg?.nombre || neg.nombre}
+        </h2>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {abierto !== null &&
+          (abierto ? (
+            <span className="mn-chip bg-[var(--fg)] text-[var(--bg)]">
+              <span className="h-2 w-2 rounded-full bg-current" aria-hidden />
+              {t("openNow")}
+            </span>
+          ) : (
+            <span className="mn-chip mn-chip-linea">{t("closedNow")}</span>
+          ))}
+        {hoyTxt && (
+          <span className="mn-chip mn-chip-linea mn-num">
+            <CIcon icon="clock" /> {hoyTxt}
+          </span>
+        )}
+        {entregas.map((e) => (
+          <span key={e.k} className="mn-chip mn-chip-linea">
+            <CIcon icon={e.k} /> {e.l}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ── Menú general: confirmar el cambio de negocio del pedido ──
+const CambioNegocio = ({
+  actual,
+  nuevo,
+  onConfirm,
+  onCancel,
+}: {
+  actual: string;
+  nuevo: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) => {
+  const { t } = useLang();
+  const okRef = useRef<HTMLButtonElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  // Al abrir, foco al botón principal; al cerrar, vuelve adonde estaba
+  // (se toma en el primer render, antes de mover el foco).
+  const [prev] = useState(() => document.activeElement as HTMLElement | null);
+  useEffect(() => {
+    okRef.current?.focus();
+    // Se espera un instante: al cerrar, el fondo todavía está inerte.
+    return () => void setTimeout(() => prev?.focus?.(), 0);
+  }, [prev]);
+  // Escape cancela sólo este diálogo; Tab queda entre los dos botones.
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      onCancel();
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      (document.activeElement === okRef.current ? cancelRef : okRef).current?.focus();
+    }
+  };
+  return (
+    <div className="fixed inset-0 z-[120] grid place-items-center bg-black/50 p-4" onClick={onCancel}>
+      <div
+        onKeyDown={onKeyDown}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="cambio-titulo"
+        aria-describedby="cambio-desc"
+        className="mn-in w-full max-w-sm rounded-[var(--r-lg)] bg-[var(--surface)] p-6 text-[var(--fg)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="cambio-titulo" className="mn-display text-2xl">{t("switchBizTitle")}</h2>
+        <p id="cambio-desc" className="mt-3 text-[15px] leading-relaxed text-[var(--fg-2)]">
+          {t("switchBizDesc", { actual, nuevo })}
+        </p>
+        <div className="mt-6 flex flex-col gap-2">
+          <button ref={okRef} type="button" onClick={onConfirm} className="mn-btn justify-center">
+            {t("switchBizOk", { nuevo })}
+          </button>
+          <button ref={cancelRef} type="button" onClick={onCancel} className="mn-btn mn-btn-borde justify-center">
+            {t("switchBizCancel", { actual })}
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
@@ -560,11 +842,14 @@ const ProductCard = ({
   index,
   onOpen,
   onAdd,
+  titulo: Titulo = "h3",
 }: {
   prod: Producto;
   index: number;
   onOpen: () => void;
   onAdd: () => void;
+  // En el menú general las categorías ya son h3: el producto va en h4.
+  titulo?: "h3" | "h4";
 }) => {
   const { t } = useLang();
   const personalizable = !!prod.variantes && prod.variantes.length > 0;
@@ -578,7 +863,7 @@ const ProductCard = ({
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col py-1 pr-1">
-        <h3 className="line-clamp-2 text-[16px] font-semibold leading-snug [font-stretch:105%]">
+        <Titulo className="line-clamp-2 text-[16px] font-semibold leading-snug [font-stretch:105%]">
           <button
             type="button"
             onClick={onOpen}
@@ -586,7 +871,7 @@ const ProductCard = ({
           >
             {prod.nombre}
           </button>
-        </h3>
+        </Titulo>
         {personalizable && (
           <span className="mt-1 self-start">
             <span className="mn-badge mn-label">{t("customizable")}</span>
@@ -625,11 +910,15 @@ const CategoryBar = ({
   onPick,
   active,
   rubro,
+  sinIcono = false,
+  label,
 }: {
-  categorias: Categoria[];
+  categorias: { id: number; nombre: string }[];
   onPick: (id: number) => void;
   active: number | null;
   rubro?: string | null;
+  sinIcono?: boolean;
+  label?: string;
 }) => {
   const { t } = useLang();
   const rowRef = useRef<HTMLDivElement>(null);
@@ -685,7 +974,7 @@ const CategoryBar = ({
   );
 
   return (
-    <nav aria-label={t("categories")} className="relative -mx-4 sm:mx-0">
+    <nav aria-label={label || t("categories")} className="relative -mx-4 sm:mx-0">
       {arrow("prev", atStart)}
       <div
         ref={rowRef}
@@ -708,7 +997,7 @@ const CategoryBar = ({
               aria-current={isActive ? "true" : undefined}
               className="mn-chip mn-cat shrink-0"
             >
-              <CategoriaIcon nombre={c.nombre} rubro={rubro} size={16} />
+              {!sinIcono && <CategoriaIcon nombre={c.nombre} rubro={rubro} size={16} />}
               {c.nombre}
             </button>
           );

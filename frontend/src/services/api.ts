@@ -27,7 +27,8 @@ api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
     if (token) config.headers.Authorization = `Bearer ${token}`;
-    if (negocioActivo) {
+    // Una llamada puede pedir otro negocio a propósito (menú general).
+    if (negocioActivo && config.params?.negocio == null) {
       config.params = { ...(config.params || {}), negocio: negocioActivo };
     }
     return config;
@@ -47,7 +48,17 @@ export const negociosPublicoService = {
   getBySlug: async (slug: string) =>
     (await api.get<NegocioPublico>(`/negocios/publico/${encodeURIComponent(slug)}`))
       .data,
+  // Menú general (/menu/:slug/todos): todos los negocios activos de la cuenta.
+  getGrupo: async (slug: string) =>
+    (
+      await api.get<{ nombre: string; negocios: NegocioPublico[] }>(
+        `/negocios/publico/${encodeURIComponent(slug)}/grupo`,
+      )
+    ).data,
 };
+
+// Parámetro para leer los datos de un negocio puntual (menú general).
+const delNegocio = (negocio?: number) => (negocio ? { params: { negocio } } : undefined);
 
 export interface Categoria {
   id: number;
@@ -149,8 +160,8 @@ export const authService = {
 
 export const categoriasService = {
   getAll: async () => (await api.get<Categoria[]>("/categorias")).data,
-  getActivas: async () =>
-    (await api.get<Categoria[]>("/categorias/activas")).data,
+  getActivas: async (negocio?: number) =>
+    (await api.get<Categoria[]>("/categorias/activas", delNegocio(negocio))).data,
   getById: async (id: number) =>
     (await api.get<Categoria>(`/categorias/${id}`)).data,
   create: async (c: Omit<Categoria, "id" | "created_at" | "updated_at">) =>
@@ -164,8 +175,8 @@ export const categoriasService = {
 
 export const productosService = {
   getAll: async () => (await api.get<Producto[]>("/productos")).data,
-  getDisponibles: async () =>
-    (await api.get<Producto[]>("/productos/disponibles")).data,
+  getDisponibles: async (negocio?: number) =>
+    (await api.get<Producto[]>("/productos/disponibles", delNegocio(negocio))).data,
   getByCategoria: async (id: number) =>
     (await api.get<Producto[]>(`/productos/categoria/${id}`)).data,
   getById: async (id: number) =>
@@ -283,7 +294,8 @@ export interface NuevoPedidoItem {
 }
 
 export const configuracionService = {
-  get: async () => (await api.get<Configuracion>("/configuracion")).data,
+  get: async (negocio?: number) =>
+    (await api.get<Configuracion>("/configuracion", delNegocio(negocio))).data,
   update: async (c: Partial<Configuracion>) =>
     (await api.put<Configuracion>("/configuracion", c)).data,
 };
