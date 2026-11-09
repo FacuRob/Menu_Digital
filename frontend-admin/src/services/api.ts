@@ -389,7 +389,7 @@ export interface NuevoPedidoItem {
 }
 
 export const configuracionService = {
-  get: async () => (await api.get<Configuracion>("/configuracion")).data,
+  get: async () => (await api.get<Configuracion>("/panel/configuracion")).data,
   update: async (c: Partial<Configuracion>) =>
     (await api.put<Configuracion>("/configuracion", c)).data,
 };

@@ -25,7 +25,9 @@ const getStored = () => {
 };
 
 export const NegocioProvider = ({ children }: { children: ReactNode }) => {
-  const { isSuperAdmin, hasPermiso, isAuthenticated } = useAuth();
+  const { isSuperAdmin, hasPermiso, isAuthenticated, user } = useAuth();
+  // Cambia con cada sesión (registro/login sin recargar sobre otra sesión).
+  const userId = user?.id ?? null;
   // Quién puede ver/cambiar de sucursal: el dueño (SuperAdmin) y el Admin
   // (manager), que también gestiona negocios.
   const puedeNegocios = isSuperAdmin || hasPermiso("negocios");
@@ -49,7 +51,7 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
         setSlug(cfg.slug || null);
       })
       .catch(() => {});
-  }, [isAuthenticated, negocioId]);
+  }, [isAuthenticated, negocioId, userId]);
 
   const refresh = async () => {
     if (!puedeNegocios) return;
@@ -71,9 +73,11 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
+    // Al cambiar de usuario, descartar la lista de la sesión anterior.
+    setNegocios([]);
     if (isAuthenticated && puedeNegocios) refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, puedeNegocios]);
+  }, [isAuthenticated, puedeNegocios, userId]);
 
   // Cambiar de negocio recarga la app para que todo re-consulte con el nuevo header.
   const setNegocioId = (id: number) => {

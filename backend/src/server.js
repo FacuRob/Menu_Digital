@@ -123,6 +123,9 @@ app.get("/api/categorias/activas", getCategoriasActivas);
 app.get("/api/productos/disponibles", getProductosDisponibles);
 app.get("/api/configuracion", getConfiguracion);
 // Resolver el negocio del menú público por su slug (/menu/:slug).
+// Lectura del panel: misma data, pero con el negocio validado contra la cuenta
+// (la ruta pública confía en X-Negocio-Id, que puede quedar viejo en el navegador).
+app.get("/api/panel/configuracion", authMiddleware, scopeNegocio, getConfiguracion);
 app.get("/api/negocios/publico/:slug", getNegocioPublicoBySlug);
 app.post("/api/pedidos", pedidosLimiter, validate(createPedidoSchema), createPedido);
 
