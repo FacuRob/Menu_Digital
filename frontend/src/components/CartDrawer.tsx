@@ -10,15 +10,16 @@ export default function CartDrawer({
   onClose,
   cart,
   mesa,
-  setMesa,
+  mesaToken,
   config,
   demo = false,
 }: {
   open: boolean;
   onClose: () => void;
   cart: CartApi;
+  // Mesa y firma del QR. Vacías = QR general (no se puede pedir en mesa).
   mesa: string;
-  setMesa: (m: string) => void;
+  mesaToken: string;
   config: Configuracion | null;
   // Menú de ejemplo: el pedido no se guarda ni se manda por WhatsApp.
   demo?: boolean;
@@ -40,17 +41,27 @@ export default function CartDrawer({
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
+  // El backend rechazó el QR de mesa (firma vieja, mesa que ya no existe…):
+  // se deja de ofrecer "en mesa" y el cliente puede elegir otra opción.
+  const [mesaRechazada, setMesaRechazada] = useState(false);
 
   const { lines, total, setQty, remove, clear } = cart;
 
   // Opciones de entrega activas según la configuración del local.
   const opciones = useMemo<TipoEntrega[]>(() => {
     const o: TipoEntrega[] = [];
-    if (config?.mesas_activo && (config.mesas_cantidad || 0) > 0) o.push("mesa");
+    // QR de mesa: el pedido es para esa mesa, sin otras opciones.
+    if (mesa && mesaToken && !mesaRechazada && config?.mesas_activo) return ["mesa"];
+    // QR general: sólo retiro o delivery (nunca elegir una mesa a mano).
     if (config?.retiro_activo) o.push("retiro");
     if (config?.delivery_activo) o.push("delivery");
     return o;
-  }, [config]);
+  }, [config, mesa, mesaToken, mesaRechazada]);
+
+  // QR general en un local que sólo atiende en mesa: no hay a dónde mandar
+  // el pedido. Se pide escanear el QR de la mesa (el backend también lo exige).
+  const sinDestino =
+    opciones.length === 0 && !!config?.mesas_activo && (config.mesas_cantidad || 0) > 0;
 
   const resetAll = () => {
     clear();
@@ -59,7 +70,6 @@ export default function CartDrawer({
     setDireccion("");
     setTelefono("");
     setAvisoWa(false);
-    setMesa("");
     setTipo(null);
     setStep("datos");
   };
@@ -97,7 +107,8 @@ export default function CartDrawer({
   }, [open]);
 
   const buildPayload = (tipoEntrega: TipoEntrega | null) => ({
-    mesa: tipoEntrega === "mesa" ? mesa.trim() || null : null,
+    mesa: tipoEntrega === "mesa" ? mesa : null,
+    mesa_token: tipoEntrega === "mesa" ? mesaToken : null,
     cliente: cliente.trim(),
     nota: nota.trim() || null,
     tipo_entrega: tipoEntrega,
@@ -122,10 +133,10 @@ export default function CartDrawer({
   // Validaciones
   const nombreOk = cliente.trim().length > 0;
   const entregaOk =
-    opciones.length === 0 ||
-    (tipo === "mesa" && mesa.trim()) ||
-    (tipo === "retiro" && telefono.trim()) ||
-    (tipo === "delivery" && direccion.trim() && telefono.trim());
+    (opciones.length === 0 && !sinDestino) ||
+    (tipo === "mesa" && !!mesa && !!mesaToken && !mesaRechazada) ||
+    (tipo === "retiro" && !!telefono.trim()) ||
+    (tipo === "delivery" && !!direccion.trim() && !!telefono.trim());
 
   const irAEntrega = () => {
     if (!nombreOk) {
@@ -133,6 +144,10 @@ export default function CartDrawer({
       return;
     }
     setError("");
+    if (sinDestino) {
+      setError(t("scanTableQr"));
+      return;
+    }
     if (opciones.length === 0) {
       finalizar(null, false);
       return;
@@ -150,7 +165,13 @@ export default function CartDrawer({
       return pedido;
     } catch (e) {
       console.error(e);
-      setError(t("errSendFailed"));
+      // Mostrar el motivo real del backend (p. ej. "escaneá el QR de tu mesa").
+      const r = (e as { response?: { status?: number; data?: { message?: string } } }).response;
+      setError(r?.data?.message || t("errSendFailed"));
+      if (r?.status === 400 && tipoEntrega === "mesa") {
+        setMesaRechazada(true);
+        setTipo(null);
+      }
       return null;
     } finally {
       setSending(false);
@@ -162,7 +183,7 @@ export default function CartDrawer({
       setError(t("errEnterName"));
       return false;
     }
-    if (tipoEntrega === "mesa" && !mesa.trim()) {
+    if (tipoEntrega === "mesa" && (!mesa || !mesaToken || mesaRechazada)) {
       setError(t("errChooseTable"));
       return false;
     }
@@ -346,10 +367,11 @@ export default function CartDrawer({
               total={total}
               error={error}
               primaryLabel={opciones.length === 0 ? (sending ? t("sending") : t("confirmOrder")) : t("continue")}
-              primaryDisabled={sending}
+              primaryDisabled={sending || sinDestino}
               onPrimary={irAEntrega}
               showWhatsApp={opciones.length === 0}
-              whatsAppDisabled={sending}
+              whatsAppDisabled={sending || sinDestino}
+              aviso={sinDestino ? t("scanTableQr") : undefined}
               onWhatsApp={() => finalizar(null, true)}
             />
           </>
@@ -371,7 +393,9 @@ export default function CartDrawer({
                     className="mn-opcion min-h-[3.75rem]"
                   >
                     <CIcon icon={op === "mesa" ? "mesa" : op === "retiro" ? "bolsa" : "moto"} size={22} />
-                    <span className="flex-1 text-base font-bold">{entregaLabel[op]}</span>
+                    <span className="flex-1 text-base font-bold">
+                      {op === "mesa" ? `${entregaLabel.mesa} · ${t("tableN", { n: mesa })}` : entregaLabel[op]}
+                    </span>
                     <span className="mn-marca" aria-hidden>
                       {tipo === op && <span className="h-2 w-2 rounded-full bg-current" />}
                     </span>
@@ -381,17 +405,9 @@ export default function CartDrawer({
 
               {/* Campos según opción */}
               {tipo === "mesa" && (
-                <label className="mt-5 block">
-                  <span className="mn-field-label">{t("tableLabel")}</span>
-                  <select value={mesa} onChange={(e) => setMesa(e.target.value)} className="mn-field">
-                    <option value="">{t("chooseTable")}</option>
-                    {Array.from({ length: config?.mesas_cantidad || 0 }, (_, i) => i + 1).map((n) => (
-                      <option key={n} value={String(n)}>
-                        {t("tableN", { n })}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <p className="mt-5 rounded-[var(--r-sm)] bg-[var(--surface)] px-4 py-3 text-[15px] ring-1 ring-[var(--line)]">
+                  {t("tableFromQr", { n: mesa })}
+                </p>
               )}
               {tipo === "delivery" && (
                 <label className="mt-5 block">
@@ -451,6 +467,7 @@ export default function CartDrawer({
 function Footer({
   total,
   error,
+  aviso,
   primaryLabel,
   primaryDisabled,
   onPrimary,
@@ -460,6 +477,7 @@ function Footer({
 }: {
   total: number;
   error: string;
+  aviso?: string;
   primaryLabel: string;
   primaryDisabled: boolean;
   onPrimary: () => void;
@@ -470,6 +488,11 @@ function Footer({
   const { t } = useLang();
   return (
     <div className="border-t border-[var(--line)] bg-[var(--surface)] px-4 pt-4" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
+      {aviso && !error && (
+        <p role="status" className="mb-3 rounded-[var(--r-sm)] bg-[var(--bg-2)] px-3 py-2 text-sm font-semibold">
+          {aviso}
+        </p>
+      )}
       {error && (
         <p role="alert" className="mb-3 rounded-[var(--r-sm)] bg-[var(--err-bg)] px-3 py-2 text-sm font-semibold text-[var(--err)]">
           {error}

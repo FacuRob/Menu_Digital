@@ -24,6 +24,9 @@ const requirePlataforma = require("./middleware/requirePlataforma");
 const checkSuscripcion = require("./middleware/checkSuscripcion");
 const { mercadoPagoWebhook } = require("./controllers/mercadoPagoController");
 const whatsappRoutes = require("./routes/whatsapp");
+const qrRoutes = require("./routes/qr");
+const { avisarClaveMesas } = require("./utils/mesaQr");
+const { respondError } = require("./utils/respondError");
 const {
   verificarWebhook: verificarWebhookWhatsapp,
   recibirWebhook: recibirWebhookWhatsapp,
@@ -170,6 +173,8 @@ app.use(
   checkPermiso("configuracion"),
   configuracionRoutes,
 );
+// Firmas de los QR por mesa (pantalla "Código QR" del panel).
+app.use("/api/qr", authMiddleware, scopeNegocio, checkSuscripcion, checkPermiso("qr"), qrRoutes);
 app.use(
   "/api/pedidos",
   authMiddleware,
@@ -223,7 +228,21 @@ app.use(
   plataformaRoutes,
 );
 
+// Errores que no atrapó ninguna ruta (p. ej. JSON mal formado en el pedido
+// público): respuesta corta, sin stack ni rutas de archivos.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  if (err?.type === "entity.parse.failed") {
+    return res.status(400).json({ message: "El cuerpo de la solicitud no es un JSON válido." });
+  }
+  if (err?.status && err.status < 500) {
+    return res.status(err.status).json({ message: "Solicitud inválida." });
+  }
+  return respondError(res, err, "express");
+});
+
 app.listen(PORT, () => {
+  avisarClaveMesas();
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
   // Keep-alive interno: mantiene despiertos Render y Supabase mientras el
   // proceso está vivo (ping a la DB + auto-llamada HTTP cada 14 min).

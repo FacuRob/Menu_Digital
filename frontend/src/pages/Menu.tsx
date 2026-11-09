@@ -88,9 +88,14 @@ const Menu = () => {
   const [search, setSearch] = useState("");
   const [modalProd, setModalProd] = useState<Producto | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
-  const [mesa, setMesa] = useState(
-    () => new URLSearchParams(window.location.search).get("mesa") || "",
-  );
+  // Mesa del QR (?mesa=5&t=<firma>). Es fija: el cliente no la elige ni la
+  // cambia. Sin firma es el QR general y no se puede pedir "en mesa"; el
+  // backend lo vuelve a verificar al recibir el pedido.
+  const [{ mesa, mesaToken }] = useState(() => {
+    const qs = new URLSearchParams(window.location.search);
+    const t = qs.get("t") || "";
+    return { mesa: t ? (qs.get("mesa") || "").trim().slice(0, 50) : "", mesaToken: t };
+  });
 
   const cart = useCart();
   const sectionRefs = useRef<Record<number, HTMLElement | null>>({});
@@ -305,6 +310,11 @@ const Menu = () => {
 
           {/* Estado + modos de entrega */}
           <div className="mn-in mt-5 flex flex-wrap items-center gap-2" style={{ animationDelay: "100ms" }}>
+            {mesa && config?.mesas_activo && (
+              <span className="mn-chip mn-chip-lleno">
+                <CIcon icon="mesa" /> {t("tableN", { n: mesa })}
+              </span>
+            )}
             {abierto !== null &&
               (abierto ? (
                 <span className="mn-chip mn-chip-lleno">
@@ -534,7 +544,7 @@ const Menu = () => {
         onClose={() => setCartOpen(false)}
         cart={cart}
         mesa={mesa}
-        setMesa={setMesa}
+        mesaToken={mesaToken}
         config={config}
         demo={demo}
       />

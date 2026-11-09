@@ -4,9 +4,13 @@ import AdminLayout from "../../components/AdminLayout";
 import { useStyles } from "../../components/sharedStyles";
 import { useNegocio } from "../../context/NegocioContext";
 import { useLang } from "../../lib/i18n";
-import { configuracionService } from "../../services/api";
+import { qrService, getApiErrorMessage } from "../../services/api";
+import { useDialogos } from "../../lib/dialogos";
 
 import { MENU_PUBLIC_BASE as MENU_BASE } from "../../lib/menuUrl";
+
+// Lista vacía estable (no cambia entre renders).
+const SIN_MESAS: { mesa: string; t: string }[] = [];
 
 export default function QRCode() {
   const S = useStyles();
@@ -15,8 +19,19 @@ export default function QRCode() {
   const [qrUrl, setQrUrl] = useState("");
   const [menuUrl, setMenuUrl] = useState("");
   const [copied, setCopied] = useState(false);
-  const [mesa, setMesa] = useState("");
-  const [mesasCant, setMesasCant] = useState(0);
+  // Mesa elegida, atada al negocio: al cambiar de negocio vuelve a "General".
+  const [eleccion, setEleccion] = useState({ negocio: negocioId, mesa: "" });
+  const mesa = eleccion.negocio === negocioId ? eleccion.mesa : "";
+  const setMesa = (m: string) => setEleccion({ negocio: negocioId, mesa: m });
+  // Mesas con su firma, atadas al negocio que las pidió: si llega tarde la
+  // respuesta de otro negocio, no se mezclan firmas en el QR.
+  const [firmas, setFirmas] = useState<{ negocio: number; mesas: { mesa: string; t: string }[] }>({
+    negocio: negocioId,
+    mesas: [],
+  });
+  const mesas = firmas.negocio === negocioId ? firmas.mesas : SIN_MESAS;
+  const { confirmar, avisar } = useDialogos();
+  const [regenerando, setRegenerando] = useState(false);
   const ref = useRef<HTMLCanvasElement>(null);
 
   const textPrimary = "var(--fg)";
@@ -26,13 +41,32 @@ export default function QRCode() {
     negocios.find((n) => n.id === negocioId)?.nombre ||
     t("bizFallback", { n: negocioId });
 
-  // Traer cantidad de mesas del negocio activo.
+  // Traer las mesas (con su firma) del negocio activo.
   useEffect(() => {
-    configuracionService
-      .get()
-      .then((c) => setMesasCant(c.mesas_activo ? c.mesas_cantidad || 0 : 0))
-      .catch(() => setMesasCant(0));
+    let vigente = true;
+    qrService
+      .mesas()
+      .then((m) => vigente && setFirmas({ negocio: negocioId, mesas: m }))
+      .catch(() => vigente && setFirmas({ negocio: negocioId, mesas: [] }));
+    return () => {
+      vigente = false;
+    };
   }, [negocioId]);
+
+  // Anula todos los QR de mesa impresos (por ejemplo si alguien se llevó
+  // una foto del QR y hace pedidos falsos). Hay que reimprimirlos.
+  const regenerar = async () => {
+    if (!(await confirmar({ mensaje: t("qrRegenConfirm"), peligro: true }))) return;
+    setRegenerando(true);
+    try {
+      setFirmas({ negocio: negocioId, mesas: await qrService.regenerar() });
+      void avisar({ mensaje: t("qrRegenDone"), tipo: "info" });
+    } catch (e) {
+      void avisar({ mensaje: getApiErrorMessage(e, t("qrRegenError")), tipo: "error" });
+    } finally {
+      setRegenerando(false);
+    }
+  };
 
   // Generar la URL + QR cuando cambia negocio, slug o mesa.
   useEffect(() => {
@@ -41,7 +75,11 @@ export default function QRCode() {
     let url = slug
       ? `${MENU_BASE}/menu/${slug}`
       : `${MENU_BASE}/menu?negocio=${negocioId}`;
-    if (mesa) url += `${slug ? "?" : "&"}mesa=${encodeURIComponent(mesa)}`;
+    // QR de mesa: lleva la firma; sin ella el menú no deja pedir "en mesa".
+    const firma = mesas.find((m) => m.mesa === mesa)?.t;
+    if (mesa && firma) {
+      url += `${slug ? "?" : "&"}mesa=${encodeURIComponent(mesa)}&t=${encodeURIComponent(firma)}`;
+    }
     setMenuUrl(url);
     if (ref.current) {
       QRCodeLib.toCanvas(ref.current, url, {
@@ -53,7 +91,7 @@ export default function QRCode() {
         .then(() => setQrUrl(ref.current!.toDataURL("image/png")))
         .catch(console.error);
     }
-  }, [negocioId, slug, mesa]);
+  }, [negocioId, slug, mesa, mesas]);
 
   const download = () => {
     const a = document.createElement("a");
@@ -155,7 +193,7 @@ export default function QRCode() {
             </div>
 
             {/* Selector de mesa (si el negocio usa mesas) */}
-            {mesasCant > 0 && (
+            {mesas.length > 0 && (
               <div>
                 <label style={S.label}>{t("qrTableLabel")}</label>
                 <select
@@ -164,12 +202,32 @@ export default function QRCode() {
                   style={{ ...S.input, cursor: "pointer" } as React.CSSProperties}
                 >
                   <option value="">{t("qrGeneral")}</option>
-                  {Array.from({ length: mesasCant }, (_, i) => i + 1).map((n) => (
-                    <option key={n} value={String(n)}>
-                      {t("pedTableN", { n })}
+                  {mesas.map((m) => (
+                    <option key={m.mesa} value={m.mesa}>
+                      {t("pedTableN", { n: m.mesa })}
                     </option>
                   ))}
                 </select>
+                <p style={{ fontSize: 12, color: textSecondary, marginTop: 6 }}>{t("qrTableHint")}</p>
+                <button
+                  type="button"
+                  className="tap"
+                  onClick={regenerar}
+                  disabled={regenerando}
+                  style={{
+                    marginTop: 8,
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    border: "1px solid color-mix(in srgb, var(--err) 45%, transparent)",
+                    background: "transparent",
+                    color: "var(--err)",
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    cursor: regenerando ? "default" : "pointer",
+                  }}
+                >
+                  {regenerando ? t("qrRegenerating") : t("qrRegen")}
+                </button>
               </div>
             )}
 

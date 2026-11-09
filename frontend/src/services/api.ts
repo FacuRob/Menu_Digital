@@ -291,6 +291,7 @@ export const configuracionService = {
 export const pedidosService = {
   create: async (payload: {
     mesa?: string | null;
+    mesa_token?: string | null;
     cliente?: string | null;
     nota?: string | null;
     tipo_entrega?: TipoEntrega | null;

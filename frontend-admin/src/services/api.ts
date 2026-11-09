@@ -527,6 +527,16 @@ export interface PlanInfo {
   productos_usados: number;
 }
 
+// Firmas de los QR por mesa: la URL lleva ?mesa=N&t=<firma> y el backend
+// sólo acepta pedidos "en mesa" con una firma válida.
+export const qrService = {
+  mesas: async () =>
+    (await api.get<{ mesas: { mesa: string; t: string }[] }>("/qr/mesas")).data.mesas,
+  // Anula todos los QR de mesa impresos del negocio y devuelve las firmas nuevas.
+  regenerar: async () =>
+    (await api.post<{ mesas: { mesa: string; t: string }[] }>("/qr/regenerar")).data.mesas,
+};
+
 export const planService = {
   get: async () => (await api.get<PlanInfo>("/plan")).data,
 };

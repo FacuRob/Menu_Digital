@@ -157,6 +157,8 @@ const createPedidoSchema = z.object({
     .min(1, "El pedido debe incluir al menos un producto")
     .max(100),
   mesa: z.union([z.string().max(50), z.number()]).optional().nullable(),
+  // Firma del QR de la mesa (?t=). Sin una firma válida no se acepta "mesa".
+  mesa_token: z.string().max(64).optional().nullable(),
   cliente: z.string().trim().max(120).optional().nullable(),
   nota: z.string().trim().max(1000).optional().nullable(),
   tipo_entrega: z.enum(["mesa", "retiro", "delivery"]).optional().nullable(),

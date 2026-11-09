@@ -2,6 +2,7 @@ const supabase = require("../config/database");
 const { getNegocioId } = require("../utils/negocio");
 const { respondError } = require("../utils/respondError");
 const { notificarPedido } = require("../services/avisosPedidoService");
+const { mesaValida, normalizarMesa } = require("../utils/mesaQr");
 
 // Dispara el aviso de WhatsApp en segundo plano (nunca bloquea la respuesta).
 const avisarEnSegundoPlano = (pedido, estado) => {
@@ -23,12 +24,55 @@ const createPedido = async (req, res) => {
       direccion_entrega,
       telefono_cliente,
       acepta_whatsapp,
+      mesa_token,
     } = req.body;
 
     if (!Array.isArray(items) || items.length === 0) {
       return res
         .status(400)
         .json({ message: "El pedido debe incluir al menos un producto" });
+    }
+
+    // Tipo de entrega según la configuración ACTUAL del local (no la del
+    // cliente). "*" para no fallar si falta alguna columna nueva.
+    const { data: cfg, error: cfgErr } = await supabase
+      .from("configuracion")
+      .select("*")
+      .eq("negocio_id", negocioId)
+      .maybeSingle();
+    if (cfgErr) throw cfgErr;
+
+    const MSG_QR = "Para pedir en la mesa, escaneá el código QR de tu mesa.";
+    if (cfg) {
+      const activas = {
+        mesa: !!cfg.mesas_activo && Number(cfg.mesas_cantidad) > 0,
+        retiro: !!cfg.retiro_activo,
+        delivery: !!cfg.delivery_activo,
+      };
+      if (tipo_entrega && !activas[tipo_entrega]) {
+        return res.status(400).json({ message: "Ese tipo de entrega no está disponible en este local." });
+      }
+      // Sin tipo sólo vale si el local no ofrece ninguno (pedido en mostrador).
+      if (!tipo_entrega && (activas.mesa || activas.retiro || activas.delivery)) {
+        const soloMesa = activas.mesa && !activas.retiro && !activas.delivery;
+        return res
+          .status(400)
+          .json({ message: soloMesa ? MSG_QR : "Elegí cómo querés recibir tu pedido." });
+      }
+    }
+
+    // "En mesa" sólo con el QR firmado de esa mesa, y si la mesa existe hoy:
+    // el cliente no puede elegir ni cambiar la mesa. Con otro tipo de entrega
+    // la mesa se descarta.
+    let mesaFinal = null;
+    if (tipo_entrega === "mesa") {
+      const m = normalizarMesa(mesa);
+      const n = Number(m);
+      const existe = !!cfg && Number.isInteger(n) && n >= 1 && n <= Number(cfg.mesas_cantidad || 0);
+      if (!existe || !mesaValida(negocioId, m, mesa_token, cfg.mesas_qr_version ?? 1)) {
+        return res.status(400).json({ message: MSG_QR });
+      }
+      mesaFinal = m;
     }
 
     // Traer precios/costos/stock reales desde la base (no confiar en el cliente).
@@ -117,7 +161,7 @@ const createPedido = async (req, res) => {
       .insert([
         {
           negocio_id: negocioId,
-          mesa: mesa || null,
+          mesa: mesaFinal,
           cliente: cliente || null,
           nota: nota || null,
           tipo_entrega: tipo_entrega || null,
