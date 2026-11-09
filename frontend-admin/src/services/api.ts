@@ -87,6 +87,8 @@ export interface Producto {
   costo?: number;
   stock?: number;
   controlar_stock?: boolean;
+  // "kg": precio por kilo y stock en kg. Sin el campo (migración pendiente) = unidad.
+  unidad_venta?: "unidad" | "kg";
   negocio_id?: number;
   sku?: string | null;
   atributos?: Record<string, unknown>;
@@ -358,8 +360,9 @@ export interface PedidoItem {
   producto_id: number | null;
   nombre: string;
   precio_unit: number;
-  cantidad: number;
+  cantidad: number; // en kg si unidad = "kg"
   subtotal: number;
+  unidad?: "unidad" | "kg";
 }
 
 export interface Pedido {
@@ -401,8 +404,20 @@ export const pedidosService = {
     telefono_cliente?: string | null;
     items: NuevoPedidoItem[];
   }) => (await api.post<Pedido>("/pedidos", payload)).data,
-  getAll: async (params?: { estado?: string; mesa?: string }) =>
+  getAll: async (params?: { estado?: string; mesa?: string; vista?: "curso" | "historial" }) =>
     (await api.get<Pedido[]>("/pedidos", { params })).data,
+  // Historial paginado: entregados y cancelados de un período.
+  getPagina: async (params: {
+    vista?: "curso" | "historial";
+    estado?: string;
+    mesa?: string;
+    desde?: string;
+    hasta?: string;
+    limit: number;
+    offset: number;
+  }) => (await api.get<{ pedidos: Pedido[]; total: number }>("/pedidos", { params })).data,
+  // Sólo pedidos cancelados (el backend rechaza el resto).
+  delete: async (id: number) => (await api.delete(`/pedidos/${id}`)).data,
   getById: async (id: number) =>
     (await api.get<Pedido>(`/pedidos/${id}`)).data,
   updateEstado: async (id: number, estado: Pedido["estado"]) =>

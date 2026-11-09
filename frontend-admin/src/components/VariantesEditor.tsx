@@ -8,6 +8,7 @@ import {
 } from "../services/api";
 import { useLang } from "../lib/i18n";
 import { IconPlus, IconTrash, IconX } from "../lib/icons";
+import { Switch } from "./ui";
 
 // Grupo editable en memoria: puede no tener id todavía (aún no guardado).
 interface EditGrupo {
@@ -32,6 +33,14 @@ const fromServer = (g: VarianteGrupo): EditGrupo => ({
   })),
 });
 
+const grupoVacio = (): EditGrupo => ({
+  nombre: "",
+  tipo: "single",
+  obligatorio: false,
+  opciones: [],
+  _dirty: true,
+});
+
 const inputStyle: React.CSSProperties = {
   padding: "7px 10px",
   borderRadius: 8,
@@ -48,20 +57,32 @@ const inputStyle: React.CSSProperties = {
  * Sirve para talles, colores o extras. Carga y guarda cada grupo de
  * forma independiente contra /api/variantes (no depende del form del producto).
  */
-export default function VariantesEditor({ productoId }: { productoId: number }) {
+export default function VariantesEditor({
+  productoId,
+  iniciarActivo = false,
+}: {
+  productoId: number;
+  // Producto recién creado con "Personalizable" encendido: arranca abierto.
+  iniciarActivo?: boolean;
+}) {
   const { t } = useLang();
   const { confirmar } = useDialogos();
   const [grupos, setGrupos] = useState<EditGrupo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState<number | "nuevo" | null>(null);
+  // Switch "Personalizable": encendido si el producto ya tiene grupos de opciones.
+  const [activo, setActivo] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
         const data = await variantesService.getByProducto(productoId);
-        setGrupos(data.map(fromServer));
+        const iniciales = data.map(fromServer);
+        if (iniciarActivo && iniciales.length === 0) iniciales.push(grupoVacio());
+        setGrupos(iniciales);
+        setActivo(iniciales.length > 0);
       } catch (e) {
         setError(getApiErrorMessage(e, t("varErrLoad")));
       } finally {
@@ -76,11 +97,35 @@ export default function VariantesEditor({ productoId }: { productoId: number }) 
       gs.map((g, i) => (i === idx ? { ...g, ...patch, _dirty: true } : g)),
     );
 
-  const addGrupo = () =>
-    setGrupos((gs) => [
-      ...gs,
-      { nombre: "", tipo: "single", obligatorio: false, opciones: [], _dirty: true },
-    ]);
+  const addGrupo = () => setGrupos((gs) => [...gs, grupoVacio()]);
+
+  // Encender: abre el editor con un grupo vacío para empezar.
+  // Apagar: borra los grupos guardados (con confirmación), así el menú deja
+  // de mostrar "Personalizable".
+  const cambiarActivo = async (on: boolean) => {
+    if (on) {
+      setActivo(true);
+      if (grupos.length === 0) addGrupo();
+      return;
+    }
+    const guardados = grupos.filter((g) => g.id);
+    if (guardados.length > 0) {
+      const ok = await confirmar({ mensaje: t("varConfirmOff"), peligro: true });
+      if (!ok) return;
+      try {
+        setError("");
+        await Promise.all(guardados.map((g) => variantesService.deleteGrupo(g.id as number)));
+      } catch (e) {
+        setError(getApiErrorMessage(e, t("varErrDelete")));
+        // Recarga lo que haya quedado para no mostrar un estado falso.
+        const data = await variantesService.getByProducto(productoId).catch(() => []);
+        setGrupos(data.map(fromServer));
+        return;
+      }
+    }
+    setGrupos([]);
+    setActivo(false);
+  };
 
   const addOpcion = (idx: number) =>
     patchGrupo(idx, {
@@ -171,13 +216,17 @@ export default function VariantesEditor({ productoId }: { productoId: number }) 
         }}
       >
         <div>
-          <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--fg)" }}>
-            {t("varTitle")}
-          </div>
-          <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 2 }}>
-            {t("varSubtitle")}
+          <Switch
+            checked={activo}
+            onChange={cambiarActivo}
+            disabled={loading}
+            label={<span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--fg)" }}>{t("varSwitch")}</span>}
+          />
+          <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: -4 }}>
+            {activo ? t("varSubtitle") : t("varOffHint")}
           </div>
         </div>
+        {activo && (
         <button
           type="button"
           onClick={addGrupo}
@@ -195,6 +244,7 @@ export default function VariantesEditor({ productoId }: { productoId: number }) 
         >
           <IconPlus size={13} /> {t("varAddGroup")}
         </button>
+        )}
       </div>
 
       {error && (
@@ -205,7 +255,7 @@ export default function VariantesEditor({ productoId }: { productoId: number }) 
         <div style={{ fontSize: 12, color: "var(--fg-3)", padding: "8px 0" }}>
           {t("varLoading")}
         </div>
-      ) : grupos.length === 0 ? (
+      ) : !activo ? null : grupos.length === 0 ? (
         <div style={{ fontSize: 12, color: "var(--fg-3)", padding: "8px 0" }}>
           {t("varEmpty")}
         </div>

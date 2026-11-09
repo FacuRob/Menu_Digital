@@ -20,7 +20,7 @@ import { cld } from "../../lib/cloudinary";
 import { useLang } from "../../lib/i18n";
 import { SearchIcon, ListIcon, GridIcon, Highlight } from "../../lib/listUi";
 import { MOBILE_QUERY } from "../../lib/useIsMobile";
-import { Switch } from "../../components/ui";
+import { Switch, Segmented } from "../../components/ui";
 import {
   IconPlus,
   IconX,
@@ -82,6 +82,7 @@ export default function Productos() {
     orden: 0,
     stock: 0,
     controlar_stock: false,
+    unidad_venta: "unidad" as "unidad" | "kg",
   });
   // Atributos libres por rubro (marca, material, duración…). Se editan como
   // pares clave/valor y se guardan como JSONB junto al producto.
@@ -196,7 +197,14 @@ export default function Productos() {
     }
   };
 
+  // Producto nuevo con "Personalizable" encendido: al guardarlo, el formulario
+  // queda abierto para cargar los grupos y valores.
+  const [nuevoPersonalizable, setNuevoPersonalizable] = useState(false);
+  const [abrirVariantes, setAbrirVariantes] = useState(false);
+
   const openModal = (p?: Producto) => {
+    setNuevoPersonalizable(false);
+    setAbrirVariantes(false);
     setEditing(p || null);
     setForm(
       p
@@ -211,6 +219,7 @@ export default function Productos() {
             orden: p.orden,
             stock: p.stock ?? 0,
             controlar_stock: p.controlar_stock ?? false,
+            unidad_venta: p.unidad_venta ?? "unidad",
           }
         : {
             nombre: "",
@@ -223,6 +232,7 @@ export default function Productos() {
             orden: productos.length + 1,
             stock: 0,
             controlar_stock: false,
+            unidad_venta: "unidad",
           },
     );
     setAtributos(
@@ -294,11 +304,30 @@ export default function Productos() {
         },
         {},
       );
-      const data = { ...form, imagen_url: url || null, atributos: atributosObj };
-      if (editing) await productosService.update(editing.id, data);
-      else await productosService.create(data);
-      await fetch_();
-      closeModal();
+      // `unidad_venta` sólo viaja si es "kg" o si la base ya tiene la columna
+      // (el producto la trae): así guardar no falla antes de la migración.
+      const { unidad_venta, ...resto } = form;
+      const mandarUnidad = unidad_venta === "kg" || editing?.unidad_venta !== undefined;
+      const data = {
+        ...resto,
+        ...(mandarUnidad ? { unidad_venta } : {}),
+        imagen_url: url || null,
+        atributos: atributosObj,
+      };
+      if (editing) {
+        await productosService.update(editing.id, data);
+        await fetch_();
+        closeModal();
+      } else {
+        const creado = await productosService.create(data);
+        await fetch_();
+        if (nuevoPersonalizable && creado?.id) {
+          openModal(creado);
+          setAbrirVariantes(true);
+        } else {
+          closeModal();
+        }
+      }
     } catch (err) {
       // Muestra el mensaje real del backend (p. ej. límite de plan 403).
       setSaveError(getApiErrorMessage(err, t("prodSaveError")));
@@ -323,7 +352,7 @@ export default function Productos() {
     if (st === "ok") {
       return (
         <span style={{ fontSize: big ? 12 : 11, color: textMuted, fontWeight: 600 }}>
-          {t("unitsShort", { n })}
+          {p.unidad_venta === "kg" ? `${n} kg` : t("unitsShort", { n })}
         </span>
       );
     }
@@ -787,6 +816,7 @@ export default function Productos() {
                     </span>
                     <span style={{ color: textPrimary, fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap" }}>
                       {fmt(p.precio)}
+                      {p.unidad_venta === "kg" && <span style={{ color: textMuted, fontWeight: 500 }}> /kg</span>}
                     </span>
                   </div>
                   {p.descripcion && (
@@ -953,6 +983,7 @@ export default function Productos() {
                       }}
                     >
                       {fmt(p.precio)}
+                      {p.unidad_venta === "kg" && <span style={{ color: textMuted, fontWeight: 500 }}> /kg</span>}
                     </td>
                     <td style={S.td}>{renderStock(p) || <span style={{ color: "var(--fg-3)" }}>—</span>}</td>
                     <td style={S.td}>
@@ -1069,8 +1100,25 @@ export default function Productos() {
                     gap: 12,
                   }}
                 >
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={S.label}>{t("prodSellBy")}</label>
+                    <Segmented
+                      label={t("prodSellBy")}
+                      value={form.unidad_venta}
+                      options={[
+                        { value: "unidad", label: t("prodByUnit") },
+                        { value: "kg", label: t("prodByWeight") },
+                      ]}
+                      onChange={(v) => setForm({ ...form, unidad_venta: v })}
+                    />
+                    {form.unidad_venta === "kg" && (
+                      <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 6 }}>{t("prodWeightHint")}</div>
+                    )}
+                  </div>
                   <div>
-                    <label style={S.label}>{t("prodPriceField")}</label>
+                    <label style={S.label}>
+                      {form.unidad_venta === "kg" ? t("prodPricePerKg") : t("prodPriceField")}
+                    </label>
                     <input
                       style={S.input}
                       type="number"
@@ -1116,7 +1164,9 @@ export default function Productos() {
                   }}
                 >
                   <div>
-                    <label style={S.label}>{t("prodCostField")}</label>
+                    <label style={S.label}>
+                      {form.unidad_venta === "kg" ? t("prodCostPerKg") : t("prodCostField")}
+                    </label>
                     <input
                       style={S.input}
                       type="number"
@@ -1132,7 +1182,9 @@ export default function Productos() {
                     />
                   </div>
                   <div>
-                    <label style={S.label}>{t("prodStockField")}</label>
+                    <label style={S.label}>
+                      {form.unidad_venta === "kg" ? t("prodStockKg") : t("prodStockField")}
+                    </label>
                     <input
                       style={{
                         ...S.input,
@@ -1140,12 +1192,16 @@ export default function Productos() {
                       }}
                       type="number"
                       min="0"
+                      step={form.unidad_venta === "kg" ? "0.1" : "1"}
                       disabled={!form.controlar_stock}
                       value={form.stock}
                       onChange={(e) =>
                         setForm({
                           ...form,
-                          stock: parseInt(e.target.value) || 0,
+                          stock:
+                            form.unidad_venta === "kg"
+                              ? Math.round((parseFloat(e.target.value) || 0) * 1000) / 1000
+                              : parseInt(e.target.value) || 0,
                         })
                       }
                     />
@@ -1382,20 +1438,17 @@ export default function Productos() {
 
                 {/* Variantes/opciones — solo para productos ya creados. */}
                 {editing ? (
-                  <VariantesEditor productoId={editing.id} />
+                  <VariantesEditor key={editing.id} productoId={editing.id} iniciarActivo={abrirVariantes} />
                 ) : (
-                  <div
-                    style={{
-                      borderTop: "1px solid var(--line)",
-                      paddingTop: 12,
-                      fontSize: 12,
-                      color: "var(--fg-3)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
-                    <IconInfo size={14} /> {t("attrSaveFirst")}
+                  <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14 }}>
+                    <Switch
+                      checked={nuevoPersonalizable}
+                      onChange={setNuevoPersonalizable}
+                      label={<span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--fg)" }}>{t("varSwitch")}</span>}
+                    />
+                    <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: -4, display: "flex", alignItems: "center", gap: 6 }}>
+                      <IconInfo size={13} /> {nuevoPersonalizable ? t("varNewHint") : t("varOffHint")}
+                    </div>
                   </div>
                 )}
               </div>

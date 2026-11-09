@@ -1,3 +1,4 @@
+import { fmtPeso } from "./cantidad";
 // Generación e impresión de comprobantes de un pedido.
 //
 // Abre una ventana nueva con el comprobante ya maquetado y dispara la
@@ -42,6 +43,7 @@ const fmtFecha = (s?: string) => {
 interface Linea {
   nombre: string;
   cantidad: number;
+  unidad?: string;
   precioUnit: number;
   subtotal: number;
 }
@@ -57,7 +59,7 @@ const calcular = (pedido: Pedido): TicketCalc => {
     const cantidad = Number(it.cantidad) || 0;
     const precioUnit = Number(it.precio_unit) || 0;
     const subtotal = Number(it.subtotal) || precioUnit * cantidad;
-    return { nombre: it.nombre, cantidad, precioUnit, subtotal };
+    return { nombre: it.nombre, cantidad, unidad: it.unidad, precioUnit, subtotal };
   });
   const total =
     Number(pedido.total) || lineas.reduce((a, l) => a + l.subtotal, 0);
@@ -89,7 +91,7 @@ const htmlTermica = (
       <div class="it">
         <div class="it-nom">${esc(l.nombre)}</div>
         <div class="it-cant">
-          <span>${l.cantidad} x ${fmt(l.precioUnit)}</span>
+          <span>${l.unidad === "kg" ? `${fmtPeso(l.cantidad)} x ${fmt(l.precioUnit)}/kg` : `${l.cantidad} x ${fmt(l.precioUnit)}`}</span>
           <span>${fmt(l.subtotal)}</span>
         </div>
       </div>`,
@@ -132,7 +134,7 @@ const htmlComun = (
       (l) => `
       <tr>
         <td>${esc(l.nombre)}</td>
-        <td class="num">${l.cantidad}</td>
+        <td class="num">${l.unidad === "kg" ? fmtPeso(l.cantidad) : l.cantidad}</td>
         <td class="num">${fmt(l.precioUnit)}</td>
         <td class="num">${fmt(l.subtotal)}</td>
       </tr>`,

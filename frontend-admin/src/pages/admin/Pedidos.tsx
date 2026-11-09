@@ -21,6 +21,9 @@ import { useNegocio } from "../../context/NegocioContext";
 import { fmtMoney } from "../../lib/money";
 import { useLang } from "../../lib/i18n";
 import TicketModal from "../../components/TicketModal";
+import { Segmented } from "../../components/ui";
+import { useDialogos } from "../../lib/dialogos";
+import { fmtCantidad } from "../../lib/cantidad";
 
 // Formatea la fecha del servidor respetando la zona horaria del que mira.
 // Postgres guarda en UTC; si el string no trae zona, la asumimos UTC.
@@ -70,6 +73,40 @@ const ESTADOS: {
   { key: "cancelado", labelKey: "pedCancelled", color: "var(--err)" },
 ];
 
+// "En curso" se actualiza sola; "Historial" (entregados y cancelados) se
+// pide por período y de a páginas, para no bajar miles de pedidos de golpe.
+type Vista = "curso" | "historial";
+const ESTADOS_DE: Record<Vista, typeof ESTADOS> = {
+  curso: ESTADOS.filter((e) => ["todos", "pendiente", "preparando", "listo", "en_camino"].includes(e.key)),
+  historial: ESTADOS.filter((e) => ["todos", "entregado", "cancelado"].includes(e.key)),
+};
+
+type Periodo = "hoy" | "ayer" | "7" | "30" | "rango";
+const PERIODOS: { key: Periodo; labelKey: string }[] = [
+  { key: "hoy", labelKey: "pedToday" },
+  { key: "ayer", labelKey: "pedYesterday" },
+  { key: "7", labelKey: "ped7d" },
+  { key: "30", labelKey: "ped30d" },
+  { key: "rango", labelKey: "pedRange" },
+];
+const POR_PAGINA = 50;
+const DIA = 86_400_000;
+
+// Período → fechas [desde, hasta) en la hora local de quien mira.
+const rangoPeriodo = (p: Periodo, desde: string, hasta: string) => {
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const h = +hoy;
+  if (p === "hoy") return { desde: new Date(h), hasta: new Date(h + DIA) };
+  if (p === "ayer") return { desde: new Date(h - DIA), hasta: new Date(h) };
+  if (p === "7") return { desde: new Date(h - 6 * DIA), hasta: new Date(h + DIA) };
+  if (p === "30") return { desde: new Date(h - 29 * DIA), hasta: new Date(h + DIA) };
+  return {
+    desde: desde ? new Date(`${desde}T00:00`) : null,
+    hasta: hasta ? new Date(+new Date(`${hasta}T00:00`) + DIA) : null,
+  };
+};
+
 const estadoColor: Record<Pedido["estado"], string> = {
   pendiente: "var(--warn)",
   preparando: "var(--info)",
@@ -94,7 +131,14 @@ export default function Pedidos() {
         cancelado: "pedStateCancelado",
       }[e],
     );
+  const { confirmar } = useDialogos();
+  const [vista, setVista] = useState<Vista>("curso");
+  const [periodo, setPeriodo] = useState<Periodo>("hoy");
+  const [rangoDesde, setRangoDesde] = useState("");
+  const [rangoHasta, setRangoHasta] = useState("");
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [total, setTotal] = useState(0);
+  const [cargandoMas, setCargandoMas] = useState(false);
   const [filtro, setFiltro] = useState<Pedido["estado"] | "todos">("todos");
   const [tipoFiltro, setTipoFiltro] = useState<"todos" | TipoEntrega>("todos");
   const [mesa, setMesa] = useState("");
@@ -109,25 +153,79 @@ export default function Pedidos() {
   const cardBg = "var(--surface)";
   const cardBorder = "var(--line)";
 
+  // Filtros comunes (estado y mesa) + el período del historial.
+  const params = useCallback(() => {
+    const base = {
+      vista,
+      ...(filtro !== "todos" ? { estado: filtro } : {}),
+      ...(mesa.trim() ? { mesa: mesa.trim() } : {}),
+    };
+    if (vista === "curso") return base;
+    const r = rangoPeriodo(periodo, rangoDesde, rangoHasta);
+    return {
+      ...base,
+      ...(r.desde ? { desde: r.desde.toISOString() } : {}),
+      ...(r.hasta ? { hasta: r.hasta.toISOString() } : {}),
+    };
+  }, [vista, filtro, mesa, periodo, rangoDesde, rangoHasta]);
+
   const load = useCallback(async () => {
     try {
-      const params: { estado?: string; mesa?: string } = {};
-      if (filtro !== "todos") params.estado = filtro;
-      if (mesa.trim()) params.mesa = mesa.trim();
-      const data = await pedidosService.getAll(params);
-      setPedidos(data);
+      if (vista === "curso") {
+        const data = await pedidosService.getAll(params());
+        setPedidos(data);
+        setTotal(data.length);
+      } else {
+        const r = await pedidosService.getPagina({ ...params(), limit: POR_PAGINA, offset: 0 });
+        setPedidos(r.pedidos);
+        setTotal(r.total);
+      }
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
-  }, [filtro, mesa]);
+  }, [vista, params]);
 
+  // Sólo "En curso" se refresca cada 15 s; el historial no cambia solo.
   useEffect(() => {
     load();
+    if (vista !== "curso") return;
     const t = setInterval(load, 15000);
     return () => clearInterval(t);
-  }, [load]);
+  }, [load, vista]);
+
+  const cambiarVista = (v: Vista) => {
+    setVista(v);
+    setFiltro("todos");
+    setPedidos([]);
+    setLoading(true);
+  };
+
+  const cargarMas = async () => {
+    setCargandoMas(true);
+    try {
+      const r = await pedidosService.getPagina({ ...params(), limit: POR_PAGINA, offset: pedidos.length });
+      setPedidos((prev) => [...prev, ...r.pedidos.filter((p) => !prev.some((x) => x.id === p.id))]);
+      setTotal(r.total);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCargandoMas(false);
+    }
+  };
+
+  // Sólo cancelados: los entregados son ventas y alimentan el Dashboard.
+  const eliminar = async (p: Pedido) => {
+    if (!(await confirmar({ mensaje: t("pedConfirmDelete", { id: p.id }), peligro: true }))) return;
+    try {
+      await pedidosService.delete(p.id);
+      setPedidos((prev) => prev.filter((x) => x.id !== p.id));
+      setTotal((n) => Math.max(0, n - 1));
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   // Datos del local (nombre, dirección, teléfono) para el comprobante.
   useEffect(() => {
@@ -171,6 +269,77 @@ export default function Pedidos() {
     <AdminLayout title={t("navPedidos")}>
       {/* Filtros */}
       <div style={{ display: "grid", gap: 14, marginBottom: 20 }}>
+        <div>
+          <Segmented
+            label={t("navPedidos")}
+            value={vista}
+            options={[
+              { value: "curso", label: t("pedTabActive") },
+              { value: "historial", label: t("pedTabHistory") },
+            ]}
+            onChange={cambiarVista}
+          />
+        </div>
+
+        {/* Historial: período */}
+        {vista === "historial" && (
+          <div>
+            <GroupLabel color={textMuted}>{t("pedPeriod")}</GroupLabel>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              {PERIODOS.map((pp) => {
+                const active = periodo === pp.key;
+                return (
+                  <button
+                    key={pp.key}
+                    type="button"
+                    className="tap"
+                    aria-pressed={active}
+                    onClick={() => setPeriodo(pp.key)}
+                    style={{
+                      padding: "7px 14px",
+                      borderRadius: 999,
+                      border: active ? "none" : `1px solid ${cardBorder}`,
+                      background: active ? "var(--fg)" : "transparent",
+                      color: active ? "var(--surface)" : textSecondary,
+                      fontSize: 12.5,
+                      fontWeight: active ? 600 : 400,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {t(pp.labelKey)}
+                  </button>
+                );
+              })}
+              {periodo === "rango" && (
+                <>
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: textSecondary }}>
+                    {t("pedFrom")}
+                    <input
+                      type="date"
+                      className="tap"
+                      value={rangoDesde}
+                      max={rangoHasta || undefined}
+                      onChange={(e) => setRangoDesde(e.target.value)}
+                      style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid ${cardBorder}`, background: cardBg, color: textPrimary, fontSize: 13 }}
+                    />
+                  </label>
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: textSecondary }}>
+                    {t("pedTo")}
+                    <input
+                      type="date"
+                      className="tap"
+                      value={rangoHasta}
+                      min={rangoDesde || undefined}
+                      onChange={(e) => setRangoHasta(e.target.value)}
+                      style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid ${cardBorder}`, background: cardBg, color: textPrimary, fontSize: 13 }}
+                    />
+                  </label>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Grupo: Tipo de pedido */}
         <div>
           <GroupLabel color={textMuted}>{t("pedTypeOrder")}</GroupLabel>
@@ -230,7 +399,7 @@ export default function Pedidos() {
           <div style={{ flex: "1 1 240px", minWidth: 0 }}>
             <GroupLabel color={textMuted}>{t("colStatus")}</GroupLabel>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {ESTADOS.map((e) => {
+              {ESTADOS_DE[vista].map((e) => {
                 const active = filtro === e.key;
                 return (
                   <button
@@ -384,7 +553,7 @@ export default function Pedidos() {
                     }}
                   >
                     <span>
-                      <strong style={{ color: textPrimary }}>{it.cantidad}×</strong>{" "}
+                      <strong style={{ color: textPrimary }}>{fmtCantidad(it.cantidad, it.unidad)}</strong>{" "}
                       {it.nombre}
                     </span>
                     <span>{fmt(Number(it.subtotal))}</span>
@@ -497,9 +666,43 @@ export default function Pedidos() {
                     {t("pedReopen")}
                   </EstadoBtn>
                 )}
+                {p.estado === "cancelado" && (
+                  <EstadoBtn color="var(--err)" ghost onClick={() => eliminar(p)}>
+                    {t("pedDelete")}
+                  </EstadoBtn>
+                )}
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Historial: cuántos se ven y "Cargar más" */}
+      {vista === "historial" && !loading && pedidos.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, marginTop: 20 }}>
+          <span style={{ fontSize: 12.5, color: textMuted }}>
+            {t("pedShowing", { n: pedidos.length, total })}
+          </span>
+          {pedidos.length < total && (
+            <button
+              type="button"
+              className="tap"
+              onClick={cargarMas}
+              disabled={cargandoMas}
+              style={{
+                padding: "9px 18px",
+                borderRadius: 8,
+                border: `1px solid ${cardBorder}`,
+                background: cardBg,
+                color: textPrimary,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: cargandoMas ? "default" : "pointer",
+              }}
+            >
+              {cargandoMas ? t("pedLoading") : t("pedLoadMore")}
+            </button>
+          )}
         </div>
       )}
 
