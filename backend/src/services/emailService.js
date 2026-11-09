@@ -140,4 +140,28 @@ const sendWelcomeEmail = async ({
   if (error) throw new Error(error.message);
 };
 
-module.exports = { sendPasswordResetEmail, sendWelcomeEmail };
+// ─── AVISO AL DUEÑO: reporte nuevo de un cliente ─────────────
+const escapar = (s) =>
+  String(s).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+
+const TIPO_SOPORTE = { error: "Error", pago: "Pago", duda: "Duda", sugerencia: "Sugerencia" };
+
+const sendSoporteAviso = async ({ to, cuenta, tipo, asunto, texto, url }) => {
+  const html = `
+<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#111">
+  <p style="margin:0 0 4px;font-size:13px;color:#555">${escapar(TIPO_SOPORTE[tipo] || tipo)} · ${escapar(cuenta)}</p>
+  <h2 style="margin:0 0 12px;font-size:18px">${escapar(asunto)}</h2>
+  <p style="white-space:pre-wrap;margin:0 0 20px;font-size:14px;line-height:1.5">${escapar(String(texto).slice(0, 1500))}</p>
+  ${url ? `<a href="${escapar(url)}" style="display:inline-block;background:#111;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-size:14px">Ver el reporte</a>` : ""}
+</div>`;
+
+  const { error } = await resend.emails.send({
+    from: process.env.EMAIL_FROM || "DinexFlow <onboarding@resend.dev>",
+    to,
+    subject: `Soporte: ${asunto.replace(/\s+/g, " ").slice(0, 80)} — ${cuenta}`,
+    html,
+  });
+  if (error) throw new Error(error.message);
+};
+
+module.exports = { sendPasswordResetEmail, sendWelcomeEmail, sendSoporteAviso };

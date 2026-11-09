@@ -675,6 +675,61 @@ export interface MensajeChat {
   created_at: string;
 }
 
+// ── Soporte: reportes de los clientes al equipo Tech ──
+export type TipoSoporte = "error" | "pago" | "duda" | "sugerencia";
+export type EstadoSoporte = "abierto" | "en_curso" | "resuelto";
+
+export interface TicketSoporte {
+  id: number;
+  cuenta_id: number;
+  cuenta_nombre: string | null;
+  cuenta_email?: string | null;
+  autor: string | null;
+  tipo: TipoSoporte;
+  asunto: string;
+  estado: EstadoSoporte;
+  sin_leer: boolean;
+  ultimo_at: string;
+  created_at: string;
+}
+
+export interface MensajeSoporte {
+  id: number;
+  de_tech: boolean;
+  texto: string | null;
+  imagen_url: string | null;
+  created_at: string;
+  autor: string | null;
+}
+
+export interface NuevoMensajeSoporte {
+  texto?: string;
+  imagen_url?: string | null;
+}
+
+export const soporteService = {
+  listar: async (estado: "abiertos" | "resueltos" | "todos") =>
+    (await api.get<{ tech: boolean; tickets: TicketSoporte[] }>("/soporte", { params: { estado } })).data,
+  resumen: async () => (await api.get<{ sin_leer: number }>("/soporte/resumen")).data,
+  ver: async (id: number) =>
+    (await api.get<{ tech: boolean; ticket: TicketSoporte; mensajes: MensajeSoporte[] }>(`/soporte/${id}`)).data,
+  crear: async (body: NuevoMensajeSoporte & { tipo: TipoSoporte; asunto: string }) =>
+    (await api.post<TicketSoporte>("/soporte", body)).data,
+  responder: async (id: number, body: NuevoMensajeSoporte) =>
+    (await api.post<{ mensaje: MensajeSoporte; estado: EstadoSoporte }>(`/soporte/${id}/mensajes`, body)).data,
+  cambiarEstado: async (id: number, estado: EstadoSoporte) =>
+    (await api.patch<{ id: number; estado: EstadoSoporte }>(`/soporte/${id}`, { estado })).data,
+  subirImagen: async (file: File) => {
+    const formData = new FormData();
+    formData.append("imagen", file);
+    return (
+      await api.post<{ url: string }>("/soporte/imagen", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+    ).data;
+  },
+};
+
 export const chatsService = {
   listar: async () =>
     (await api.get<{ conectado: boolean; ia_activa: boolean; chats: ChatWhatsapp[] }>("/whatsapp/chats")).data,

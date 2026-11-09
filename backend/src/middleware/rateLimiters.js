@@ -34,4 +34,23 @@ const repartoLimiter = rateLimit({
   message: { message: "Demasiadas solicitudes. Esperá un momento." },
 });
 
-module.exports = { authLimiter, pedidosLimiter, repartoLimiter };
+// Soporte: reportes, mensajes y capturas. Holgado para charlar, corta el spam.
+const soporteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Mandaste muchos mensajes seguidos. Esperá unos minutos." },
+});
+
+// Reportes nuevos: por usuario (cada uno manda un email al dueño).
+const soporteCrearLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `u${req.user?.id}`,
+  message: { message: "Ya enviaste varios reportes. Esperá un rato o seguí en uno abierto." },
+});
+
+module.exports = { authLimiter, pedidosLimiter, repartoLimiter, soporteLimiter, soporteCrearLimiter };

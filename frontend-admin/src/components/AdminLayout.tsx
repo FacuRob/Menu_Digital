@@ -4,7 +4,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useNegocio } from "../context/NegocioContext";
-import { apiPendientes, chatsService, pedidosService, productosService } from "../services/api";
+import { apiPendientes, chatsService, pedidosService, productosService, soporteService } from "../services/api";
 import LoadingScreen from "./LoadingScreen";
 import Modal from "./Modal";
 import ConfiguracionEditor from "./ConfiguracionEditor";
@@ -91,6 +91,12 @@ const I = {
       <path d="M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18M3 12h18" />
     </Ico>
   ),
+  soporte: (
+    <Ico>
+      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+      <path d="M9.5 8.5a2.5 2.5 0 114 2c-.9.5-1.5 1-1.5 2M12 15h.01" />
+    </Ico>
+  ),
   menu: (
     <Ico>
       <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -151,6 +157,7 @@ const NAV: ItemNav[] = [
   { permiso: "negocios", ruta: "/admin/negocios", labelKey: "navNegocios", icon: I.negocios },
   { permiso: "suscripcion", ruta: "/admin/suscripcion", labelKey: "navSuscripcion", icon: I.suscripcion },
   { permiso: "plataforma", ruta: "/admin/plataforma", labelKey: "navPlataforma", icon: I.plataforma },
+  { permiso: "any", ruta: "/admin/soporte", labelKey: "navSoporte", icon: I.soporte },
   { permiso: "any", ruta: "/menu", labelKey: "navVerMenu", icon: I.menu, external: true },
 ];
 
@@ -275,7 +282,8 @@ export function AdminShell() {
   const [toast, setToast] = useState<{ texto: string; ruta: string; chat?: boolean } | null>(null);
   const [chatsAviso, setChatsAviso] = useState({ no_leidos: 0, atender: 0 });
   const atenderRef = useRef<number | null>(null);
-  const [stockBajo, setStockBajo] = useState<{ id: number; nombre: string; stock: number }[]>([]);
+  const [soporteSinLeer, setSoporteSinLeer] = useState(0);
+  const [stockBajo, setStockBajo] =useState<{ id: number; nombre: string; stock: number }[]>([]);
   const lastPedidoRef = useRef<number>(0);
 
   // Desplegables y ventanas
@@ -377,6 +385,28 @@ export function AdminShell() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, negocioId, conWhatsapp]);
+
+  // Soporte: reportes con mensajes nuevos (clientes y Tech).
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let active = true;
+    const check = async () => {
+      try {
+        const r = await soporteService.resumen();
+        if (active) setSoporteSinLeer(r.sin_leer);
+      } catch {
+        /* sin migración todavía: no se muestra nada */
+      }
+    };
+    check();
+    const id = setInterval(() => !document.hidden && check(), 30000);
+    window.addEventListener("soporte-cambio", check);
+    return () => {
+      active = false;
+      clearInterval(id);
+      window.removeEventListener("soporte-cambio", check);
+    };
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated || !hasPermiso("productos")) return;
@@ -544,6 +574,23 @@ export function AdminShell() {
     );
   };
 
+  // Contador de reportes con novedades junto a "Soporte".
+  const avisoSoporte = () => {
+    if (soporteSinLeer <= 0) return null;
+    const txt = `${soporteSinLeer} ${soporteSinLeer === 1 ? "reporte con novedades" : "reportes con novedades"}`;
+    return collapsed ? (
+      <>
+        <span className="sh-dot" aria-hidden />
+        <span className="sr-only">{txt}</span>
+      </>
+    ) : (
+      <span className="sh-badge">
+        <span aria-hidden>{soporteSinLeer > 99 ? "99+" : soporteSinLeer}</span>
+        <span className="sr-only">{txt}</span>
+      </span>
+    );
+  };
+
   return (
     <TituloCtx.Provider value={setTitulo}>
       <div className="sh">
@@ -608,6 +655,8 @@ export function AdminShell() {
                       <span className="sr-only">{t("planTagNeeds")} </span>
                       {t("planTagStandard")}
                     </span>
+                  ) : item.ruta === "/admin/soporte" ? (
+                    avisoSoporte()
                   ) : (
                     avisoChats(item.ruta === "/admin/chats")
                   )}
@@ -863,8 +912,12 @@ export function AdminShell() {
             aria-expanded={drawerOpen}
             aria-controls="menu-panel"
           >
-            {I.more}
+            <span style={{ position: "relative", display: "grid" }}>
+              {I.more}
+              {soporteSinLeer > 0 && <span className="sh-dot" style={{ top: -3, right: -6 }} aria-hidden />}
+            </span>
             {t("navMore")}
+            {soporteSinLeer > 0 && <span className="sr-only">, hay reportes de soporte con novedades</span>}
           </button>
         </nav>
 

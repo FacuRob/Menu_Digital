@@ -52,6 +52,10 @@ function createSupabaseMock() {
           q.filters[col] = val;
           return b;
         },
+        neq(col, val) {
+          q.neqs = { ...(q.neqs || {}), [col]: val };
+          return b;
+        },
         not(col, op, val) {
           q.nots = [...(q.nots || []), { col, op, val }];
           return b;

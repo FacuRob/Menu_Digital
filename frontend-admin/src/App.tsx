@@ -24,6 +24,7 @@ const Configuracion = lazy(() => import("./pages/admin/Configuracion"));
 const Pedidos = lazy(() => import("./pages/admin/Pedidos"));
 const Negocios = lazy(() => import("./pages/admin/Negocios"));
 const Plataforma = lazy(() => import("./pages/admin/Plataforma"));
+const Soporte = lazy(() => import("./pages/admin/Soporte"));
 const Suscripcion = lazy(() => import("./pages/admin/Suscripcion"));
 const MenuPreview = lazy(() => import("./pages/MenuPreview"));
 const WhatsApp = lazy(() => import("./pages/admin/WhatsApp"));
@@ -172,6 +173,15 @@ function App() {
               element={
                 <ProtectedRoute plataforma>
                   <Plataforma />
+                </ProtectedRoute>
+              }
+            />
+            {/* Soporte: cualquier usuario reporta; Tech (es_plataforma) responde. */}
+            <Route
+              path="/admin/soporte"
+              element={
+                <ProtectedRoute>
+                  <Soporte />
                 </ProtectedRoute>
               }
             />
