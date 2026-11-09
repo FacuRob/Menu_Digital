@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { configuracionService, type TipoRubro } from "../../services/api";
 import { useLang } from "../../lib/i18n";
 import { AccesoLayout } from "../../components/Acceso";
+import { MULTI_MONEDA } from "../../lib/money";
 import {
   IconUtensils,
   IconBag,
@@ -76,7 +77,7 @@ export default function Onboarding() {
     try {
       await configuracionService.update({
         tipo_rubro: rubro,
-        moneda,
+        moneda: MULTI_MONEDA ? moneda : "ARS",
         mesas_activo: mesa,
         retiro_activo: retiro,
         delivery_activo: delivery,
@@ -206,6 +207,8 @@ export default function Onboarding() {
             ))}
           </div>
 
+          {MULTI_MONEDA && (
+          <>
           <label htmlFor="ob-moneda" className="hp-label mb-2 block text-[var(--gris)]">
             {t("obCurrency")}
           </label>
@@ -225,6 +228,8 @@ export default function Onboarding() {
               </option>
             ))}
           </select>
+          </>
+          )}
 
           <p className="mt-5 rounded-2xl bg-[var(--hueso)] px-4 py-3.5 text-[0.9375rem] leading-relaxed">{t("obTuneNote")}</p>
 

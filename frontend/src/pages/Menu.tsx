@@ -28,7 +28,7 @@ import {
 } from "../lib/menuUi";
 import ProductModal from "../components/ProductModal";
 import CartDrawer from "../components/CartDrawer";
-import { useLang, LangSelector } from "../lib/i18n";
+import { useLang, LangSelector, MULTI_IDIOMA } from "../lib/i18n";
 import "@fontsource-variable/archivo/wdth.css";
 import "../components/menu/menu.css";
 import { DEMO_CATEGORIAS, DEMO_CONFIG, DEMO_PRODUCTOS } from "../lib/menuDemo";
@@ -286,9 +286,11 @@ const Menu = () => {
             portada ? "min-h-[440px] sm:min-h-[520px]" : ""
           }`}
         >
-          <div className="flex justify-end">
-            <LangSelector dark />
-          </div>
+          {MULTI_IDIOMA && (
+            <div className="flex justify-end">
+              <LangSelector dark />
+            </div>
+          )}
 
           <div className={`mn-in flex items-end gap-4 sm:gap-5 ${portada ? "mt-auto pt-16" : "mt-6 sm:mt-8"}`}>
             {config?.logo_url && (

@@ -300,8 +300,13 @@ const pt: Dict = {
 
 const DICTS: Record<Lang, Dict> = { es, en, pt };
 
+// Por ahora todo el sistema va en español: sin selector y sin detectar el
+// idioma del navegador. Las traducciones quedan para reactivarlo a futuro.
+export const MULTI_IDIOMA = false;
+
 // ── Contexto ─────────────────────────────────────────────────
 const detectLang = (): Lang => {
+  if (!MULTI_IDIOMA) return "es";
   const saved = localStorage.getItem("menu_lang");
   if (saved && saved in DICTS) return saved as Lang;
   const nav = (navigator.language || "es").slice(0, 2).toLowerCase();
@@ -351,6 +356,7 @@ export const useLang = () => {
 export function LangSelector({ dark = false }: { dark?: boolean }) {
   // dark: sobre un bloque de color; toma el color del texto que lo rodea.
   const { lang, setLang } = useLang();
+  if (!MULTI_IDIOMA) return null;
   return (
     <label
       style={{ display: "inline-flex", alignItems: "center", position: "relative", cursor: "pointer" }}

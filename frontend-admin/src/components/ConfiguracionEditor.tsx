@@ -15,6 +15,7 @@ import {
   IconTruck,
 } from "../lib/icons";
 import { useIsMobile } from "../lib/useIsMobile";
+import { MULTI_MONEDA } from "../lib/money";
 import { SideNav, SectionCard } from "./SeccionesUi";
 import {
   configuracionService,
@@ -371,7 +372,9 @@ export default function ConfiguracionEditor({
           groups={GRUPOS.map((g) => ({
             label: t(g.labelKey),
             color: g.color,
-            items: g.items.map((it) => ({
+            items: g.items
+              .filter((it) => MULTI_MONEDA || it.id !== "moneda")
+              .map((it) => ({
               id: it.id,
               label: t(it.labelKey),
               accent: it.accent,
@@ -576,7 +579,7 @@ export default function ConfiguracionEditor({
       )}
 
       {/* ── Moneda del menú ── */}
-      {seccion === "moneda" && (
+      {MULTI_MONEDA && seccion === "moneda" && (
       <SectionCard
         accent="var(--warn)"
         title={t("cfgCurrencyTitle")}

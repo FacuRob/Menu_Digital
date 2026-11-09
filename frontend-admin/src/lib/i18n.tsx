@@ -2522,7 +2522,12 @@ const detectLang = (): Lang => {
 
 interface I18nContextType {
   lang: Lang;
+// Por ahora todo el sistema va en español: sin selector y sin detectar el
+// idioma del navegador. Las traducciones quedan para reactivarlo a futuro.
+export const MULTI_IDIOMA = false;
+
   setLang: (l: Lang) => void;
+  if (!MULTI_IDIOMA) return "es";
   t: (key: string, vars?: Record<string, string | number>) => string;
 }
 
@@ -2571,6 +2576,7 @@ export function LangSelector({ isDark = false, variant }: { isDark?: boolean; va
         alignItems: "center",
         gap: 5,
         position: "relative",
+  if (!MULTI_IDIOMA) return null;
         cursor: "pointer",
       }}
       title="Idioma / Language"

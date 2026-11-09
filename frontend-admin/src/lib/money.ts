@@ -15,6 +15,10 @@ const LOCALE_POR_MONEDA: Record<string, string> = {
   GTQ: "es-GT",
 };
 
+// Por ahora los negocios son de Argentina: todos en pesos (ARS) y sin
+// selector de moneda. El resto de las monedas queda para reactivarlo a futuro.
+export const MULTI_MONEDA = false;
+
 const SIN_DECIMALES = new Set(["CLP", "COP", "PYG"]);
 
 export const fmtMoney = (n: number, moneda = "ARS") => {
