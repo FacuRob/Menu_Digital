@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import QRCodeLib from "qrcode";
 import Modal from "./Modal";
 import { useStyles } from "./sharedStyles";
-import { SideNav, SectionCard } from "./SeccionesUi";
+import { SideNav, SectionCard, SeccionPanel as Panel } from "./SeccionesUi";
 import { useAuth } from "../context/AuthContext";
 import { authService } from "../services/api";
 import { useLang } from "../lib/i18n";
@@ -210,7 +210,6 @@ export default function CuentaModal({
       onClose={onClose}
       maxWidth={820}
     >
-      <style>{`@keyframes acctTabIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}`}</style>
       <div
         style={{
           background: "var(--surface-3)",
@@ -597,22 +596,6 @@ function DosFactores({
 
 // Contenido de una pestaña. Las ocultas siguen ocupando lugar (visibility)
 // para que la ventana tenga siempre el alto de la pestaña más larga.
-function Panel({ visible, children }: { visible: boolean; children: ReactNode }) {
-  return (
-    <div
-      role="tabpanel"
-      aria-hidden={!visible}
-      style={{
-        gridArea: "1 / 1",
-        visibility: visible ? "visible" : "hidden",
-        animation: visible ? "acctTabIn .22s ease both" : undefined,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
 function Campo({ label, S, children }: { label: string; S: Estilos; children: ReactNode }) {
   return (
     <label style={{ display: "block" }}>

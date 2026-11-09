@@ -6,10 +6,15 @@ import { useStyles } from "../../components/sharedStyles";
 import Modal from "../../components/Modal";
 import { useLang } from "../../lib/i18n";
 import { SearchIcon, ListIcon, GridIcon, Highlight } from "../../lib/listUi";
-import { MOBILE_QUERY } from "../../lib/useIsMobile";
-import { IconX, IconList } from "../../lib/icons";
+import { MOBILE_QUERY, useIsMobile } from "../../lib/useIsMobile";
+import { IconX, IconList, IconEye } from "../../lib/icons";
+import { Switch } from "../../components/ui";
+import { Campo, InfoTip } from "../../components/InfoTip";
+import { SideNav, SectionCard, SeccionPanel } from "../../components/SeccionesUi";
+import { abrirSeccionInvalida } from "../../lib/secciones";
 
 type ViewMode = "lista" | "cards";
+type CatSeccion = "datos" | "estado";
 
 const PlusIcon = () => (
   <svg
@@ -32,6 +37,10 @@ export default function Categorias() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Categoria | null>(null);
   const [form, setForm] = useState({ nombre: "", orden: 0, activo: true });
+  // Valores al abrir el modal: marcan con un punto las secciones con cambios.
+  const [inicial, setInicial] = useState(form);
+  const [seccion, setSeccion] = useState<CatSeccion>("datos");
+  const isMobile = useIsMobile();
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   // Vista elegida; si nunca eligió: tarjetas en el celular (la tabla no entra).
@@ -80,12 +89,13 @@ export default function Categorias() {
   };
 
   const openModal = (c?: Categoria) => {
+    const valores = c
+      ? { nombre: c.nombre, orden: c.orden, activo: c.activo }
+      : { nombre: "", orden: categorias.length + 1, activo: true };
     setEditing(c || null);
-    setForm(
-      c
-        ? { nombre: c.nombre, orden: c.orden, activo: c.activo }
-        : { nombre: "", orden: categorias.length + 1, activo: true },
-    );
+    setForm(valores);
+    setInicial(valores);
+    setSeccion("datos");
     setShowModal(true);
   };
 
@@ -399,127 +409,140 @@ export default function Categorias() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal: mismo diseño que "Configuración del menú" y "Mi cuenta". */}
       {showModal && (
         <Modal
           title={editing ? t("catEditTitle") : t("catNew")}
+          subtitle={editing ? editing.nombre : undefined}
           onClose={closeModal}
-          maxWidth={460}
+          maxWidth={760}
           icon={<IconList />}
         >
-            <form onSubmit={submit}>
-              <div
-                style={{
-                  ...S.modalBody,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 16,
-                }}
+          <form onSubmit={submit} onInvalidCapture={abrirSeccionInvalida(seccion, setSeccion)}>
+            <div
+              style={{
+                background: "var(--surface-3)",
+                padding: isMobile ? 12 : 22,
+                display: "flex",
+                flexDirection: isMobile ? "column" : "row",
+                gap: isMobile ? 12 : 20,
+                alignItems: isMobile ? "stretch" : "flex-start",
+              }}
+            >
+              <SideNav<CatSeccion>
+                value={seccion}
+                onChange={setSeccion}
+                isMobile={isMobile}
+                dirtyTitle={t("cfgUnsaved")}
+                groups={[
+                  {
+                    label: t("catNavGroup"),
+                    color: "var(--info)",
+                    items: [
+                      {
+                        id: "datos",
+                        label: t("catSecData"),
+                        accent: "var(--info)",
+                        Icon: IconList,
+                        dirty: !!editing && form.nombre !== inicial.nombre,
+                      },
+                      {
+                        id: "estado",
+                        label: t("catSecShow"),
+                        accent: "var(--ok)",
+                        Icon: IconEye,
+                        dirty: !!editing && (form.orden !== inicial.orden || form.activo !== inicial.activo),
+                      },
+                    ],
+                  },
+                ]}
+              />
+
+              <div style={{ flex: 1, minWidth: 0, display: "grid" }}>
+                <SeccionPanel id="datos" visible={seccion === "datos"}>
+                  <SectionCard accent="var(--info)" title={t("catSecData")} subtitle={t("catSecDataSub")}>
+                    <Campo label={t("qCatName")}>
+                      <input
+                        style={S.input}
+                        required
+                        maxLength={80}
+                        value={form.nombre}
+                        placeholder={t("catNamePh")}
+                        onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+                      />
+                    </Campo>
+                  </SectionCard>
+                </SeccionPanel>
+
+                <SeccionPanel id="estado" visible={seccion === "estado"}>
+                  <SectionCard accent="var(--ok)" title={t("catSecShow")} subtitle={t("catSecShowSub")}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                      <Campo label={t("qCatPos")} info={t("iCatPos")}>
+                        <input
+                          style={S.input}
+                          type="number"
+                          min="1"
+                          required
+                          value={form.orden}
+                          onChange={(e) => setForm({ ...form, orden: parseInt(e.target.value) || 0 })}
+                        />
+                      </Campo>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <Switch
+                          checked={form.activo}
+                          onChange={(v) => setForm({ ...form, activo: v })}
+                          label={form.activo ? t("catVisibleOn") : t("catVisibleOff")}
+                        />
+                        <InfoTip texto={t("iCatVisible")} titulo={t("catVisibleOn")} />
+                      </div>
+                    </div>
+                  </SectionCard>
+                </SeccionPanel>
+              </div>
+            </div>
+            <div style={S.modalFooter}>
+              <button
+                type="button"
+                onClick={closeModal}
+                style={{ ...S.btnGhost, flex: 1 }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background =
+                    "var(--surface-2)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background =
+                    "var(--surface)")
+                }
               >
-                <div>
-                  <label style={S.label}>{t("colName")}</label>
-                  <input
-                    style={S.input}
-                    required
-                    value={form.nombre}
-                    placeholder={t("catNamePh")}
-                    onChange={(e) =>
-                      setForm({ ...form, nombre: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label style={S.label}>{t("catOrderField")}</label>
-                  <input
-                    style={S.input}
-                    type="number"
-                    min="1"
-                    required
-                    value={form.orden}
-                    onChange={(e) =>
-                      setForm({ ...form, orden: parseInt(e.target.value) || 0 })
-                    }
-                  />
-                </div>
-                <div>
-                  <label style={S.label}>{t("catInitialStatus")}</label>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    {[true, false].map((val) => (
-                      <button
-                        key={String(val)}
-                        type="button"
-                        onClick={() => setForm({ ...form, activo: val })}
-                        style={{
-                          flex: 1,
-                          padding: "8px 0",
-                          borderRadius: 8,
-                          border: `1px solid ${form.activo === val ? (val ? "var(--ok)" : "var(--err)") : "var(--line-strong)"}`,
-                          background:
-                            form.activo === val
-                              ? val
-                                ? "var(--ok-bg)"
-                                : "var(--err-bg)"
-                              : "transparent",
-                          color:
-                            form.activo === val
-                              ? val
-                                ? "var(--ok)"
-                                : "var(--err)"
-                              : "var(--fg-3)",
-                          fontSize: 13,
-                          cursor: "pointer",
-                          transition: "all 0.15s",
-                        }}
-                      >
-                        {val ? t("statusActive") : t("statusInactive")}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div style={S.modalFooter}>
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  style={{ ...S.btnGhost, flex: 1 }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background =
-                      "var(--surface-2)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background =
-                      "var(--surface)")
-                  }
-                >
-                  {t("actionCancel")}
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  style={{
-                    ...S.btnPrimary,
-                    flex: 1,
-                    justifyContent: "center",
-                    opacity: saving ? 0.6 : 1,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!saving)
-                      (e.currentTarget as HTMLButtonElement).style.background =
-                        "var(--accent-hover)";
-                  }}
-                  onMouseLeave={(e) =>
-                    ((e.currentTarget as HTMLButtonElement).style.background =
-                      "var(--accent)")
-                  }
-                >
-                  {saving
-                    ? t("saving")
-                    : editing
-                      ? t("actionUpdate")
-                      : t("catCreate")}
-                </button>
-              </div>
-            </form>
+                {t("actionCancel")}
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                style={{
+                  ...S.btnPrimary,
+                  flex: 1,
+                  justifyContent: "center",
+                  opacity: saving ? 0.6 : 1,
+                }}
+                onMouseEnter={(e) => {
+                  if (!saving)
+                    (e.currentTarget as HTMLButtonElement).style.background =
+                      "var(--accent-hover)";
+                }}
+                onMouseLeave={(e) =>
+                  ((e.currentTarget as HTMLButtonElement).style.background =
+                    "var(--accent)")
+                }
+              >
+                {saving
+                  ? t("saving")
+                  : editing
+                    ? t("actionUpdate")
+                    : t("catCreate")}
+              </button>
+            </div>
+          </form>
         </Modal>
       )}
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>

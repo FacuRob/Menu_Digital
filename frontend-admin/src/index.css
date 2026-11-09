@@ -542,8 +542,94 @@ main :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):foc
 .dx-btn-ghost { border: 1px solid var(--line-strong); background: var(--surface); color: var(--fg-2); }
 .dx-btn-ghost:hover { background: var(--surface-2); }
 
+/* ── Ayuda ⓘ (InfoTip) ── */
+.dx-pregunta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 7px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.dx-info {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: -4px 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg-3);
+  cursor: help;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
+}
+.dx-info:hover, .dx-info:focus-visible { color: var(--info); background: var(--info-bg); }
+/* En el celular, más grande para el dedo. */
+@media (hover: none) {
+  .dx-info { width: 32px; height: 32px; margin: -8px -4px; cursor: pointer; }
+}
+.dx-info-tip {
+  position: fixed;
+  z-index: 500;
+  max-width: 260px;
+  padding: 8px 11px;
+  border-radius: 9px;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  animation: dx-fade 0.12s ease both;
+}
+.dx-info-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+  background: var(--overlay);
+  animation: dx-fade 0.15s ease both;
+}
+.dx-info-sheet {
+  width: 100%;
+  max-width: 420px;
+  padding: 18px 18px 14px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-pop);
+  animation: dx-pop 0.2s ease both;
+}
+.dx-info-ok {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 14px;
+  border: none;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--fg);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Foco visible en botones y pestañas de los modales. */
+.dx-modal :is(button, [role="tab"]):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Entrada de una sección en las ventanas con menú lateral (SeccionesUi). */
+@keyframes dx-sec-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
 @media (prefers-reduced-motion: reduce) {
-  .dx-modal-overlay, .dx-modal { animation: none; }
+  .dx-modal-overlay, .dx-modal, [data-seccion], .dx-info-tip, .dx-info-overlay, .dx-info-sheet { animation: none !important; }
 }
 
 /* ── Celular ───────────────────────────────────────────────── */

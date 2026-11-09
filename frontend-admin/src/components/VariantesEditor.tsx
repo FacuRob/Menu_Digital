@@ -200,13 +200,7 @@ export default function VariantesEditor({
   };
 
   return (
-    <div
-      style={{
-        borderTop: "1px solid var(--line)",
-        paddingTop: 14,
-        marginTop: 2,
-      }}
-    >
+    <div>
       <div
         style={{
           display: "flex",

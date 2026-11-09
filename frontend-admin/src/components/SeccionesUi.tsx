@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ComponentType, type ReactNode } from "react";
+import { InfoTip } from "./InfoTip";
 
 // Piezas compartidas por las ventanas con secciones ("Configuración del menú"
 // y "Mi cuenta"), para que las dos tengan exactamente el mismo diseño.
@@ -54,6 +55,21 @@ export function SideNav<T extends string>({
   const itemColor = "var(--fg-2)";
   const hoverBg = "var(--surface-2)";
 
+  // Teclado: flechas, Inicio y Fin pasan de sección (patrón de pestañas).
+  const ids = groups.flatMap((g) => g.items.map((it) => it.id));
+  const onKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    const i = ids.indexOf(value);
+    const sig = { ArrowDown: i + 1, ArrowRight: i + 1, ArrowUp: i - 1, ArrowLeft: i - 1, Home: 0, End: ids.length - 1 }[
+      e.key
+    ];
+    if (sig === undefined) return;
+    e.preventDefault();
+    const lista = e.currentTarget;
+    const nuevo = ids[(sig + ids.length) % ids.length];
+    onChange(nuevo);
+    lista.querySelector<HTMLElement>(`[data-tab="${nuevo}"]`)?.focus();
+  };
+
   const renderItem = (it: SideNavItem<T>) => {
     const activa = it.id === value;
     return (
@@ -61,7 +77,9 @@ export function SideNav<T extends string>({
         key={it.id}
         type="button"
         role="tab"
+        data-tab={it.id}
         aria-selected={activa}
+        tabIndex={activa ? 0 : -1}
         onClick={() => onChange(it.id)}
         onMouseEnter={(e) => {
           if (!activa) e.currentTarget.style.background = hoverBg;
@@ -74,6 +92,7 @@ export function SideNav<T extends string>({
           alignItems: "center",
           gap: 9,
           width: isMobile ? "auto" : "100%",
+          minHeight: 44,
           flexShrink: 0,
           padding: isMobile ? "8px 12px" : "9px 10px",
           borderRadius: 9,
@@ -105,8 +124,10 @@ export function SideNav<T extends string>({
           <it.Icon size={16} />
         </span>
         {it.label}
+        {it.dirty && dirtyTitle && <span className="sr-only">({dirtyTitle})</span>}
         {it.dirty && (
           <span
+            aria-hidden
             title={dirtyTitle}
             style={{
               width: 7,
@@ -134,6 +155,7 @@ export function SideNav<T extends string>({
       <nav
         ref={filaRef}
         role="tablist"
+        onKeyDown={onKeyDown}
         style={{
           ...contenedor,
           display: "flex",
@@ -152,6 +174,7 @@ export function SideNav<T extends string>({
     <nav
       role="tablist"
       aria-orientation="vertical"
+      onKeyDown={onKeyDown}
       style={{ ...contenedor, width: 232, flexShrink: 0, position: "sticky", top: 0 }}
     >
       {groups.map((g, i) => (
@@ -186,11 +209,14 @@ export function SectionCard({
   accent,
   title,
   subtitle,
+  info,
   children,
 }: {
   accent: string;
   title: string;
   subtitle?: string;
+  // Texto del ⓘ al lado del título.
+  info?: string;
   children: ReactNode;
 }) {
   return (
@@ -205,8 +231,9 @@ export function SectionCard({
       }}
     >
       <div style={{ padding: "15px 18px 0" }}>
-        <h3 style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: "var(--fg)" }}>
+        <h3 style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: "var(--fg)", display: "flex", alignItems: "center", gap: 6 }}>
           {title}
+          {info && <InfoTip texto={info} titulo={title} />}
         </h3>
         {subtitle && (
           <p
@@ -222,6 +249,35 @@ export function SectionCard({
         )}
       </div>
       <div style={{ padding: 18 }}>{children}</div>
+    </div>
+  );
+}
+
+// Una sección del contenido. Todas se apilan en la misma celda (el padre usa
+// display:grid) y sólo se ve la activa: la ventana no cambia de tamaño al
+// pasar de una a otra y los campos no pierden lo escrito.
+export function SeccionPanel({
+  id,
+  visible,
+  children,
+}: {
+  id?: string;
+  visible: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      role="tabpanel"
+      data-seccion={id}
+      aria-hidden={!visible}
+      style={{
+        gridArea: "1 / 1",
+        minWidth: 0,
+        visibility: visible ? "visible" : "hidden",
+        animation: visible ? "dx-sec-in .22s ease both" : undefined,
+      }}
+    >
+      {children}
     </div>
   );
 }

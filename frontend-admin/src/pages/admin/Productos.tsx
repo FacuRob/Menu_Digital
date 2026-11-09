@@ -19,8 +19,11 @@ import { fmtMoney } from "../../lib/money";
 import { cld } from "../../lib/cloudinary";
 import { useLang } from "../../lib/i18n";
 import { SearchIcon, ListIcon, GridIcon, Highlight } from "../../lib/listUi";
-import { MOBILE_QUERY } from "../../lib/useIsMobile";
+import { MOBILE_QUERY, useIsMobile } from "../../lib/useIsMobile";
+import { SideNav, SectionCard, SeccionPanel } from "../../components/SeccionesUi";
+import { abrirSeccionInvalida } from "../../lib/secciones";
 import { Switch, Segmented } from "../../components/ui";
+import { Campo, InfoTip } from "../../components/InfoTip";
 import {
   IconPlus,
   IconX,
@@ -30,7 +33,18 @@ import {
   IconImage,
   IconAlert,
   IconBox,
+  IconList,
+  IconSparkle,
 } from "../../lib/icons";
+
+type ProdSeccion = "datos" | "precio" | "imagen" | "stock" | "atributos" | "opciones";
+
+const IconCoin = ({ size = 16 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M14.8 9.2c-.5-.8-1.5-1.2-2.8-1.2-1.7 0-2.8.8-2.8 2s1.1 1.7 2.8 2 2.8.8 2.8 2-1.1 2-2.8 2c-1.3 0-2.4-.5-2.9-1.3M12 6.5v11" />
+  </svg>
+);
 
 const PlusIcon = () => (
   <svg
@@ -84,6 +98,11 @@ export default function Productos() {
     controlar_stock: false,
     unidad_venta: "unidad" as "unidad" | "kg",
   });
+  // Valores al abrir el modal: marcan con un punto las secciones con cambios.
+  const [inicial, setInicial] = useState(form);
+  const [atributosIniciales, setAtributosIniciales] = useState("[]");
+  const [seccion, setSeccion] = useState<ProdSeccion>("datos");
+  const isMobile = useIsMobile();
   // Atributos libres por rubro (marca, material, duración…). Se editan como
   // pares clave/valor y se guardan como JSONB junto al producto.
   const [atributos, setAtributos] = useState<{ clave: string; valor: string }[]>(
@@ -205,8 +224,9 @@ export default function Productos() {
   const openModal = (p?: Producto) => {
     setNuevoPersonalizable(false);
     setAbrirVariantes(false);
+    setSeccion("datos");
     setEditing(p || null);
-    setForm(
+    const valores: typeof form =
       p
         ? {
             nombre: p.nombre,
@@ -233,16 +253,17 @@ export default function Productos() {
             stock: 0,
             controlar_stock: false,
             unidad_venta: "unidad",
-          },
-    );
-    setAtributos(
-      p?.atributos
-        ? Object.entries(p.atributos).map(([clave, valor]) => ({
-            clave,
-            valor: valor == null ? "" : String(valor),
-          }))
-        : [],
-    );
+          };
+    setForm(valores);
+    setInicial(valores);
+    const attrs = p?.atributos
+      ? Object.entries(p.atributos).map(([clave, valor]) => ({
+          clave,
+          valor: valor == null ? "" : String(valor),
+        }))
+      : [];
+    setAtributos(attrs);
+    setAtributosIniciales(JSON.stringify(attrs));
     setImagePreview(p?.imagen_url || "");
     setImageFile(null);
     setUploadError("");
@@ -324,6 +345,7 @@ export default function Productos() {
         if (nuevoPersonalizable && creado?.id) {
           openModal(creado);
           setAbrirVariantes(true);
+          setSeccion("opciones");
         } else {
           closeModal();
         }
@@ -337,6 +359,9 @@ export default function Productos() {
   };
 
   const fmt = (n: number) => fmtMoney(n, moneda);
+  // ¿Cambió alguno de estos campos desde que se abrió? (sólo al editar)
+  const cambio = (...campos: (keyof typeof form)[]) =>
+    !!editing && campos.some((c) => form[c] !== inicial[c]);
 
   const textPrimary = "var(--fg)";
   const textMuted = "var(--fg-3)";
@@ -1046,416 +1071,459 @@ export default function Productos() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal: mismo diseño que "Configuración del menú" y "Mi cuenta". */}
       {showModal && (
         <Modal
           title={editing ? t("prodEditTitle") : t("prodNew")}
+          subtitle={editing ? editing.nombre : undefined}
           onClose={closeModal}
-          maxWidth={580}
+          maxWidth={980}
           icon={<IconBox size={19} />}
         >
-            <form onSubmit={submit}>
+            <form onSubmit={submit} onInvalidCapture={abrirSeccionInvalida(seccion, setSeccion)}>
               <div
                 style={{
-                  ...S.modalBody,
+                  background: "var(--surface-3)",
+                  padding: isMobile ? 12 : 22,
                   display: "flex",
-                  flexDirection: "column",
-                  gap: 14,
+                  flexDirection: isMobile ? "column" : "row",
+                  gap: isMobile ? 12 : 20,
+                  alignItems: isMobile ? "stretch" : "flex-start",
                 }}
               >
-                <div>
-                  <label style={S.label}>{t("prodNameField")}</label>
-                  <input
-                    style={S.input}
-                    required
-                    value={form.nombre}
-                    placeholder={t("prodNamePh")}
-                    onChange={(e) =>
-                      setForm({ ...form, nombre: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label style={S.label}>{t("prodDescField")}</label>
-                  <textarea
-                    style={
-                      {
-                        ...S.input,
-                        resize: "none",
-                        height: 70,
-                        fontFamily: "inherit",
-                      } as React.CSSProperties
-                    }
-                    value={form.descripcion}
-                    placeholder={t("prodDescPh")}
-                    onChange={(e) =>
-                      setForm({ ...form, descripcion: e.target.value })
-                    }
-                  />
-                </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 12,
-                  }}
-                >
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <label style={S.label}>{t("prodSellBy")}</label>
-                    <Segmented
-                      label={t("prodSellBy")}
-                      value={form.unidad_venta}
-                      options={[
-                        { value: "unidad", label: t("prodByUnit") },
-                        { value: "kg", label: t("prodByWeight") },
-                      ]}
-                      onChange={(v) => setForm({ ...form, unidad_venta: v })}
-                    />
-                    {form.unidad_venta === "kg" && (
-                      <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 6 }}>{t("prodWeightHint")}</div>
-                    )}
-                  </div>
-                  <div>
-                    <label style={S.label}>
-                      {form.unidad_venta === "kg" ? t("prodPricePerKg") : t("prodPriceField")}
-                    </label>
-                    <input
-                      style={S.input}
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      required
-                      value={form.precio}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          precio: parseFloat(e.target.value) || 0,
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label style={S.label}>{t("prodCategoryField")}</label>
-                    <select
-                      style={{ ...S.input, cursor: "pointer" }}
-                      required
-                      value={form.categoria_id}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          categoria_id: parseInt(e.target.value),
-                        })
-                      }
-                    >
-                      {categorias.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                {/* Costo y stock */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 12,
-                  }}
-                >
-                  <div>
-                    <label style={S.label}>
-                      {form.unidad_venta === "kg" ? t("prodCostPerKg") : t("prodCostField")}
-                    </label>
-                    <input
-                      style={S.input}
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={form.costo}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          costo: parseFloat(e.target.value) || 0,
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label style={S.label}>
-                      {form.unidad_venta === "kg" ? t("prodStockKg") : t("prodStockField")}
-                    </label>
-                    <input
-                      style={{
-                        ...S.input,
-                        opacity: form.controlar_stock ? 1 : 0.5,
-                      }}
-                      type="number"
-                      min="0"
-                      step={form.unidad_venta === "kg" ? "0.1" : "1"}
-                      disabled={!form.controlar_stock}
-                      value={form.stock}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          stock:
-                            form.unidad_venta === "kg"
-                              ? Math.round((parseFloat(e.target.value) || 0) * 1000) / 1000
-                              : parseInt(e.target.value) || 0,
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-                <Switch
-                  checked={!!form.controlar_stock}
-                  onChange={(v) => setForm({ ...form, controlar_stock: v })}
-                  label={t("prodControlStock")}
+                <SideNav<ProdSeccion>
+                  value={seccion}
+                  onChange={setSeccion}
+                  isMobile={isMobile}
+                  dirtyTitle={t("cfgUnsaved")}
+                  groups={[
+                    {
+                      label: t("prodNavProduct"),
+                      color: "var(--info)",
+                      items: [
+                        { id: "datos", label: t("prodSecData"), accent: "var(--info)", Icon: IconBox, dirty: cambio("nombre", "descripcion", "categoria_id") },
+                        { id: "precio", label: t("prodSecPrice"), accent: "var(--warn)", Icon: IconCoin, dirty: cambio("unidad_venta", "precio", "costo") },
+                        { id: "imagen", label: t("prodSecImage"), accent: "var(--violet)", Icon: IconImage, dirty: !!editing && (!!imageFile || form.imagen_url !== inicial.imagen_url) },
+                        { id: "stock", label: t("prodSecStock"), accent: "var(--ok)", Icon: IconCheck, dirty: cambio("controlar_stock", "stock", "orden", "disponible") },
+                      ],
+                    },
+                    {
+                      label: t("prodNavExtras"),
+                      color: "var(--violet)",
+                      items: [
+                        { id: "atributos", label: t("attrTitle"), accent: "var(--teal)", Icon: IconList, dirty: !!editing && JSON.stringify(atributos) !== atributosIniciales },
+                        { id: "opciones", label: t("prodSecOptions"), accent: "var(--chart-5)", Icon: IconSparkle },
+                      ],
+                    },
+                  ]}
                 />
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 12,
-                    alignItems: "end",
-                  }}
-                >
-                  <div>
-                    <label style={S.label}>{t("prodOrderField")}</label>
-                    <input
-                      style={S.input}
-                      type="number"
-                      min="1"
-                      value={form.orden}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          orden: parseInt(e.target.value) || 0,
-                        })
-                      }
-                    />
-                  </div>
-                  <div style={{ paddingBottom: 2 }}>
-                    <Switch
-                      checked={!!form.disponible}
-                      onChange={(v) => setForm({ ...form, disponible: v })}
-                      label={t("prodAvailableField")}
-                      color="var(--info)"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label style={S.label}>{t("prodImageField")}</label>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 10,
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    {imagePreview && (
-                      <div style={{ position: "relative", flexShrink: 0 }}>
-                        <img
-                          src={imagePreview}
-                          alt={t("prodImageField")}
-                          style={{
-                            width: 72,
-                            height: 72,
-                            objectFit: "cover",
-                            borderRadius: 10,
-                            border: "1px solid var(--line)",
-                          }}
+
+                <div style={{ flex: 1, minWidth: 0, display: "grid" }}>
+                  {/* ── Datos ── */}
+                  <SeccionPanel id="datos" visible={seccion === "datos"}>
+                    <SectionCard accent="var(--info)" title={t("prodSecData")} subtitle={t("prodSecDataSub")}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                        <Campo label={t("qProdName")}>
+                          <input
+                            style={S.input}
+                            required
+                            value={form.nombre}
+                            placeholder={t("prodNamePh")}
+                            onChange={(e) =>
+                              setForm({ ...form, nombre: e.target.value })
+                            }
+                          />
+                        </Campo>
+                        <Campo label={t("qProdDesc")} info={t("iProdDesc")}>
+                          <textarea
+                            style={{ ...S.input, resize: "vertical", minHeight: 90, fontFamily: "inherit" }}
+                            rows={3}
+                            value={form.descripcion}
+                            placeholder={t("prodDescPh")}
+                            onChange={(e) =>
+                              setForm({ ...form, descripcion: e.target.value })
+                            }
+                          />
+                        </Campo>
+                        <Campo label={t("qProdCat")}>
+                          <select
+                            style={{ ...S.input, cursor: "pointer" }}
+                            required
+                            value={form.categoria_id}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                categoria_id: parseInt(e.target.value),
+                              })
+                            }
+                          >
+                            {categorias.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.nombre}
+                              </option>
+                            ))}
+                          </select>
+                        </Campo>
+                      </div>
+                    </SectionCard>
+                  </SeccionPanel>
+
+                  {/* ── Precio y venta ── */}
+                  <SeccionPanel id="precio" visible={seccion === "precio"}>
+                    <SectionCard accent="var(--warn)" title={t("prodSecPrice")} subtitle={t("prodSecPriceSub")}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                        <div>
+                          <span className="dx-pregunta">{t("qProdSellBy")}</span>
+                          <Segmented
+                            label={t("qProdSellBy")}
+                            value={form.unidad_venta}
+                            options={[
+                              { value: "unidad", label: t("qByUnit") },
+                              { value: "kg", label: t("qByKg") },
+                            ]}
+                            onChange={(v) => setForm({ ...form, unidad_venta: v })}
+                          />
+                          {form.unidad_venta === "kg" && (
+                            <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 6 }}>{t("prodWeightHint")}</div>
+                          )}
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
+                          <Campo
+                            label={form.unidad_venta === "kg" ? t("qProdPriceKg") : t("qProdPrice")}
+                            info={t("iProdPrice")}
+                          >
+                            <input
+                              style={S.input}
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              required
+                              value={form.precio}
+                              onChange={(e) =>
+                                setForm({
+                                  ...form,
+                                  precio: parseFloat(e.target.value) || 0,
+                                })
+                              }
+                            />
+                          </Campo>
+                          <Campo
+                            label={form.unidad_venta === "kg" ? t("qProdCostKg") : t("qProdCost")}
+                            info={t("iProdCost")}
+                          >
+                            <input
+                              style={S.input}
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={form.costo}
+                              onChange={(e) =>
+                                setForm({
+                                  ...form,
+                                  costo: parseFloat(e.target.value) || 0,
+                                })
+                              }
+                            />
+                          </Campo>
+                        </div>
+                        {form.costo > 0 && form.precio > 0 && (
+                          <div
+                            style={{
+                              fontSize: 12.5,
+                              fontWeight: 600,
+                              color: form.precio >= form.costo ? "var(--ok)" : "var(--err)",
+                            }}
+                          >
+                            {form.precio >= form.costo
+                              ? t(form.unidad_venta === "kg" ? "prodMarginKg" : "prodMargin", {
+                                  amount: fmt(form.precio - form.costo),
+                                  pct: Math.round(((form.precio - form.costo) / form.precio) * 100),
+                                })
+                              : t(form.unidad_venta === "kg" ? "prodLossKg" : "prodLoss", {
+                                  amount: fmt(form.costo - form.precio),
+                                })}
+                          </div>
+                        )}
+                      </div>
+                    </SectionCard>
+                  </SeccionPanel>
+
+                  {/* ── Imagen ── */}
+                  <SeccionPanel id="imagen" visible={seccion === "imagen"}>
+                    <SectionCard accent="var(--violet)" title={t("prodSecImage")} subtitle={t("prodSecImageSub")}>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 14,
+                          alignItems: "stretch",
+                          flexDirection: isMobile ? "column" : "row",
+                        }}
+                      >
+                        {imagePreview && (
+                          <div style={{ position: "relative", flexShrink: 0, alignSelf: isMobile ? "center" : "flex-start" }}>
+                            <img
+                              src={imagePreview}
+                              alt={t("prodImageField")}
+                              style={{
+                                width: 140,
+                                height: 140,
+                                objectFit: "cover",
+                                borderRadius: 12,
+                                border: "1px solid var(--line)",
+                                display: "block",
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={removeImage}
+                              aria-label={t("prodRemoveImage")}
+                              style={{
+                                position: "absolute",
+                                top: -10,
+                                right: -10,
+                                width: 28,
+                                height: 28,
+                                borderRadius: "50%",
+                                background: "var(--err)",
+                                border: "2px solid var(--surface)",
+                                color: "var(--surface)",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <IconX size={13} />
+                            </button>
+                          </div>
+                        )}
+                        <input
+                          ref={fileRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          onChange={handleFile}
+                          style={{ display: "none" }}
+                          tabIndex={-1}
+                          aria-hidden
                         />
                         <button
                           type="button"
-                          onClick={removeImage}
-                          aria-label={t("prodRemoveImage")}
+                          onClick={() => fileRef.current?.click()}
+                          className="hover:!border-[var(--focus)]"
                           style={{
-                            position: "absolute",
-                            top: -10,
-                            right: -10,
-                            width: 28,
-                            height: 28,
-                            borderRadius: "50%",
-                            background: "var(--err)",
-                            border: "2px solid var(--surface)",
-                            color: "var(--surface)",
-                            fontSize: 12,
-                            cursor: "pointer",
+                            flex: 1,
+                            minHeight: 140,
+                            border: "2px dashed var(--line-strong)",
+                            borderRadius: 12,
+                            padding: 18,
                             display: "flex",
+                            flexDirection: "column",
                             alignItems: "center",
                             justifyContent: "center",
+                            gap: 6,
+                            textAlign: "center",
+                            cursor: "pointer",
+                            background: "var(--surface-2)",
+                            font: "inherit",
+                            color: "var(--fg-3)",
+                            transition: "border-color 0.15s",
                           }}
                         >
-                          ✕
+                          <IconImage size={24} />
+                          <span style={{ display: "block", color: "var(--fg-2)", fontSize: 13, fontWeight: 600 }}>
+                            {imagePreview ? t("prodChangeImage") : t("prodSelectImage")}
+                          </span>
+                          <span style={{ display: "block", fontSize: 12 }}>
+                            {t("prodImageHint")}
+                          </span>
                         </button>
                       </div>
-                    )}
-                    <input
-                      ref={fileRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
-                      onChange={handleFile}
-                      style={{ display: "none" }}
-                      tabIndex={-1}
-                      aria-hidden
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileRef.current?.click()}
-                      className="hover:!border-[var(--focus)]"
-                      style={{
-                        flex: 1,
-                        border: "2px dashed var(--line-strong)",
-                        borderRadius: 10,
-                        padding: 14,
-                        textAlign: "center",
-                        cursor: "pointer",
-                        background: "transparent",
-                        font: "inherit",
-                        transition: "border-color 0.15s",
-                      }}
-                    >
-                      <span style={{ display: "block", color: "var(--fg-2)", fontSize: 13, fontWeight: 600 }}>
-                        {imagePreview ? t("prodChangeImage") : t("prodSelectImage")}
-                      </span>
-                      <span style={{ display: "block", color: "var(--fg-3)", fontSize: 12, marginTop: 3 }}>
-                        {t("prodImageHint")}
-                      </span>
-                    </button>
-                  </div>
-                  {uploadError && (
-                    <div
-                      style={{ fontSize: 11, color: "var(--err)", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}
-                    >
-                      <IconAlert size={13} style={{ flexShrink: 0 }} /> {uploadError}
-                    </div>
-                  )}
-                  {imageFile && !uploadError && (
-                    <div
-                      style={{ fontSize: 11, color: "var(--info)", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}
-                    >
-                      <IconImage size={13} style={{ flexShrink: 0 }} /> {t("prodImageWillUpload", { name: imageFile.name })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Atributos libres por rubro (marca, material, etc.) */}
-                <div
-                  style={{
-                    borderTop: "1px solid var(--line)",
-                    paddingTop: 14,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: 4,
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--fg)" }}>
-                        {t("attrTitle")}
-                      </div>
-                      <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 2 }}>
-                        {t("attrSubtitle")}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setAtributos((a) => [...a, { clave: "", valor: "" }])
-                      }
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 5,
-                        padding: "7px 10px",
-                        borderRadius: 8,
-                        border: "1px solid var(--info)",
-                        color: "var(--info)",
-                        background: "var(--info-bg)",
-                        cursor: "pointer",
-                        fontSize: 13,
-                        fontWeight: 600,
-                      }}
-                    >
-                      <IconPlus size={13} /> {t("attrAddField")}
-                    </button>
-                  </div>
-                  {atributos.length > 0 && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
-                      {atributos.map((a, i) => (
-                        <div key={i} style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                          <input
-                            style={{ ...S.input, flex: "0 0 40%" }}
-                            placeholder={t("attrKeyPh")}
-                            value={a.clave}
-                            onChange={(e) =>
-                              setAtributos((arr) =>
-                                arr.map((x, j) =>
-                                  j === i ? { ...x, clave: e.target.value } : x,
-                                ),
-                              )
-                            }
-                          />
-                          <input
-                            style={{ ...S.input, flex: 1 }}
-                            placeholder={t("attrValuePh")}
-                            value={a.valor}
-                            onChange={(e) =>
-                              setAtributos((arr) =>
-                                arr.map((x, j) =>
-                                  j === i ? { ...x, valor: e.target.value } : x,
-                                ),
-                              )
-                            }
-                          />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setAtributos((arr) => arr.filter((_, j) => j !== i))
-                            }
-                            title={t("attrRemove")}
-                            style={{
-                              border: "none",
-                              background: "none",
-                              color: "var(--err)",
-                              cursor: "pointer",
-                              display: "flex",
-                              padding: "0 4px",
-                            }}
-                          >
-                            <IconX size={14} />
-                          </button>
+                      {uploadError && (
+                        <div
+                          style={{ fontSize: 11.5, color: "var(--err)", marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}
+                        >
+                          <IconAlert size={13} style={{ flexShrink: 0 }} /> {uploadError}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                      )}
+                      {imageFile && !uploadError && (
+                        <div
+                          style={{ fontSize: 11.5, color: "var(--info)", marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}
+                        >
+                          <IconImage size={13} style={{ flexShrink: 0 }} /> {t("prodImageWillUpload", { name: imageFile.name })}
+                        </div>
+                      )}
+                    </SectionCard>
+                  </SeccionPanel>
 
-                {/* Variantes/opciones — solo para productos ya creados. */}
-                {editing ? (
-                  <VariantesEditor key={editing.id} productoId={editing.id} iniciarActivo={abrirVariantes} />
-                ) : (
-                  <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14 }}>
-                    <Switch
-                      checked={nuevoPersonalizable}
-                      onChange={setNuevoPersonalizable}
-                      label={<span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--fg)" }}>{t("varSwitch")}</span>}
-                    />
-                    <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: -4, display: "flex", alignItems: "center", gap: 6 }}>
-                      <IconInfo size={13} /> {nuevoPersonalizable ? t("varNewHint") : t("varOffHint")}
-                    </div>
-                  </div>
-                )}
+                  {/* ── Stock y visibilidad ── */}
+                  <SeccionPanel id="stock" visible={seccion === "stock"}>
+                    <SectionCard accent="var(--ok)" title={t("prodSecStock")} subtitle={t("prodSecStockSub")}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <Switch
+                            checked={!!form.controlar_stock}
+                            onChange={(v) => setForm({ ...form, controlar_stock: v })}
+                            label={t("qProdTrackStock")}
+                          />
+                          <InfoTip texto={t("iProdTrackStock")} titulo={t("qProdTrackStock")} />
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
+                          {form.controlar_stock && (
+                          <Campo label={form.unidad_venta === "kg" ? t("qProdStockKg") : t("qProdStock")}>
+                            <input
+                              style={S.input}
+                              type="number"
+                              min="0"
+                              step={form.unidad_venta === "kg" ? "0.1" : "1"}
+                              value={form.stock}
+                              onChange={(e) =>
+                                setForm({
+                                  ...form,
+                                  stock:
+                                    form.unidad_venta === "kg"
+                                      ? Math.round((parseFloat(e.target.value) || 0) * 1000) / 1000
+                                      : parseInt(e.target.value) || 0,
+                                })
+                              }
+                            />
+                          </Campo>
+                          )}
+                          <Campo label={t("qProdPos")} info={t("iProdPos")}>
+                            <input
+                              style={S.input}
+                              type="number"
+                              min="1"
+                              value={form.orden}
+                              onChange={(e) =>
+                                setForm({
+                                  ...form,
+                                  orden: parseInt(e.target.value) || 0,
+                                })
+                              }
+                            />
+                          </Campo>
+                        </div>
+                        <div style={{ borderTop: "1px solid var(--line)", paddingTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                          <Switch
+                            checked={!!form.disponible}
+                            onChange={(v) => setForm({ ...form, disponible: v })}
+                            label={t("qProdAvailable")}
+                            color="var(--info)"
+                          />
+                          <InfoTip texto={t("iProdAvailable")} titulo={t("qProdAvailable")} />
+                        </div>
+                      </div>
+                    </SectionCard>
+                  </SeccionPanel>
+
+                  {/* ── Atributos libres por rubro (marca, material, etc.) ── */}
+                  <SeccionPanel id="atributos" visible={seccion === "atributos"}>
+                    <SectionCard accent="var(--teal)" title={t("attrTitle")} subtitle={t("prodSecAttrSub")} info={t("iAttr")}>
+                      {atributos.length > 0 && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+                          {atributos.map((a, i) => (
+                            <div key={i} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                              <input
+                                style={{ ...S.input, flex: "0 0 40%" }}
+                                placeholder={t("attrKeyPh")}
+                                aria-label={t("attrKeyPh")}
+                                value={a.clave}
+                                onChange={(e) =>
+                                  setAtributos((arr) =>
+                                    arr.map((x, j) =>
+                                      j === i ? { ...x, clave: e.target.value } : x,
+                                    ),
+                                  )
+                                }
+                              />
+                              <input
+                                style={{ ...S.input, flex: 1, minWidth: 0 }}
+                                placeholder={t("attrValuePh")}
+                                aria-label={t("attrValuePh")}
+                                value={a.valor}
+                                onChange={(e) =>
+                                  setAtributos((arr) =>
+                                    arr.map((x, j) =>
+                                      j === i ? { ...x, valor: e.target.value } : x,
+                                    ),
+                                  )
+                                }
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setAtributos((arr) => arr.filter((_, j) => j !== i))
+                                }
+                                title={t("attrRemove")}
+                                aria-label={t("attrRemove")}
+                                style={{
+                                  border: "none",
+                                  background: "none",
+                                  color: "var(--err)",
+                                  cursor: "pointer",
+                                  display: "grid",
+                                  placeItems: "center",
+                                  width: 36,
+                                  height: 36,
+                                  flexShrink: 0,
+                                }}
+                              >
+                                <IconX size={14} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAtributos((a) => [...a, { clave: "", valor: "" }])
+                        }
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                          padding: "8px 12px",
+                          borderRadius: 8,
+                          border: "1px solid var(--info)",
+                          color: "var(--info)",
+                          background: "var(--info-bg)",
+                          cursor: "pointer",
+                          fontSize: 13,
+                          fontWeight: 600,
+                        }}
+                      >
+                        <IconPlus size={13} /> {t("prodAttrAdd")}
+                      </button>
+                    </SectionCard>
+                  </SeccionPanel>
+
+                  {/* ── Variantes/opciones — solo para productos ya creados. ── */}
+                  <SeccionPanel id="opciones" visible={seccion === "opciones"}>
+                    <SectionCard accent="var(--chart-5)" title={t("prodSecOptions")} subtitle={t("prodSecOptionsSub")} info={t("iOptions")}>
+                      {editing ? (
+                        <VariantesEditor key={editing.id} productoId={editing.id} iniciarActivo={abrirVariantes} />
+                      ) : (
+                        <div>
+                          <Switch
+                            checked={nuevoPersonalizable}
+                            onChange={setNuevoPersonalizable}
+                            label={<span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--fg)" }}>{t("varSwitch")}</span>}
+                          />
+                          <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: -4, display: "flex", alignItems: "center", gap: 6 }}>
+                            <IconInfo size={13} /> {nuevoPersonalizable ? t("varNewHint") : t("varOffHint")}
+                          </div>
+                        </div>
+                      )}
+                    </SectionCard>
+                  </SeccionPanel>
+                </div>
               </div>
               {saveError && (
                 <div
+                  role="alert"
                   style={{
-                    margin: "0 20px",
+                    margin: "0 22px 16px",
                     padding: "10px 12px",
                     borderRadius: 8,
                     background: "var(--err-bg)",
