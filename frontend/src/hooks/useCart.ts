@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import type { Producto } from "../services/api";
+import { esPorPeso, redondearKg } from "../lib/menuUi";
 
 // Una opción de variante elegida por el cliente (talle, color, extra…).
 export interface SelectedOption {
@@ -13,7 +14,7 @@ export interface SelectedOption {
 export interface CartLine {
   key: string; // producto + combinación de opciones (identifica la línea)
   producto: Producto;
-  cantidad: number;
+  cantidad: number; // en kg si el producto se vende por peso
   opciones: SelectedOption[];
   unitPrice: number; // precio base + extras de las opciones
 }
@@ -41,7 +42,7 @@ export function useCart() {
         const prev = c[key]?.cantidad ?? 0;
         return {
           ...c,
-          [key]: { key, producto, cantidad: prev + qty, opciones, unitPrice },
+          [key]: { key, producto, cantidad: redondearKg(prev + qty), opciones, unitPrice },
         };
       });
     },
@@ -56,7 +57,7 @@ export function useCart() {
         return next;
       }
       if (!next[key]) return c;
-      next[key] = { ...next[key], cantidad: qty };
+      next[key] = { ...next[key], cantidad: redondearKg(qty) };
       return next;
     });
   }, []);
@@ -65,8 +66,9 @@ export function useCart() {
   const clear = useCallback(() => setCart({}), []);
 
   const lines = useMemo(() => Object.values(cart), [cart]);
+  // Una línea por peso cuenta como un producto (no suma sus kg).
   const count = useMemo(
-    () => lines.reduce((a, l) => a + l.cantidad, 0),
+    () => lines.reduce((a, l) => a + (esPorPeso(l.producto) ? 1 : l.cantidad), 0),
     [lines],
   );
   const total = useMemo(

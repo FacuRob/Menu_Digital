@@ -87,6 +87,8 @@ export interface Producto {
   costo?: number;
   stock?: number;
   controlar_stock?: boolean;
+  // "kg": precio por kilo; la cantidad del pedido va en kg (0.35 = 350 g).
+  unidad_venta?: "unidad" | "kg";
   negocio_id?: number;
   sku?: string | null;
   atributos?: Record<string, unknown>;

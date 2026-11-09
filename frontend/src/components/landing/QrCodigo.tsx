@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import QRCode from "qrcode";
 
-// QR real dibujado como un solo <path> (sin innerHTML). Lleva a la demo de
-// la propia landing, así quien lo escanea con el celular la prueba ahí.
+// QR real dibujado como un solo <path> (sin innerHTML). Lleva al menú de
+// ejemplo (/menu), así quien lo escanea con el celular lo prueba ahí.
 export default function QrCodigo({ texto, className = "" }: { texto: string; className?: string }) {
   const { d, size } = useMemo(() => {
     const qr = QRCode.create(texto, { errorCorrectionLevel: "M" });
@@ -17,7 +17,7 @@ export default function QrCodigo({ texto, className = "" }: { texto: string; cla
   }, [texto]);
 
   return (
-    <svg viewBox={`-4 -4 ${size + 8} ${size + 8}`} className={className} shapeRendering="crispEdges" role="img" aria-label="Código QR de ejemplo que abre la demo de esta página">
+    <svg viewBox={`-4 -4 ${size + 8} ${size + 8}`} className={className} shapeRendering="crispEdges" role="img" aria-label="Código QR que abre el menú de ejemplo">
       <path d={d} fill="currentColor" />
     </svg>
   );

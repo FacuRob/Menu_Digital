@@ -1,0 +1,268 @@
+/* Menú público (/menu y /menu/:slug): mundo "Hora pico", versión carta.
+   Base hueso y tinta como la landing y el login. El color del local
+   (--mp, que sale de "Color del menú" en el panel) es la acción: botones,
+   categoría activa y la cabecera. Sólo lo carga el menú. */
+
+@layer components {
+.mn {
+  --bg: #efede6;
+  --bg-2: #e4e1d8;
+  --surface: #ffffff;
+  --fg: #111216;
+  --fg-2: #5b5d66;
+  --fg-dark-2: #a9abb4; /* texto secundario sobre tinta */
+  --ink-2: #1c1d23;
+  --line: color-mix(in srgb, #111216 12%, transparent);
+  --field-border: color-mix(in srgb, #111216 45%, transparent); /* 3:1 contra blanco */
+  --focus: #3b3bf5;
+  --err: #b42318;
+  --err-bg: #fdecea;
+  --wa: #25d366;
+  --r-sm: 12px;
+  --r-md: 20px;
+  --r-lg: 28px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  font-family: "Archivo Variable", system-ui, sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+  caret-color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.mn ::selection { background: var(--mp); color: var(--mp-on); }
+.mn :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+/* Sobre bloques de color o tinta el foco toma el color del texto. */
+.mn-sobre-color :focus-visible,
+.mn-sobre-tinta :focus-visible { outline-color: currentColor; }
+.mn a { text-underline-offset: 0.2em; text-decoration-thickness: 1.5px; }
+
+/* ── Tipografía ── */
+.mn-display {
+  font-stretch: 118%;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+  text-wrap: balance;
+}
+.mn-label {
+  font-stretch: 112%;
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.mn-num { font-variant-numeric: tabular-nums; }
+
+/* ── Botones ── */
+.mn-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 3.25rem;
+  padding: 0 1.4rem;
+  border: 0;
+  border-radius: 999px;
+  font-stretch: 112%;
+  font-weight: 700;
+  font-size: 1rem;
+  background: var(--mp);
+  color: var(--mp-on);
+  box-shadow: inset 0 0 0 1.5px var(--mp-edge, transparent);
+  cursor: pointer;
+  transition: background-color 160ms var(--ease), transform 160ms var(--ease), opacity 160ms;
+}
+.mn-btn:hover:not(:disabled) { background: var(--mp-dark); }
+.mn-btn:active:not(:disabled) { transform: scale(0.97); }
+.mn-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.mn-btn-borde {
+  background: transparent;
+  color: var(--fg);
+  box-shadow: inset 0 0 0 2px var(--fg);
+}
+.mn-btn-borde:hover:not(:disabled) { background: var(--fg); color: var(--bg); }
+/* Verde de WhatsApp (citado, para que se reconozca). Texto tinta: el blanco no llega a 4,5:1. */
+.mn-btn-wa { background: var(--wa); color: var(--fg); box-shadow: none; }
+.mn-btn-wa:hover:not(:disabled) { background: #1fbd5a; }
+
+/* Botón redondo (sumar, cerrar, volver). 44px de área táctil. */
+.mn-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color 160ms var(--ease), transform 160ms var(--ease);
+}
+.mn-icon-btn:active { transform: scale(0.94); }
+.mn-icon-btn-mp { background: var(--mp); color: var(--mp-on); box-shadow: inset 0 0 0 1.5px var(--mp-edge, transparent); }
+.mn-icon-btn-mp:hover { background: var(--mp-dark); }
+.mn-icon-btn-suave { background: var(--bg-2); color: var(--fg); }
+.mn-icon-btn-suave:hover { background: color-mix(in srgb, var(--fg) 14%, var(--bg-2)); }
+
+/* ── Pastillas (categorías, estado, entrega) ── */
+.mn-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.25rem;
+  padding: 0 0.9rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+/* Sobre la cabecera de color: borde con el color del texto. */
+.mn-chip-linea { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, currentColor 45%, transparent); }
+a.mn-chip { min-height: 2.75rem; }
+  a.mn-chip-linea:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
+.mn-chip-lleno { background: var(--mp-on); color: var(--mp); }
+
+/* ── Cabecera con portada ──
+   La foto llena la cabecera; un velo tinta la oscurece hacia los bordes
+   (viñeta) y hacia abajo, donde van el nombre y los datos en blanco. */
+.mn-hero-velo {
+  background:
+    radial-gradient(125% 100% at 50% 30%, transparent 42%, rgba(17, 18, 22, 0.6) 100%),
+    linear-gradient(180deg, rgba(17, 18, 22, 0.35) 0%, rgba(17, 18, 22, 0) 30%, rgba(17, 18, 22, 0.6) 62%, #111216 100%);
+}
+@keyframes mn-hero-zoom { from { transform: scale(1.08); } to { transform: none; } }
+.mn-hero-img { animation: mn-hero-zoom 1.6s var(--ease) both; }
+.mn-hero-foto :focus-visible { outline-color: #fff; }
+.mn-hero-foto h1 { text-shadow: 0 2px 24px rgba(17, 18, 22, 0.45); }
+.mn-hero-foto p { text-shadow: 0 1px 12px rgba(17, 18, 22, 0.7); }
+/* Sobre la foto: las pastillas llevan un fondo tinta para leerse sobre cualquier imagen,
+   y "Abierto ahora" toma el color del local. */
+.mn-hero-foto .mn-chip-linea { background: rgba(17, 18, 22, 0.45); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.35); }
+.mn-hero-foto a.mn-chip-linea:hover { background: rgba(17, 18, 22, 0.7); }
+/* El selector de idioma tiene estilos en línea: sobre la foto le damos fondo tinta. */
+.mn-hero-foto select { background: rgba(17, 18, 22, 0.45) !important; }
+.mn-hero-foto .mn-chip-lleno { background: var(--mp); color: var(--mp-on); box-shadow: inset 0 0 0 1.5px var(--mp-edge, transparent); }
+
+.mn-cat {
+  background: var(--surface);
+  color: var(--fg);
+  box-shadow: inset 0 0 0 1px var(--line);
+  min-height: 2.75rem;
+  cursor: pointer;
+  transition: background-color 200ms var(--ease), color 200ms var(--ease);
+}
+.mn-cat:hover { box-shadow: inset 0 0 0 1px var(--fg); }
+.mn-cat[aria-current="true"],
+.mn-cat[aria-pressed="true"] { background: var(--mp); color: var(--mp-on); box-shadow: inset 0 0 0 1.5px var(--mp-edge, transparent); }
+
+/* ── Campos ── */
+.mn-field {
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.7rem 1rem;
+  border: 1.5px solid var(--field-border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-size: 1rem; /* 16px: iOS no hace zoom */
+  outline: none;
+  transition: border-color 160ms var(--ease);
+}
+.mn-field::placeholder { color: var(--fg-2); }
+.mn-field:focus { border-color: var(--focus); box-shadow: 0 0 0 1px var(--focus); }
+.mn-field[aria-invalid="true"] { border-color: var(--err); }
+textarea.mn-field { resize: vertical; }
+select.mn-field { appearance: auto; }
+
+.mn-field-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+/* Opción elegible (variantes y tipo de entrega). */
+.mn-opcion {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 3.25rem;
+  padding: 0.65rem 0.9rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms var(--ease), background-color 160ms var(--ease);
+}
+.mn-opcion:hover { border-color: var(--field-border); }
+.mn-opcion[aria-pressed="true"],
+.mn-opcion[aria-checked="true"] { border-color: var(--mp-ink); background: var(--mp-soft); }
+.mn-marca {
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  border: 2px solid var(--field-border);
+  border-radius: 999px;
+}
+.mn-marca-cuadro { border-radius: 6px; }
+[aria-pressed="true"] > .mn-marca,
+[aria-checked="true"] > .mn-marca { border-color: var(--mp-ink); background: var(--mp-ink); color: var(--surface); }
+
+/* ── Tarjeta de producto ── */
+.mn-card {
+  display: flex;
+  align-items: stretch;
+  gap: 0.875rem;
+  padding: 0.625rem;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+  cursor: pointer;
+  transition: box-shadow 200ms var(--ease);
+}
+.mn-card:hover { box-shadow: inset 0 0 0 1px var(--field-border); }
+.mn-card:hover .mn-card-img img { transform: scale(1.04); }
+.mn-card-img { position: relative; width: 6.5rem; height: 6.5rem; flex-shrink: 0; overflow: hidden; border-radius: 14px; background: var(--bg-2); }
+.mn-card-img img { transition: transform 400ms var(--ease); }
+@media (min-width: 640px) { .mn-card-img { width: 7.25rem; height: 7.25rem; } }
+
+.mn-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--mp-soft);
+  color: var(--mp-ink);
+  font-size: 0.6875rem;
+}
+
+/* ── Hojas (producto y carrito) ── */
+.mn-velo {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, #111216 55%, transparent);
+}
+
+/* ── Animaciones (todas parten de visible) ── */
+@keyframes mn-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.mn-in { animation: mn-in 0.5s var(--ease) both; }
+@keyframes mn-sube { from { opacity: 0; transform: translateY(32px); } to { opacity: 1; transform: none; } }
+.mn-sube { animation: mn-sube 0.32s var(--ease) both; }
+@keyframes mn-carga { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+
+.mn-scroll::-webkit-scrollbar { display: none; }
+.mn-scroll { scrollbar-width: none; }
+.mn ::-webkit-scrollbar { width: 10px; }
+.mn ::-webkit-scrollbar-thumb { background: color-mix(in srgb, #111216 25%, transparent); border-radius: 999px; border: 3px solid transparent; background-clip: padding-box; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mn *, .mn *::before, .mn *::after { animation: none !important; transition: none !important; }
+}
+}

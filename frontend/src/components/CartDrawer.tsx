@@ -1,19 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import type { Configuracion, TipoEntrega } from "../services/api";
 import { pedidosService } from "../services/api";
 import type { CartApi } from "../hooks/useCart";
-import {
-  PRIMARY,
-  PRIMARY_DARK,
-  PRIMARY_SOFT,
-  PRIMARY_SHADOW,
-  PRIMARY_ON,
-  fmt,
-  ProductImage,
-} from "../lib/menuUi";
+import { fmt, ProductImage, CIcon, esPorPeso, fmtPeso, redondearKg, PASO_KG } from "../lib/menuUi";
 import { useLang } from "../lib/i18n";
-
-const WHATSAPP_GREEN = "#25d366";
 
 export default function CartDrawer({
   open,
@@ -22,6 +12,7 @@ export default function CartDrawer({
   mesa,
   setMesa,
   config,
+  demo = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -29,6 +20,8 @@ export default function CartDrawer({
   mesa: string;
   setMesa: (m: string) => void;
   config: Configuracion | null;
+  // Menú de ejemplo: el pedido no se guarda ni se manda por WhatsApp.
+  demo?: boolean;
 }) {
   const { t } = useLang();
   const entregaLabel: Record<TipoEntrega, string> = {
@@ -81,6 +74,28 @@ export default function CartDrawer({
     onClose();
   };
 
+  // Al abrir: foco en "Cerrar", Escape cierra y la página no scrollea detrás.
+  // Al cerrar: el foco vuelve a donde estaba. (El resto de la página queda inerte desde Menu.)
+  const cerrarBtnRef = useRef<HTMLButtonElement>(null);
+  const cerrarRef = useRef(cerrar);
+  useEffect(() => {
+    cerrarRef.current = cerrar;
+  });
+  useEffect(() => {
+    if (!open) return;
+    const previo = document.activeElement as HTMLElement | null;
+    cerrarBtnRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && cerrarRef.current();
+    window.addEventListener("keydown", onKey);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = overflow;
+      previo?.focus();
+    };
+  }, [open]);
+
   const buildPayload = (tipoEntrega: TipoEntrega | null) => ({
     mesa: tipoEntrega === "mesa" ? mesa.trim() || null : null,
     cliente: cliente.trim(),
@@ -127,6 +142,7 @@ export default function CartDrawer({
   };
 
   const guardar = async (tipoEntrega: TipoEntrega | null) => {
+    if (demo) return true;
     setSending(true);
     setError("");
     try {
@@ -174,7 +190,8 @@ export default function CartDrawer({
           l.opciones.length > 0
             ? ` (${l.opciones.map((o) => o.nombre).join(", ")})`
             : "";
-        return `• ${l.cantidad}x ${l.producto.nombre}${ops} — ${fmt(
+        const cant = esPorPeso(l.producto) ? fmtPeso(l.cantidad) : `${l.cantidad}x`;
+        return `• ${cant} ${l.producto.nombre}${ops} — ${fmt(
           l.cantidad * l.unitPrice,
         )}`;
       })
@@ -184,7 +201,7 @@ export default function CartDrawer({
     const pedido = await guardar(tipoEntrega);
     if (!pedido) return;
 
-    if (conWhatsApp) {
+    if (conWhatsApp && !demo) {
       const entregaTxt =
         tipoEntrega === "mesa"
           ? `Entrega: En mesa ${mesa.trim()}`
@@ -217,158 +234,111 @@ export default function CartDrawer({
   return (
     <>
       <div
+        className="mn-velo z-[90]"
         onClick={cerrar}
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 90,
-          background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
-          opacity: open ? 1 : 0,
-          pointerEvents: open ? "auto" : "none",
-          transition: "opacity .25s",
-        }}
+        aria-hidden
+        style={{ opacity: open ? 1 : 0, pointerEvents: open ? "auto" : "none", transition: "opacity .25s" }}
       />
 
       <aside
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="carrito-titulo"
+        inert={!open}
+        className="fixed inset-y-0 right-0 z-[91] flex w-full max-w-[420px] flex-col bg-[var(--bg)]"
         style={{
-          position: "fixed",
-          top: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 91,
-          width: "min(420px, 100%)",
-          background: "linear-gradient(180deg, var(--mp-bg1, #2a0f06), #0b0b0b 55%)",
-          color: "#fff",
-          borderLeft: "1px solid rgba(255,255,255,0.08)",
-          boxShadow: "-8px 0 40px rgba(0,0,0,0.2)",
           transform: open ? "translateX(0)" : "translateX(100%)",
-          transition: "transform .3s cubic-bezier(.2,.8,.2,1)",
-          display: "flex",
-          flexDirection: "column",
-          fontFamily: "'Inter',system-ui,sans-serif",
+          visibility: open ? "visible" : "hidden",
+          // Al abrir se muestra al instante (para poder darle foco); al cerrar se oculta al terminar de salir.
+          transition: open ? "transform .32s var(--ease)" : "transform .32s var(--ease), visibility 0s linear .32s",
         }}
       >
-        {/* Header */}
-        <div
-          style={{
-            padding: "18px 20px",
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            borderBottom: "1px solid rgba(255,255,255,0.08)",
-            background: "rgba(255,255,255,0.04)",
-          }}
-        >
+        {/* Cabecera */}
+        <div className="flex items-center gap-2.5 border-b border-[var(--line)] px-4 py-3">
           {step === "entrega" && !done && (
             <button
+              type="button"
               onClick={() => {
                 setStep("datos");
                 setError("");
               }}
               aria-label={t("back")}
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: "50%",
-                border: "none",
-                background: "rgba(255,255,255,0.08)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
+              className="mn-icon-btn mn-icon-btn-suave"
             >
-              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M15 18l-6-6 6-6" />
               </svg>
             </button>
           )}
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#fff", flex: 1 }}>
+          <h2 id="carrito-titulo" className="mn-display flex-1 text-[1.3rem]">
             {done ? t("orderSent") : step === "entrega" ? t("howDoYouWantIt") : t("yourOrder")}
           </h2>
-          <button
-            onClick={cerrar}
-            aria-label={t("close")}
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: "50%",
-              border: "none",
-              background: "rgba(255,255,255,0.08)",
-              cursor: "pointer",
-              fontSize: 18,
-              color: "rgba(255,255,255,0.6)",
-            }}
-          >
-            ✕
+          <button ref={cerrarBtnRef} type="button" onClick={cerrar} aria-label={t("close")} className="mn-icon-btn mn-icon-btn-suave">
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" aria-hidden>
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
           </button>
         </div>
 
         {done ? (
-          <SuccessView onClose={cerrar} />
+          <SuccessView onClose={cerrar} demo={demo} />
         ) : lines.length === 0 ? (
-          <EmptyView />
+          <EmptyView onClose={cerrar} />
         ) : step === "datos" ? (
           <>
             {/* Lista + datos */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "14px 16px" }}>
-              {lines.map((l) => (
-                <div
-                  key={l.key}
-                  style={{ display: "flex", gap: 12, padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }}
-                >
-                  <ProductImage
-                    url={l.producto.imagen_url}
-                    alt={l.producto.nombre}
-                    w={120}
-                    h={120}
-                    fill
-                    style={{ width: 58, height: 58, borderRadius: 12, flexShrink: 0 }}
-                  />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", lineHeight: 1.3 }}>
-                      {l.producto.nombre}
+            <div className="flex-1 overflow-y-auto px-4 py-2">
+              <ul>
+                {lines.map((l) => (
+                  <li key={l.key} className="flex gap-3 border-b border-[var(--line)] py-3.5">
+                    <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[12px] bg-[var(--bg-2)]">
+                      <ProductImage url={l.producto.imagen_url} alt="" w={128} h={128} fill style={{ width: "100%", height: "100%" }} />
                     </div>
-                    {l.opciones.length > 0 && (
-                      <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.4, marginTop: 2 }}>
-                        {l.opciones.map((o) => o.nombre).join(" · ")}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-[15px] font-semibold leading-snug">{l.producto.nombre}</p>
+                        <p className="mn-num shrink-0 text-[15px] font-bold">{fmt(l.unitPrice * l.cantidad)}</p>
                       </div>
-                    )}
-                    <div style={{ fontSize: 13, color: PRIMARY, fontWeight: 700 }}>
-                      {fmt(l.unitPrice * l.cantidad)}
+                      {l.opciones.length > 0 && (
+                        <p className="mt-0.5 text-[13px] leading-snug text-[var(--fg-2)]">{l.opciones.map((o) => o.nombre).join(" · ")}</p>
+                      )}
+                      <div className="mt-2 flex items-center gap-1">
+                        {/* Por peso: de a 100 g; bajar de 100 g quita la línea. */}
+                        <MiniBtn
+                          label={t("less")}
+                          onClick={() => {
+                            if (!esPorPeso(l.producto)) return setQty(l.key, l.cantidad - 1);
+                            const next = redondearKg(l.cantidad - PASO_KG);
+                            setQty(l.key, next < PASO_KG ? 0 : next);
+                          }}
+                        >
+                          −
+                        </MiniBtn>
+                        <span className="mn-num min-w-7 text-center text-[15px] font-bold">
+                          {esPorPeso(l.producto) ? fmtPeso(l.cantidad) : l.cantidad}
+                        </span>
+                        <MiniBtn
+                          label={t("more")}
+                          onClick={() => setQty(l.key, esPorPeso(l.producto) ? redondearKg(l.cantidad + PASO_KG) : l.cantidad + 1)}
+                        >
+                          +
+                        </MiniBtn>
+                        <button
+                          type="button"
+                          onClick={() => remove(l.key)}
+                          className="ml-auto min-h-11 cursor-pointer px-2 text-[13px] font-semibold text-[var(--fg-2)] underline hover:text-[var(--fg)]"
+                        >
+                          {t("remove")}
+                        </button>
+                      </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-                      <MiniBtn onClick={() => setQty(l.key, l.cantidad - 1)}>−</MiniBtn>
-                      <span style={{ minWidth: 22, textAlign: "center", fontWeight: 700, fontSize: 14 }}>
-                        {l.cantidad}
-                      </span>
-                      <MiniBtn onClick={() => setQty(l.key, l.cantidad + 1)}>+</MiniBtn>
-                      <button
-                        onClick={() => remove(l.key)}
-                        style={{ marginLeft: "auto", border: "none", background: "none", color: "rgba(255,255,255,0.45)", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}
-                      >
-                        {t("remove")}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                  </li>
+                ))}
+              </ul>
 
-              <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
-                <Field
-                  label={t("yourName")}
-                  value={cliente}
-                  onChange={setCliente}
-                  placeholder={t("namePlaceholder")}
-                  invalid={!!error && !nombreOk}
-                />
-                <Field
-                  label={t("note")}
-                  value={nota}
-                  onChange={setNota}
-                  placeholder={t("notePlaceholder")}
-                  textarea
-                />
+              <div className="mt-5 grid gap-4 pb-4">
+                <Field label={t("yourName")} value={cliente} onChange={setCliente} placeholder={t("namePlaceholder")} invalid={!!error && !nombreOk} />
+                <Field label={t("note")} value={nota} onChange={setNota} placeholder={t("notePlaceholder")} textarea />
               </div>
             </div>
 
@@ -386,48 +356,24 @@ export default function CartDrawer({
         ) : (
           <>
             {/* Paso entrega */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
-              <div style={{ display: "grid", gap: 10 }}>
+            <div className="flex-1 overflow-y-auto p-4">
+              <div role="radiogroup" aria-label={t("howDoYouWantIt")} className="grid gap-2.5">
                 {opciones.map((op) => (
                   <button
                     key={op}
+                    type="button"
+                    role="radio"
+                    aria-checked={tipo === op}
                     onClick={() => {
                       setTipo(op);
                       setError("");
                     }}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: "14px 16px",
-                      borderRadius: 14,
-                      border: `2px solid ${tipo === op ? PRIMARY : "rgba(255,255,255,0.12)"}`,
-                      background: tipo === op ? PRIMARY_SOFT : "rgba(255,255,255,0.04)",
-                      transition: "all .15s",
-                      cursor: "pointer",
-                      textAlign: "left",
-                    }}
+                    className="mn-opcion min-h-[3.75rem]"
                   >
-                    <span style={{ fontSize: 22 }}>
-                      {op === "mesa" ? "🍽️" : op === "retiro" ? "🛍️" : "🛵"}
-                    </span>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: "#fff", flex: 1 }}>
-                      {entregaLabel[op]}
-                    </span>
-                    <span
-                      style={{
-                        width: 20,
-                        height: 20,
-                        borderRadius: "50%",
-                        border: `2px solid ${tipo === op ? PRIMARY : "rgba(255,255,255,0.3)"}`,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {tipo === op && (
-                        <span style={{ width: 10, height: 10, borderRadius: "50%", background: PRIMARY }} />
-                      )}
+                    <CIcon icon={op === "mesa" ? "mesa" : op === "retiro" ? "bolsa" : "moto"} size={22} />
+                    <span className="flex-1 text-base font-bold">{entregaLabel[op]}</span>
+                    <span className="mn-marca" aria-hidden>
+                      {tipo === op && <span className="h-2 w-2 rounded-full bg-current" />}
                     </span>
                   </button>
                 ))}
@@ -435,13 +381,9 @@ export default function CartDrawer({
 
               {/* Campos según opción */}
               {tipo === "mesa" && (
-                <div style={{ marginTop: 16 }}>
-                  <label style={labelStyle}>{t("tableLabel")}</label>
-                  <select
-                    value={mesa}
-                    onChange={(e) => setMesa(e.target.value)}
-                    style={{ ...inputStyle, appearance: "auto" as const }}
-                  >
+                <label className="mt-5 block">
+                  <span className="mn-field-label">{t("tableLabel")}</span>
+                  <select value={mesa} onChange={(e) => setMesa(e.target.value)} className="mn-field">
                     <option value="">{t("chooseTable")}</option>
                     {Array.from({ length: config?.mesas_cantidad || 0 }, (_, i) => i + 1).map((n) => (
                       <option key={n} value={String(n)}>
@@ -449,61 +391,40 @@ export default function CartDrawer({
                       </option>
                     ))}
                   </select>
-                </div>
+                </label>
               )}
               {tipo === "delivery" && (
-                <div style={{ marginTop: 16 }}>
-                  <label style={labelStyle}>{t("deliveryAddress")}</label>
-                  <textarea
-                    value={direccion}
-                    onChange={(e) => setDireccion(e.target.value)}
-                    placeholder={t("addressPlaceholder")}
-                    rows={3}
-                    style={{ ...inputStyle, resize: "vertical" }}
-                  />
-                </div>
+                <label className="mt-5 block">
+                  <span className="mn-field-label">{t("deliveryAddress")}</span>
+                  <textarea value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder={t("addressPlaceholder")} rows={3} className="mn-field" />
+                </label>
               )}
               {requierePhone && (
-                <div style={{ marginTop: 16 }}>
-                  <label style={labelStyle}>{t("phone")}</label>
+                <label className="mt-5 block">
+                  <span className="mn-field-label">{t("phone")}</span>
                   <input
                     type="tel"
                     inputMode="tel"
+                    autoComplete="tel"
                     value={telefono}
                     onChange={(e) => setTelefono(e.target.value)}
                     placeholder={t("phonePlaceholder")}
-                    style={inputStyle}
+                    className="mn-field"
                   />
-                </div>
+                </label>
               )}
               {requierePhone && config?.avisos_whatsapp && (
-                <label
-                  style={{
-                    marginTop: 14,
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 11,
-                    padding: "12px 14px",
-                    borderRadius: 14,
-                    cursor: "pointer",
-                    border: `1.5px solid ${avisoWa ? "#25d366" : "rgba(255,255,255,0.12)"}`,
-                    background: avisoWa ? "rgba(37,211,102,0.10)" : "rgba(255,255,255,0.04)",
-                    transition: "all .15s",
-                  }}
-                >
+                <label className="mn-opcion mt-4 items-start" aria-checked={avisoWa}>
                   <input
                     type="checkbox"
                     checked={avisoWa}
                     onChange={(e) => setAvisoWa(e.target.checked)}
-                    style={{ width: 18, height: 18, marginTop: 1, accentColor: "#25d366", flexShrink: 0 }}
+                    className="mt-0.5 h-5 w-5 shrink-0"
+                    style={{ accentColor: "var(--mp-ink)" }}
                   />
                   <span>
-                    <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#fff" }}>
-                      {t("notifyWhatsapp")}
-                    </span>
-                    <span style={{ display: "block", fontSize: 12.5, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>
-                      {t("notifyWhatsappSub")}
-                    </span>
+                    <span className="block text-[15px] font-bold">{t("notifyWhatsapp")}</span>
+                    <span className="mt-0.5 block text-[13px] text-[var(--fg-2)]">{t("notifyWhatsappSub")}</span>
                   </span>
                 </label>
               )}
@@ -548,68 +469,24 @@ function Footer({
 }) {
   const { t } = useLang();
   return (
-    <div
-      style={{
-        borderTop: "1px solid rgba(255,255,255,0.08)",
-        background: "rgba(255,255,255,0.04)",
-        padding: "16px 18px calc(16px + env(safe-area-inset-bottom))",
-      }}
-    >
+    <div className="border-t border-[var(--line)] bg-[var(--surface)] px-4 pt-4" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
       {error && (
-        <div style={{ background: "rgba(239,68,68,0.12)", color: "#fca5a5", fontSize: 13, padding: "8px 12px", borderRadius: 10, marginBottom: 10 }}>
+        <p role="alert" className="mb-3 rounded-[var(--r-sm)] bg-[var(--err-bg)] px-3 py-2 text-sm font-semibold text-[var(--err)]">
           {error}
-        </div>
+        </p>
       )}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <span style={{ fontSize: 14, color: "rgba(255,255,255,0.6)" }}>{t("total")}</span>
-        <span style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{fmt(total)}</span>
+      <div className="mb-3 flex items-baseline justify-between">
+        <span className="text-[15px] text-[var(--fg-2)]">{t("total")}</span>
+        <span className="mn-num mn-display text-[1.75rem]">{fmt(total)}</span>
       </div>
 
-      <button
-        onClick={onPrimary}
-        disabled={primaryDisabled}
-        style={{
-          width: "100%",
-          padding: "15px",
-          borderRadius: 999,
-          border: "none",
-          background: PRIMARY,
-          color: PRIMARY_ON,
-          fontSize: 15.5,
-          fontWeight: 700,
-          cursor: primaryDisabled ? "default" : "pointer",
-          opacity: primaryDisabled ? 0.65 : 1,
-          boxShadow: `0 8px 22px ${PRIMARY_SHADOW}`,
-        }}
-        onMouseEnter={(e) => !primaryDisabled && (e.currentTarget.style.background = PRIMARY_DARK)}
-        onMouseLeave={(e) => (e.currentTarget.style.background = PRIMARY)}
-      >
+      <button type="button" onClick={onPrimary} disabled={primaryDisabled} className="mn-btn w-full">
         {primaryLabel}
       </button>
 
       {showWhatsApp && (
-        <button
-          onClick={onWhatsApp}
-          disabled={whatsAppDisabled}
-          style={{
-            width: "100%",
-            marginTop: 10,
-            padding: "14px",
-            borderRadius: 999,
-            border: "none",
-            background: WHATSAPP_GREEN,
-            color: "#fff",
-            fontSize: 15,
-            fontWeight: 700,
-            cursor: whatsAppDisabled ? "default" : "pointer",
-            opacity: whatsAppDisabled ? 0.65 : 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-          }}
-        >
-          <svg width={19} height={19} viewBox="0 0 24 24" fill="currentColor">
+        <button type="button" onClick={onWhatsApp} disabled={whatsAppDisabled} className="mn-btn mn-btn-wa mt-2.5 w-full">
+          <svg width={19} height={19} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
             <path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2Zm5.3 14.1c-.2.6-1.2 1.1-1.7 1.2-.4.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.6-2.7-1.2-4.4-3.9-4.6-4.1-.1-.2-1-1.4-1-2.6s.6-1.8.9-2.1c.2-.2.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2.1.4 0 .5l-.4.6c-.1.2-.3.3-.1.6.1.3.6 1 1.3 1.6.9.8 1.6 1 1.9 1.2.2.1.4.1.5-.1l.6-.7c.2-.2.3-.2.6-.1l1.8.9c.3.1.5.2.5.4.1.1.1.7-.1 1.3Z" />
           </svg>
           {t("sendWhatsApp")}
@@ -619,68 +496,44 @@ function Footer({
   );
 }
 
-function SuccessView({ onClose }: { onClose: () => void }) {
+function SuccessView({ onClose, demo }: { onClose: () => void; demo: boolean }) {
   const { t } = useLang();
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 30, textAlign: "center" }}>
-      <div style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(34,197,94,0.15)", color: "#4ade80", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 38, marginBottom: 16 }}>
-        ✓
+    <div className="mn-in flex flex-1 flex-col items-center justify-center p-8 text-center" role="status">
+      <div className="mb-5 grid h-16 w-16 place-items-center rounded-full bg-[var(--mp)] text-[var(--mp-on)]" style={{ boxShadow: "inset 0 0 0 1.5px var(--mp-edge, transparent)" }}>
+        <svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="m5 12 5 5 9-10" />
+        </svg>
       </div>
-      <h3 style={{ margin: 0, fontSize: 19, color: "#fff" }}>{t("successTitle")}</h3>
-      <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 14, marginTop: 6 }}>{t("successSubtitle")}</p>
-      <button
-        onClick={onClose}
-        style={{ marginTop: 22, padding: "13px 26px", borderRadius: 999, border: "none", background: PRIMARY, color: PRIMARY_ON, fontWeight: 700, fontSize: 15, cursor: "pointer" }}
-      >
+      <h3 className="mn-display text-[1.75rem]">{t("successTitle")}</h3>
+      <p className="mt-3 max-w-[32ch] text-[15px] leading-relaxed text-[var(--fg-2)]">{t(demo ? "demoSuccess" : "successSubtitle")}</p>
+      <button type="button" onClick={onClose} className="mn-btn mt-7">
         {t("keepBrowsing")}
       </button>
     </div>
   );
 }
 
-function EmptyView() {
+function EmptyView({ onClose }: { onClose: () => void }) {
   const { t } = useLang();
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 30, color: "rgba(255,255,255,0.45)", textAlign: "center" }}>
-      <div style={{ fontSize: 46, marginBottom: 10 }}>🛒</div>
-      <p style={{ fontSize: 15 }}>{t("emptyCart")}</p>
-      <p style={{ fontSize: 13 }}>{t("emptyCartSub")}</p>
+    <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
+      <p className="mn-display text-[1.75rem]">{t("emptyCart")}</p>
+      <p className="mt-3 text-[15px] text-[var(--fg-2)]">{t("emptyCartSub")}</p>
+      <button type="button" onClick={onClose} className="mn-btn mn-btn-borde mt-7">
+        {t("backToMenu")}
+      </button>
     </div>
   );
 }
 
-function MiniBtn({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+function MiniBtn({ children, label, onClick }: { children: React.ReactNode; label: string; onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      style={{ width: 28, height: 28, borderRadius: "50%", border: "1.5px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.04)", color: "#fff", fontSize: 16, fontWeight: 700, lineHeight: 1, cursor: "pointer" }}
-    >
+    <button type="button" onClick={onClick} aria-label={label} className="mn-icon-btn mn-icon-btn-suave text-lg font-bold">
       {children}
     </button>
   );
 }
-
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: 12.5,
-  fontWeight: 600,
-  color: "rgba(255,255,255,0.6)",
-  marginBottom: 5,
-};
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "10px 13px",
-  borderRadius: 12,
-  border: "1.5px solid rgba(255,255,255,0.12)",
-  fontSize: 14,
-  fontFamily: "inherit",
-  background: "rgba(255,255,255,0.04)",
-  color: "#fff",
-  outline: "none",
-  boxSizing: "border-box",
-  colorScheme: "dark",
-};
 
 function Field({
   label,
@@ -697,17 +550,13 @@ function Field({
   textarea?: boolean;
   invalid?: boolean;
 }) {
-  const st: React.CSSProperties = {
-    ...inputStyle,
-    border: `1.5px solid ${invalid ? "#ef4444" : "rgba(255,255,255,0.12)"}`,
-  };
   return (
-    <label style={{ display: "block" }}>
-      <span style={labelStyle}>{label}</span>
+    <label className="block">
+      <span className="mn-field-label">{label}</span>
       {textarea ? (
-        <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={2} style={{ ...st, resize: "vertical" }} />
+        <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={2} className="mn-field" />
       ) : (
-        <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={st} />
+        <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-invalid={invalid || undefined} className="mn-field" />
       )}
     </label>
   );

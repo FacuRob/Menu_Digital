@@ -54,6 +54,8 @@ const es: Dict = {
   back: "Volver",
   taxFree: "Sin impuestos nacionales: {v}",
   quantity: "Cantidad",
+  weight: "Peso",
+  howMuch: "¿Cuánto querés?",
   addToOrder: "Agregar al pedido",
   backToMenu: "Volver al menú",
   required: "Obligatorio",
@@ -87,6 +89,13 @@ const es: Dict = {
   sendWhatsApp: "Enviar por WhatsApp",
   successTitle: "¡Pedido enviado!",
   successSubtitle: "El local ya recibió tu pedido.",
+  demoBanner: "Menú de ejemplo: podés probar todo, los pedidos no se envían.",
+  demoBack: "Volver a DinexFlow",
+  clearSearch: "Borrar búsqueda",
+  less: "Uno menos",
+  more: "Uno más",
+  categories: "Categorías",
+  demoSuccess: "Es un menú de ejemplo: el pedido no se envió a ningún lado. En tu carta le llega al local.",
   keepBrowsing: "Seguir viendo el menú",
   openNow: "Abierto ahora",
   closedNow: "Cerrado ahora",
@@ -136,6 +145,8 @@ const en: Dict = {
   back: "Back",
   taxFree: "Before taxes: {v}",
   quantity: "Quantity",
+  weight: "Weight",
+  howMuch: "How much?",
   addToOrder: "Add to order",
   backToMenu: "Back to menu",
   required: "Required",
@@ -168,6 +179,13 @@ const en: Dict = {
   sendWhatsApp: "Send via WhatsApp",
   successTitle: "Order sent!",
   successSubtitle: "The venue has received your order.",
+  demoBanner: "Sample menu: try everything, orders aren't sent.",
+  demoBack: "Back to DinexFlow",
+  clearSearch: "Clear search",
+  less: "One less",
+  more: "One more",
+  categories: "Categories",
+  demoSuccess: "This is a sample menu: the order wasn't sent anywhere. On your menu it reaches the venue.",
   keepBrowsing: "Keep browsing the menu",
   openNow: "Open now",
   closedNow: "Closed now",
@@ -217,6 +235,8 @@ const pt: Dict = {
   back: "Voltar",
   taxFree: "Sem impostos: {v}",
   quantity: "Quantidade",
+  weight: "Peso",
+  howMuch: "Quanto você quer?",
   addToOrder: "Adicionar ao pedido",
   backToMenu: "Voltar ao menu",
   required: "Obrigatório",
@@ -249,6 +269,13 @@ const pt: Dict = {
   sendWhatsApp: "Enviar pelo WhatsApp",
   successTitle: "Pedido enviado!",
   successSubtitle: "O local já recebeu seu pedido.",
+  demoBanner: "Menu de exemplo: teste tudo, os pedidos não são enviados.",
+  demoBack: "Voltar ao DinexFlow",
+  clearSearch: "Limpar busca",
+  less: "Um a menos",
+  more: "Um a mais",
+  categories: "Categorias",
+  demoSuccess: "Este é um menu de exemplo: o pedido não foi enviado. No seu menu, ele chega ao local.",
   keepBrowsing: "Continuar vendo o menu",
   openNow: "Aberto agora",
   closedNow: "Fechado agora",
@@ -316,20 +343,13 @@ export const useLang = () => {
 
 // ── Selector de idioma (desplegable compacto) ────────────────
 export function LangSelector({ dark = false }: { dark?: boolean }) {
+  // dark: sobre un bloque de color; toma el color del texto que lo rodea.
   const { lang, setLang } = useLang();
-  const current = LANGS.find((l) => l.code === lang) || LANGS[0];
   return (
     <label
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        position: "relative",
-        cursor: "pointer",
-      }}
+      style={{ display: "inline-flex", alignItems: "center", position: "relative", cursor: "pointer" }}
       title="Idioma / Language"
     >
-      <span style={{ fontSize: 16, lineHeight: 1 }}>{current.flag}</span>
       <select
         value={lang}
         onChange={(e) => setLang(e.target.value as Lang)}
@@ -337,20 +357,21 @@ export function LangSelector({ dark = false }: { dark?: boolean }) {
         style={{
           appearance: "none",
           WebkitAppearance: "none",
-          border: `1px solid ${dark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.15)"}`,
-          background: dark ? "rgba(0,0,0,0.25)" : "#fff",
-          color: dark ? "#fff" : "#1c1917",
+          border: "none",
+          boxShadow: `inset 0 0 0 1.5px ${dark ? "color-mix(in srgb, currentColor 45%, transparent)" : "rgba(0,0,0,0.15)"}`,
+          background: dark ? "transparent" : "#fff",
+          color: dark ? "inherit" : "#1c1917",
           borderRadius: 999,
-          padding: "5px 26px 5px 10px",
+          minHeight: 44,
+          padding: "0 30px 0 14px",
           fontSize: 13,
           fontWeight: 600,
           fontFamily: "inherit",
           cursor: "pointer",
-          outline: "none",
         }}
       >
         {LANGS.map((l) => (
-          <option key={l.code} value={l.code} style={{ color: "#1c1917" }}>
+          <option key={l.code} value={l.code} style={{ color: "#1c1917", background: "#fff" }}>
             {l.label}
           </option>
         ))}
@@ -360,11 +381,12 @@ export function LangSelector({ dark = false }: { dark?: boolean }) {
         height={12}
         viewBox="0 0 24 24"
         fill="none"
-        stroke={dark ? "#fff" : "#1c1917"}
+        stroke="currentColor"
         strokeWidth={2.4}
         strokeLinecap="round"
         strokeLinejoin="round"
-        style={{ position: "absolute", right: 9, pointerEvents: "none" }}
+        aria-hidden
+        style={{ position: "absolute", right: 11, pointerEvents: "none", color: dark ? "inherit" : "#1c1917" }}
       >
         <path d="M6 9l6 6 6-6" />
       </svg>

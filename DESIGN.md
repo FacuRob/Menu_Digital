@@ -61,7 +61,7 @@ components:
 
 # Design System: DinexFlow
 
-Fuente de verdad: `frontend/src/components/landing/landing.css` (tokens bajo `.dx`) y `frontend/src/pages/Landing.tsx`. Alcance: sólo la landing pública (`/`). Menu.tsx y frontend-admin no usan este mundo.
+Fuente de verdad: `frontend/src/components/landing/landing.css` (tokens bajo `.dx`) y `frontend/src/pages/Landing.tsx`. Alcance: la landing pública (`/`). El panel y el menú público tienen sus propias versiones, más abajo.
 
 ## Overview
 
@@ -152,7 +152,7 @@ Sin sombras decorativas, tampoco en el teléfono. La profundidad sale del cambio
 Dos capas fijas: la de fondo y texto (`.dx-nav`, cambia con la sección) y la de acciones (logo, "Probar gratis", hamburguesa) encima. En el celular, panel `nav#menu-movil`; Escape cierra y devuelve el foco.
 
 ### Ficha QR y portal (inicio)
-Ficha tinta con un QR real (`QrCodigo`, un solo `<path>` SVG con zona de silencio de 4 módulos) que apunta a `/#probalo`. En escritorio, al scrollear, la ficha viaja al centro y crece mientras el portal de tinta se abre con `clip-path` desde su caja hasta `inset(0)`, y aparece "Escaneá. y pedí." en Bodoni.
+Ficha tinta con un QR real (`QrCodigo`, un solo `<path>` SVG con zona de silencio de 4 módulos) que apunta al menú de ejemplo (`/menu`); la ficha también es un enlace. En escritorio, al scrollear, la ficha viaja al centro y crece mientras el portal de tinta se abre con `clip-path` desde su caja hasta `inset(0)`, y aparece "Escaneá. y pedí." en Bodoni.
 
 ### Teléfono (escena firma)
 `Telefono.tsx`: tres pantallas (`data-pantalla` 1–3: escaneo, carta, chat) apiladas. Rotulado "Ejemplo · Sushi Zen". En escritorio los pasos a la izquierda se encienden de a uno (los demás al 45%) y el contador gigante 01/02/03 rueda a la derecha; los números en línea de los pasos se ocultan cuando el contador está a la vista.
@@ -304,3 +304,34 @@ Comparten `components/Acceso.tsx`:
 - `AvisoAcceso`.
 
 Con esto, el rediseño del panel está completo (fases 0 a 6).
+
+---
+
+# Menú público: "Hora pico, versión carta"
+
+Fuente de verdad: `frontend/src/components/menu/menu.css` (tokens bajo `.mn`, dentro de `@layer components` para que las clases de Tailwind puedan pisarlos) y `frontend/src/lib/menuUi.tsx` (`paletteVars`). Lo usan `/menu` (menú de ejemplo, sin API) y `/menu/:slug` (o `?negocio=`), junto con `ProductModal` y `CartDrawer`.
+
+Es siempre claro: el cliente lo mira de día, en la mesa o en la calle, y la comida se ve mejor sobre hueso.
+
+- Base hueso `#efede6`, tarjetas blancas, texto tinta, secundario `#5b5d66`. Letra Archivo Variable; titulares con `.mn-display` (ensanchada 118 %, 800).
+- **Cabecera con portada:** la foto llena la cabecera (`.mn-hero-img`), con un velo tinta que la oscurece hacia los bordes y hacia abajo (`.mn-hero-velo`). Encima, en blanco: logo, nombre, descripción y datos. Las pastillas llevan fondo tinta translúcido para leerse sobre cualquier foto, y "Abierto ahora" toma el color del local. Es la única excepción a "sin degradados": la pidió el dueño para que la entrada sea llamativa.
+- **Cabecera sin portada:** bloque pleno con el color del local.
+- **El color del local** (`color_primario`, "Color del menú" en el panel) es la acción y la identidad: botón (+), categoría activa, barra "Ver pedido", botón principal y la cabecera cuando no hay portada.
+- Pie en bloque tinta con datos y horarios. El aviso de la demo, también tinta.
+- Sin degradados, vidrio ni brillos. Íconos de línea (`CIcon`, `CategoriaIcon`), nunca emojis.
+- Precios con `.mn-num` (tabulares) y sin centavos cuando el monto es entero.
+
+## El color del local, con cualquier valor
+
+`paletteVars(color)` calcula, para cualquier color del selector:
+
+| Variable | Qué es |
+|---|---|
+| `--mp` | el color tal cual (fondos de botones y de la cabecera) |
+| `--mp-on` | texto sobre el color: tinta o blanco, el que tenga más contraste WCAG |
+| `--mp-ink` | el color oscurecido hasta 4,5:1 sobre hueso, para usarlo como texto (etiquetas, selección) |
+| `--mp-dark` | hover: un poco más oscuro, o más claro si el color es casi negro |
+| `--mp-edge` | borde de 1,5 px cuando el color es casi blanco, para que el botón no se pierda |
+| `--mp-soft` | el color al 12 %, fondo de etiquetas y opciones elegidas |
+
+Regla: el color del local nunca va directo como texto; se usa `--mp-ink`.

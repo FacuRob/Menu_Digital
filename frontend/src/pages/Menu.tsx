@@ -17,19 +17,21 @@ import type {
 import { useCart } from "../hooks/useCart";
 import {
   PRIMARY,
-  PRIMARY_SOFT,
-  PRIMARY_SHADOW,
   PRIMARY_ON,
-  PRIMARY_A35,
   paletteVars,
   fmt,
   setMonedaMenu,
   CategoriaIcon,
+  CIcon,
   ProductImage,
+  esPorPeso,
 } from "../lib/menuUi";
 import ProductModal from "../components/ProductModal";
 import CartDrawer from "../components/CartDrawer";
 import { useLang, LangSelector } from "../lib/i18n";
+import "@fontsource-variable/archivo/wdth.css";
+import "../components/menu/menu.css";
+import { DEMO_CATEGORIAS, DEMO_CONFIG, DEMO_PRODUCTOS } from "../lib/menuDemo";
 
 // ── Horarios ────────────────────────────────────────────────
 const hoyIndex = () => {
@@ -69,9 +71,15 @@ const abiertoAhora = (hc?: HorariosConfig | null): boolean | null => {
   );
 };
 
+// Scroll suave salvo que el sistema pida reducir el movimiento.
+const suave = (): ScrollBehavior =>
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+
 const Menu = () => {
   const { t } = useLang();
   const { slug } = useParams<{ slug?: string }>();
+  // /menu a secas (sin slug ni ?negocio, que usan los QR viejos) es la demo.
+  const demo = !slug && !new URLSearchParams(window.location.search).get("negocio");
   const [productos, setProductos] = useState<Producto[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [config, setConfig] = useState<Configuracion | null>(null);
@@ -99,6 +107,14 @@ const Menu = () => {
   }, []);
 
   useEffect(() => {
+    if (demo) {
+      setProductos(DEMO_PRODUCTOS);
+      setCategorias(DEMO_CATEGORIAS);
+      setConfig(DEMO_CONFIG);
+      setMonedaMenu(DEMO_CONFIG.moneda);
+      setLoading(false);
+      return;
+    }
     (async () => {
       try {
         setLoading(true);
@@ -131,7 +147,7 @@ const Menu = () => {
         setLoading(false);
       }
     })();
-  }, [slug]);
+  }, [slug, demo]);
 
   // Título de la pestaña con el nombre del local.
   useEffect(() => {
@@ -169,7 +185,7 @@ const Menu = () => {
     const el = sectionRefs.current[id];
     if (el) {
       const y = el.getBoundingClientRect().top + window.scrollY - stickyOffset();
-      window.scrollTo({ top: y, behavior: "smooth" });
+      window.scrollTo({ top: y, behavior: suave() });
     }
   };
 
@@ -191,23 +207,17 @@ const Menu = () => {
     return () => window.removeEventListener("scroll", onScroll);
   }, [porCategoria]);
 
-  const pageStyle = {
-    ...paletteVars(config?.color_primario),
-    background: `radial-gradient(1100px 520px at 85% -8%, ${PRIMARY_A35}, transparent 62%), linear-gradient(165deg, var(--mp-bg1, #2a0f06) 0%, var(--mp-bg2, #120604) 45%, #070707 100%)`,
-    backgroundAttachment: "fixed",
-  };
+  const pageStyle = paletteVars(config?.color_primario);
 
   if (loading) {
     return (
-      <div
-        className="flex min-h-screen flex-col items-center justify-center font-[Inter,system-ui,sans-serif] text-white"
-        style={pageStyle}
-      >
-        <div className="text-5xl" style={{ animation: "pulse 1.4s ease-in-out infinite" }}>
-          🍽️
+      <div className="mn grid min-h-screen place-items-center p-6" style={pageStyle} role="status" aria-busy="true">
+        <div className="w-48 text-center">
+          <p className="text-[15px] font-semibold">{t("loading")}</p>
+          <div className="mt-4 h-1 overflow-hidden rounded-full bg-[var(--bg-2)]">
+            <div className="h-full w-2/5 rounded-full bg-[var(--fg)]" style={{ animation: "mn-carga 1.1s var(--ease) infinite" }} />
+          </div>
         </div>
-        <p className="mt-4 text-[15px] text-white/50">{t("loading")}</p>
-        <style>{`@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.94)}}`}</style>
       </div>
     );
   }
@@ -215,13 +225,11 @@ const Menu = () => {
   // Slug inexistente: el negocio no existe o está inactivo.
   if (notFound) {
     return (
-      <div
-        className="flex min-h-screen flex-col items-center justify-center p-6 text-center font-[Inter,system-ui,sans-serif] text-white"
-        style={pageStyle}
-      >
-        <div className="grid h-20 w-20 place-items-center rounded-3xl bg-white/[0.06] text-4xl ring-1 ring-white/10">🔍</div>
-        <h1 className="mt-5 text-2xl font-extrabold">{t("notFoundTitle")}</h1>
-        <p className="mt-2 text-sm text-white/50">{t("notFoundDesc")}</p>
+      <div className="mn grid min-h-screen place-items-center p-6 text-center" style={pageStyle}>
+        <div className="max-w-sm">
+          <h1 className="mn-display text-[clamp(2.25rem,9vw,3.5rem)]">{t("notFoundTitle")}</h1>
+          <p className="mt-4 text-[var(--fg-2)]">{t("notFoundDesc")}</p>
+        </div>
       </div>
     );
   }
@@ -233,89 +241,96 @@ const Menu = () => {
     ? `${t("today")}: ${horarioHoy(config?.horarios_config) || t("closedToday")}`
     : config?.horarios || "";
   const entregas = [
-    config?.mesas_activo && (config.mesas_cantidad || 0) > 0 ? { k: "mesa", e: "🍽️", l: t("deliveryTable") } : null,
-    config?.retiro_activo ? { k: "retiro", e: "🛍️", l: t("deliveryPickup") } : null,
-    config?.delivery_activo ? { k: "delivery", e: "🛵", l: t("deliveryDelivery") } : null,
-  ].filter(Boolean) as { k: string; e: string; l: string }[];
+    config?.mesas_activo && (config.mesas_cantidad || 0) > 0 ? { k: "mesa", l: t("deliveryTable") } : null,
+    config?.retiro_activo ? { k: "bolsa", l: t("deliveryPickup") } : null,
+    config?.delivery_activo ? { k: "moto", l: t("deliveryDelivery") } : null,
+  ].filter(Boolean) as { k: string; l: string }[];
 
   return (
-    <div
-      className="min-h-screen pb-32 font-[Inter,system-ui,sans-serif] text-white antialiased selection:bg-white/20"
-      style={pageStyle}
-    >
-      {/* ══ Portada ══ */}
-      <header className="relative overflow-hidden">
+    <div className="mn min-h-screen" style={pageStyle}>
+      <div inert={!!modalProd || cartOpen}>
+      {demo && (
+        <div className="mn-sobre-tinta flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-[var(--fg)] px-4 py-2.5 text-center text-[13px] text-[var(--bg)]">
+          <span>{t("demoBanner")}</span>
+          <a href="/" className="font-semibold underline">
+            {t("demoBack")}
+          </a>
+        </div>
+      )}
+
+      {/* ══ Cabecera ══
+          Con portada: la foto de fondo, oscurecida hacia los bordes y abajo,
+          con los datos del local encima en blanco.
+          Sin portada: bloque pleno con el color del local. */}
+      <header
+        className={`relative overflow-hidden ${portada ? "mn-hero-foto" : "mn-sobre-color"}`}
+        style={
+          portada
+            ? { background: "var(--fg)", color: "#fff" }
+            : { background: PRIMARY, color: PRIMARY_ON, borderBottom: "1.5px solid var(--mp-edge, transparent)" }
+        }
+      >
         {portada && (
           <>
-            <img src={portada} alt="" className="absolute inset-0 h-full w-full object-cover opacity-45" />
-            <div
-              className="absolute inset-0"
-              style={{ background: "linear-gradient(180deg, rgba(0,0,0,.35) 0%, rgba(0,0,0,.15) 40%, var(--mp-bg2, #120604) 100%)" }}
-            />
+            <img src={portada} alt="" className="mn-hero-img absolute inset-0 h-full w-full object-cover" />
+            <div className="mn-hero-velo absolute inset-0" aria-hidden />
           </>
         )}
         <div
-          className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full opacity-50 blur-3xl"
-          style={{ background: PRIMARY }}
-        />
-
-        <div className="relative mx-auto max-w-6xl px-4 pb-6 pt-5 sm:px-6 sm:pb-8">
+          className={`relative mx-auto flex max-w-6xl flex-col px-4 pb-7 pt-4 sm:px-6 sm:pb-10 ${
+            portada ? "min-h-[440px] sm:min-h-[520px]" : ""
+          }`}
+        >
           <div className="flex justify-end">
             <LangSelector dark />
           </div>
 
-          <div className="mn-in mt-6 flex items-center gap-4 sm:mt-10 sm:gap-5">
-            {config?.logo_url ? (
+          <div className={`mn-in flex items-end gap-4 sm:gap-5 ${portada ? "mt-auto pt-16" : "mt-6 sm:mt-8"}`}>
+            {config?.logo_url && (
               <img
                 src={config.logo_url}
-                alt={nombre}
-                className="h-16 w-16 shrink-0 rounded-2xl object-cover shadow-2xl sm:h-20 sm:w-20"
-                style={{ boxShadow: `0 0 0 2px ${PRIMARY_A35}, 0 18px 40px -12px ${PRIMARY_SHADOW}` }}
+                alt=""
+                className="h-16 w-16 shrink-0 rounded-[18px] bg-white object-cover sm:h-20 sm:w-20"
               />
-            ) : (
-              <div
-                className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl text-3xl font-extrabold sm:h-20 sm:w-20"
-                style={{ background: PRIMARY_SOFT, color: PRIMARY, boxShadow: `inset 0 0 0 1px ${PRIMARY_A35}` }}
-              >
-                {nombre.charAt(0).toUpperCase()}
-              </div>
             )}
             <div className="min-w-0">
-              <h1 className="text-3xl font-extrabold leading-tight tracking-tight drop-shadow sm:text-5xl">{nombre}</h1>
-              {config?.descripcion && (
-                <p className="mt-1 line-clamp-2 max-w-xl text-sm text-white/65 sm:text-base">{config.descripcion}</p>
-              )}
+              <h1 className="mn-display break-words text-[clamp(2.25rem,9vw,4.5rem)]">{nombre}</h1>
             </div>
           </div>
+          {config?.descripcion && (
+            <p className="mn-in mt-3 max-w-[60ch] text-[15px] leading-relaxed sm:text-base" style={{ animationDelay: "60ms" }}>
+              {config.descripcion}
+            </p>
+          )}
 
           {/* Estado + modos de entrega */}
-          <div className="mn-in mt-5 flex flex-wrap items-center gap-2 text-xs" style={{ animationDelay: "80ms" }}>
-            {abierto !== null && (
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold ${
-                  abierto ? "bg-emerald-400/15 text-emerald-300" : "bg-red-400/15 text-red-300"
-                }`}
-              >
-                <span className={`h-1.5 w-1.5 rounded-full ${abierto ? "bg-emerald-400" : "bg-red-400"}`} />
-                {abierto ? t("openNow") : t("closedNow")}
+          <div className="mn-in mt-5 flex flex-wrap items-center gap-2" style={{ animationDelay: "100ms" }}>
+            {abierto !== null &&
+              (abierto ? (
+                <span className="mn-chip mn-chip-lleno">
+                  <span className="h-2 w-2 rounded-full bg-current" aria-hidden />
+                  {t("openNow")}
+                </span>
+              ) : (
+                <span className="mn-chip mn-chip-linea">{t("closedNow")}</span>
+              ))}
+            {hoyTxt && (
+              <span className="mn-chip mn-chip-linea mn-num">
+                <CIcon icon="clock" /> {hoyTxt}
               </span>
             )}
-            {hoyTxt && <Chip icon="clock">{hoyTxt}</Chip>}
             {entregas.map((e) => (
-              <span key={e.k} className="rounded-full bg-white/10 px-2.5 py-1 text-white/75 backdrop-blur">
-                {e.e} {e.l}
+              <span key={e.k} className="mn-chip mn-chip-linea">
+                <CIcon icon={e.k} /> {e.l}
               </span>
             ))}
           </div>
 
           {/* Contacto */}
           {(config?.direccion || config?.telefono || config?.email || config?.whatsapp) && (
-            <div className="mn-in mt-3 flex flex-wrap items-center gap-2 text-xs" style={{ animationDelay: "140ms" }}>
+            <div className="mn-in mt-2 flex flex-wrap items-center gap-2" style={{ animationDelay: "140ms" }}>
               {config?.direccion && (
-                <Chip
-                  icon="pin"
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(config.direccion)}`}
-                >
+                <Chip icon="pin" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(config.direccion)}`}>
                   {config.direccion}
                 </Chip>
               )}
@@ -330,13 +345,8 @@ const Menu = () => {
                 </Chip>
               )}
               {(config?.whatsapp || config?.telefono) && (
-                <a
-                  href={waLink(config)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[#25d366] px-3 py-1 font-semibold text-white shadow-lg shadow-[#25d366]/25 transition-transform hover:-translate-y-0.5"
-                >
-                  <WaIcon size={14} /> WhatsApp
+                <a href={waLink(config)} target="_blank" rel="noreferrer" className="mn-chip bg-[var(--wa)] font-bold text-[var(--fg)]">
+                  <WaIcon size={15} /> WhatsApp
                 </a>
               )}
             </div>
@@ -345,31 +355,29 @@ const Menu = () => {
       </header>
 
       {/* ══ Barra fija: buscador + categorías ══ */}
-      <div
-        ref={stickyRef}
-        className="sticky top-0 z-40 border-b border-white/[0.06] backdrop-blur-xl"
-        style={{ background: "color-mix(in srgb, var(--mp-bg2, #120604) 78%, transparent)" }}
-      >
+      <div ref={stickyRef} className="sticky top-0 z-40 border-b border-[var(--line)] bg-[var(--bg)]">
         <div className="mx-auto max-w-6xl px-4 pt-3 sm:px-6">
-          <label className="flex items-center gap-2.5 rounded-2xl bg-white/[0.07] px-4 py-3 text-sm ring-1 ring-white/10 transition focus-within:ring-2" style={{ ["--tw-ring-color" as string]: PRIMARY_A35 }}>
-            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-white/45" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
+          <label className="relative block">
+            <span className="sr-only">{t("searchPlaceholder")}</span>
+            <svg viewBox="0 0 24 24" className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[var(--fg-2)]" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" aria-hidden>
               <circle cx="11" cy="11" r="7" />
               <path d="m20 20-3.5-3.5" />
             </svg>
             <input
+              type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t("searchPlaceholder")}
-              className="min-w-0 flex-1 bg-transparent text-[15px] text-white outline-none placeholder:text-white/40"
+              className="mn-field rounded-full pl-11 pr-12 [&::-webkit-search-cancel-button]:hidden"
             />
             {search && (
               <button
                 type="button"
                 onClick={() => setSearch("")}
-                className="grid h-6 w-6 cursor-pointer place-items-center rounded-full bg-white/10 text-xs text-white/70 hover:bg-white/20"
-                aria-label="Limpiar"
+                className="mn-icon-btn mn-icon-btn-suave absolute right-0.5 top-1/2 -translate-y-1/2"
+                aria-label={t("clearSearch")}
               >
-                ✕
+                <XIcon />
               </button>
             )}
           </label>
@@ -383,51 +391,35 @@ const Menu = () => {
       </div>
 
       {/* ══ Productos ══ */}
-      <main className="mx-auto max-w-6xl px-4 pt-6 sm:px-6">
+      <main className="mx-auto max-w-6xl px-4 pt-8 sm:px-6">
         {porCategoria.length === 0 ? (
           q ? (
-            <div className="py-20 text-center text-white/50">
-              <div className="text-5xl">🔍</div>
-              <p className="mt-3 text-base">{t("noResults")}</p>
+            <div className="py-20 text-center">
+              <p className="mn-display text-2xl">{t("noResults")}</p>
+              <button type="button" onClick={() => setSearch("")} className="mn-btn mn-btn-borde mt-6">
+                {t("clearSearch")}
+              </button>
             </div>
           ) : (
             <div className="mx-auto max-w-sm py-16 text-center">
-              <div
-                className="mx-auto grid h-20 w-20 place-items-center rounded-3xl text-3xl font-extrabold"
-                style={{ background: PRIMARY_SOFT, color: PRIMARY }}
-              >
-                {nombre.charAt(0).toUpperCase()}
-              </div>
-              <h3 className="mt-5 text-xl font-extrabold">{nombre}</h3>
-              <p className="mt-2 text-white/70">{t("preparingTitle")}</p>
-              <p className="mt-1 text-sm text-white/45">{t("preparingSubtitle")}</p>
+              <h2 className="mn-display text-3xl">{t("preparingTitle")}</h2>
+              <p className="mt-3 text-[var(--fg-2)]">{t("preparingSubtitle")}</p>
             </div>
           )
         ) : (
-          <div className="flex flex-col gap-10">
+          <div className="flex flex-col gap-12">
             {porCategoria.map(({ cat, prods }) => (
               <section
                 key={cat.id}
+                aria-labelledby={`cat-${cat.id}`}
                 ref={(el) => {
                   sectionRefs.current[cat.id] = el;
                 }}
               >
-                <div className="mb-4 flex items-center gap-3">
-                  <span
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-xl"
-                    style={{ background: PRIMARY_SOFT, color: PRIMARY }}
-                  >
-                    <CategoriaIcon nombre={cat.nombre} rubro={config?.tipo_rubro} size={19} />
-                  </span>
-                  <h2 className="text-xl font-extrabold tracking-tight sm:text-2xl">{cat.nombre}</h2>
-                  <span
-                    className="rounded-full px-2 py-0.5 text-xs font-bold"
-                    style={{ background: PRIMARY_SOFT, color: PRIMARY }}
-                  >
-                    {prods.length}
-                  </span>
-                  <span className="h-px flex-1 bg-gradient-to-r from-white/15 to-transparent" />
-                </div>
+                <h2 id={`cat-${cat.id}`} className="mb-4 flex items-baseline gap-3">
+                  <span className="mn-display text-[clamp(1.75rem,6vw,2.5rem)]">{cat.nombre}</span>
+                  <span className="mn-num text-sm font-semibold text-[var(--fg-2)]">{prods.length}</span>
+                </h2>
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {prods.map((prod, i) => (
                     <ProductCard
@@ -436,8 +428,8 @@ const Menu = () => {
                       index={i}
                       onOpen={() => setModalProd(prod)}
                       onAdd={() => {
-                        // Con variantes hay que elegir opciones → abrir el modal.
-                        if (prod.variantes && prod.variantes.length > 0) {
+                        // Con variantes o por peso hay que elegir algo → abrir el modal.
+                        if ((prod.variantes && prod.variantes.length > 0) || esPorPeso(prod)) {
                           setModalProd(prod);
                         } else {
                           cart.add(prod, 1);
@@ -452,27 +444,25 @@ const Menu = () => {
         )}
       </main>
 
-      {/* ══ Footer con datos y horarios ══ */}
-      <footer className="mx-auto mt-14 max-w-6xl px-4 sm:px-6">
-        <div className="grid gap-6 rounded-3xl bg-white/[0.05] p-6 ring-1 ring-white/[0.08] backdrop-blur sm:grid-cols-2 sm:p-8 lg:grid-cols-3">
+      {/* ══ Pie: bloque tinta con datos y horarios ══ */}
+      <footer className="mn-sobre-tinta mt-16 bg-[var(--fg)] text-[var(--bg)]">
+        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:grid-cols-2 sm:px-6 lg:grid-cols-3">
           <div>
-            <h3 className="text-lg font-extrabold">{nombre}</h3>
-            {config?.descripcion && <p className="mt-2 text-sm leading-relaxed text-white/55">{config.descripcion}</p>}
+            <p className="mn-display text-3xl">{nombre}</p>
+            {config?.descripcion && <p className="mt-3 max-w-[45ch] text-sm leading-relaxed text-[var(--fg-dark-2)]">{config.descripcion}</p>}
           </div>
-          <div className="grid content-start gap-2.5 text-sm text-white/70">
+          <div className="grid content-start gap-3 text-sm">
             {config?.direccion && <FooterLine icon="pin">{config.direccion}</FooterLine>}
-            {!tieneHorarios(config?.horarios_config) && config?.horarios && (
-              <FooterLine icon="clock">{config.horarios}</FooterLine>
-            )}
+            {!tieneHorarios(config?.horarios_config) && config?.horarios && <FooterLine icon="clock">{config.horarios}</FooterLine>}
             {config?.telefono && <FooterLine icon="phone">{config.telefono}</FooterLine>}
             {config?.email && <FooterLine icon="mail">{config.email}</FooterLine>}
           </div>
           {tieneHorarios(config?.horarios_config) && <SemanaHorarios hc={config!.horarios_config!} />}
         </div>
-        <div className="my-6 text-center">
-          <p className="text-xs text-white/35">{t("pricesIncludeTax")}</p>
-          <p className="mt-1.5 text-[11px] tracking-wide text-white/30">
-            {t("madeWith")} <span className="font-bold" style={{ color: PRIMARY }}>DinexFlow</span>
+        <div className="mx-auto max-w-6xl border-t border-[var(--ink-2)] px-4 pb-28 pt-6 text-xs text-[var(--fg-dark-2)] sm:px-6">
+          <p>{t("pricesIncludeTax")}</p>
+          <p className="mt-1.5">
+            {t("madeWith")} <span className="font-bold text-[var(--bg)]">DinexFlow</span>
           </p>
         </div>
       </footer>
@@ -481,12 +471,12 @@ const Menu = () => {
       {showTop && (
         <button
           type="button"
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          onClick={() => window.scrollTo({ top: 0, behavior: suave() })}
           aria-label={t("ariaScrollTop")}
           title={t("ariaScrollTop")}
-          className="mn-in fixed bottom-24 right-4 z-[80] grid h-11 w-11 cursor-pointer place-items-center rounded-full bg-white/10 text-white ring-1 ring-white/15 backdrop-blur-xl transition-transform hover:-translate-y-0.5 sm:right-6"
+          className="mn-in mn-icon-btn fixed bottom-24 right-4 z-[80] bg-[var(--surface)] text-[var(--fg)] ring-1 ring-[var(--field-border)] sm:right-6"
         >
-          <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+          <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M12 19V5M6 11l6-6 6 6" />
           </svg>
         </button>
@@ -498,23 +488,18 @@ const Menu = () => {
           type="button"
           onClick={() => setCartOpen(true)}
           aria-label={t("ariaViewOrder")}
-          className="mn-bar-in fixed bottom-4 left-1/2 z-[80] flex w-[calc(100%-32px)] max-w-md cursor-pointer items-center justify-between rounded-2xl px-4 py-3.5 text-sm font-bold transition-transform hover:-translate-y-0.5"
-          style={{
-            background: PRIMARY,
-            color: PRIMARY_ON,
-            boxShadow: `0 14px 40px -10px ${PRIMARY_SHADOW}`,
-            marginBottom: "env(safe-area-inset-bottom)",
-          }}
+          className="mn-btn mn-sube fixed bottom-4 left-1/2 z-[80] w-[calc(100%-32px)] max-w-md -translate-x-1/2 justify-between ring-2 ring-[var(--fg)]"
+          style={{ marginBottom: "env(safe-area-inset-bottom)" }}
         >
           <span className="flex items-center gap-2.5">
-            <span key={cart.count} className="mn-bump grid h-7 min-w-7 place-items-center rounded-full bg-black/20 px-1.5 text-xs">
+            <span key={cart.count} className="mn-num mn-chip-lleno grid h-7 min-w-7 place-items-center rounded-full px-1.5 text-xs">
               {cart.count}
             </span>
             {t("viewOrder")}
           </span>
-          <span className="flex items-center gap-2">
+          <span className="mn-num flex items-center gap-2">
             {fmt(cart.total)}
-            <span aria-hidden>→</span>
+            <ArrowIcon />
           </span>
         </button>
       ) : (
@@ -522,16 +507,17 @@ const Menu = () => {
           type="button"
           onClick={() => setCartOpen(true)}
           aria-label={t("ariaViewOrder")}
-          className="fixed bottom-4 right-4 z-[80] grid h-14 w-14 cursor-pointer place-items-center rounded-full transition-transform hover:scale-105 sm:right-6"
-          style={{ background: PRIMARY, color: PRIMARY_ON, boxShadow: `0 10px 30px ${PRIMARY_SHADOW}` }}
+          className="mn-icon-btn fixed bottom-4 right-4 z-[80] h-14 w-14 bg-[var(--fg)] text-[var(--bg)] ring-2 ring-[var(--bg)] sm:right-6"
         >
-          <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+          <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <circle cx="9" cy="21" r="1" />
             <circle cx="18" cy="21" r="1" />
             <path d="M3 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L23 6H6" />
           </svg>
         </button>
       )}
+
+      </div>
 
       {/* Modal de producto */}
       {modalProd && (
@@ -550,12 +536,13 @@ const Menu = () => {
         mesa={mesa}
         setMesa={setMesa}
         config={config}
+        demo={demo}
       />
     </div>
   );
 };
 
-// ── Card de producto (estilo app: imagen a la izquierda) ──
+// ── Tarjeta de producto (imagen a la izquierda) ──
 const ProductCard = ({
   prod,
   index,
@@ -571,50 +558,35 @@ const ProductCard = ({
   const personalizable = !!prod.variantes && prod.variantes.length > 0;
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onOpen();
-        }
-      }}
-      className="mn-in group flex cursor-pointer items-center gap-3 rounded-2xl bg-white/[0.055] p-2.5 ring-1 ring-white/[0.08] transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/[0.085] hover:ring-white/15"
-      style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
+      className="mn-card mn-in relative"
+      style={{ animationDelay: `${Math.min(index, 6) * 40}ms` }}
     >
-      <div
-        className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl sm:h-28 sm:w-28"
-        style={{ background: `linear-gradient(135deg, ${PRIMARY_A35}, ${PRIMARY_SOFT})` }}
-      >
-        <ProductImage
-          url={prod.imagen_url}
-          alt={prod.nombre}
-          w={224}
-          h={224}
-          fill
-          style={{ width: "100%", height: "100%", transition: "transform .4s" }}
-        />
+      <div className="mn-card-img">
+        <ProductImage url={prod.imagen_url} alt={prod.nombre} w={232} h={232} fill style={{ width: "100%", height: "100%" }} />
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col self-stretch py-1">
-        <div className="flex items-start gap-1.5">
-          <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug">{prod.nombre}</h3>
-          {personalizable && (
-            <span
-              className="mt-0.5 shrink-0 rounded px-1.5 py-px text-[9px] font-bold uppercase tracking-wide"
-              style={{ background: PRIMARY_SOFT, color: PRIMARY }}
-            >
-              {t("customizable")}
-            </span>
-          )}
-        </div>
+      <div className="flex min-w-0 flex-1 flex-col py-1 pr-1">
+        <h3 className="line-clamp-2 text-[16px] font-semibold leading-snug [font-stretch:105%]">
+          <button
+            type="button"
+            onClick={onOpen}
+            className="cursor-pointer text-left after:absolute after:inset-0 after:rounded-[var(--r-md)] after:content-['']"
+          >
+            {prod.nombre}
+          </button>
+        </h3>
+        {personalizable && (
+          <span className="mt-1 self-start">
+            <span className="mn-badge mn-label">{t("customizable")}</span>
+          </span>
+        )}
         {prod.descripcion && (
-          <p className="mt-1 line-clamp-2 text-[12.5px] leading-snug text-white/50">{prod.descripcion}</p>
+          <p className="mt-1 line-clamp-2 text-[13px] leading-snug text-[var(--fg-2)]">{prod.descripcion}</p>
         )}
         <div className="mt-auto flex items-end justify-between gap-2 pt-2">
-          <span className="text-base font-extrabold" style={{ color: PRIMARY }}>
+          <span className="mn-num text-[17px] font-extrabold">
             {fmt(Number(prod.precio))}
+            {esPorPeso(prod) && <span className="text-[13px] font-semibold text-[var(--fg-2)]"> /kg</span>}
           </span>
           <button
             type="button"
@@ -622,11 +594,12 @@ const ProductCard = ({
               e.stopPropagation();
               onAdd();
             }}
-            aria-label={t("ariaAddToOrder")}
-            className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full text-xl font-bold leading-none transition-transform hover:scale-110 active:scale-95"
-            style={{ background: PRIMARY, color: PRIMARY_ON, boxShadow: `0 6px 16px -4px ${PRIMARY_SHADOW}` }}
+            aria-label={`${t("ariaAddToOrder")}: ${prod.nombre}`}
+            className="mn-icon-btn mn-icon-btn-mp relative z-10 -mb-1 -mr-1"
           >
-            +
+            <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" aria-hidden>
+              <path d="M12 5v14M5 12h14" />
+            </svg>
           </button>
         </div>
       </div>
@@ -634,7 +607,7 @@ const ProductCard = ({
   );
 };
 
-// ── Barra de categorías (chips) con flechas en escritorio ──
+// ── Barra de categorías (pastillas) con flechas en escritorio ──
 const CategoryBar = ({
   categorias,
   onPick,
@@ -659,7 +632,7 @@ const CategoryBar = ({
     const row = rowRef.current;
     if (btn && row) {
       const target = btn.offsetLeft - row.clientWidth / 2 + btn.clientWidth / 2;
-      row.scrollTo({ left: Math.max(0, target), behavior: "smooth" });
+      row.scrollTo({ left: Math.max(0, target), behavior: suave() });
     }
   }, [active]);
 
@@ -681,7 +654,7 @@ const CategoryBar = ({
   }, [categorias]);
 
   const scroll = (dir: "prev" | "next") =>
-    rowRef.current?.scrollBy({ left: dir === "next" ? 280 : -280, behavior: "smooth" });
+    rowRef.current?.scrollBy({ left: dir === "next" ? 280 : -280, behavior: suave() });
 
   const arrow = (dir: "prev" | "next", disabled: boolean) => (
     <button
@@ -689,22 +662,22 @@ const CategoryBar = ({
       onClick={() => scroll(dir)}
       disabled={disabled}
       aria-label={dir === "prev" ? t("ariaPrevCat") : t("ariaNextCat")}
-      className={`absolute top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-white/10 text-white ring-1 ring-white/15 backdrop-blur transition md:grid ${
+      className={`absolute top-1/2 z-10 hidden h-9 w-9 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-[var(--surface)] text-[var(--fg)] ring-1 ring-[var(--line)] transition-opacity md:grid ${
         dir === "prev" ? "left-0" : "right-0"
-      } ${disabled ? "pointer-events-none opacity-0" : "hover:bg-white/20"}`}
+      } ${disabled ? "pointer-events-none opacity-0" : "hover:ring-[var(--fg)]"}`}
     >
-      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         {dir === "prev" ? <path d="M15 18l-6-6 6-6" /> : <path d="M9 18l6-6-6-6" />}
       </svg>
     </button>
   );
 
   return (
-    <div className="relative -mx-4 sm:mx-0">
+    <nav aria-label={t("categories")} className="relative -mx-4 sm:mx-0">
       {arrow("prev", atStart)}
       <div
         ref={rowRef}
-        className="mn-scroll flex gap-2 overflow-x-auto px-4 py-3 sm:px-0 md:px-10"
+        className="mn-scroll flex gap-2 overflow-x-auto px-4 py-3 sm:px-0 md:px-11"
         style={{
           maskImage: "linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent)",
           WebkitMaskImage: "linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent)",
@@ -721,10 +694,7 @@ const CategoryBar = ({
               }}
               onClick={() => onPick(c.id)}
               aria-current={isActive ? "true" : undefined}
-              className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-semibold transition-all duration-300 ${
-                isActive ? "shadow-lg" : "bg-white/[0.07] text-white/70 ring-1 ring-white/10 hover:bg-white/[0.12] hover:text-white"
-              }`}
-              style={isActive ? { background: PRIMARY, color: PRIMARY_ON, boxShadow: `0 8px 20px -8px ${PRIMARY_SHADOW}` } : undefined}
+              className="mn-chip mn-cat shrink-0"
             >
               <CategoriaIcon nombre={c.nombre} rubro={rubro} size={16} />
               {c.nombre}
@@ -733,7 +703,7 @@ const CategoryBar = ({
         })}
       </div>
       {arrow("next", atEnd)}
-    </div>
+    </nav>
   );
 };
 
@@ -752,49 +722,24 @@ function WaIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-const contactIcons: Record<string, ReactNode> = {
-  pin: (
-    <>
-      <path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11Z" />
-      <circle cx="12" cy="10" r="2.5" />
-    </>
-  ),
-  clock: (
-    <>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-    </>
-  ),
-  phone: <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" />,
-  mail: (
-    <>
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path d="m3 7 9 6 9-6" />
-    </>
-  ),
-};
-
-const CIcon = ({ icon, size = 14 }: { icon: string; size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-    {contactIcons[icon]}
+const XIcon = () => (
+  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" aria-hidden>
+    <path d="M6 6l12 12M18 6 6 18" />
   </svg>
 );
 
-function Chip({ icon, href, children }: { icon: string; href?: string; children: ReactNode }) {
-  const cls =
-    "inline-flex max-w-full items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-white/80 backdrop-blur";
-  const body = (
-    <>
+const ArrowIcon = () => (
+  <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </svg>
+);
+
+function Chip({ icon, href, children }: { icon: string; href: string; children: ReactNode }) {
+  return (
+    <a href={href} target={href.startsWith("http") ? "_blank" : undefined} rel="noreferrer" className="mn-chip mn-chip-linea max-w-full">
       <CIcon icon={icon} />
       <span className="truncate">{children}</span>
-    </>
-  );
-  return href ? (
-    <a href={href} target={href.startsWith("http") ? "_blank" : undefined} rel="noreferrer" className={`${cls} transition-colors hover:bg-white/20`}>
-      {body}
     </a>
-  ) : (
-    <span className={cls}>{body}</span>
   );
 }
 
@@ -803,26 +748,25 @@ function SemanaHorarios({ hc }: { hc: HorariosConfig }) {
   const hoy = hoyIndex();
   return (
     <div>
-      <div className="mb-2.5 text-sm font-bold">{t("schedule")}</div>
-      <div className="grid gap-1.5">
+      <p className="mn-label mb-3 text-[var(--fg-dark-2)]">{t("schedule")}</p>
+      <dl className="grid gap-1">
         {Array.from({ length: 7 }, (_, i) => {
           const txt = franjasTxt(hc[i]);
           const esHoy = i === hoy;
           return (
             <div
               key={i}
-              className={`flex justify-between gap-3 rounded-lg px-2 py-1 text-[12.5px] ${esHoy ? "font-bold text-white" : "text-white/55"}`}
-              style={esHoy ? { background: PRIMARY_SOFT } : undefined}
+              className={`flex justify-between gap-3 rounded-lg px-2.5 py-1.5 text-[13px] ${esHoy ? "bg-[var(--ink-2)] font-bold text-[var(--bg)]" : "text-[var(--fg-dark-2)]"}`}
             >
-              <span>
+              <dt>
                 {t(`day${i}`)}
                 {esHoy ? ` · ${t("todaySuffix")}` : ""}
-              </span>
-              <span className={txt ? "" : "text-red-300"}>{txt || t("closed")}</span>
+              </dt>
+              <dd className="mn-num">{txt || t("closed")}</dd>
             </div>
           );
         })}
-      </div>
+      </dl>
     </div>
   );
 }
@@ -830,9 +774,7 @@ function SemanaHorarios({ hc }: { hc: HorariosConfig }) {
 function FooterLine({ icon, children }: { icon: string; children: ReactNode }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span style={{ color: PRIMARY }}>
-        <CIcon icon={icon} size={16} />
-      </span>
+      <CIcon icon={icon} size={16} />
       <span>{children}</span>
     </div>
   );

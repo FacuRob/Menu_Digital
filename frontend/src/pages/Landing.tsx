@@ -172,13 +172,13 @@ function Hero({ qrUrl }: { qrUrl: string }) {
             </ul>
           </div>
 
-          {/* La ficha QR: real, abre la demo de esta página. */}
+          {/* La ficha QR: real, abre el menú de ejemplo (/menu). */}
           <figure className="relative z-30 flex items-end gap-4 lg:flex-col lg:items-end" data-tile>
-            <div className="w-[clamp(9rem,18vw,17rem)] rounded-[var(--radio)] bg-[var(--tinta)] p-3">
+            <a href="/menu" aria-label="Abrir el menú de ejemplo" className="block w-[clamp(9rem,18vw,17rem)] rounded-[var(--radio)] bg-[var(--tinta)] p-3">
               <QrCodigo texto={qrUrl} className="block w-full rounded-[18px] bg-white text-[var(--tinta)]" />
-            </div>
+            </a>
             <figcaption className="max-w-[12rem] text-sm text-[var(--gris)] lg:text-right">
-              Escanealo con tu celular: abre un menú de ejemplo. <a href="#probalo" className="font-semibold text-[var(--tinta)] underline">O probalo acá.</a>
+              Escanealo con tu celular: abre un menú de ejemplo. <a href="/menu" className="font-semibold text-[var(--tinta)] underline">O probalo acá.</a>
             </figcaption>
           </figure>
         </div>
@@ -575,7 +575,7 @@ function Footer() {
 // ── Página ───────────────────────────────────────────────────
 // URL del QR del inicio: la pública si está configurada (en localhost un
 // celular no podría abrirla), si no el origen actual.
-const QR_URL = `${((import.meta.env.VITE_PUBLIC_URL as string | undefined) || window.location.origin).replace(/\/+$/, "")}/#probalo`;
+const QR_URL = `${((import.meta.env.VITE_PUBLIC_URL as string | undefined) || window.location.origin).replace(/\/+$/, "")}/menu`;
 
 // Posición de un elemento dentro de otro sin contar transforms (la ficha QR
 // se escala durante la escena y getBoundingClientRect lo incluiría).
@@ -637,7 +637,7 @@ export default function Landing() {
         if (escritorio) {
           const hero = q("[data-hero]")[0];
           const contenido = q("[data-hero-contenido]")[0];
-          const tile = q("[data-tile] > div")[0];
+          const tile = q("[data-tile] > a")[0];
           const desdeFicha = () => {
             const c = cajaDentro(tile, hero);
             return `inset(${c.top}px ${c.right}px ${c.bottom}px ${c.left}px round 28px)`;
@@ -671,7 +671,8 @@ export default function Landing() {
             .fromTo(q("[data-portal]"), { clipPath: desdeFicha }, { clipPath: "inset(0px 0px 0px 0px round 0px)", ease: "power2.inOut", duration: 1 }, 0)
             .to(q("[data-tile] figcaption"), { opacity: 0, duration: 0.12 }, 0)
             .to(tile, { x: () => alCentro().x, y: () => alCentro().y, scale: 2.1, duration: 0.55, ease: "power2.inOut" }, 0)
-            .to(tile, { scale: 2.8, opacity: 0, duration: 0.2, ease: "power1.in" }, 0.55)
+            // autoAlpha: además de transparente queda oculto, así el enlace no captura clics.
+            .to(tile, { scale: 2.8, autoAlpha: 0, duration: 0.2, ease: "power1.in" }, 0.55)
             .to(q("[data-hero-titulo], [data-hero-bajada]"), { yPercent: -18, ease: "none", duration: 0.8 }, 0)
             .to(q("[data-portal-texto]"), { opacity: 1, duration: 0.25 }, 0.72)
             .from(q("[data-portal-texto] > span"), { scale: 0.86, duration: 0.35, ease: "power2.out" }, 0.7);

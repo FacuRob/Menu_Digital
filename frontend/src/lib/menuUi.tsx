@@ -1,13 +1,11 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { cld } from "./cloudinary";
 
 // ── Paleta ───────────────────────────────────────────────────
 // Los colores salen de variables CSS que setea el menú según la
 // configuración del negocio (con fallback al naranja por defecto).
 export const PRIMARY = "var(--mp, #ff5722)";
-export const PRIMARY_DARK = "var(--mp-dark, #e64a19)";
 export const PRIMARY_SOFT = "var(--mp-soft, #fff3ef)";
-export const PRIMARY_SHADOW = "var(--mp-shadow, rgba(255,87,34,.4))";
 
 const hexToRgb = (hex: string) => {
   let h = (hex || "").replace("#", "").trim();
@@ -20,39 +18,66 @@ const hexToRgb = (hex: string) => {
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
 };
 
-const darken = (hex: string, amt = 0.15) => {
-  const { r, g, b } = hexToRgb(hex);
-  const f = (c: number) => Math.max(0, Math.round(c * (1 - amt)));
-  return `rgb(${f(r)},${f(g)},${f(b)})`;
+type Rgb = { r: number; g: number; b: number };
+const TINTA: Rgb = { r: 17, g: 18, b: 22 };
+const BLANCO: Rgb = { r: 255, g: 255, b: 255 };
+const HUESO: Rgb = { r: 239, g: 237, b: 230 };
+const NEGRO: Rgb = { r: 0, g: 0, b: 0 };
+
+const scale = ({ r, g, b }: Rgb, f: number): Rgb => ({
+  r: Math.round(r * f),
+  g: Math.round(g * f),
+  b: Math.round(b * f),
+});
+const css = ({ r, g, b }: Rgb) => `rgb(${r},${g},${b})`;
+
+// Contraste WCAG entre dos colores.
+const luminancia = ({ r, g, b }: Rgb) => {
+  const l = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * l(r) + 0.7152 * l(g) + 0.0722 * l(b);
+};
+const contraste = (a: Rgb, b: Rgb) => {
+  const [x, y] = [luminancia(a), luminancia(b)].sort((m, n) => n - m);
+  return (x + 0.05) / (y + 0.05);
 };
 
-// Texto legible sobre el color de marca (negro sobre colores claros).
-const onColor = (hex: string) => {
-  const { r, g, b } = hexToRgb(hex);
-  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return lum > 0.6 ? "#0b0b0b" : "#ffffff";
-};
-
-// Devuelve las variables CSS de la paleta a partir de un color primario.
-// --mp-bg1/--mp-bg2: fondo oscuro teñido con el color de marca (estilo app).
+// Variables CSS de la paleta a partir del color que eligió el local.
+// Funciona con cualquier color del selector, no sólo con las sugeridas:
+//   --mp-on  texto sobre el color (tinta o blanco, el que más contraste)
+//   --mp-ink el color oscurecido hasta leerse como texto sobre hueso
 export const paletteVars = (hex?: string | null): CSSProperties => {
-  const color = hex || "#ff5722";
-  const { r, g, b } = hexToRgb(color);
+  // Un valor raro (vacío, 8 dígitos, texto) vuelve al naranja por defecto.
+  const color = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(hex || "") ? (hex as string) : "#ff5722";
+  const rgb = hexToRgb(color);
+  // Texto encima: el de más contraste entre tinta, blanco y negro (siempre ≥4,5:1).
+  const on = [TINTA, BLANCO, NEGRO].reduce((a, b) => (contraste(rgb, b) > contraste(rgb, a) ? b : a));
+  // Como texto: 4,5:1 contra el fondo más difícil donde aparece, su propio
+  // color suave (--mp-soft, 12 %) apoyado sobre hueso.
+  const suave: Rgb = {
+    r: Math.round(HUESO.r + (rgb.r - HUESO.r) * 0.12),
+    g: Math.round(HUESO.g + (rgb.g - HUESO.g) * 0.12),
+    b: Math.round(HUESO.b + (rgb.b - HUESO.b) * 0.12),
+  };
+  let ink = rgb;
+  for (let i = 0; i < 40 && contraste(ink, suave) < 4.5; i++) ink = scale(ink, 0.92);
+  // Hover: oscurece (o aclara si es casi negro) sin que el texto encima baje de 4,5:1.
+  const mezcla = (c: Rgb, k: number): Rgb => ({ r: Math.round(c.r + (255 - c.r) * k), g: Math.round(c.g + (255 - c.g) * k), b: Math.round(c.b + (255 - c.b) * k) });
+  const hover = [luminancia(rgb) < 0.02 ? mezcla(rgb, 0.18) : scale(rgb, 0.88), mezcla(rgb, 0.12), rgb].find((c) => contraste(c, on) >= 4.5) || rgb;
   return {
     ["--mp" as string]: color,
-    ["--mp-dark" as string]: darken(color, 0.15),
-    ["--mp-soft" as string]: `rgba(${r},${g},${b},0.14)`,
-    ["--mp-shadow" as string]: `rgba(${r},${g},${b},0.45)`,
-    ["--mp-a20" as string]: `rgba(${r},${g},${b},0.2)`,
-    ["--mp-a35" as string]: `rgba(${r},${g},${b},0.35)`,
-    ["--mp-on" as string]: onColor(color),
-    ["--mp-bg1" as string]: darken(color, 0.8),
-    ["--mp-bg2" as string]: darken(color, 0.93),
+    ["--mp-on" as string]: css(on),
+    ["--mp-dark" as string]: css(hover),
+    // Colores casi blancos: borde para que el botón no se pierda sobre blanco.
+    ["--mp-edge" as string]: contraste(rgb, BLANCO) < 1.4 ? "rgba(17,18,22,0.35)" : "transparent",
+    ["--mp-ink" as string]: css(ink),
+    ["--mp-soft" as string]: `rgba(${rgb.r},${rgb.g},${rgb.b},0.12)`,
   } as CSSProperties;
 };
-export const PRIMARY_ON = "var(--mp-on, #fff)";
-export const PRIMARY_A20 = "var(--mp-a20, rgba(255,87,34,.2))";
-export const PRIMARY_A35 = "var(--mp-a35, rgba(255,87,34,.35))";
+export const PRIMARY_ON = "var(--mp-on, #111216)";
+export const PRIMARY_INK = "var(--mp-ink, #b5370a)";
 
 // Paletas sugeridas para el panel de administración.
 export const PALETAS = [
@@ -93,8 +118,9 @@ export const setMonedaMenu = (moneda?: string | null) => {
   if (moneda) monedaActual = moneda;
 };
 
+// Sin centavos cuando el monto es entero ($ 8.900, no $ 8.900,00).
 export const fmt = (n: number) => {
-  const decimales = SIN_DECIMALES.has(monedaActual) ? 0 : 2;
+  const decimales = SIN_DECIMALES.has(monedaActual) || Number.isInteger(Math.round((n || 0) * 100) / 100) ? 0 : 2;
   return new Intl.NumberFormat(LOCALE_POR_MONEDA[monedaActual] || "es-AR", {
     style: "currency",
     currency: monedaActual,
@@ -102,6 +128,17 @@ export const fmt = (n: number) => {
     maximumFractionDigits: decimales,
   }).format(n || 0);
 };
+
+// ── Venta por peso ──────────────────────────────────────────
+// Productos por kg: el cliente elige de a 100 g, con mínimo 100 g.
+export const PASO_KG = 0.1;
+export const esPorPeso = (p: { unidad_venta?: string | null }) => p.unidad_venta === "kg";
+export const redondearKg = (kg: number) => Math.round(kg * 1000) / 1000;
+// 0.35 → "350 g"; 1.25 → "1,25 kg".
+export const fmtPeso = (kg: number) =>
+  kg < 1
+    ? `${Math.round(kg * 1000)} g`
+    : `${new Intl.NumberFormat("es-AR", { maximumFractionDigits: 3 }).format(kg)} kg`;
 
 // Precio neto sin IVA (21%) — usado en el modal.
 export const neto = (n: number) => (n || 0) / 1.21;
@@ -393,8 +430,8 @@ export function DefaultFoodImage({ style }: { style?: CSSProperties }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: `linear-gradient(135deg, ${PRIMARY_A35}, ${PRIMARY_SOFT})`,
-        color: PRIMARY,
+        background: "var(--bg-2, #e4e1d8)",
+        color: "var(--fg-2, #5b5d66)",
         ...style,
       }}
     >
@@ -417,3 +454,51 @@ export function DefaultFoodImage({ style }: { style?: CSSProperties }) {
     </div>
   );
 }
+
+// Íconos de línea (contacto y modos de entrega), mismo trazo que las categorías.
+const contactIcons: Record<string, ReactNode> = {
+  pin: (
+    <>
+      <path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11Z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </>
+  ),
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </>
+  ),
+  phone: <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" />,
+  mail: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3 7 9 6 9-6" />
+    </>
+  ),
+  mesa: (
+    <>
+      <path d="M8 3v6a2 2 0 0 1-4 0V3M6 9v12" />
+      <path d="M18 3v18M18 3c-1.6 0-2.6 1.7-2.6 4S16.4 11 18 11" />
+    </>
+  ),
+  bolsa: (
+    <>
+      <path d="M5 8h14l-1 13H6L5 8Z" />
+      <path d="M9 8V6a3 3 0 0 1 6 0v2" />
+    </>
+  ),
+  moto: (
+    <>
+      <circle cx="6" cy="17" r="3" />
+      <circle cx="18" cy="17" r="3" />
+      <path d="M9 17h6l-2-6h-3M15 11h2l1 3M13 7h3" />
+    </>
+  ),
+};
+
+export const CIcon = ({ icon, size = 15 }: { icon: string; size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
+    {contactIcons[icon]}
+  </svg>
+);
