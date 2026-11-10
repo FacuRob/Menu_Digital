@@ -15,7 +15,7 @@ const clave = () => {
 };
 
 const MENU_URL = () =>
-  (process.env.VITE_MENU_URL || "https://menu-digital-frontend-qxjm.onrender.com").replace(/\/+$/, "");
+  (process.env.VITE_MENU_URL || "https://dinexflow.com.ar").replace(/\/+$/, "");
 
 const firmar = (tipo, pedidoId, negocioId) => {
   if (!TIPOS.includes(tipo)) throw new Error(`Link desconocido: ${tipo}`);

@@ -43,7 +43,7 @@ services:
       - path: /*
         name: Content-Security-Policy
         # frame-ancestors: sólo el panel admin puede embeber el menú (vista previa).
-        value: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self' https://menu-digital-admin.onrender.com; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://backend-menu-digital.onrender.com; upgrade-insecure-requests"
+        value: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self' https://admin.dinexflow.com.ar https://menu-digital-admin.onrender.com; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://backend-menu-digital.onrender.com; upgrade-insecure-requests"
       - path: /*
         name: X-Content-Type-Options
         value: nosniff
@@ -58,7 +58,7 @@ services:
         value: https://backend-menu-digital.onrender.com
       # URL del panel admin (botones "Ingresar" / "Probar gratis" de la landing).
       - key: VITE_ADMIN_URL
-        value: https://menu-digital-admin.onrender.com
+        value: https://admin.dinexflow.com.ar
 
   # Frontend - Admin (panel de gestión)
   - type: web
@@ -74,7 +74,7 @@ services:
       - path: /*
         name: Content-Security-Policy
         # frame-src: la vista previa (/menu/:slug) carga el menú público en un iframe.
-        value: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-src 'self' https://menu-digital-frontend-qxjm.onrender.com; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://backend-menu-digital.onrender.com; upgrade-insecure-requests"
+        value: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-src 'self' https://dinexflow.com.ar https://www.dinexflow.com.ar https://menu-digital-frontend-qxjm.onrender.com; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://backend-menu-digital.onrender.com; upgrade-insecure-requests"
       - path: /*
         name: X-Frame-Options
         value: DENY
@@ -95,4 +95,4 @@ services:
         value: https://backend-menu-digital.onrender.com
       # URL del menú público (botón "Ver Menú" y QR del panel admin).
       - key: VITE_MENU_URL
-        value: https://menu-digital-frontend-qxjm.onrender.com
+        value: https://dinexflow.com.ar

@@ -10,7 +10,7 @@ const clean = (u: string) => u.replace(/\/+$/, "");
 
 export const MENU_PUBLIC_BASE = clean(
   (import.meta.env.VITE_MENU_URL as string | undefined) ||
-    "https://menu-digital-frontend-qxjm.onrender.com",
+    "https://dinexflow.com.ar",
 );
 
 export const MENU_PREVIEW_BASE = import.meta.env.DEV

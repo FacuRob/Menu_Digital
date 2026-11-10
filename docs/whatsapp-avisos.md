@@ -68,9 +68,9 @@ Categoría **Utility**, idioma **Spanish (ARG) — es_AR**. El **nombre** y el
 `{{1}}` nombre del cliente · `{{2}}` nombre del local · `{{3}}` número de pedido.
 Meta pide un ejemplo para cada variable: `Juan`, `Bar la Esquina`, `128`.
 `pedido_entregado_ticket` lleva `{{4}}` = link al ticket (ejemplo:
-`https://menu-digital-frontend-qxjm.onrender.com/ticket/128?t=abc123`) y
+`https://dinexflow.com.ar/ticket/128?t=abc123`) y
 `pedido_en_camino_mapa` lleva `{{4}}` = link al mapa (ejemplo:
-`https://menu-digital-frontend-qxjm.onrender.com/seguimiento/128?t=abc123`).
+`https://dinexflow.com.ar/seguimiento/128?t=abc123`).
 El link abre `/ticket/<id>` en el menú público; va firmado, así que no se
 pueden ver tickets ajenos cambiando el número.
 
