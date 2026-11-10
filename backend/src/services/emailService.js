@@ -54,7 +54,7 @@ const sendPasswordResetEmail = async ({ to, username, resetUrl }) => {
 </html>`;
 
   const { error } = await resend.emails.send({
-    from: process.env.EMAIL_FROM || "DinexFlow <onboarding@resend.dev>",
+    from: process.env.EMAIL_FROM || "DinexFlow <no-reply@dinexflow.com.ar>",
     to,
     subject: "🔑 Tu contraseña temporal — DinexFlow",
     html,
@@ -131,7 +131,7 @@ const sendWelcomeEmail = async ({
 </html>`;
 
   const { error } = await resend.emails.send({
-    from: process.env.EMAIL_FROM || "DinexFlow <onboarding@resend.dev>",
+    from: process.env.EMAIL_FROM || "DinexFlow <no-reply@dinexflow.com.ar>",
     to,
     subject: "🎉 Tu cuenta de DinexFlow está lista",
     html,
@@ -156,7 +156,7 @@ const sendSoporteAviso = async ({ to, cuenta, tipo, asunto, texto, url }) => {
 </div>`;
 
   const { error } = await resend.emails.send({
-    from: process.env.EMAIL_FROM || "DinexFlow <onboarding@resend.dev>",
+    from: process.env.EMAIL_FROM || "DinexFlow <no-reply@dinexflow.com.ar>",
     to,
     subject: `Soporte: ${asunto.replace(/\s+/g, " ").slice(0, 80)} — ${cuenta}`,
     html,
