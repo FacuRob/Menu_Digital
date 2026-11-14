@@ -203,7 +203,8 @@ select.mn-field { appearance: auto; }
 .mn-opcion:hover { border-color: var(--field-border); }
 /* Opciones con radio/checkbox nativo escondido (personalización). */
 .mn-opcion:has(input:focus-visible),
-.mn-btn:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
+.mn-btn:has(input:focus-visible),
+.mn-cat:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
 .mn-opcion[aria-pressed="true"],
 .mn-opcion[aria-checked="true"] { border-color: var(--mp-ink); background: var(--mp-soft); }
 .mn-marca {

@@ -4,6 +4,7 @@ const { getNegocioId } = require("../utils/negocio");
 const { avisosDisponibles } = require("../services/avisosPedidoService");
 const { sincronizarSlug } = require("../utils/slug");
 const { resolverRubro } = require("../utils/rubros");
+const { opcionesAgenda } = require("../utils/agenda");
 const { modulosDe, normalizar } = require("../utils/modulos");
 const { olvidarModulos } = require("../middleware/requiereModulo");
 
@@ -97,6 +98,7 @@ const updateConfiguracion = async (req, res) => {
       moneda,
       ciudad,
       provincia,
+      agenda,
       tipo_rubro,
       rubro_categoria,
       rubro_especialidad,
@@ -155,6 +157,7 @@ const updateConfiguracion = async (req, res) => {
       moneda,
       ciudad,
       provincia,
+      ...(agenda !== undefined ? { agenda: agenda === null ? null : opcionesAgenda(agenda) } : {}),
       updated_at: new Date().toISOString(),
     };
 

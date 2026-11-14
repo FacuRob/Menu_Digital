@@ -60,7 +60,8 @@ const subirAdjunto = async (req, res) => {
       .maybeSingle();
     if (negErr) throw negErr;
     if (!neg || neg.activo === false) return res.status(404).json({ message: "Negocio no encontrado." });
-    if (!(await modulosNegocio(negocioId)).personalizados) {
+    const mods = await modulosNegocio(negocioId);
+    if (!mods.personalizados && !mods.presupuestos) {
       return res.status(403).json({ error: "MODULO_INACTIVO", message: "Este negocio no recibe archivos." });
     }
 

@@ -350,6 +350,8 @@ export interface Configuracion {
   retiro_activo: boolean;
   color_primario?: string | null;
   horarios_config?: HorariosConfig | null;
+  // Opciones de la agenda de turnos.
+  agenda?: AgendaOpciones | null;
   moneda?: string | null;
   // Multi-rubro (viven en `negocios`, se editan desde Configuración).
   tipo_rubro?: TipoRubro;
@@ -405,6 +407,82 @@ export const camposService = {
 export const adjuntosService = {
   // Link firmado que vence a los pocos minutos.
   ver: async (id: number) => (await api.get<{ url: string; nombre: string; tipo: string }>(`/adjuntos/${id}`)).data,
+};
+
+// ── Presupuestos ──
+export type EstadoPresupuesto = "pendiente" | "en_revision" | "cotizado" | "aceptado" | "rechazado" | "convertido" | "cancelado";
+export interface Presupuesto {
+  id: number;
+  producto_id: number | null;
+  servicio_id: number | null;
+  referencia: string | null;
+  cliente_nombre: string;
+  telefono: string | null;
+  email: string | null;
+  acepta_whatsapp: boolean;
+  descripcion: string;
+  cantidad: number;
+  medidas: string | null;
+  estado: EstadoPresupuesto;
+  precio_cotizado: number | null;
+  observaciones: string | null;
+  valido_hasta: string | null;
+  pedido_id: number | null;
+  created_at: string;
+}
+export interface PresupuestoDetalle extends Presupuesto {
+  eventos: { estado: EstadoPresupuesto; autor: string; nota: string | null; created_at: string }[];
+  adjuntos: { id: number; nombre: string; tipo: string }[];
+  link: string;
+}
+export const presupuestosService = {
+  listar: async (vista: "abiertos" | "cerrados") => (await api.get<Presupuesto[]>("/presupuestos", { params: { vista } })).data,
+  ver: async (id: number) => (await api.get<PresupuestoDetalle>(`/presupuestos/${id}`)).data,
+  estado: async (id: number, estado: "en_revision" | "rechazado" | "cancelado") =>
+    (await api.patch<Presupuesto>(`/presupuestos/${id}/estado`, { estado })).data,
+  cotizar: async (id: number, c: { precio: number; observaciones?: string | null; valido_hasta?: string | null }) =>
+    (await api.post<Presupuesto & { link: string }>(`/presupuestos/${id}/cotizacion`, c)).data,
+  convertir: async (id: number) => (await api.post<Presupuesto & { pedido: { id: number } }>(`/presupuestos/${id}/convertir`)).data,
+  resumen: async () => (await api.get<{ pendientes: number; aceptados: number }>("/presupuestos/resumen")).data,
+};
+
+// ── Turnos (reservas) ──
+export type EstadoReserva = "pendiente" | "confirmada" | "cancelada" | "completada" | "ausente";
+export interface Reserva {
+  id: number;
+  servicio_id: number | null;
+  servicio_nombre: string;
+  cliente_nombre: string;
+  telefono: string | null;
+  email: string | null;
+  notas: string | null;
+  inicio: string;
+  fin: string;
+  estado: EstadoReserva;
+  origen: "cliente" | "panel";
+}
+export interface AgendaOpciones {
+  paso_min: number;
+  anticipacion_min: number;
+  dias_max: number;
+  confirmacion: "manual" | "automatica";
+}
+export interface Bloqueo { id: number; desde: string; hasta: string; motivo: string | null }
+export const reservasService = {
+  listar: async (desde: string, hasta: string) => (await api.get<Reserva[]>("/reservas", { params: { desde, hasta } })).data,
+  ver: async (id: number) => (await api.get<Reserva & { link: string }>(`/reservas/${id}`)).data,
+  estado: async (id: number, estado: Exclude<EstadoReserva, "pendiente">) =>
+    (await api.patch<Reserva>(`/reservas/${id}/estado`, { estado })).data,
+  reprogramar: async (id: number, inicio: string) => (await api.post<Reserva>(`/reservas/${id}/reagendar`, { inicio })).data,
+  horarios: async (servicio: number, fecha: string, excluir?: number) =>
+    (await api.get<{ horarios: string[] }>("/reservas/horarios", { params: { servicio, fecha, excluir } })).data.horarios,
+  manual: async (r: { servicio_id: number; inicio: string; cliente_nombre: string; telefono?: string | null; notas?: string | null }) =>
+    (await api.post<Reserva>("/reservas/manual", r)).data,
+  bloqueos: async () => (await api.get<Bloqueo[]>("/reservas/bloqueos")).data,
+  crearBloqueo: async (b: { desde: string; hasta: string; motivo?: string | null }) =>
+    (await api.post<Bloqueo>("/reservas/bloqueos", b)).data,
+  borrarBloqueo: async (id: number) => (await api.delete(`/reservas/bloqueos/${id}`)).data,
+  resumen: async () => (await api.get<{ por_confirmar: number; primera: string | null }>("/reservas/resumen")).data,
 };
 
 // ── Servicios ──

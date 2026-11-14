@@ -231,6 +231,64 @@ const servicioSchema = z
     path: ["precio"],
   });
 
+// ── Presupuestos ─────────────────────────────────────────────
+const tokenAdjunto = z.string().regex(/^[a-f0-9]{48}$/);
+const presupuestoSchema = z
+  .object({
+    producto_id: z.number().int().positive().optional().nullable(),
+    servicio_id: z.number().int().positive().optional().nullable(),
+    cliente_nombre: z.string().trim().min(1, "Poné tu nombre").max(120),
+    telefono: z.string().trim().max(40).optional().nullable(),
+    email: z.string().trim().email("Email inválido").max(160).optional().nullable().or(z.literal("")),
+    acepta_whatsapp: z.boolean().optional(),
+    descripcion: z.string().trim().min(5, "Contanos un poco más qué necesitás").max(3000),
+    cantidad: z.coerce.number().int().min(1).max(100000).optional().default(1),
+    medidas: z.string().trim().max(300).optional().nullable(),
+    adjuntos: z.array(tokenAdjunto).max(5).optional(),
+  })
+  .refine((p) => !!(p.telefono || p.email), { message: "Dejá un teléfono o un email para responderte", path: ["telefono"] });
+const respuestaPresupuestoSchema = z.object({ decision: z.enum(["aceptar", "rechazar"]) });
+const estadoPresupuestoSchema = z.object({
+  estado: z.enum(["en_revision", "rechazado", "cancelado"]),
+  nota: z.string().trim().max(500).optional().nullable(),
+});
+const cotizacionSchema = z.object({
+  precio: z.coerce.number().min(0).max(999999999),
+  observaciones: z.string().trim().max(2000).optional().nullable(),
+  valido_hasta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+});
+
+// ── Reservas ─────────────────────────────────────────────────
+const reservaSchema = z
+  .object({
+    servicio_id: z.number().int().positive(),
+    inicio: z.string().datetime({ offset: true }),
+    cliente_nombre: z.string().trim().min(1, "Poné tu nombre").max(120),
+    telefono: z.string().trim().max(40).optional().nullable(),
+    email: z.string().trim().email("Email inválido").max(160).optional().nullable().or(z.literal("")),
+    acepta_whatsapp: z.boolean().optional(),
+    notas: z.string().trim().max(500).optional().nullable(),
+  })
+  .refine((r) => !!(r.telefono || r.email), { message: "Dejá un teléfono o un email", path: ["telefono"] });
+// Turno que carga el negocio: el contacto es opcional (cliente de mostrador).
+const reservaManualSchema = z.object({
+  servicio_id: z.number().int().positive(),
+  inicio: z.string().datetime({ offset: true }),
+  cliente_nombre: z.string().trim().min(1, "Poné el nombre del cliente").max(120),
+  telefono: z.string().trim().max(40).optional().nullable(),
+  email: z.string().trim().email("Email inválido").max(160).optional().nullable().or(z.literal("")),
+  notas: z.string().trim().max(500).optional().nullable(),
+});
+const reprogramarSchema = z.object({ inicio: z.string().datetime({ offset: true }) });
+const estadoReservaSchema = z.object({ estado: z.enum(["confirmada", "cancelada", "completada", "ausente"]) });
+const bloqueoSchema = z
+  .object({
+    desde: z.string().datetime({ offset: true }),
+    hasta: z.string().datetime({ offset: true }),
+    motivo: z.string().trim().max(120).optional().nullable(),
+  })
+  .refine((b) => new Date(b.hasta) > new Date(b.desde), { message: "El fin tiene que ser después del inicio", path: ["hasta"] });
+
 // ── Onboarding (progreso por negocio) ────────────────────────
 const { OFRECE, FUNCIONES } = require("../utils/rubros");
 const onboardingSchema = z.object({
@@ -263,6 +321,15 @@ module.exports = {
   changeEmailSchema,
   createPedidoSchema,
   onboardingSchema,
+  presupuestoSchema,
+  respuestaPresupuestoSchema,
+  estadoPresupuestoSchema,
+  cotizacionSchema,
+  reservaSchema,
+  reservaManualSchema,
+  reprogramarSchema,
+  estadoReservaSchema,
+  bloqueoSchema,
   camposSchema,
   servicioSchema,
   productoSchema,

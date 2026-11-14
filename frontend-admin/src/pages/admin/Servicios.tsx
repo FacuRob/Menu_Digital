@@ -198,7 +198,7 @@ export default function Servicios() {
       {abierto && (
         <Modal title={editando ? t("servEditar") : t("servNuevo")} subtitle={editando?.nombre} onClose={() => setAbierto(false)} maxWidth={620} icon={<IconTools />}>
           <form
-            style={{ display: "grid", gap: 14 }}
+            style={{ ...s.modalBody, display: "grid", gap: 14 }}
             onSubmit={(e) => {
               e.preventDefault();
               guardar();

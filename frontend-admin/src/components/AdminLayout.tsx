@@ -4,7 +4,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useNegocio } from "../context/NegocioContext";
-import { apiPendientes, chatsService, pedidosService, productosService, soporteService } from "../services/api";
+import { apiPendientes, chatsService, pedidosService, presupuestosService, productosService, reservasService, soporteService } from "../services/api";
 import LoadingScreen from "./LoadingScreen";
 import Modal from "./Modal";
 import ConfiguracionEditor from "./ConfiguracionEditor";
@@ -33,6 +33,20 @@ const I = {
     </Ico>
   ),
   categorias: <Ico d="M4 6h16M4 12h16M4 18h10" />,
+  // Hoja con signo $: presupuestos.
+  presupuestos: (
+    <Ico>
+      <path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" />
+      <path d="M14 3v5h5M12 11v6M10 13h3a1 1 0 0 1 0 2h-2a1 1 0 0 0 0 2h3" />
+    </Ico>
+  ),
+  // Calendario: turnos.
+  turnos: (
+    <Ico>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M16 3v4M8 3v4M3 10h18M8 14h3v3H8z" />
+    </Ico>
+  ),
   // Llave: servicios (trabajos que hace el negocio).
   servicios: <Ico d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 0 0 5.4-5.4l-2.3 2.3-2-2 2.3-2.3z" />,
   productos: (
@@ -152,6 +166,8 @@ type ItemNav = { permiso: string; ruta: string; labelKey: string; icon: ReactNod
 const NAV: ItemNav[] = [
   { permiso: "any", ruta: "/admin/dashboard", labelKey: "navDashboard", icon: I.dashboard },
   { permiso: "pedidos", ruta: "/admin/pedidos", labelKey: "navPedidos", icon: I.pedidos, modulo: "pedidos" },
+  { permiso: "presupuestos", ruta: "/admin/presupuestos", labelKey: "navPresupuestos", icon: I.presupuestos, modulo: "presupuestos" },
+  { permiso: "reservas", ruta: "/admin/turnos", labelKey: "navTurnos", icon: I.turnos, modulo: "reservas" },
   { permiso: "pedidos", ruta: "/admin/chats", labelKey: "navChats", icon: I.chats },
   { permiso: "productos", ruta: "/admin/productos", labelKey: "navProductos", icon: I.productos, modulo: "productos" },
   { permiso: "categorias", ruta: "/admin/categorias", labelKey: "navCategorias", icon: I.categorias, modulo: "productos" },
@@ -316,6 +332,30 @@ export function AdminShell() {
   // Avisos de pedidos y de stock: sólo si el negocio usa esos módulos.
   const avisaPedidos = hasPermiso("pedidos") && tieneModulo("pedidos");
   const avisaStock = hasPermiso("productos") && tieneModulo("productos");
+  const avisaPresupuestos = hasPermiso("presupuestos") && tieneModulo("presupuestos");
+  const avisaTurnos = hasPermiso("reservas") && tieneModulo("reservas");
+  // Presupuestos que esperan algo del negocio y turnos por confirmar.
+  const [agendaAviso, setAgendaAviso] = useState({ presupuestos: 0, turnos: 0 });
+  useEffect(() => {
+    if (!isAuthenticated || (!avisaPresupuestos && !avisaTurnos)) return;
+    let activo = true;
+    const check = async () => {
+      if (document.hidden) return;
+      const [p, r] = await Promise.all([
+        avisaPresupuestos ? presupuestosService.resumen().catch(() => null) : null,
+        avisaTurnos ? reservasService.resumen().catch(() => null) : null,
+      ]);
+      if (activo) setAgendaAviso({ presupuestos: p ? p.pendientes + p.aceptados : 0, turnos: r?.por_confirmar || 0 });
+    };
+    check();
+    const id = setInterval(check, 60000);
+    window.addEventListener("agenda-cambio", check);
+    return () => {
+      activo = false;
+      clearInterval(id);
+      window.removeEventListener("agenda-cambio", check);
+    };
+  }, [isAuthenticated, negocioId, avisaPresupuestos, avisaTurnos]);
   // Con plan Básico, Chats y WhatsApp llevan la etiqueta del plan que los incluye.
   const esDeWhatsapp = (ruta: string) => ruta === "/admin/chats" || ruta === "/admin/whatsapp";
   const { isDark, setTheme } = useTheme();
@@ -622,6 +662,22 @@ export function AdminShell() {
     );
   };
 
+  // Contador genérico (presupuestos que esperan, turnos por confirmar).
+  const avisoN = (n: number, txt: string) => {
+    if (n <= 0) return null;
+    return collapsed ? (
+      <>
+        <span className="sh-dot" aria-hidden />
+        <span className="sr-only">{txt}</span>
+      </>
+    ) : (
+      <span className="sh-badge">
+        <span aria-hidden>{n > 99 ? "99+" : n}</span>
+        <span className="sr-only">{txt}</span>
+      </span>
+    );
+  };
+
   // Contador de reportes con novedades junto a "Soporte".
   const avisoSoporte = () => {
     if (soporteSinLeer <= 0) return null;
@@ -705,6 +761,10 @@ export function AdminShell() {
                     </span>
                   ) : item.ruta === "/admin/soporte" ? (
                     avisoSoporte()
+                  ) : item.ruta === "/admin/presupuestos" ? (
+                    avisoN(agendaAviso.presupuestos, t(agendaAviso.presupuestos === 1 ? "avisoPresupuesto1" : "avisoPresupuestos", { n: agendaAviso.presupuestos }))
+                  ) : item.ruta === "/admin/turnos" ? (
+                    avisoN(agendaAviso.turnos, t(agendaAviso.turnos === 1 ? "avisoTurno1" : "avisoTurnos", { n: agendaAviso.turnos }))
                   ) : (
                     avisoChats(item.ruta === "/admin/chats")
                   )}

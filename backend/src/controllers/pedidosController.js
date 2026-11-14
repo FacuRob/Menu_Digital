@@ -592,6 +592,9 @@ const deletePedido = async (req, res) => {
 
 module.exports = {
   createPedido,
+  // Los usa la conversión de presupuestos en pedido.
+  guardarConRpc,
+  guardarSinRpc,
   getPedidos,
   getPedidoById,
   updateEstadoPedido,

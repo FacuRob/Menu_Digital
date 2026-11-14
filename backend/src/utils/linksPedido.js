@@ -5,9 +5,11 @@ const { safeEqual } = require("./safeEqual");
 //   ticket      → /ticket/<id>?t=…       (cliente, al entregar)
 //   seguimiento → /seguimiento/<id>?t=…  (cliente, mapa del delivery)
 //   reparto     → /reparto/<id>?t=…      (repartidor: "Salí" / "Entregué")
+//   presupuesto → /presupuesto/<id>?t=…  (cliente: ver y responder la cotización)
+//   reserva     → /reserva/<id>?t=…      (cliente: ver, cancelar o cambiar el turno)
 // La firma (HMAC de tipo + pedido + negocio) impide usar el link de otro
 // pedido o pasar del link del cliente al del repartidor.
-const TIPOS = ["ticket", "seguimiento", "reparto"];
+const TIPOS = ["ticket", "seguimiento", "reparto", "presupuesto", "reserva"];
 
 const clave = () => {
   if (!process.env.JWT_SECRET) throw new Error("Falta JWT_SECRET");

@@ -18,6 +18,8 @@ const Onboarding = lazy(() => import("./pages/admin/Onboarding"));
 const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
 const Categorias = lazy(() => import("./pages/admin/Categorias"));
 const Servicios = lazy(() => import("./pages/admin/Servicios"));
+const Presupuestos = lazy(() => import("./pages/admin/Presupuestos"));
+const Turnos = lazy(() => import("./pages/admin/Turnos"));
 const Productos = lazy(() => import("./pages/admin/Productos"));
 const QRCode = lazy(() => import("./pages/admin/QRCode"));
 const Usuarios = lazy(() => import("./pages/admin/Usuarios"));
@@ -124,6 +126,22 @@ function App() {
               element={
                 <ProtectedRoute permiso="categorias" modulo="productos">
                   <Categorias />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/presupuestos"
+              element={
+                <ProtectedRoute permiso="presupuestos" modulo="presupuestos">
+                  <Presupuestos />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/turnos"
+              element={
+                <ProtectedRoute permiso="reservas" modulo="reservas">
+                  <Turnos />
                 </ProtectedRoute>
               }
             />

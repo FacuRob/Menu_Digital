@@ -647,3 +647,7 @@ button, a, select, label { -webkit-tap-highlight-color: transparent; }
 @media (prefers-reduced-motion: reduce) {
   .chat-alerta { animation: none; }
 }
+
+/* Opciones con un radio/checkbox escondido (horarios de turnos, etc.):
+   el foco del teclado se ve en la etiqueta. */
+label:has(> input.sr-only:focus-visible) { outline: 3px solid var(--info); outline-offset: 2px; }

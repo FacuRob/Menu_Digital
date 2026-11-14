@@ -229,6 +229,60 @@ export const serviciosService = {
     (await api.get<Servicio[]>("/servicios/disponibles", delNegocio(negocio))).data,
 };
 
+// ── Presupuestos y turnos (páginas públicas) ──
+export type EstadoPresupuesto = "pendiente" | "en_revision" | "cotizado" | "aceptado" | "rechazado" | "convertido" | "cancelado";
+export interface PresupuestoCliente {
+  id: number;
+  estado: EstadoPresupuesto;
+  referencia: string | null;
+  descripcion: string;
+  cantidad: number;
+  medidas: string | null;
+  precio_cotizado: number | null;
+  observaciones: string | null;
+  valido_hasta: string | null;
+  vencido?: boolean;
+  created_at: string;
+  link?: string;
+  negocio?: { nombre: string; whatsapp: string | null; telefono: string | null; slug?: string | null } | null;
+}
+export type EstadoReserva = "pendiente" | "confirmada" | "cancelada" | "completada" | "ausente";
+export interface ReservaCliente {
+  id: number;
+  estado: EstadoReserva;
+  servicio_id: number | null;
+  servicio_nombre: string;
+  inicio: string;
+  fin: string;
+  cliente_nombre: string;
+  modificable?: boolean;
+  negocio_id?: number;
+  link?: string;
+  negocio?: { nombre: string; whatsapp: string | null; telefono: string | null; slug?: string | null } | null;
+}
+const firmado = (t: string) => ({ params: { t, negocio: undefined } });
+export const presupuestosPublico = {
+  pedir: async (negocio: number, p: Record<string, unknown>) =>
+    (await api.post<PresupuestoCliente>("/presupuestos", p, { params: { negocio } })).data,
+  ver: async (id: string, t: string) => (await api.get<PresupuestoCliente>(`/presupuestos/${id}/publico`, firmado(t))).data,
+  responder: async (id: string, t: string, decision: "aceptar" | "rechazar") =>
+    (await api.post<PresupuestoCliente>(`/presupuestos/${id}/responder`, { decision }, firmado(t))).data,
+};
+export const reservasPublico = {
+  horarios: async (negocio: number, servicio: number, fecha: string) =>
+    (await api.get<{ horarios: string[] }>("/reservas/disponibilidad", { params: { negocio, servicio, fecha } })).data.horarios,
+  reservar: async (negocio: number, r: Record<string, unknown>) =>
+    (await api.post<ReservaCliente>("/reservas", r, { params: { negocio } })).data,
+  ver: async (id: string, t: string) => (await api.get<ReservaCliente>(`/reservas/${id}/publico`, firmado(t))).data,
+  horariosDe: async (r: ReservaCliente, negocio: number, fecha: string, t: string) =>
+    r.servicio_id
+      ? (await api.get<{ horarios: string[] }>("/reservas/disponibilidad", { params: { negocio, servicio: r.servicio_id, fecha, excluir: r.id, t } })).data.horarios
+      : [],
+  cancelar: async (id: string, t: string) => (await api.post<ReservaCliente>(`/reservas/${id}/cancelar`, {}, firmado(t))).data,
+  reprogramar: async (id: string, t: string, inicio: string) =>
+    (await api.post<ReservaCliente>(`/reservas/${id}/reprogramar`, { inicio }, firmado(t))).data,
+};
+
 // Archivos del cliente para personalizar (quedan privados para el negocio).
 export const adjuntosService = {
   subir: async (archivo: File, negocio?: number) => {
@@ -311,6 +365,8 @@ export interface Configuracion {
   tipo_rubro?: "gastronomia" | "retail" | "servicios" | "generico" | string | null;
   // Módulos del negocio (los que no vienen se consideran activos).
   modulos?: Partial<Record<string, boolean>>;
+  // Link público del negocio (/menu/:slug).
+  slug?: string | null;
 }
 
 export type TipoEntrega = "mesa" | "retiro" | "delivery";

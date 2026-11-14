@@ -55,7 +55,10 @@ const { requiereModulo } = require("./middleware/requiereModulo");
 const adjuntos = require("./controllers/adjuntosController");
 const servicios = require("./controllers/serviciosController");
 const multer = require("multer");
-const { adjuntosLimiter } = require("./middleware/rateLimiters");
+const { adjuntosLimiter, solicitudesLimiter } = require("./middleware/rateLimiters");
+const presupuestos = require("./controllers/presupuestosController");
+const reservas = require("./controllers/reservasController");
+const sch = require("./schemas");
 const { servicioSchema } = require("./schemas");
 const { REGISTRO } = require("./utils/modulos");
 const { validate } = require("./middleware/validate");
@@ -164,6 +167,16 @@ app.post("/api/adjuntos", adjuntosLimiter, (req, res, next) =>
   ),
   adjuntos.subirAdjunto,
 );
+// Presupuestos y turnos desde la página pública (negocio por ?negocio=).
+app.post("/api/presupuestos", solicitudesLimiter, validate(sch.presupuestoSchema), presupuestos.crearPresupuesto);
+app.get("/api/presupuestos/:id/publico", repartoLimiter, presupuestos.verPublico);
+app.post("/api/presupuestos/:id/responder", repartoLimiter, validate(sch.respuestaPresupuestoSchema), presupuestos.responderCliente);
+app.get("/api/reservas/disponibilidad", repartoLimiter, reservas.disponibilidad);
+app.post("/api/reservas", solicitudesLimiter, validate(sch.reservaSchema), reservas.crearReserva);
+app.get("/api/reservas/:id/publico", repartoLimiter, reservas.verPublico);
+app.post("/api/reservas/:id/cancelar", repartoLimiter, reservas.cancelarCliente);
+app.post("/api/reservas/:id/reprogramar", repartoLimiter, validate(sch.reprogramarSchema), reservas.reprogramarCliente);
+
 // Servicios activos del negocio (menú público).
 app.get("/api/servicios/disponibles", servicios.getServiciosDisponibles);
 app.post("/api/pedidos", pedidosLimiter, validate(createPedidoSchema), createPedido);
@@ -236,6 +249,30 @@ app.get("/api/servicios", ...serviciosMw, servicios.getServicios);
 app.post("/api/servicios", ...serviciosMw, validate(servicioSchema), servicios.createServicio);
 app.put("/api/servicios/:id", ...serviciosMw, validate(servicioSchema), servicios.updateServicio);
 app.delete("/api/servicios/:id", ...serviciosMw, servicios.deleteServicio);
+
+// Presupuestos (panel): ver y cambiar estado; cotizar y pasar a pedido
+// necesita el permiso "cotizar" (dueño y Admin).
+const presMw = [authMiddleware, scopeNegocio, checkSuscripcion, requiereModulo("presupuestos")];
+app.get("/api/presupuestos", ...presMw, checkPermiso("presupuestos"), presupuestos.listar);
+app.get("/api/presupuestos/resumen", ...presMw, checkPermiso("presupuestos"), presupuestos.resumen);
+app.get("/api/presupuestos/:id", ...presMw, checkPermiso("presupuestos"), presupuestos.ver);
+app.patch("/api/presupuestos/:id/estado", ...presMw, checkPermiso("presupuestos"), validate(sch.estadoPresupuestoSchema), presupuestos.cambiarEstado);
+app.post("/api/presupuestos/:id/cotizacion", ...presMw, checkPermiso("cotizar"), validate(sch.cotizacionSchema), presupuestos.cotizar);
+app.post("/api/presupuestos/:id/convertir", ...presMw, checkPermiso("cotizar"), presupuestos.convertir);
+
+// Turnos (panel).
+const resMw = [authMiddleware, scopeNegocio, checkSuscripcion, requiereModulo("reservas"), checkPermiso("reservas")];
+app.get("/api/reservas", ...resMw, reservas.listar);
+app.get("/api/reservas/horarios", ...resMw, reservas.horariosPanel);
+app.get("/api/reservas/resumen", ...resMw, reservas.resumen);
+app.get("/api/reservas/bloqueos", ...resMw, reservas.listarBloqueos);
+app.post("/api/reservas/bloqueos", ...resMw, validate(sch.bloqueoSchema), reservas.crearBloqueo);
+app.delete("/api/reservas/bloqueos/:id", ...resMw, reservas.borrarBloqueo);
+app.post("/api/reservas/manual", ...resMw, validate(sch.reservaManualSchema), reservas.crearManual);
+app.get("/api/reservas/:id", ...resMw, reservas.ver);
+app.patch("/api/reservas/:id/estado", ...resMw, validate(sch.estadoReservaSchema), reservas.cambiarEstado);
+// Distinta de la pública (/:id/reprogramar con link firmado), que va antes.
+app.post("/api/reservas/:id/reagendar", ...resMw, validate(sch.reprogramarSchema), reservas.reprogramarPanel);
 
 // Progreso del onboarding del negocio activo.
 app.get("/api/onboarding", authMiddleware, scopeNegocio, checkSuscripcion, checkPermiso("configuracion"), onboarding.getOnboarding);

@@ -62,4 +62,13 @@ const adjuntosLimiter = rateLimit({
   message: { message: "Subiste muchos archivos seguidos. Esperá unos minutos." },
 });
 
-module.exports = { authLimiter, pedidosLimiter, repartoLimiter, soporteLimiter, soporteCrearLimiter, adjuntosLimiter };
+// Pedidos de presupuesto y turnos desde la página pública: por IP.
+const solicitudesLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Mandaste muchas solicitudes seguidas. Esperá unos minutos." },
+});
+
+module.exports = { authLimiter, pedidosLimiter, repartoLimiter, soporteLimiter, soporteCrearLimiter, adjuntosLimiter, solicitudesLimiter };

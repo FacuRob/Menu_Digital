@@ -60,6 +60,10 @@ function createSupabaseMock() {
           q.filters[col] = val;
           return b;
         },
+        gt(col, val) {
+          q.gts = { ...(q.gts || {}), [col]: val };
+          return b;
+        },
         lt(col, val) {
           q.lts = { ...(q.lts || {}), [col]: val };
           return b;

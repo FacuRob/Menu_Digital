@@ -673,12 +673,30 @@ const Menu = ({ general = false }: { general?: boolean }) => {
                       {t("askService")}
                     </a>
                   )}
-                  {!(config?.whatsapp || config?.telefono) && (
+                  {!(config?.whatsapp || config?.telefono) && !s.requiere_turno && !s.requiere_presupuesto && (
                     <p className="text-[13px] font-semibold text-[var(--fg-2)]">{t("askInPlace")}</p>
+                  )}
+                  {s.requiere_turno && config?.modulos?.reservas && config.slug && (
+                    <a href={`/negocio/${config.slug}/reservar?servicio=${s.id}`} className="mn-btn mt-1 w-full" aria-label={`${t("bookService")}: ${s.nombre}`}>
+                      {t("bookService")}
+                    </a>
+                  )}
+                  {s.requiere_presupuesto && config?.modulos?.presupuestos && config.slug && (
+                    <a href={`/negocio/${config.slug}/presupuesto?servicio=${s.id}`} className="mn-btn mn-btn-borde mt-1 w-full" aria-label={`${t("quoteService")}: ${s.nombre}`}>
+                      {t("quoteService")}
+                    </a>
                   )}
                 </li>
               ))}
             </ul>
+          </section>
+        )}
+        {/* Presupuesto a medida (si el negocio los recibe). */}
+        {!general && config?.modulos?.presupuestos && config.slug && (
+          <section aria-labelledby="pedir-presupuesto" className="mt-12 rounded-[var(--r-lg)] bg-[var(--surface)] p-6 ring-1 ring-[var(--line)]">
+            <h2 id="pedir-presupuesto" className="mn-display text-[clamp(1.5rem,5vw,2rem)]">{t("quoteTitle")}</h2>
+            <p className="mt-2 max-w-[50ch] text-[15px] text-[var(--fg-2)]">{t("quoteSub")}</p>
+            <a href={`/negocio/${config.slug}/presupuesto`} className="mn-btn mt-4">{t("quoteCta")}</a>
           </section>
         )}
       </main>

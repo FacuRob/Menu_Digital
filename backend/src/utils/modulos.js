@@ -19,8 +19,8 @@ const REGISTRO = [
   // El carrito va con los pedidos (hoy es la única forma de pedir online).
   { codigo: "carrito", nombre: "Carrito", descripcion: "Carrito de compras en tu página.", disponible: true, requiere: ["pedidos"], oculto: true },
   { codigo: "entregas", nombre: "Entregas", descripcion: "Retiro en el local, delivery y pedido en mesa.", disponible: true, requiere: ["pedidos"] },
-  { codigo: "presupuestos", nombre: "Presupuestos", descripcion: "Los clientes te piden una cotización y vos respondés.", disponible: false, requiere: ["catalogo"] },
-  { codigo: "reservas", nombre: "Reservas y turnos", descripcion: "Agenda con horarios y turnos sin superposición.", disponible: false, requiere: ["catalogo"] },
+  { codigo: "presupuestos", nombre: "Presupuestos", descripcion: "Los clientes te piden una cotización y vos respondés.", disponible: true, requiere: ["catalogo"] },
+  { codigo: "reservas", nombre: "Reservas y turnos", descripcion: "Agenda con horarios y turnos sin superposición.", disponible: true, requiere: ["catalogo"] },
   { codigo: "clientes", nombre: "Clientes", descripcion: "Listado de tus clientes y su historial.", disponible: false },
   { codigo: "estadisticas", nombre: "Estadísticas", descripcion: "Ventas, ganancia y horas pico en el Dashboard.", disponible: true },
 ];

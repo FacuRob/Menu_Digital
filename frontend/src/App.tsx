@@ -8,6 +8,10 @@ const Landing = lazy(() => import("./pages/Landing"));
 const Menu = lazy(() => import("./pages/Menu"));
 const Privacidad = lazy(() => import("./pages/Privacidad"));
 const Ticket = lazy(() => import("./pages/Ticket"));
+const PedirPresupuesto = lazy(() => import("./pages/PedirPresupuesto"));
+const Reservar = lazy(() => import("./pages/Reservar"));
+const PresupuestoSeguimiento = lazy(() => import("./pages/PresupuestoSeguimiento"));
+const ReservaSeguimiento = lazy(() => import("./pages/ReservaSeguimiento"));
 const Reparto = lazy(() => import("./pages/Reparto"));
 const Seguimiento = lazy(() => import("./pages/Seguimiento"));
 
@@ -56,6 +60,11 @@ function App() {
         {/* Seguimiento del delivery: repartidor y cliente (links firmados). */}
         <Route path="/reparto/:id" element={<Reparto />} />
         <Route path="/seguimiento/:id" element={<Seguimiento />} />
+        {/* Presupuestos y turnos: pedir y seguir con el link firmado. */}
+        <Route path="/negocio/:slug/presupuesto" element={<PedirPresupuesto />} />
+        <Route path="/negocio/:slug/reservar" element={<Reservar />} />
+        <Route path="/presupuesto/:id" element={<PresupuestoSeguimiento />} />
+        <Route path="/reserva/:id" element={<ReservaSeguimiento />} />
 
         <Route path="*" element={<NotFound />} />
       </Routes>
