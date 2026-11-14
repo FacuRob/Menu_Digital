@@ -511,6 +511,23 @@ export interface Servicio {
   activo: boolean;
   orden: number;
 }
+// Clientes: armados con pedidos, presupuestos y turnos (sin tabla propia).
+export interface Cliente {
+  clave: string;
+  nombre: string | null;
+  telefono: string | null;
+  email: string | null;
+  pedidos: number;
+  total: number;
+  presupuestos: number;
+  turnos: number;
+  ultimo: string | null;
+}
+export const clientesService = {
+  // truncado: el negocio tiene más historial del que se lee (los más viejos no están).
+  listar: async () => (await api.get<{ clientes: Cliente[]; truncado: boolean }>("/clientes")).data,
+};
+
 export const serviciosService = {
   getAll: async () => (await api.get<Servicio[]>("/servicios")).data,
   create: async (s: Omit<Servicio, "id">) => (await api.post<Servicio>("/servicios", s)).data,

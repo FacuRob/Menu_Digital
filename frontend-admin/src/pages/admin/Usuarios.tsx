@@ -105,6 +105,11 @@ const PERM_KEY: Record<string, string> = {
   analiticas: "subPerkAnalytics",
   suscripcion: "navSuscripcion",
   plataforma: "navPlataforma",
+  servicios: "navServicios",
+  presupuestos: "navPresupuestos",
+  reservas: "navTurnos",
+  cotizar: "permCotizar",
+  clientes: "navClientes",
 };
 
 

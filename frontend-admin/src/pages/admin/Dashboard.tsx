@@ -15,6 +15,8 @@ import {
   configuracionService,
   onboardingService,
   pedidosService,
+  presupuestosService,
+  reservasService,
   type Actividad,
   type Resumen,
   type TipoEntrega,
@@ -113,8 +115,12 @@ export default function Dashboard() {
   const { t, lang } = useLang();
   const locale = LOCALE[lang];
   const fmt = useCallback((n: number) => fmtMoney(n, moneda), [moneda]);
-  const { tieneModulo } = useNegocio();
-  const verAnaliticas = hasPermiso("analiticas") && tieneModulo("estadisticas");
+  const { tieneModulo, rubro } = useNegocio();
+  // Las analíticas son de ventas: sin pedidos (p. ej. una peluquería) no van.
+  const verAnaliticas = hasPermiso("analiticas") && tieneModulo("estadisticas") && tieneModulo("pedidos");
+  const verPresupuestos = hasPermiso("presupuestos") && tieneModulo("presupuestos");
+  const verTurnos = hasPermiso("reservas") && tieneModulo("reservas");
+  const [agenda, setAgenda] = useState<{ presupuestos: number | null; turnos: number | null; primera: string | null } | null>(null);
   const verPedidos = hasPermiso("pedidos") && tieneModulo("pedidos");
 
   const [dias, setDias] = useState<Dias>(() => {
@@ -145,6 +151,26 @@ export default function Dashboard() {
       /* sin storage */
     }
   }, [dias]);
+
+  // Agenda (presupuestos y turnos), si el negocio los usa.
+  useEffect(() => {
+    if (!verPresupuestos && !verTurnos) return;
+    let vivo = true;
+    Promise.all([
+      verPresupuestos ? presupuestosService.resumen().catch(() => null) : null,
+      verTurnos ? reservasService.resumen().catch(() => null) : null,
+    ]).then(([p, r]) => {
+      if (!vivo) return;
+      setAgenda({
+        presupuestos: p ? p.pendientes + p.aceptados : null,
+        turnos: r ? r.por_confirmar : null,
+        primera: r?.primera ?? null,
+      });
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [verPresupuestos, verTurnos, negocioId]);
 
   // Actividad del período (liviana: no baja todos los pedidos).
   useEffect(() => {
@@ -216,7 +242,8 @@ export default function Dashboard() {
   }, [negocioId]);
 
   const bizName = cfg?.nombre || negocios.find((n) => n.id === negocioId)?.nombre || "";
-  const publicUrl = `${MENU_PUBLIC_BASE}${menuPath(slug, negocioId)}`;
+  const publicUrl = `${MENU_PUBLIC_BASE}${menuPath(slug, negocioId, rubro)}`;
+  const paginaLabel = rubro && rubro !== "gastronomia" ? "navVerPagina" : "navVerMenu";
   const hora = new Date().getHours();
   const nombre = (user?.nombre || user?.username || "").split(" ")[0];
   const saludo = hora < 12 ? "dashMorning" : hora < 20 ? "dashAfternoon" : "dashEvening";
@@ -299,12 +326,12 @@ export default function Dashboard() {
           </div>
           <div className="flex flex-wrap gap-2">
             <a
-              href={menuPath(slug, negocioId)}
+              href={menuPath(slug, negocioId, rubro)}
               target="_blank"
               rel="noopener"
               className="inline-flex min-h-11 items-center gap-2 rounded-[var(--r-sm)] border border-line-strong bg-surface px-4 text-sm font-semibold text-fg transition-colors hover:bg-surface-2"
             >
-              {I.eye} {t("navVerMenu")}
+              {I.eye} {t(paginaLabel)}
             </a>
             {hasPermiso("qr") && (
               <Link
@@ -339,7 +366,7 @@ export default function Dashboard() {
               <p className="pn-title truncate text-lg">{bizName || "—"}</p>
               <p className="flex items-center gap-1.5 text-sm opacity-80">
                 <span className="h-2 w-2 rounded-full bg-[var(--ok)]" aria-hidden />
-                {t("dashMenuOnline")}
+                {t(rubro && rubro !== "gastronomia" ? "dashPageOnline" : "dashMenuOnline")}
               </p>
               <button
                 type="button"
@@ -370,6 +397,31 @@ export default function Dashboard() {
             </dl>
           )}
         </section>
+
+        {/* Agenda: presupuestos por responder y turnos por confirmar. */}
+        {agenda && (
+          <section aria-labelledby="dsh-agenda" className="space-y-3">
+            <h2 id="dsh-agenda" className="pn-title text-lg text-fg">{t("dshAgenda")}</h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {agenda.presupuestos !== null && (
+                <Link to="/admin/presupuestos" className="flex flex-col rounded-[var(--r-md)] border border-line bg-surface px-4 py-4 text-fg transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2">
+                  <span className={`pn-title pn-num text-2xl ${agenda.presupuestos ? "" : "text-fg-2"}`}>{agenda.presupuestos}</span>{" "}
+                  <span className="text-sm text-fg-2">{t("dshPresPendientes")} <span aria-hidden>→</span></span>
+                </Link>
+              )}
+              {agenda.turnos !== null && (
+                <Link to="/admin/turnos" className="flex flex-col rounded-[var(--r-md)] border border-line bg-surface px-4 py-4 text-fg transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2">
+                  <span className={`pn-title pn-num text-2xl ${agenda.turnos ? "" : "text-fg-2"}`}>{agenda.turnos}</span>{" "}
+                  <span className="text-sm text-fg-2">
+                    {t("dshTurnosPorConfirmar")}
+                    {agenda.primera && ` · ${t("dshTurnosDesde", { f: agenda.primera.slice(5).split("-").reverse().join("/") })}`}{" "}
+                    <span aria-hidden>→</span>
+                  </span>
+                </Link>
+              )}
+            </div>
+          </section>
+        )}
 
         {error && (
           <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--r-md)] bg-err-bg px-4 py-3 text-err">

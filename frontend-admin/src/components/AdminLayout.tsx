@@ -47,6 +47,13 @@ const I = {
       <path d="M16 3v4M8 3v4M3 10h18M8 14h3v3H8z" />
     </Ico>
   ),
+  // Persona con tarjeta: clientes.
+  clientes: (
+    <Ico>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" />
+    </Ico>
+  ),
   // Llave: servicios (trabajos que hace el negocio).
   servicios: <Ico d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 0 0 5.4-5.4l-2.3 2.3-2-2 2.3-2.3z" />,
   productos: (
@@ -172,6 +179,7 @@ const NAV: ItemNav[] = [
   { permiso: "productos", ruta: "/admin/productos", labelKey: "navProductos", icon: I.productos, modulo: "productos" },
   { permiso: "categorias", ruta: "/admin/categorias", labelKey: "navCategorias", icon: I.categorias, modulo: "productos" },
   { permiso: "servicios", ruta: "/admin/servicios", labelKey: "navServicios", icon: I.servicios, modulo: "servicios" },
+  { permiso: "clientes", ruta: "/admin/clientes", labelKey: "navClientes", icon: I.clientes, modulo: "clientes" },
   { permiso: "qr", ruta: "/admin/qr", labelKey: "navQr", icon: I.qr },
   { permiso: "configuracion", ruta: "/admin/whatsapp", labelKey: "navWhatsapp", icon: I.whatsapp },
   { permiso: "usuarios", ruta: "/admin/usuarios", labelKey: "navUsuarios", icon: I.usuarios },
@@ -328,7 +336,7 @@ export function AdminShell() {
   };
   const { user, logout, hasPermiso, isSuperAdmin, isPlataforma, isAuthenticated } = useAuth();
   const { t } = useLang();
-  const { negocioId, negocios, slug, setNegocioId, conWhatsapp, tieneModulo } = useNegocio();
+  const { negocioId, negocios, slug, rubro, setNegocioId, conWhatsapp, tieneModulo } = useNegocio();
   // Avisos de pedidos y de stock: sólo si el negocio usa esos módulos.
   const avisaPedidos = hasPermiso("pedidos") && tieneModulo("pedidos");
   const avisaStock = hasPermiso("productos") && tieneModulo("productos");
@@ -361,7 +369,9 @@ export function AdminShell() {
   const { isDark, setTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
-  const menuHref = menuPath(slug, negocioId);
+  const menuHref = menuPath(slug, negocioId, rubro);
+  // "Ver menú" en gastronomía; "Ver mi página" en el resto.
+  const verLabel = rubro && rubro !== "gastronomia" ? "navVerPagina" : "navVerMenu";
 
   // ── Avisos: pedidos nuevos, chats y stock ──
   const [nuevosPedidos, setNuevosPedidos] = useState(0);
@@ -737,10 +747,10 @@ export function AdminShell() {
                   href={menuHref}
                   target="_blank"
                   rel="noopener"
-                  title={collapsed ? t(item.labelKey) : undefined}
+                  title={collapsed ? t(verLabel) : undefined}
                 >
                   {item.icon}
-                  <span className="sh-label">{t(item.labelKey)}</span>
+                  <span className="sh-label">{t(verLabel)}</span>
                   <span className="sh-ext" aria-hidden>
                     {I.ext}
                   </span>

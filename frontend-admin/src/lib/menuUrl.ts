@@ -17,10 +17,12 @@ export const MENU_PREVIEW_BASE = import.meta.env.DEV
   ? clean((import.meta.env.VITE_MENU_DEV_URL as string | undefined) || "http://localhost:3000")
   : MENU_PUBLIC_BASE;
 
-// Ruta del menú de un negocio: /menu/:slug (o ?negocio=<id> si no hay slug).
-export const menuPath = (slug: string | null | undefined, negocioId?: number | string | null) =>
+// Ruta pública de un negocio: /menu/:slug para gastronomía (y si no se sabe
+// el rubro), /negocio/:slug para el resto; ?negocio=<id> si no hay slug.
+// Las dos rutas muestran la misma página.
+export const menuPath = (slug: string | null | undefined, negocioId?: number | string | null, rubro?: string | null) =>
   slug
-    ? `/menu/${encodeURIComponent(slug)}`
+    ? `${rubro && rubro !== "gastronomia" ? "/negocio" : "/menu"}/${encodeURIComponent(slug)}`
     : negocioId
       ? `/menu?negocio=${encodeURIComponent(String(negocioId))}`
       : "/menu";

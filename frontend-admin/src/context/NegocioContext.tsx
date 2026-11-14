@@ -14,6 +14,8 @@ interface NegocioContextType {
   negocios: Negocio[];
   moneda: string;
   slug: string | null;
+  // tipo_rubro del negocio activo (gastronomia, retail…); null si no se sabe.
+  rubro: string | null;
   // ¿El plan incluye WhatsApp, chats, IA y mapa? null mientras no se sabe.
   conWhatsapp: boolean | null;
   // ¿El negocio activo usa este módulo? Mientras no se sabe, sí (así no
@@ -44,6 +46,7 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
   const [negocios, setNegocios] = useState<Negocio[]>([]);
   const [moneda, setMoneda] = useState<string>("ARS");
   const [slug, setSlug] = useState<string | null>(null);
+  const [rubro, setRubro] = useState<string | null>(null);
   const [conWhatsapp, setConWhatsapp] = useState<boolean | null>(null);
   const [modulos, setModulos] = useState<Modulos | null>(null);
   const [versionCfg, setVersionCfg] = useState(0);
@@ -61,6 +64,7 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
       .then((cfg) => {
         setMoneda(cfg.moneda || "ARS");
         setSlug(cfg.slug || null);
+        setRubro(cfg.tipo_rubro || null);
         setModulos(cfg.modulos ?? null);
       })
       .catch(() => {});
@@ -126,7 +130,7 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <NegocioContext.Provider
-      value={{ negocioId, negocios, moneda, slug, conWhatsapp, tieneModulo, recargarConfig, setNegocioId, refresh }}
+      value={{ negocioId, negocios, moneda, slug, rubro, conWhatsapp, tieneModulo, recargarConfig, setNegocioId, refresh }}
     >
       {children}
     </NegocioContext.Provider>

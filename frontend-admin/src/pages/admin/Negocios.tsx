@@ -92,7 +92,7 @@ export default function Negocios() {
   };
 
   // Link público del menú de cada negocio (se arma con su nombre).
-  const linkDe = (n: Negocio) => `${MENU_PUBLIC_BASE}${menuPath(n.slug, n.id)}`;
+  const linkDe = (n: Negocio) => `${MENU_PUBLIC_BASE}${menuPath(n.slug, n.id, n.tipo_rubro)}`;
   const copiarLink = async (n: Negocio) => {
     try {
       await navigator.clipboard.writeText(linkDe(n));

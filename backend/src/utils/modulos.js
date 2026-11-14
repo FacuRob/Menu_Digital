@@ -21,7 +21,7 @@ const REGISTRO = [
   { codigo: "entregas", nombre: "Entregas", descripcion: "Retiro en el local, delivery y pedido en mesa.", disponible: true, requiere: ["pedidos"] },
   { codigo: "presupuestos", nombre: "Presupuestos", descripcion: "Los clientes te piden una cotización y vos respondés.", disponible: true, requiere: ["catalogo"] },
   { codigo: "reservas", nombre: "Reservas y turnos", descripcion: "Agenda con horarios y turnos sin superposición.", disponible: true, requiere: ["catalogo"] },
-  { codigo: "clientes", nombre: "Clientes", descripcion: "Listado de tus clientes y su historial.", disponible: false },
+  { codigo: "clientes", nombre: "Clientes", descripcion: "Listado de tus clientes y su historial.", disponible: true, requiere: ["catalogo"] },
   { codigo: "estadisticas", nombre: "Estadísticas", descripcion: "Ventas, ganancia y horas pico en el Dashboard.", disponible: true },
 ];
 const CODIGOS = REGISTRO.map((m) => m.codigo);

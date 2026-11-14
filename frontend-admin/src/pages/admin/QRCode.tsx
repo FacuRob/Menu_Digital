@@ -7,7 +7,7 @@ import { useLang } from "../../lib/i18n";
 import { qrService, getApiErrorMessage } from "../../services/api";
 import { useDialogos } from "../../lib/dialogos";
 
-import { MENU_PUBLIC_BASE as MENU_BASE } from "../../lib/menuUrl";
+import { MENU_PUBLIC_BASE as MENU_BASE, menuPath } from "../../lib/menuUrl";
 
 // Lista vacía estable (no cambia entre renders).
 const SIN_MESAS: { mesa: string; t: string }[] = [];
@@ -15,7 +15,7 @@ const SIN_MESAS: { mesa: string; t: string }[] = [];
 export default function QRCode() {
   const S = useStyles();
   const { t } = useLang();
-  const { negocioId, negocios, slug, setNegocioId } = useNegocio();
+  const { negocioId, negocios, slug, rubro, setNegocioId } = useNegocio();
   // QR general: un solo QR para el menú con todos los negocios de la cuenta.
   // Sólo tiene sentido con 2 o más negocios. Lo arma el slug del primero.
   const [general, setGeneral] = useState(false);
@@ -77,9 +77,8 @@ export default function QRCode() {
   useEffect(() => {
     // Preferimos el slug (/menu/:slug). Si el negocio aún no tiene slug,
     // caemos al esquema viejo por id (/menu?negocio=<id>).
-    let url = slug
-      ? `${MENU_BASE}/menu/${slug}`
-      : `${MENU_BASE}/menu?negocio=${negocioId}`;
+    // Sin mesa, fuera de gastronomía: /negocio/:slug (misma página).
+    let url = `${MENU_BASE}${menuPath(slug, negocioId, mesa ? null : rubro)}`;
     if (verGeneral) {
       if (!principal?.slug) {
         setMenuUrl("");
@@ -104,7 +103,7 @@ export default function QRCode() {
         .then(() => setQrUrl(ref.current!.toDataURL("image/png")))
         .catch(console.error);
     }
-  }, [negocioId, slug, mesa, mesas, verGeneral, principal?.slug]);
+  }, [negocioId, slug, rubro, mesa, mesas, verGeneral, principal?.slug]);
 
   const download = () => {
     const a = document.createElement("a");

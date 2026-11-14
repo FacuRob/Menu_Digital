@@ -58,6 +58,7 @@ const multer = require("multer");
 const { adjuntosLimiter, solicitudesLimiter } = require("./middleware/rateLimiters");
 const presupuestos = require("./controllers/presupuestosController");
 const reservas = require("./controllers/reservasController");
+const clientes = require("./controllers/clientesController");
 const sch = require("./schemas");
 const { servicioSchema } = require("./schemas");
 const { REGISTRO } = require("./utils/modulos");
@@ -259,6 +260,9 @@ app.get("/api/presupuestos/:id", ...presMw, checkPermiso("presupuestos"), presup
 app.patch("/api/presupuestos/:id/estado", ...presMw, checkPermiso("presupuestos"), validate(sch.estadoPresupuestoSchema), presupuestos.cambiarEstado);
 app.post("/api/presupuestos/:id/cotizacion", ...presMw, checkPermiso("cotizar"), validate(sch.cotizacionSchema), presupuestos.cotizar);
 app.post("/api/presupuestos/:id/convertir", ...presMw, checkPermiso("cotizar"), presupuestos.convertir);
+
+// Clientes (panel): lista armada con pedidos, presupuestos y turnos.
+app.get("/api/clientes", authMiddleware, scopeNegocio, checkSuscripcion, requiereModulo("clientes"), checkPermiso("clientes"), clientes.listar);
 
 // Turnos (panel).
 const resMw = [authMiddleware, scopeNegocio, checkSuscripcion, requiereModulo("reservas"), checkPermiso("reservas")];
