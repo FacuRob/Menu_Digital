@@ -60,6 +60,9 @@ function App() {
         {/* Seguimiento del delivery: repartidor y cliente (links firmados). */}
         <Route path="/reparto/:id" element={<Reparto />} />
         <Route path="/seguimiento/:id" element={<Seguimiento />} />
+        {/* Página pública canónica de cualquier rubro: la misma que /menu/:slug
+            (los QR impresos siguen en /menu y no se tocan). */}
+        <Route path="/negocio/:slug" element={<Menu key="uno" canonica />} />
         {/* Presupuestos y turnos: pedir y seguir con el link firmado. */}
         <Route path="/negocio/:slug/presupuesto" element={<PedirPresupuesto />} />
         <Route path="/negocio/:slug/reservar" element={<Reservar />} />

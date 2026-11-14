@@ -99,6 +99,28 @@ const es: Dict = {
   quoteTitle: "¿Necesitás algo a medida?",
   quoteSub: "Contanos qué buscás, sumá fotos o archivos de referencia y te respondemos con una cotización.",
   quoteCta: "Pedir presupuesto",
+  bookTitle: "¿Querés sacar turno?",
+  bookSub: "Elegí el servicio, el día y el horario que te quede cómodo.",
+  bookCta: "Ver horarios disponibles",
+  // Vocabulario según el rubro: "clave@familia" reemplaza a "clave" fuera de
+  // gastronomía (tienda = retail y genérico; servicios = peluquerías, etc.).
+  "loading@tienda": "Cargando…",
+  "defaultTitle@tienda": "Nuestro catálogo",
+  "notFoundTitle@tienda": "Página no encontrada",
+  "preparingTitle@tienda": "Estamos preparando el catálogo",
+  "backToMenu@tienda": "Volver al catálogo",
+  "keepBrowsing@tienda": "Seguir viendo el catálogo",
+  "emptyCartSub@tienda": "Agregá productos desde el catálogo.",
+  "loading@servicios": "Cargando…",
+  "defaultTitle@servicios": "Nuestros servicios",
+  "notFoundTitle@servicios": "Página no encontrada",
+  "preparingTitle@servicios": "Estamos preparando nuestra página",
+  "preparingSubtitle@servicios": "Muy pronto vas a poder ver lo que ofrecemos acá.",
+  "searchPlaceholder@servicios": "Buscar servicios o productos",
+  "noResults@servicios": "No encontramos resultados con esa búsqueda",
+  "backToMenu@servicios": "Volver a la página",
+  "keepBrowsing@servicios": "Seguir viendo la página",
+  "emptyCartSub@servicios": "Sumá productos desde la página.",
   askServiceMsg: "Hola, quería consultar por el servicio: {s}",
   noOnlineOrders: "Este negocio no toma pedidos online. Consultá directamente para comprar.",
   askWhatsapp: "Consultar por WhatsApp",
@@ -376,12 +398,18 @@ interface I18nContextType {
   lang: Lang;
   setLang: (l: Lang) => void;
   t: (key: string, vars?: Record<string, string | number>) => string;
+  // Rubro del negocio que se está viendo (cambia "menú" por "catálogo"…).
+  setRubro: (r: string | null) => void;
 }
+
+const FAMILIA: Record<string, string> = { retail: "tienda", generico: "tienda", servicios: "servicios" };
 
 const I18nContext = createContext<I18nContextType | undefined>(undefined);
 
 export const LanguageProvider = ({ children }: { children: ReactNode }) => {
   const [lang, setLangState] = useState<Lang>(detectLang);
+  const [familia, setFamilia] = useState<string | null>(null);
+  const setRubro = useCallback((r: string | null) => setFamilia((r && FAMILIA[r]) || null), []);
 
   const setLang = useCallback((l: Lang) => {
     localStorage.setItem("menu_lang", l);
@@ -390,16 +418,17 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
 
   const t = useCallback(
     (key: string, vars?: Record<string, string | number>) => {
-      let s = DICTS[lang][key] ?? DICTS.es[key] ?? key;
+      const fk = familia ? `${key}@${familia}` : "";
+      let s = (fk && (DICTS[lang][fk] ?? DICTS.es[fk])) || DICTS[lang][key] || DICTS.es[key] || key;
       if (vars)
         for (const k in vars) s = s.replace(`{${k}}`, String(vars[k]));
       return s;
     },
-    [lang],
+    [lang, familia],
   );
 
   return (
-    <I18nContext.Provider value={{ lang, setLang, t }}>
+    <I18nContext.Provider value={{ lang, setLang, t, setRubro }}>
       {children}
     </I18nContext.Provider>
   );

@@ -80,7 +80,7 @@ export default function PedirPresupuesto() {
 
   const campo = (k: string) => `${uid}-${k}`;
   return (
-    <Hoja negocio={neg.config?.nombre} config={neg.config} titulo="Pedí un presupuesto" volver={`/menu/${slug}`}>
+    <Hoja negocio={neg.config?.nombre} config={neg.config} titulo="Pedí un presupuesto" volver={`/negocio/${slug}`}>
       <form
         className="grid gap-5"
         onSubmit={(e) => {

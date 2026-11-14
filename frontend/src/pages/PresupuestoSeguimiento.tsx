@@ -143,7 +143,7 @@ export default function PresupuestoSeguimiento() {
         )}
         <p className="text-[13px] text-[var(--fg-2)]">Guardá este link para volver a ver tu presupuesto.</p>
         {p.negocio?.slug && (
-          <a href={`/menu/${p.negocio.slug}`} className="text-[14px] font-semibold underline underline-offset-4">
+          <a href={`/negocio/${p.negocio.slug}`} className="text-[14px] font-semibold underline underline-offset-4">
             Ver el negocio
           </a>
         )}

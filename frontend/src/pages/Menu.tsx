@@ -84,8 +84,8 @@ type NegocioMenu = NegocioPublico & { config: Configuracion | null };
 
 // general: /menu/:slug/todos → todos los negocios de la cuenta, separados.
 // El carrito es de un negocio a la vez (cada pedido va a un solo negocio).
-const Menu = ({ general = false }: { general?: boolean }) => {
-  const { t } = useLang();
+const Menu = ({ general = false, canonica = false }: { general?: boolean; canonica?: boolean }) => {
+  const { t, setRubro } = useLang();
   const { slug } = useParams<{ slug?: string }>();
   // /menu a secas (sin slug ni ?negocio, que usan los QR viejos) es la demo.
   const demo = !slug && !new URLSearchParams(window.location.search).get("negocio");
@@ -215,10 +215,28 @@ const Menu = ({ general = false }: { general?: boolean }) => {
     })();
   }, [slug, demo, general]);
 
-  // Título de la pestaña con el nombre del local.
+  // Vocabulario según el rubro ("catálogo", "servicios"…). Con config: su
+  // rubro. Sin config (cargando o error): en /negocio textos neutros
+  // ("generico"); en /menu, los de siempre (null).
   useEffect(() => {
-    if (config?.nombre) document.title = config.nombre;
-  }, [config?.nombre]);
+    if (general) return;
+    setRubro(config ? config.tipo_rubro ?? null : canonica ? "generico" : null);
+    return () => setRubro(null);
+  }, [general, canonica, config, setRubro]);
+
+  // Título de la pestaña y descripción (para buscadores y al compartir el
+  // link) con los datos del local. Al salir vuelven los de DinexFlow.
+  useEffect(() => {
+    if (!config?.nombre) return;
+    const meta = document.querySelector<HTMLMetaElement>("meta[name=description]");
+    const antes = { titulo: document.title, desc: meta?.content };
+    document.title = config.nombre;
+    if (meta && config.descripcion) meta.content = config.descripcion.slice(0, 160);
+    return () => {
+      document.title = antes.titulo;
+      if (meta && antes.desc !== undefined) meta.content = antes.desc;
+    };
+  }, [config?.nombre, config?.descripcion]);
 
   const q = search.trim().toLowerCase();
   const filtered = useMemo(
@@ -691,6 +709,14 @@ const Menu = ({ general = false }: { general?: boolean }) => {
                 </li>
               ))}
             </ul>
+          </section>
+        )}
+        {/* Turnos (si el negocio los toma y tiene servicios con turno). */}
+        {!general && config?.modulos?.reservas && config.slug && servicios.some((s) => s.requiere_turno) && (
+          <section aria-labelledby="sacar-turno" className="mt-12 rounded-[var(--r-lg)] bg-[var(--surface)] p-6 ring-1 ring-[var(--line)]">
+            <h2 id="sacar-turno" className="mn-display text-[clamp(1.5rem,5vw,2rem)]">{t("bookTitle")}</h2>
+            <p className="mt-2 max-w-[50ch] text-[15px] text-[var(--fg-2)]">{t("bookSub")}</p>
+            <a href={`/negocio/${config.slug}/reservar`} className="mn-btn mt-4">{t("bookCta")}</a>
           </section>
         )}
         {/* Presupuesto a medida (si el negocio los recibe). */}

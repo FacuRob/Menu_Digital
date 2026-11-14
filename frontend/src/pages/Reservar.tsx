@@ -101,7 +101,7 @@ export default function Reservar() {
   const campo = (k: string) => `${uid}-${k}`;
 
   return (
-    <Hoja negocio={neg.config?.nombre} config={neg.config} titulo="Reservá tu turno" volver={`/menu/${slug}`}>
+    <Hoja negocio={neg.config?.nombre} config={neg.config} titulo="Reservá tu turno" volver={`/negocio/${slug}`}>
       {servicios!.length === 0 ? (
         <p className="text-[15px]">Este negocio todavía no tiene servicios para reservar online.</p>
       ) : (
