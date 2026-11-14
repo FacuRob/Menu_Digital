@@ -64,6 +64,8 @@ const es: Dict = {
   weight: "Peso",
   howMuch: "¿Cuánto querés?",
   addToOrder: "Agregar al pedido",
+  noOnlineOrders: "Este negocio no toma pedidos online. Consultá directamente para comprar.",
+  askWhatsapp: "Consultar por WhatsApp",
   backToMenu: "Volver al menú",
   required: "Obligatorio",
   chooseRequired: "Elegí las opciones obligatorias",

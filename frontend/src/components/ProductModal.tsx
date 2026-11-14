@@ -11,14 +11,18 @@ export default function ProductModal({
   producto,
   onClose,
   onAdd,
+  contacto,
 }: {
   producto: Producto;
   onClose: () => void;
-  onAdd: (
+  // Sin onAdd (el negocio no toma pedidos online) el detalle es sólo para ver.
+  onAdd?: (
     producto: Producto,
     cantidad: number,
     opciones: SelectedOption[],
   ) => void;
+  // Sin pedidos online: link para consultar al negocio (WhatsApp).
+  contacto?: string | null;
 }) {
   const { t } = useLang();
   // Por peso la cantidad va en kg (arranca en 250 g); si no, en unidades.
@@ -212,6 +216,7 @@ export default function ProductModal({
           )}
 
           {/* Selector de cantidad (unidades o de a 100 g) */}
+          {onAdd && (
           <div className="mt-6 flex items-center justify-between border-t border-[var(--line)] pt-5">
             <span className="text-[15px] font-semibold">{porPeso ? t("weight") : t("quantity")}</span>
             <div className="flex items-center gap-1 rounded-full bg-[var(--bg-2)] p-1">
@@ -228,12 +233,23 @@ export default function ProductModal({
             </div>
           </div>
 
+          )}
+
           {/* Agregar al pedido. Si faltan opciones, el aviso va aparte y legible. */}
-          {faltanObligatorios && (
+          {onAdd && faltanObligatorios && (
             <p role="status" className="mt-5 text-sm font-semibold text-[var(--fg-2)]">
               {t("chooseRequired")}
             </p>
           )}
+          {!onAdd && (
+            <p className="mt-6 border-t border-[var(--line)] pt-5 text-[15px] text-[var(--fg-2)]">{t("noOnlineOrders")}</p>
+          )}
+          {!onAdd && contacto && (
+            <a href={contacto} target="_blank" rel="noopener noreferrer" className="mn-btn mt-4 w-full">
+              {t("askWhatsapp")}
+            </a>
+          )}
+          {onAdd && (
           <button
             type="button"
             onClick={() => {
@@ -246,7 +262,8 @@ export default function ProductModal({
           >
             {`${t("addToOrder")} · ${fmt(unit * cantidad)}`}
           </button>
-          <button type="button" onClick={onClose} className="mn-btn mn-btn-borde mt-2.5 w-full">
+          )}
+          <button type="button" onClick={onClose} className={`mn-btn mn-btn-borde w-full ${onAdd ? "mt-2.5" : "mt-6"}`}>
             {t("backToMenu")}
           </button>
         </div>

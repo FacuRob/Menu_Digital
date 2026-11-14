@@ -95,7 +95,7 @@ function App() {
             <Route
               path="/admin/pedidos"
               element={
-                <ProtectedRoute permiso="pedidos">
+                <ProtectedRoute permiso="pedidos" modulo="pedidos">
                   <Pedidos />
                 </ProtectedRoute>
               }
@@ -113,7 +113,7 @@ function App() {
             <Route
               path="/admin/productos"
               element={
-                <ProtectedRoute permiso="productos">
+                <ProtectedRoute permiso="productos" modulo="productos">
                   <Productos />
                 </ProtectedRoute>
               }
@@ -121,7 +121,7 @@ function App() {
             <Route
               path="/admin/categorias"
               element={
-                <ProtectedRoute permiso="categorias">
+                <ProtectedRoute permiso="categorias" modulo="productos">
                   <Categorias />
                 </ProtectedRoute>
               }

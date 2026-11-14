@@ -70,6 +70,8 @@ export default function Onboarding() {
   const [cantProductos, setCantProductos] = useState(0);
   const [nuevo, setNuevo] = useState({ nombre: "", precio: "" });
   const [agregados, setAgregados] = useState<string[]>([]);
+  // Módulos que salen de lo elegido (el paso 7 depende de si hay productos).
+  const [conProductos, setConProductos] = useState(true);
 
   const cargar = () =>
     Promise.all([
@@ -87,6 +89,7 @@ export default function Onboarding() {
       setErrorCarga(false);
       const p = ob?.onboarding?.paso;
       if (p && p >= 2 && p <= TOTAL) setPaso(p as Paso);
+      if (ob?.modulos) setConProductos(ob.modulos.productos !== false);
       if (ob?.onboarding?.ofrece) setOfrece(ob.onboarding.ofrece);
       if (ob?.onboarding?.funciones) setFunciones(ob.onboarding.funciones);
       setSlug(ob?.slug ?? cfg?.slug ?? null);
@@ -137,9 +140,13 @@ export default function Onboarding() {
       if (cfg.slug) setSlug(cfg.slug);
     }
     if (paso === 3 && rubro.rubro_categoria) await configuracionService.update(rubro);
-    if (paso === 4) await onboardingService.update({ ofrece: ofreceSel });
+    if (paso === 4) {
+      const r = await onboardingService.update({ ofrece: ofreceSel });
+      if (r.modulos) setConProductos(r.modulos.productos !== false);
+    }
     if (paso === 5) {
-      await onboardingService.update({ funciones: funcionesSel });
+      const r = await onboardingService.update({ funciones: funcionesSel });
+      if (r.modulos) setConProductos(r.modulos.productos !== false);
       // Lo que ya existe se prende ya: retiro, delivery y (en gastronomía) mesa.
       await configuracionService.update({
         retiro_activo: funcionesSel.includes("retiro"),
@@ -437,7 +444,8 @@ export default function Onboarding() {
       )}
 
       {/* ── 7. Catálogo ── */}
-      {paso === 7 && (
+      {paso === 7 && !conProductos && <Nota>{t("obCatalogoSinProductos")}</Nota>}
+      {paso === 7 && conProductos && (
         <>
           <p className="mb-4 text-[0.9375rem]">
             {cantProductos === 0 ? t("obCatalogoVacio") : cantProductos === 1 ? t("obCatalogoUno") : t("obCatalogoHay", { n: cantProductos })}

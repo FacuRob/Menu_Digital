@@ -2,6 +2,7 @@ const supabase = require("../config/database");
 const { respondError } = require("../utils/respondError");
 const cloudinary = require("../config/cloudinary");
 const { getNegocioId } = require("../utils/negocio");
+const { modulosNegocio } = require("../middleware/requiereModulo");
 
 const extractPublicId = (url) => {
   try {
@@ -39,6 +40,7 @@ const getProductos = async (req, res) => {
 const getProductosDisponibles = async (req, res) => {
   try {
     const negocioId = getNegocioId(req);
+    if (!(await modulosNegocio(negocioId)).productos) return res.json([]);
     const { data, error } = await supabase.rpc("get_productos_disponibles", {
       p_negocio_id: negocioId,
     });

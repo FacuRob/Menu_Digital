@@ -2,6 +2,8 @@ const supabase = require("../config/database");
 const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
 const { catalogoRubros } = require("../utils/rubros");
+const { desdeOnboarding, modulosDe } = require("../utils/modulos");
+const { olvidarModulos } = require("../middleware/requiereModulo");
 
 // GET /api/rubros (público) — categorías y especialidades activas.
 const getRubros = async (req, res) => {
@@ -25,6 +27,7 @@ const estado = (n) => ({
   tipo_rubro: n.tipo_rubro || "gastronomia",
   rubro_categoria: n.rubro_categoria || null,
   rubro_especialidad: n.rubro_especialidad || null,
+  modulos: modulosDe(n),
 });
 
 const leerNegocio = async (negocioId) => {
@@ -56,6 +59,12 @@ const updateOnboarding = async (req, res) => {
     const onboarding = { ...(neg.onboarding || {}), ...req.body, actualizado_at: new Date().toISOString() };
     const patch = { onboarding };
     if (req.body.completado === true) patch.activo = true;
+    // Ya terminado (o negocio anterior al onboarding nuevo), los módulos se
+    // cambian sólo desde Configuración.
+    const yaTerminado = !neg.onboarding || neg.onboarding.completado === true;
+    if (!yaTerminado && (req.body.ofrece || req.body.funciones)) {
+      patch.modulos = desdeOnboarding(onboarding, neg.tipo_rubro);
+    }
 
     const { data, error } = await supabase
       .from("negocios")
@@ -64,6 +73,7 @@ const updateOnboarding = async (req, res) => {
       .select("*")
       .single();
     if (error) throw error;
+    if (patch.modulos) olvidarModulos(negocioId);
     res.json(estado(data));
   } catch (error) {
     return respondError(res, error, "onboarding");

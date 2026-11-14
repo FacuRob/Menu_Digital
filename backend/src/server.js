@@ -50,6 +50,8 @@ const { startKeepAlive } = require("./services/keepAlive");
 const { pedidosLimiter, repartoLimiter } = require("./middleware/rateLimiters");
 const reparto = require("./controllers/repartoController");
 const onboarding = require("./controllers/onboardingController");
+const { requiereModulo } = require("./middleware/requiereModulo");
+const { REGISTRO } = require("./utils/modulos");
 const { validate } = require("./middleware/validate");
 const { createPedidoSchema, onboardingSchema } = require("./schemas");
 
@@ -136,6 +138,11 @@ app.get("/api/negocios/publico/:slug", getNegocioPublicoBySlug);
 app.get("/api/negocios/publico/:slug/grupo", getGrupoPublico);
 // Catálogo central de rubros (categorías y especialidades).
 app.get("/api/rubros", onboarding.getRubros);
+// Registro de módulos (nombre, descripción, dependencias, si ya existe).
+app.get("/api/modulos", (req, res) => {
+  res.set("Cache-Control", "public, max-age=300");
+  res.json(REGISTRO);
+});
 app.post("/api/pedidos", pedidosLimiter, validate(createPedidoSchema), createPedido);
 // Ticket de un pedido (link firmado que llega por WhatsApp).
 app.get("/api/tickets/:id", getTicketPublico);
@@ -162,6 +169,7 @@ app.use(
   authMiddleware,
   scopeNegocio,
   checkSuscripcion,
+  requiereModulo("productos"),
   checkPermiso("categorias"),
   categoriasRoutes,
 );
@@ -170,6 +178,7 @@ app.use(
   authMiddleware,
   scopeNegocio,
   checkSuscripcion,
+  requiereModulo("productos"),
   checkPermiso("productos"),
   productosRoutes,
 );
@@ -178,6 +187,7 @@ app.use(
   authMiddleware,
   scopeNegocio,
   checkSuscripcion,
+  requiereModulo("productos"),
   checkPermiso("productos"),
   variantesRoutes,
 );
@@ -212,6 +222,7 @@ app.use(
   authMiddleware,
   scopeNegocio,
   checkSuscripcion,
+  requiereModulo("pedidos"),
   checkPermiso("pedidos"),
   pedidosRoutes,
 );
@@ -227,6 +238,7 @@ app.use(
   authMiddleware,
   scopeNegocio,
   checkSuscripcion,
+  requiereModulo("estadisticas"),
   checkPermiso("analiticas"),
   analiticasRoutes,
 );

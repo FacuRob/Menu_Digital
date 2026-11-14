@@ -356,6 +356,8 @@ export interface Configuracion {
   rubro_categoria?: string | null;
   rubro_especialidad?: string | null;
   config_campos?: Record<string, unknown>;
+  // Módulos que usa el negocio (viven en `negocios`).
+  modulos?: Modulos;
   ciudad?: string | null;
   provincia?: string | null;
 }
@@ -465,6 +467,23 @@ export const negociosService = {
     (await api.delete(`/negocios/${id}`)).data,
 };
 
+// ── Módulos por negocio (registro en GET /api/modulos) ──
+export type Modulos = Record<string, boolean>;
+export interface ModuloInfo {
+  codigo: string;
+  nombre: string;
+  descripcion: string;
+  // false = todavía no existe en el sistema.
+  disponible: boolean;
+  requiere?: string[];
+  // fijo: siempre activo. oculto: va junto con otro (no se muestra).
+  fijo?: boolean;
+  oculto?: boolean;
+}
+export const modulosService = {
+  getRegistro: async () => (await api.get<ModuloInfo[]>("/modulos")).data,
+};
+
 // ── Catálogo central de rubros (GET /api/rubros) ──
 export interface Sugerencias {
   ofrece?: Ofrece[];
@@ -508,6 +527,7 @@ export interface OnboardingEstado {
   tipo_rubro: TipoRubro;
   rubro_categoria: string | null;
   rubro_especialidad: string | null;
+  modulos?: Modulos;
 }
 export const onboardingService = {
   get: async () => (await api.get<OnboardingEstado>("/onboarding")).data,

@@ -257,6 +257,8 @@ export interface Configuracion {
   horarios_config?: HorariosConfig | null;
   moneda?: string | null;
   tipo_rubro?: "gastronomia" | "retail" | "servicios" | "generico" | string | null;
+  // Módulos del negocio (los que no vienen se consideran activos).
+  modulos?: Partial<Record<string, boolean>>;
 }
 
 export type TipoEntrega = "mesa" | "retiro" | "delivery";

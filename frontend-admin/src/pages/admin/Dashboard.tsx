@@ -111,8 +111,9 @@ export default function Dashboard() {
   const { t, lang } = useLang();
   const locale = LOCALE[lang];
   const fmt = useCallback((n: number) => fmtMoney(n, moneda), [moneda]);
-  const verAnaliticas = hasPermiso("analiticas");
-  const verPedidos = hasPermiso("pedidos");
+  const { tieneModulo } = useNegocio();
+  const verAnaliticas = hasPermiso("analiticas") && tieneModulo("estadisticas");
+  const verPedidos = hasPermiso("pedidos") && tieneModulo("pedidos");
 
   const [dias, setDias] = useState<Dias>(() => {
     try {
@@ -126,7 +127,9 @@ export default function Dashboard() {
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [errAct, setErrAct] = useState(false);
   const [errRes, setErrRes] = useState(false);
-  const error = errAct || errRes;
+  // Sin el módulo de estadísticas no se muestra el error de una carga previa
+  // (antes de saber los módulos se pidió por las dudas).
+  const error = verAnaliticas && (errAct || errRes);
   const [recientesSinAnaliticas, setRecientesSinAnaliticas] = useState<Actividad["recientes"] | null>(null);
   const [cfg, setCfg] = useState<{ nombre: string; logo: string | null } | null>(null);
   const [copiado, setCopiado] = useState(false);
@@ -309,7 +312,7 @@ export default function Dashboard() {
                 {I.qr} {t("dashShareQr")}
               </Link>
             )}
-            {hasPermiso("productos") && (
+            {hasPermiso("productos") && tieneModulo("productos") && (
               <Link
                 to="/admin/productos"
                 className="inline-flex min-h-11 items-center gap-2 rounded-[var(--r-sm)] bg-accent px-4 text-sm font-bold text-on-accent transition-colors hover:bg-accent-hover"

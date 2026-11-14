@@ -1,6 +1,7 @@
 const supabase = require("../config/database");
 const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
+const { modulosNegocio } = require("../middleware/requiereModulo");
 
 // Obtener todas las categorías del negocio
 const getCategorias = async (req, res) => {
@@ -23,6 +24,8 @@ const getCategorias = async (req, res) => {
 const getCategoriasActivas = async (req, res) => {
   try {
     const negocioId = getNegocioId(req);
+    // Sin el módulo de productos, el menú público no muestra categorías.
+    if (!(await modulosNegocio(negocioId)).productos) return res.json([]);
     const { data, error } = await supabase
       .from("categorias")
       .select("*")

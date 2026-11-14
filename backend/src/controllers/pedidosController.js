@@ -4,6 +4,7 @@ const { respondError } = require("../utils/respondError");
 const { notificarPedido } = require("../services/avisosPedidoService");
 const { mesaValida, normalizarMesa } = require("../utils/mesaQr");
 const { firmaValida, linkPedido } = require("../utils/linksPedido");
+const { modulosNegocio } = require("../middleware/requiereModulo");
 
 // Dispara el aviso de WhatsApp en segundo plano (nunca bloquea la respuesta).
 const avisarEnSegundoPlano = (pedido, estado) => {
@@ -34,6 +35,12 @@ const createPedido = async (req, res) => {
         .json({ message: "El pedido debe incluir al menos un producto" });
     }
 
+    // Módulos del negocio: sin "pedidos" no se toman pedidos online.
+    const modulos = await modulosNegocio(negocioId);
+    if (!modulos.pedidos) {
+      return res.status(403).json({ error: "MODULO_INACTIVO", message: "Este negocio no toma pedidos online." });
+    }
+
     // Tipo de entrega según la configuración ACTUAL del local (no la del
     // cliente). "*" para no fallar si falta alguna columna nueva.
     const { data: cfg, error: cfgErr } = await supabase
@@ -44,11 +51,16 @@ const createPedido = async (req, res) => {
     if (cfgErr) throw cfgErr;
 
     const MSG_QR = "Para pedir en la mesa, escaneá el código QR de tu mesa.";
+    if (!modulos.entregas && tipo_entrega) {
+      return res.status(400).json({ message: "Ese tipo de entrega no está disponible en este local." });
+    }
     if (cfg) {
+      // Sin el módulo de entregas, ninguna (pedido en mostrador).
+      const conEntregas = modulos.entregas;
       const activas = {
-        mesa: !!cfg.mesas_activo && Number(cfg.mesas_cantidad) > 0,
-        retiro: !!cfg.retiro_activo,
-        delivery: !!cfg.delivery_activo,
+        mesa: conEntregas && !!cfg.mesas_activo && Number(cfg.mesas_cantidad) > 0,
+        retiro: conEntregas && !!cfg.retiro_activo,
+        delivery: conEntregas && !!cfg.delivery_activo,
       };
       if (tipo_entrega && !activas[tipo_entrega]) {
         return res.status(400).json({ message: "Ese tipo de entrega no está disponible en este local." });

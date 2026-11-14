@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ComponentType } from "react";
 import { useStyles } from "./sharedStyles";
 import { useLang } from "../lib/i18n";
 import {
   IconBag,
+  IconGrid,
   IconImage,
   IconCheck,
   IconAlert,
@@ -22,6 +23,8 @@ import {
   type DiaHorario,
 } from "../services/api";
 import RubroSelector from "./RubroSelector";
+import { modulosService, type ModuloInfo, type Modulos } from "../services/api";
+import { useNegocio } from "../context/NegocioContext";
 import { PROVINCIAS } from "../lib/provincias";
 
 type Form = Omit<Configuracion, "id">;
@@ -93,6 +96,7 @@ const PALETAS = [
 type SeccionId =
   | "datos"
   | "rubro"
+  | "modulos"
   | "imagenes"
   | "color"
   | "moneda"
@@ -154,6 +158,7 @@ const GRUPOS: {
         campos: ["nombre", "direccion", "ciudad", "provincia", "telefono", "whatsapp", "email", "descripcion"],
       },
       { id: "rubro", labelKey: "rubroTitle", accent: "var(--teal)", Icon: IconBag, campos: ["rubro_categoria", "rubro_especialidad"] },
+      { id: "modulos", labelKey: "modTitle", accent: "var(--info)", Icon: IconGrid, campos: ["modulos"] },
     ],
   },
   {
@@ -209,6 +214,42 @@ export default function ConfiguracionEditor({
   const [uploading, setUploading] = useState<"logo" | "portada" | null>(null);
   const [usarPorDia, setUsarPorDia] = useState(false);
   const [seccion, setSeccion] = useState<SeccionId>("datos");
+  const [registro, setRegistro] = useState<ModuloInfo[] | null>(null);
+  const { recargarConfig } = useNegocio();
+  useEffect(() => {
+    modulosService.getRegistro().then(setRegistro).catch(() => setRegistro([]));
+  }, []);
+  // Prender/apagar un módulo respetando dependencias (datos del registro):
+  // apagar uno apaga los que lo necesitan; prender uno prende lo que necesita.
+  // Qué otros módulos cambió el último toque (se anuncia en pantalla y al
+  // lector de pantalla).
+  const [avisoModulos, setAvisoModulos] = useState("");
+  const nombreModulo = (c: string) => registro?.find((x) => x.codigo === c)?.nombre || c;
+  const cambiarModulo = (codigo: string, valor: boolean) => {
+    const antes: Modulos = { ...(form.modulos || {}) };
+    const m: Modulos = { ...antes, [codigo]: valor };
+      const reg = registro || [];
+      for (let i = 0; i < reg.length; i++) {
+        for (const x of reg) {
+          const req = x.requiere || [];
+          if (valor && m[x.codigo] && req.some((r) => !m[r])) req.forEach((r) => (m[r] = true));
+          if (!valor && m[x.codigo] && req.some((r) => !m[r])) m[x.codigo] = false;
+        }
+      }
+      m.carrito = !!m.pedidos;
+    const arrastrados = (registro || [])
+      .filter((x) => !x.oculto && x.codigo !== codigo && !!antes[x.codigo] !== !!m[x.codigo])
+      .map((x) => x.codigo);
+    setAvisoModulos(
+      arrastrados.length
+        ? t(valor ? "modTambienPrendidos" : "modTambienApagados", {
+            modulo: nombreModulo(codigo),
+            lista: arrastrados.map(nombreModulo).join(", "),
+          })
+        : "",
+    );
+    setForm((f) => ({ ...f, modulos: m }));
+  };
   const isMobile = useIsMobile();
 
   const textPrimary = "var(--fg)";
@@ -236,6 +277,7 @@ export default function ConfiguracionEditor({
           color_primario: cfg.color_primario || "#ff5722",
           horarios_config: cfg.horarios_config || null,
           moneda: cfg.moneda || "ARS",
+          modulos: cfg.modulos,
           rubro_categoria: cfg.rubro_categoria ?? null,
           rubro_especialidad: cfg.rubro_especialidad ?? null,
           ciudad: cfg.ciudad || "",
@@ -334,6 +376,8 @@ export default function ConfiguracionEditor({
       });
       setInitial({ form, usarPorDia });
       setToast({ type: "ok", text: t("cfgSaved") });
+      // El menú del panel depende de los módulos.
+      if (JSON.stringify(form.modulos) !== JSON.stringify(initial?.form.modulos)) recargarConfig();
       onSaved?.();
     } catch (e) {
       console.error(e);
@@ -482,6 +526,47 @@ export default function ConfiguracionEditor({
           value={{ rubro_categoria: form.rubro_categoria ?? null, rubro_especialidad: form.rubro_especialidad ?? null }}
           onChange={(v) => setForm((f) => ({ ...f, ...v }))}
         />
+      </SectionCard>
+      )}
+
+      {/* ── Módulos: qué funciones usa el negocio ── */}
+      {seccion === "modulos" && (
+      <SectionCard accent="var(--info)" title={t("modTitle")} subtitle={t("modSubtitle")}>
+        {!registro ? (
+          <p role="status" style={{ color: textMuted }}>{t("subLoading")}</p>
+        ) : (
+          <div style={{ display: "grid", gap: 10 }}>
+            {registro
+              .filter((m) => !m.fijo && !m.oculto)
+              .map((m) => {
+                const falta = (m.requiere || [])
+                  .filter((r) => !form.modulos?.[r])
+                  .map(nombreModulo);
+                // Los que dependen de este (se apagan si se apaga).
+                const dependen = registro
+                  .filter((x) => !x.oculto && x.requiere?.includes(m.codigo) && form.modulos?.[x.codigo])
+                  .map((x) => x.nombre);
+                const extra = [
+                  !m.disponible ? t("modProntoDesc") : "",
+                  falta.length && !form.modulos?.[m.codigo] ? t("modNecesita", { lista: falta.join(", ") }) : "",
+                  dependen.length && form.modulos?.[m.codigo] ? t("modLoNecesitan", { lista: dependen.join(", ") }) : "",
+                ].filter(Boolean);
+                return (
+                  <Toggle
+                    key={m.codigo}
+                    label={m.disponible ? m.nombre : `${m.nombre} · ${t("obPronto")}`}
+                    desc={[m.descripcion, ...extra].join(" ")}
+                    value={!!form.modulos?.[m.codigo]}
+                    onChange={(v) => cambiarModulo(m.codigo, v)}
+                  />
+                );
+              })}
+            <p role="status" aria-live="polite" style={{ fontSize: 13, fontWeight: 600, color: "var(--info)", margin: avisoModulos ? "2px 0 0" : 0 }}>
+              {avisoModulos}
+            </p>
+            <p style={{ fontSize: 13, color: "var(--fg-2)", margin: "4px 0 0" }}>{t("modNota")}</p>
+          </div>
+        )}
       </SectionCard>
       )}
 
@@ -797,6 +882,7 @@ function Toggle({
   value: boolean;
   onChange: (v: boolean) => void;
 }) {
+  const id = useId();
   return (
     <div
       style={{
@@ -810,10 +896,10 @@ function Toggle({
       }}
     >
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--fg)" }}>
+        <div id={`${id}-l`} style={{ fontSize: 14, fontWeight: 600, color: "var(--fg)" }}>
           {label}
         </div>
-        <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 2 }}>
+        <div id={`${id}-d`} style={{ fontSize: 13, color: "var(--fg-2)", marginTop: 2 }}>
           {desc}
         </div>
       </div>
@@ -822,7 +908,8 @@ function Toggle({
         onClick={() => onChange(!value)}
         role="switch"
         aria-checked={value}
-        aria-label={typeof label === "string" ? label : undefined}
+        aria-labelledby={`${id}-l`}
+        aria-describedby={`${id}-d`}
         style={{
           width: 46,
           height: 26,

@@ -144,14 +144,15 @@ const I = {
   ),
 };
 
-type ItemNav = { permiso: string; ruta: string; labelKey: string; icon: ReactNode; external?: boolean };
+// modulo: el ítem se muestra sólo si el negocio usa ese módulo.
+type ItemNav = { permiso: string; ruta: string; labelKey: string; icon: ReactNode; external?: boolean; modulo?: string };
 
 const NAV: ItemNav[] = [
   { permiso: "any", ruta: "/admin/dashboard", labelKey: "navDashboard", icon: I.dashboard },
-  { permiso: "pedidos", ruta: "/admin/pedidos", labelKey: "navPedidos", icon: I.pedidos },
+  { permiso: "pedidos", ruta: "/admin/pedidos", labelKey: "navPedidos", icon: I.pedidos, modulo: "pedidos" },
   { permiso: "pedidos", ruta: "/admin/chats", labelKey: "navChats", icon: I.chats },
-  { permiso: "productos", ruta: "/admin/productos", labelKey: "navProductos", icon: I.productos },
-  { permiso: "categorias", ruta: "/admin/categorias", labelKey: "navCategorias", icon: I.categorias },
+  { permiso: "productos", ruta: "/admin/productos", labelKey: "navProductos", icon: I.productos, modulo: "productos" },
+  { permiso: "categorias", ruta: "/admin/categorias", labelKey: "navCategorias", icon: I.categorias, modulo: "productos" },
   { permiso: "qr", ruta: "/admin/qr", labelKey: "navQr", icon: I.qr },
   { permiso: "configuracion", ruta: "/admin/whatsapp", labelKey: "navWhatsapp", icon: I.whatsapp },
   { permiso: "usuarios", ruta: "/admin/usuarios", labelKey: "navUsuarios", icon: I.usuarios },
@@ -308,7 +309,10 @@ export function AdminShell() {
   };
   const { user, logout, hasPermiso, isSuperAdmin, isPlataforma, isAuthenticated } = useAuth();
   const { t } = useLang();
-  const { negocioId, negocios, slug, setNegocioId, conWhatsapp } = useNegocio();
+  const { negocioId, negocios, slug, setNegocioId, conWhatsapp, tieneModulo } = useNegocio();
+  // Avisos de pedidos y de stock: sólo si el negocio usa esos módulos.
+  const avisaPedidos = hasPermiso("pedidos") && tieneModulo("pedidos");
+  const avisaStock = hasPermiso("productos") && tieneModulo("productos");
   // Con plan Básico, Chats y WhatsApp llevan la etiqueta del plan que los incluye.
   const esDeWhatsapp = (ruta: string) => ruta === "/admin/chats" || ruta === "/admin/whatsapp";
   const { isDark, setTheme } = useTheme();
@@ -346,7 +350,7 @@ export function AdminShell() {
   useCerrarAfuera(configOpen, [configBtnRef, configPanelRef], () => setConfigOpen(false), () => configBtnRef.current);
 
   useEffect(() => {
-    if (!isAuthenticated || !hasPermiso("pedidos")) return;
+    if (!isAuthenticated || !avisaPedidos) return;
     let active = true;
     // Último pedido visto, por negocio (si no, al cambiar de local saltan
     // avisos falsos de "pedidos nuevos").
@@ -392,7 +396,7 @@ export function AdminShell() {
       clearInterval(id);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, negocioId]);
+  }, [isAuthenticated, negocioId, avisaPedidos]);
 
   useEffect(() => {
     if (!isAuthenticated || !hasPermiso("pedidos") || conWhatsapp === false) return;
@@ -448,7 +452,7 @@ export function AdminShell() {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    if (!isAuthenticated || !hasPermiso("productos")) return;
+    if (!isAuthenticated || !avisaStock) return;
     let active = true;
     const check = async () => {
       if (document.hidden) return;
@@ -558,8 +562,10 @@ export function AdminShell() {
     };
   }, [drawerOpen]);
 
-  const visible = NAV.filter((n) =>
-    n.permiso === "any" ? true : n.permiso === "plataforma" ? isPlataforma : hasPermiso(n.permiso),
+  const visible = NAV.filter(
+    (n) =>
+      (n.permiso === "any" ? true : n.permiso === "plataforma" ? isPlataforma : hasPermiso(n.permiso)) &&
+      (!n.modulo || tieneModulo(n.modulo)),
   );
   const abajo = visible.filter((n) => RUTAS_ABAJO.includes(n.ruta));
   const negocioActual = negocios.find((n) => n.id === negocioId);
@@ -839,7 +845,7 @@ export function AdminShell() {
               </span>
 
               {/* Pedidos nuevos */}
-              {hasPermiso("pedidos") && (
+              {avisaPedidos && (
                 <button
                   type="button"
                   className={`sh-iconbtn${nuevosPedidos > 0 ? " is-alert" : ""}`}
@@ -857,7 +863,7 @@ export function AdminShell() {
               )}
 
               {/* Alerta de stock */}
-              {hasPermiso("productos") && (
+              {avisaStock && (
                 <div ref={stockRef} style={{ position: "relative" }}>
                   <button
                     type="button"

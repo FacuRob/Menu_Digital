@@ -1,18 +1,21 @@
-import { Navigate, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useNegocio } from "../context/NegocioContext";
 import { IconLock } from "../lib/icons";
 import LoadingScreen from "./LoadingScreen";
 import { useLang } from "../lib/i18n";
 import { useTituloPagina } from "./tituloPagina";
 
 // Aviso dentro del panel cuando falta el permiso (el menú sigue a mano).
-function SinPermiso() {
+function SinPermiso({ modulo = false }: { modulo?: boolean }) {
   const { t } = useLang();
-  useTituloPagina(t("accessDenied"));
+  const { hasPermiso } = useAuth();
+  const titulo = modulo ? t("moduloInactivo") : t("accessDenied");
+  useTituloPagina(titulo);
   return (
     <div style={{ display: "grid", placeItems: "center", minHeight: "60vh", padding: 16 }}>
       <div
-        role="alert"
+        role={modulo ? "status" : "alert"}
         style={{
           textAlign: "center",
           maxWidth: 420,
@@ -38,9 +41,34 @@ function SinPermiso() {
           <IconLock size={26} />
         </div>
         <h2 className="pn-title" style={{ color: "var(--fg)", fontSize: 20, margin: "0 0 8px" }}>
-          {t("accessDenied")}
+          {titulo}
         </h2>
-        <p style={{ color: "var(--fg-2)", fontSize: 15, margin: 0 }}>{t("accessDeniedDesc")}</p>
+        <p style={{ color: "var(--fg-2)", fontSize: 15, margin: 0 }}>
+          {modulo
+            ? hasPermiso("configuracion")
+              ? t("moduloInactivoDesc")
+              : t("moduloInactivoPedir")
+            : t("accessDeniedDesc")}
+        </p>
+        {modulo && hasPermiso("configuracion") && (
+          <Link
+            to="/admin/configuracion"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              minHeight: 44,
+              marginTop: 16,
+              padding: "0 18px",
+              borderRadius: "var(--r-sm)",
+              background: "var(--accent)",
+              color: "var(--on-accent)",
+              fontWeight: 700,
+              textDecoration: "none",
+            }}
+          >
+            {t("moduloIrConfig")}
+          </Link>
+        )}
       </div>
     </div>
   );
@@ -50,11 +78,14 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
   permiso?: string;
   plataforma?: boolean;
+  // Módulo del negocio que necesita la pantalla.
+  modulo?: string;
 }
 
-const ProtectedRoute = ({ children, permiso, plataforma }: ProtectedRouteProps) => {
+const ProtectedRoute = ({ children, permiso, plataforma, modulo }: ProtectedRouteProps) => {
   const { isAuthenticated, isLoading, hasPermiso, isPlataforma, mustChangePassword } =
     useAuth();
+  const { tieneModulo } = useNegocio();
   const location = useLocation();
 
   // Verificando la sesión guardada (al abrir o recargar el panel).
@@ -77,6 +108,10 @@ const ProtectedRoute = ({ children, permiso, plataforma }: ProtectedRouteProps) 
 
   if ((permiso && !hasPermiso(permiso)) || (plataforma && !isPlataforma)) {
     return <SinPermiso />;
+  }
+
+  if (modulo && !tieneModulo(modulo)) {
+    return <SinPermiso modulo />;
   }
 
   return <>{children}</>;

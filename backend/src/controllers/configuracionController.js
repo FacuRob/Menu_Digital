@@ -4,6 +4,8 @@ const { getNegocioId } = require("../utils/negocio");
 const { avisosDisponibles } = require("../services/avisosPedidoService");
 const { sincronizarSlug } = require("../utils/slug");
 const { resolverRubro } = require("../utils/rubros");
+const { modulosDe, normalizar } = require("../utils/modulos");
+const { olvidarModulos } = require("../middleware/requiereModulo");
 
 const DEFAULTS = (negocioId) => ({
   negocio_id: negocioId,
@@ -51,8 +53,15 @@ const getConfiguracion = async (req, res) => {
     if (cfgRes.error) throw cfgRes.error;
 
     const base = cfgRes.data || DEFAULTS(negocioId);
+    const modulos = modulosDe(negRes.data);
+    // Ruta pública (sin scopeNegocio): el menú ve sólo lo que puede usar. El
+    // panel ve lo guardado, para no pisarlo al editar la configuración.
+    const esPublica = !Number.isInteger(req.negocioId);
+    const sinEntregas = esPublica && !(modulos.pedidos && modulos.entregas);
     res.json({
       ...base,
+      ...(sinEntregas ? { mesas_activo: false, retiro_activo: false, delivery_activo: false } : {}),
+      modulos,
       slug: negRes.data?.slug || null,
       tipo_rubro: negRes.data?.tipo_rubro || "gastronomia",
       rubro_categoria: negRes.data?.rubro_categoria || null,
@@ -92,6 +101,7 @@ const updateConfiguracion = async (req, res) => {
       rubro_categoria,
       rubro_especialidad,
       config_campos,
+      modulos,
     } = req.body;
 
     // tipo_rubro / config_campos se guardan en `negocios`, no en `configuracion`.
@@ -108,12 +118,21 @@ const updateConfiguracion = async (req, res) => {
     if (config_campos !== undefined && config_campos !== null) {
       negPatch.config_campos = config_campos;
     }
+    if (modulos !== undefined) {
+      if (!modulos || typeof modulos !== "object" || Array.isArray(modulos)) {
+        return res.status(400).json({ message: "Módulos inválidos" });
+      }
+      // Lo que no viene se conserva como estaba (no vuelve al perfil de siempre).
+      const { data: actual } = await supabase.from("negocios").select("*").eq("id", negocioId).maybeSingle();
+      negPatch.modulos = normalizar(modulos, modulosDe(actual));
+    }
     if (Object.keys(negPatch).length > 0) {
       const { error: negErr } = await supabase
         .from("negocios")
         .update(negPatch)
         .eq("id", negocioId);
       if (negErr) throw negErr;
+      if (negPatch.modulos) olvidarModulos(negocioId);
     }
 
     const payload = {
@@ -156,6 +175,7 @@ const updateConfiguracion = async (req, res) => {
       ...(slug ? { slug } : {}),
       ...rubro.patch,
       ...(config_campos !== undefined ? { config_campos } : {}),
+      ...(negPatch.modulos ? { modulos: negPatch.modulos } : {}),
     });
   } catch (error) {
     return respondError(res, error, "configuracion");

@@ -286,6 +286,14 @@ const Menu = ({ general = false }: { general?: boolean }) => {
     const n = negocios.find((x) => x.id === id);
     return n?.config?.nombre || n?.nombre || "";
   };
+  // ¿Toma pedidos online? (módulo "pedidos"). En el menú general, cada
+  // negocio decide por sí mismo.
+  const tomaPedidos = (negId?: number | null) => {
+    const cfg = general ? negocios.find((n) => n.id === negId)?.config : config;
+    return cfg?.modulos?.pedidos !== false;
+  };
+  const algunoTomaPedidos = general ? negocios.some((n) => n.config?.modulos?.pedidos !== false) : tomaPedidos();
+
   // Configuración que usa el carrito: la del negocio del pedido.
   const cfgCarrito = general ? (negocios.find((n) => n.id === cartNeg)?.config ?? null) : config;
 
@@ -565,7 +573,7 @@ const Menu = ({ general = false }: { general?: boolean }) => {
                             index={i}
                             titulo="h4"
                             onOpen={() => setModalProd(prod)}
-                            onAdd={() => {
+                            onAdd={!tomaPedidos(prod.negocio_id) ? undefined : () => {
                               if ((prod.variantes && prod.variantes.length > 0) || esPorPeso(prod)) {
                                 setModalProd(prod);
                               } else {
@@ -602,7 +610,7 @@ const Menu = ({ general = false }: { general?: boolean }) => {
                       prod={prod}
                       index={i}
                       onOpen={() => setModalProd(prod)}
-                      onAdd={() => {
+                      onAdd={!tomaPedidos() ? undefined : () => {
                         // Con variantes o por peso hay que elegir algo → abrir el modal.
                         if ((prod.variantes && prod.variantes.length > 0) || esPorPeso(prod)) {
                           setModalProd(prod);
@@ -658,7 +666,7 @@ const Menu = ({ general = false }: { general?: boolean }) => {
       )}
 
       {/* ══ Barra de pedido (con productos) / botón de carrito (vacío) ══ */}
-      {cart.count > 0 ? (
+      {!algunoTomaPedidos && cart.count === 0 ? null : cart.count > 0 ? (
         <button
           type="button"
           onClick={() => setCartOpen(true)}
@@ -699,7 +707,11 @@ const Menu = ({ general = false }: { general?: boolean }) => {
         <ProductModal
           producto={modalProd}
           onClose={() => setModalProd(null)}
-          onAdd={(p, cantidad, opciones) => agregar(p, cantidad, opciones)}
+          onAdd={tomaPedidos(modalProd.negocio_id) ? (p, cantidad, opciones) => agregar(p, cantidad, opciones) : undefined}
+          contacto={(() => {
+            const cfg = general ? negocios.find((n) => n.id === modalProd.negocio_id)?.config ?? null : config;
+            return cfg?.whatsapp || cfg?.telefono ? waLink(cfg) : null;
+          })()}
         />
       )}
 
@@ -847,7 +859,8 @@ const ProductCard = ({
   prod: Producto;
   index: number;
   onOpen: () => void;
-  onAdd: () => void;
+  // Sin onAdd (no toma pedidos) la tarjeta no muestra el botón "+".
+  onAdd?: () => void;
   // En el menú general las categorías ya son h3: el producto va en h4.
   titulo?: "h3" | "h4";
 }) => {
@@ -885,6 +898,7 @@ const ProductCard = ({
             {fmt(Number(prod.precio))}
             {esPorPeso(prod) && <span className="text-[13px] font-semibold text-[var(--fg-2)]"> /kg</span>}
           </span>
+          {onAdd && (
           <button
             type="button"
             onClick={(e) => {
@@ -898,6 +912,7 @@ const ProductCard = ({
               <path d="M12 5v14M5 12h14" />
             </svg>
           </button>
+          )}
         </div>
       </div>
     </div>

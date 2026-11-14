@@ -4,6 +4,7 @@ import {
   negociosService,
   configuracionService,
   planService,
+  type Modulos,
   type Negocio,
 } from "../services/api";
 import { useAuth } from "./AuthContext";
@@ -15,6 +16,11 @@ interface NegocioContextType {
   slug: string | null;
   // ¿El plan incluye WhatsApp, chats, IA y mapa? null mientras no se sabe.
   conWhatsapp: boolean | null;
+  // ¿El negocio activo usa este módulo? Mientras no se sabe, sí (así no
+  // desaparece el menú de un restaurante mientras carga).
+  tieneModulo: (codigo: string) => boolean;
+  // Vuelve a leer la configuración (después de guardar módulos, por ejemplo).
+  recargarConfig: () => void;
   setNegocioId: (id: number) => void;
   refresh: () => Promise<void>;
 }
@@ -39,6 +45,8 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
   const [moneda, setMoneda] = useState<string>("ARS");
   const [slug, setSlug] = useState<string | null>(null);
   const [conWhatsapp, setConWhatsapp] = useState<boolean | null>(null);
+  const [modulos, setModulos] = useState<Modulos | null>(null);
+  const [versionCfg, setVersionCfg] = useState(0);
 
   // Mantener el header del api sincronizado desde el arranque.
   useEffect(() => {
@@ -53,9 +61,13 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
       .then((cfg) => {
         setMoneda(cfg.moneda || "ARS");
         setSlug(cfg.slug || null);
+        setModulos(cfg.modulos ?? null);
       })
       .catch(() => {});
-  }, [isAuthenticated, negocioId, userId]);
+  }, [isAuthenticated, negocioId, userId, versionCfg]);
+
+  const tieneModulo = (codigo: string) => (modulos ? modulos[codigo] !== false : true);
+  const recargarConfig = () => setVersionCfg((v) => v + 1);
 
   // Qué incluye el plan (para bloquear WhatsApp, chats e IA en el Básico).
   // Sólo se marca "sin WhatsApp" si el plan no lo trae: una cuenta Estándar
@@ -114,7 +126,7 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <NegocioContext.Provider
-      value={{ negocioId, negocios, moneda, slug, conWhatsapp, setNegocioId, refresh }}
+      value={{ negocioId, negocios, moneda, slug, conWhatsapp, tieneModulo, recargarConfig, setNegocioId, refresh }}
     >
       {children}
     </NegocioContext.Provider>
