@@ -353,7 +353,11 @@ export interface Configuracion {
   moneda?: string | null;
   // Multi-rubro (viven en `negocios`, se editan desde Configuración).
   tipo_rubro?: TipoRubro;
+  rubro_categoria?: string | null;
+  rubro_especialidad?: string | null;
   config_campos?: Record<string, unknown>;
+  ciudad?: string | null;
+  provincia?: string | null;
 }
 
 export type TipoRubro = "gastronomia" | "retail" | "servicios" | "generico";
@@ -438,19 +442,77 @@ export interface Negocio {
   slug: string | null;
   activo: boolean;
   tipo_rubro?: TipoRubro;
+  rubro_categoria?: string | null;
+  rubro_especialidad?: string | null;
   created_at?: string;
+}
+
+// Rubro elegido en un formulario: categoría + especialidad (opcional).
+export interface RubroElegido {
+  rubro_categoria: string | null;
+  rubro_especialidad: string | null;
 }
 
 export const negociosService = {
   getAll: async () => (await api.get<Negocio[]>("/negocios")).data,
-  create: async (payload: { nombre: string; slug?: string; tipo_rubro?: TipoRubro }) =>
+  create: async (payload: { nombre: string; slug?: string } & Partial<RubroElegido>) =>
     (await api.post<Negocio>("/negocios", payload)).data,
   update: async (
     id: number,
-    payload: { nombre?: string; slug?: string; activo?: boolean; tipo_rubro?: TipoRubro },
+    payload: { nombre?: string; slug?: string; activo?: boolean } & Partial<RubroElegido>,
   ) => (await api.put<Negocio>(`/negocios/${id}`, payload)).data,
   delete: async (id: number) =>
     (await api.delete(`/negocios/${id}`)).data,
+};
+
+// ── Catálogo central de rubros (GET /api/rubros) ──
+export interface Sugerencias {
+  ofrece?: Ofrece[];
+  funciones?: Funcion[];
+}
+export interface RubroEspecialidad {
+  codigo: string;
+  nombre: string;
+  sugerencias: Sugerencias;
+}
+export interface RubroCategoria {
+  codigo: string;
+  nombre: string;
+  descripcion: string | null;
+  familia: TipoRubro;
+  icono: string | null;
+  sugerencias: Sugerencias;
+  especialidades: RubroEspecialidad[];
+}
+export const rubrosService = {
+  getAll: async () => (await api.get<{ categorias: RubroCategoria[] }>("/rubros")).data.categorias,
+};
+
+// ── Onboarding retomable (progreso por negocio) ──
+export type Ofrece = "productos" | "personalizados" | "servicios";
+export type Funcion =
+  | "venta_directa" | "pedidos" | "retiro" | "envios"
+  | "presencial" | "virtual" | "reservas" | "presupuestos";
+export interface OnboardingProgreso {
+  paso?: number;
+  completado?: boolean;
+  ofrece?: Ofrece[];
+  funciones?: Funcion[];
+}
+export interface OnboardingEstado {
+  // null = negocio anterior al onboarding nuevo (se considera configurado).
+  onboarding: OnboardingProgreso | null;
+  nombre: string;
+  slug: string | null;
+  activo: boolean;
+  tipo_rubro: TipoRubro;
+  rubro_categoria: string | null;
+  rubro_especialidad: string | null;
+}
+export const onboardingService = {
+  get: async () => (await api.get<OnboardingEstado>("/onboarding")).data,
+  update: async (p: Omit<OnboardingProgreso, "completado"> & { completado?: boolean }) =>
+    (await api.put<OnboardingEstado>("/onboarding", p)).data,
 };
 
 export interface ResumenMes {

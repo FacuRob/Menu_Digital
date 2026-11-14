@@ -198,6 +198,12 @@ const crearCuentaConNegocio = async ({ nombre, email, origen }) => {
     await supabase
       .from("configuracion")
       .insert([{ negocio_id: neg.id, nombre, retiro_activo: true }]);
+    // Onboarding retomable (paso 2: datos del negocio). Aparte del insert
+    // para que el alta no falle si db/rubros_onboarding.sql no corrió.
+    await supabase
+      .from("negocios")
+      .update({ onboarding: { paso: 2, completado: false } })
+      .eq("id", neg.id);
   }
   return cuenta;
 };

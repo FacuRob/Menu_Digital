@@ -39,6 +39,42 @@ export const IconBox = ({ size = 20, style }: P) => (
     <path d="M3 8l9 5 9-5M12 13v8" />
   </svg>
 );
+export const IconHeart = ({ size = 20, style }: P) => (
+  <svg {...base(size, style)}>
+    <path d="M20.8 5.6a5 5 0 0 0-7.6-.6L12 6.2l-1.2-1.2a5 5 0 0 0-7.6 6.4L12 21l8.8-9.6a5 5 0 0 0 0-5.8z" />
+  </svg>
+);
+export const IconBriefcase = ({ size = 20, style }: P) => (
+  <svg {...base(size, style)}>
+    <rect x="3" y="7" width="18" height="13" rx="2" />
+    <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18" />
+  </svg>
+);
+export const IconCar = ({ size = 20, style }: P) => (
+  <svg {...base(size, style)}>
+    <path d="M5 17H3v-5l2-5h14l2 5v5h-2M5 12h14" />
+    <circle cx="7.5" cy="17" r="2" />
+    <circle cx="16.5" cy="17" r="2" />
+  </svg>
+);
+export const IconBook = ({ size = 20, style }: P) => (
+  <svg {...base(size, style)}>
+    <path d="M4 19V5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h14" />
+  </svg>
+);
+export const IconMap = ({ size = 20, style }: P) => (
+  <svg {...base(size, style)}>
+    <path d="m9 4-6 2v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14" />
+  </svg>
+);
+export const IconGrid = ({ size = 20, style }: P) => (
+  <svg {...base(size, style)}>
+    <rect x="3" y="3" width="7" height="7" rx="1.5" />
+    <rect x="14" y="3" width="7" height="7" rx="1.5" />
+    <rect x="3" y="14" width="7" height="7" rx="1.5" />
+    <rect x="14" y="14" width="7" height="7" rx="1.5" />
+  </svg>
+);
 
 // ── UI ──
 export const IconEye = ({ size = 18, style }: P) => (

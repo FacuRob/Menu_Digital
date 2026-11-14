@@ -49,8 +49,9 @@ const { keepAlive } = require("./controllers/keepAliveController");
 const { startKeepAlive } = require("./services/keepAlive");
 const { pedidosLimiter, repartoLimiter } = require("./middleware/rateLimiters");
 const reparto = require("./controllers/repartoController");
+const onboarding = require("./controllers/onboardingController");
 const { validate } = require("./middleware/validate");
-const { createPedidoSchema } = require("./schemas");
+const { createPedidoSchema, onboardingSchema } = require("./schemas");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -133,6 +134,8 @@ app.get("/api/panel/configuracion", authMiddleware, scopeNegocio, getConfiguraci
 app.get("/api/negocios/publico/:slug", getNegocioPublicoBySlug);
 // Menú general: todos los negocios activos de la cuenta (/menu/:slug/todos).
 app.get("/api/negocios/publico/:slug/grupo", getGrupoPublico);
+// Catálogo central de rubros (categorías y especialidades).
+app.get("/api/rubros", onboarding.getRubros);
 app.post("/api/pedidos", pedidosLimiter, validate(createPedidoSchema), createPedido);
 // Ticket de un pedido (link firmado que llega por WhatsApp).
 app.get("/api/tickets/:id", getTicketPublico);
@@ -192,6 +195,17 @@ app.use(
   configuracionRoutes,
 );
 // Firmas de los QR por mesa (pantalla "Código QR" del panel).
+// Progreso del onboarding del negocio activo.
+app.get("/api/onboarding", authMiddleware, scopeNegocio, checkSuscripcion, checkPermiso("configuracion"), onboarding.getOnboarding);
+app.put(
+  "/api/onboarding",
+  authMiddleware,
+  scopeNegocio,
+  checkSuscripcion,
+  checkPermiso("configuracion"),
+  validate(onboardingSchema),
+  onboarding.updateOnboarding,
+);
 app.use("/api/qr", authMiddleware, scopeNegocio, checkSuscripcion, checkPermiso("qr"), qrRoutes);
 app.use(
   "/api/pedidos",

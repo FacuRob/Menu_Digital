@@ -4,31 +4,18 @@ import AdminLayout from "../../components/AdminLayout";
 import { useStyles } from "../../components/sharedStyles";
 import Modal from "../../components/Modal";
 import { useNegocio } from "../../context/NegocioContext";
-import type { ComponentType } from "react";
 import { useLang } from "../../lib/i18n";
 import { MENU_PUBLIC_BASE, menuPath } from "../../lib/menuUrl";
-import { IconAlert, IconUtensils, IconBag, IconTools, IconBox, IconStore } from "../../lib/icons";
+import { IconAlert, IconStore } from "../../lib/icons";
 import {
   negociosService,
   planService,
   getApiErrorMessage,
   type Negocio,
   type PlanInfo,
-  type TipoRubro,
+  type RubroElegido,
 } from "../../services/api";
-
-// Rubros soportados (mismo set que el onboarding / backend). Deciden los
-// iconos del menú público y el vocabulario del panel del negocio.
-const RUBROS: {
-  code: TipoRubro;
-  labelKey: string;
-  Icon: ComponentType<{ size?: number }>;
-}[] = [
-  { code: "gastronomia", labelKey: "rubroGastro", Icon: IconUtensils },
-  { code: "retail", labelKey: "rubroRetail", Icon: IconBag },
-  { code: "servicios", labelKey: "rubroServicios", Icon: IconTools },
-  { code: "generico", labelKey: "rubroGenerico", Icon: IconBox },
-];
+import RubroSelector from "../../components/RubroSelector";
 
 export default function Negocios() {
   const s = useStyles();
@@ -39,7 +26,7 @@ export default function Negocios() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Negocio | null>(null);
   const [nombre, setNombre] = useState("");
-  const [rubro, setRubro] = useState<TipoRubro>("gastronomia");
+  const [rubro, setRubro] = useState<RubroElegido>({ rubro_categoria: null, rubro_especialidad: null });
   const [saving, setSaving] = useState(false);
   const [plan, setPlan] = useState<PlanInfo | null>(null);
   const [saveError, setSaveError] = useState("");
@@ -67,10 +54,13 @@ export default function Negocios() {
   const open = (n?: Negocio) => {
     setEditing(n || null);
     setNombre(n?.nombre || "");
-    setRubro((n?.tipo_rubro as TipoRubro) || "gastronomia");
+    setRubro({ rubro_categoria: n?.rubro_categoria ?? null, rubro_especialidad: n?.rubro_especialidad ?? null });
     setSaveError("");
     setShowModal(true);
   };
+
+  // Sin categoría elegida no se manda el rubro (queda el que tenía).
+  const conRubro = rubro.rubro_categoria ? rubro : {};
 
   const save = async () => {
     if (!nombre.trim()) return;
@@ -78,12 +68,9 @@ export default function Negocios() {
     setSaveError("");
     try {
       if (editing) {
-        await negociosService.update(editing.id, {
-          nombre: nombre.trim(),
-          tipo_rubro: rubro,
-        });
+        await negociosService.update(editing.id, { nombre: nombre.trim(), ...conRubro });
       } else {
-        await negociosService.create({ nombre: nombre.trim(), tipo_rubro: rubro });
+        await negociosService.create({ nombre: nombre.trim(), ...conRubro });
       }
       await refresh();
       setPlan(await planService.get().catch(() => plan));
@@ -326,44 +313,8 @@ export default function Negocios() {
               />
 
               {/* Rubro del negocio: decide los iconos del menú y el vocabulario. */}
-              <label style={{ ...s.label, marginTop: 14 }}>{t("rubroTitle")}</label>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))",
-                  gap: 8,
-                }}
-              >
-                {RUBROS.map((r) => {
-                  const activo = rubro === r.code;
-                  return (
-                    <button
-                      key={r.code}
-                      type="button"
-                      onClick={() => setRubro(r.code)}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        padding: "10px 12px",
-                        borderRadius: 10,
-                        cursor: "pointer",
-                        textAlign: "left",
-                        background: activo
-                          ? "var(--info-bg)"
-                          : "var(--surface-2)",
-                        border: `1.5px solid ${activo ? "var(--info)" : (s.card.border as string)}`,
-                        color: activo ? "var(--info)" : textPrimary,
-                        fontSize: 13,
-                        fontWeight: activo ? 600 : 500,
-                      }}
-                    >
-                      <r.Icon size={18} />
-                      {t(r.labelKey)}
-                    </button>
-                  );
-                })}
-              </div>
+              <p id="neg-rubro" style={{ ...s.label, marginTop: 14 }}>{t("rubroTitle")}</p>
+              <RubroSelector value={rubro} onChange={setRubro} etiquetaId="neg-rubro" />
               {saveError && (
                 <div
                   style={{

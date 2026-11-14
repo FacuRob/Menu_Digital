@@ -168,6 +168,15 @@ const createPedidoSchema = z.object({
   acepta_whatsapp: z.boolean().optional(),
 });
 
+// ── Onboarding (progreso por negocio) ────────────────────────
+const { OFRECE, FUNCIONES } = require("../utils/rubros");
+const onboardingSchema = z.object({
+  paso: z.number().int().min(2).max(8).optional(),
+  ofrece: z.array(z.enum(OFRECE)).max(OFRECE.length).optional(),
+  funciones: z.array(z.enum(FUNCIONES)).max(FUNCIONES.length).optional(),
+  completado: z.boolean().optional(),
+});
+
 // ── Doble factor (2FA) ───────────────────────────────────────
 // Código de la app (6 dígitos) o de respaldo (xxxxx-xxxxx).
 const codigo2fa = z.string().trim().min(6, "Ingresá el código").max(20);
@@ -190,6 +199,7 @@ module.exports = {
   updateProfileSchema,
   changeEmailSchema,
   createPedidoSchema,
+  onboardingSchema,
   productoSchema,
   varianteGrupoSchema,
   updateVarianteGrupoSchema,

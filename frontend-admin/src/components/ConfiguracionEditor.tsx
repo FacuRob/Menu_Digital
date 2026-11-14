@@ -4,10 +4,7 @@ import type { ComponentType } from "react";
 import { useStyles } from "./sharedStyles";
 import { useLang } from "../lib/i18n";
 import {
-  IconUtensils,
   IconBag,
-  IconTools,
-  IconBox,
   IconImage,
   IconCheck,
   IconAlert,
@@ -23,8 +20,9 @@ import {
   type Configuracion,
   type HorariosConfig,
   type DiaHorario,
-  type TipoRubro,
 } from "../services/api";
+import RubroSelector from "./RubroSelector";
+import { PROVINCIAS } from "../lib/provincias";
 
 type Form = Omit<Configuracion, "id">;
 
@@ -45,21 +43,11 @@ const EMPTY: Form = {
   color_primario: "#ff5722",
   horarios_config: null,
   moneda: "ARS",
-  tipo_rubro: "gastronomia",
+  rubro_categoria: null,
+  rubro_especialidad: null,
+  ciudad: "",
+  provincia: "",
 };
-
-// Rubros soportados (multi-rubro). Cada uno ajusta el vocabulario del panel.
-const RUBROS: {
-  code: TipoRubro;
-  labelKey: string;
-  descKey: string;
-  Icon: ComponentType<{ size?: number }>;
-}[] = [
-  { code: "gastronomia", labelKey: "rubroGastro", descKey: "rubroGastroDesc", Icon: IconUtensils },
-  { code: "retail", labelKey: "rubroRetail", descKey: "rubroRetailDesc", Icon: IconBag },
-  { code: "servicios", labelKey: "rubroServicios", descKey: "rubroServiciosDesc", Icon: IconTools },
-  { code: "generico", labelKey: "rubroGenerico", descKey: "rubroGenericoDesc", Icon: IconBox },
-];
 
 // Códigos de moneda soportados. La etiqueta se traduce con t(`cur_${code}`).
 const MONEDAS = [
@@ -163,9 +151,9 @@ const GRUPOS: {
         labelKey: "cfgHeading",
         accent: "var(--info)",
         Icon: IconStore,
-        campos: ["nombre", "direccion", "telefono", "whatsapp", "email", "descripcion"],
+        campos: ["nombre", "direccion", "ciudad", "provincia", "telefono", "whatsapp", "email", "descripcion"],
       },
-      { id: "rubro", labelKey: "rubroTitle", accent: "var(--teal)", Icon: IconBag, campos: ["tipo_rubro"] },
+      { id: "rubro", labelKey: "rubroTitle", accent: "var(--teal)", Icon: IconBag, campos: ["rubro_categoria", "rubro_especialidad"] },
     ],
   },
   {
@@ -248,7 +236,10 @@ export default function ConfiguracionEditor({
           color_primario: cfg.color_primario || "#ff5722",
           horarios_config: cfg.horarios_config || null,
           moneda: cfg.moneda || "ARS",
-          tipo_rubro: cfg.tipo_rubro || "gastronomia",
+          rubro_categoria: cfg.rubro_categoria ?? null,
+          rubro_especialidad: cfg.rubro_especialidad ?? null,
+          ciudad: cfg.ciudad || "",
+          provincia: cfg.provincia || "",
         };
         const upd =
           Array.isArray(cfg.horarios_config) && cfg.horarios_config.length > 0;
@@ -334,8 +325,11 @@ export default function ConfiguracionEditor({
   const save = async () => {
     setSaving(true);
     try {
+      // Sin categoría elegida no se manda el rubro (el backend lo rechazaría).
+      const { rubro_categoria, rubro_especialidad, ...resto } = form;
       await configuracionService.update({
-        ...form,
+        ...resto,
+        ...(rubro_categoria ? { rubro_categoria, rubro_especialidad } : {}),
         horarios_config: usarPorDia ? form.horarios_config : null,
       });
       setInitial({ form, usarPorDia });
@@ -411,6 +405,21 @@ export default function ConfiguracionEditor({
         >
           <TextField s={s} label={t("cfgVenueName")} value={form.nombre} onChange={set("nombre")} />
           <TextField s={s} label={t("cfgAddress")} value={form.direccion} onChange={set("direccion")} />
+          <TextField s={s} label={t("cfgCity")} value={form.ciudad ?? ""} onChange={set("ciudad")} />
+          <div>
+            <label htmlFor="cfg-provincia" style={s.label}>{t("cfgProvince")}</label>
+            <select
+              id="cfg-provincia"
+              value={form.provincia || ""}
+              onChange={(e) => set("provincia")(e.target.value)}
+              style={{ ...s.input, cursor: "pointer" }}
+            >
+              <option value="">{t("cfgProvinceNone")}</option>
+              {PROVINCIAS.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
           <TextField s={s} label={t("cfgPhone")} value={form.telefono} onChange={set("telefono")} />
           <TextField s={s} label="WhatsApp" value={form.whatsapp} onChange={set("whatsapp")} placeholder="3814665263" />
           <TextField s={s} label={t("colEmail")} value={form.email} onChange={set("email")} />
@@ -469,50 +478,10 @@ export default function ConfiguracionEditor({
         title={t("rubroTitle")}
         subtitle={t("rubroSubtitle")}
       >
-        <div
-          style={{
-            display: "grid",
-            gap: 10,
-            gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
-          }}
-        >
-          {RUBROS.map((r) => {
-            const activo = (form.tipo_rubro || "gastronomia") === r.code;
-            return (
-              <button
-                key={r.code}
-                type="button"
-                aria-pressed={activo}
-                onClick={() => setForm((f) => ({ ...f, tipo_rubro: r.code }))}
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 10,
-                  padding: "12px 14px",
-                  borderRadius: 10,
-                  cursor: "pointer",
-                  textAlign: "left",
-                  border: `2px solid ${activo ? "var(--teal)" : "var(--line)"}`,
-                  background: activo
-                    ? "color-mix(in srgb, var(--teal) 10%, transparent)"
-                    : "var(--surface-2)",
-                }}
-              >
-                <span style={{ color: activo ? "var(--teal)" : textMuted, display: "flex", flexShrink: 0 }}>
-                  <r.Icon size={22} />
-                </span>
-                <span style={{ flex: 1 }}>
-                  <span style={{ display: "block", fontSize: 13.5, fontWeight: 600, color: textPrimary }}>
-                    {t(r.labelKey)}
-                  </span>
-                  <span style={{ display: "block", fontSize: 11.5, color: textMuted, marginTop: 2 }}>
-                    {t(r.descKey)}
-                  </span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <RubroSelector
+          value={{ rubro_categoria: form.rubro_categoria ?? null, rubro_especialidad: form.rubro_especialidad ?? null }}
+          onChange={(v) => setForm((f) => ({ ...f, ...v }))}
+        />
       </SectionCard>
       )}
 

@@ -13,6 +13,7 @@ import { MENU_PUBLIC_BASE, menuPath } from "../../lib/menuUrl";
 import {
   analiticasService,
   configuracionService,
+  onboardingService,
   pedidosService,
   type Actividad,
   type Resumen,
@@ -243,6 +244,21 @@ export default function Dashboard() {
     return lista.slice(0, 5).map((p) => ({ label: p.nombre, valor: orden === "ganancia" ? p.ganancia : p.cantidad }));
   }, [resumen, orden]);
 
+  // Onboarding sin terminar → aviso para seguir donde quedó.
+  const [obPaso, setObPaso] = useState<number | null>(null);
+  const puedeConfigurar = hasPermiso("configuracion");
+  useEffect(() => {
+    if (!puedeConfigurar) return;
+    let vivo = true;
+    onboardingService
+      .get()
+      .then((e) => vivo && setObPaso(e.onboarding && !e.onboarding.completado ? e.onboarding.paso || 2 : null))
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, [negocioId, puedeConfigurar]);
+
   const vsPrev = t("dshVsPrevN", { n: dias });
   const conVentas = !!act && act.totales.pedidos > 0;
   const pedidosTipo = act ? act.por_tipo.reduce((s, x) => s + x.pedidos, 0) : 0;
@@ -250,6 +266,23 @@ export default function Dashboard() {
   return (
     <AdminLayout title={t("navDashboard")}>
       <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-4">
+        {obPaso !== null && (
+          <section
+            aria-labelledby="ob-pendiente"
+            className="flex flex-col gap-3 rounded-[var(--r-md)] border border-line bg-surface p-4 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div>
+              <h2 id="ob-pendiente" className="font-bold text-fg">{t("obPendienteTitle")}</h2>
+              <p className="mt-0.5 text-sm text-fg-2">{t("obPendienteSub", { n: obPaso, total: 8 })}</p>
+            </div>
+            <Link
+              to="/admin/onboarding"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-[var(--r-sm)] bg-accent px-4 text-sm font-bold text-on-accent transition-colors hover:bg-accent-hover"
+            >
+              {t("obPendienteCta")}
+            </Link>
+          </section>
+        )}
         {/* ── Encabezado: saludo, acciones y el negocio de hoy ── */}
         <section className="grid gap-5 xl:grid-cols-[1fr_auto] xl:items-end">
           <div>

@@ -3,10 +3,7 @@ const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
 const { avisosDisponibles } = require("../services/avisosPedidoService");
 const { sincronizarSlug } = require("../utils/slug");
-
-// Rubros soportados (multi-rubro). Debe coincidir con el CHECK de la BD
-// (db/multirubro.sql → chk_tipo_rubro).
-const RUBROS = ["gastronomia", "retail", "servicios", "generico"];
+const { resolverRubro } = require("../utils/rubros");
 
 const DEFAULTS = (negocioId) => ({
   negocio_id: negocioId,
@@ -40,9 +37,11 @@ const getConfiguracion = async (req, res) => {
         .maybeSingle(),
       // tipo_rubro / config_campos viven en `negocios`; los adjuntamos acá
       // para que el panel de configuración los lea/guarde en una sola vista.
+      // "*" para no fallar si faltan las columnas de rubros_onboarding.sql;
+      // abajo se eligen sólo los campos públicos.
       supabase
         .from("negocios")
-        .select("slug, tipo_rubro, config_campos")
+        .select("*")
         .eq("id", negocioId)
         .maybeSingle(),
       // ¿El menú ofrece "avisarme por WhatsApp"? (nunca rompe la carga)
@@ -56,6 +55,8 @@ const getConfiguracion = async (req, res) => {
       ...base,
       slug: negRes.data?.slug || null,
       tipo_rubro: negRes.data?.tipo_rubro || "gastronomia",
+      rubro_categoria: negRes.data?.rubro_categoria || null,
+      rubro_especialidad: negRes.data?.rubro_especialidad || null,
       config_campos: negRes.data?.config_campos || {},
       avisos_whatsapp: avisosWhatsapp === true,
     });
@@ -85,22 +86,29 @@ const updateConfiguracion = async (req, res) => {
       color_primario,
       horarios_config,
       moneda,
+      ciudad,
+      provincia,
       tipo_rubro,
+      rubro_categoria,
+      rubro_especialidad,
       config_campos,
     } = req.body;
 
     // tipo_rubro / config_campos se guardan en `negocios`, no en `configuracion`.
-    if (tipo_rubro !== undefined || config_campos !== undefined) {
-      const negPatch = {};
-      if (tipo_rubro !== undefined) {
-        if (!RUBROS.includes(tipo_rubro)) {
-          return res.status(400).json({ message: "Tipo de rubro inválido" });
-        }
-        negPatch.tipo_rubro = tipo_rubro;
-      }
-      if (config_campos !== undefined && config_campos !== null) {
-        negPatch.config_campos = config_campos;
-      }
+    // Ciudad y provincia: texto corto o null (largo de las columnas).
+    const textoValido = (v, max) => v === undefined || v === null || (typeof v === "string" && v.length <= max);
+    if (!textoValido(ciudad, 100) || !textoValido(provincia, 60)) {
+      return res.status(400).json({ message: "Ciudad o provincia inválida" });
+    }
+
+    // Rubro: se valida contra el catálogo central (utils/rubros).
+    const rubro = await resolverRubro({ tipo_rubro, rubro_categoria, rubro_especialidad });
+    if (rubro.error) return res.status(400).json({ message: rubro.error });
+    const negPatch = { ...rubro.patch };
+    if (config_campos !== undefined && config_campos !== null) {
+      negPatch.config_campos = config_campos;
+    }
+    if (Object.keys(negPatch).length > 0) {
       const { error: negErr } = await supabase
         .from("negocios")
         .update(negPatch)
@@ -126,6 +134,8 @@ const updateConfiguracion = async (req, res) => {
       color_primario,
       horarios_config,
       moneda,
+      ciudad,
+      provincia,
       updated_at: new Date().toISOString(),
     };
 
@@ -144,7 +154,7 @@ const updateConfiguracion = async (req, res) => {
     res.json({
       ...data,
       ...(slug ? { slug } : {}),
-      ...(tipo_rubro !== undefined ? { tipo_rubro } : {}),
+      ...rubro.patch,
       ...(config_campos !== undefined ? { config_campos } : {}),
     });
   } catch (error) {
