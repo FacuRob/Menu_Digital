@@ -29,7 +29,10 @@ export default function CartDrawer({
     mesa: t("deliveryTable"),
     retiro: t("deliveryPickup"),
     delivery: t("deliveryDelivery"),
+    mostrador: t("deliveryCounter"),
+    envio: t("deliveryShipping"),
   };
+  const ICONO: Record<TipoEntrega, string> = { mesa: "mesa", retiro: "bolsa", delivery: "moto", mostrador: "mostrador", envio: "caja" };
   const [step, setStep] = useState<"datos" | "entrega">("datos");
   const [cliente, setCliente] = useState("");
   const [nota, setNota] = useState("");
@@ -38,6 +41,9 @@ export default function CartDrawer({
   // Opt-in para avisos del pedido por WhatsApp (solo si el local los activó).
   const [avisoWa, setAvisoWa] = useState(false);
   const [tipo, setTipo] = useState<TipoEntrega | null>(null);
+  // Para más tarde (retiro o entrega programada): "YYYY-MM-DDTHH:mm" local.
+  const [programar, setProgramar] = useState(false);
+  const [cuando, setCuando] = useState("");
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
@@ -46,6 +52,17 @@ export default function CartDrawer({
   const [mesaRechazada, setMesaRechazada] = useState(false);
 
   const { lines, total, setQty, remove, clear } = cart;
+  // Pedidos con teléfono (para avisar o coordinar): retiro, delivery y envío.
+  const conTelefono = (x: TipoEntrega | null) => x === "retiro" || x === "delivery" || x === "envio";
+  // ¿Se puede pedir para más tarde con esta modalidad?
+  const sePuedeProgramar = (x: TipoEntrega | null) =>
+    (x === "retiro" && !!config?.modalidades?.retiro_programado) ||
+    ((x === "delivery" || x === "envio") && !!config?.modalidades?.entrega_programada);
+  // Mínimo para el selector: dentro de 30 minutos (hora local del celular).
+  const minimoProgramado = () => {
+    // Hora de Argentina (UTC−3), sin importar la zona del celular.
+    return new Date(Date.now() + 30 * 60 * 1000 - 3 * 60 * 60 * 1000).toISOString().slice(0, 16);
+  };
 
   // Opciones de entrega activas según la configuración del local.
   const opciones = useMemo<TipoEntrega[]>(() => {
@@ -54,7 +71,9 @@ export default function CartDrawer({
     if (mesa && mesaToken && !mesaRechazada && config?.mesas_activo) return ["mesa"];
     // QR general: sólo retiro o delivery (nunca elegir una mesa a mano).
     if (config?.retiro_activo) o.push("retiro");
+    if (config?.modalidades?.mostrador) o.push("mostrador");
     if (config?.delivery_activo) o.push("delivery");
+    if (config?.modalidades?.envio) o.push("envio");
     return o;
   }, [config, mesa, mesaToken, mesaRechazada]);
 
@@ -70,12 +89,15 @@ export default function CartDrawer({
     setDireccion("");
     setTelefono("");
     setAvisoWa(false);
+    setProgramar(false);
+    setCuando("");
     setTipo(null);
     setStep("datos");
   };
 
   // El teléfono se pide para retiro y delivery (para contactar al cliente).
-  const requierePhone = tipo === "retiro" || tipo === "delivery";
+  const requierePhone = conTelefono(tipo);
+  const puedeProgramar = sePuedeProgramar(tipo);
 
   const cerrar = () => {
     setDone(false);
@@ -112,15 +134,10 @@ export default function CartDrawer({
     cliente: cliente.trim(),
     nota: nota.trim() || null,
     tipo_entrega: tipoEntrega,
-    direccion_entrega: tipoEntrega === "delivery" ? direccion.trim() : null,
-    telefono_cliente:
-      tipoEntrega === "retiro" || tipoEntrega === "delivery"
-        ? telefono.trim() || null
-        : null,
-    acepta_whatsapp:
-      !!config?.avisos_whatsapp &&
-      avisoWa &&
-      (tipoEntrega === "retiro" || tipoEntrega === "delivery"),
+    direccion_entrega: tipoEntrega === "delivery" || tipoEntrega === "envio" ? direccion.trim() : null,
+    telefono_cliente: conTelefono(tipoEntrega) ? telefono.trim() || null : null,
+    acepta_whatsapp: !!config?.avisos_whatsapp && avisoWa && conTelefono(tipoEntrega),
+    ...(programar && cuando && sePuedeProgramar(tipoEntrega) ? { programado_para: new Date(`${cuando}:00-03:00`).toISOString() } : {}),
     items: lines.map((l) => ({
       producto_id: l.producto.id,
       nombre: l.producto.nombre,
@@ -138,8 +155,9 @@ export default function CartDrawer({
   const entregaOk =
     (opciones.length === 0 && !sinDestino) ||
     (tipo === "mesa" && !!mesa && !!mesaToken && !mesaRechazada) ||
+    tipo === "mostrador" ||
     (tipo === "retiro" && !!telefono.trim()) ||
-    (tipo === "delivery" && !!direccion.trim() && !!telefono.trim());
+    ((tipo === "delivery" || tipo === "envio") && !!direccion.trim() && !!telefono.trim());
 
   const irAEntrega = () => {
     if (!nombreOk) {
@@ -194,8 +212,16 @@ export default function CartDrawer({
       setError(t("errEnterAddress"));
       return false;
     }
+    if (tipoEntrega === "envio" && direccion.trim().length < 10) {
+      setError(t("errEnterFullAddress"));
+      return false;
+    }
+    if (programar && sePuedeProgramar(tipoEntrega) && (!cuando || cuando < minimoProgramado())) {
+      setError(t(cuando ? "errWhenTooSoon" : "errChooseWhen"));
+      return false;
+    }
     if (
-      (tipoEntrega === "retiro" || tipoEntrega === "delivery") &&
+      conTelefono(tipoEntrega) &&
       !telefono.trim()
     ) {
       setError(t("errEnterPhone"));
@@ -232,15 +258,23 @@ export default function CartDrawer({
           ? `Entrega: En mesa ${mesa.trim()}`
           : tipoEntrega === "delivery"
             ? `Entrega: Delivery\nDirección: ${direccion.trim()}`
-            : tipoEntrega === "retiro"
-              ? "Entrega: Retiro en el local"
-              : "";
+            : tipoEntrega === "envio"
+              ? `Entrega: Envío por correo\nDirección: ${direccion.trim()}`
+              : tipoEntrega === "retiro"
+                ? "Entrega: Retiro en el local"
+                : tipoEntrega === "mostrador"
+                  ? "Entrega: En el mostrador"
+                  : "";
+      const cuandoTxt = programar && cuando && sePuedeProgramar(tipoEntrega)
+        ? `Para: ${new Date(`${cuando}:00-03:00`).toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}\n`
+        : "";
 
       const msg =
         `*Nuevo pedido — ${config?.nombre || "Menú"}*\n` +
         `Cliente: ${cliente.trim()}\n` +
         (telefono.trim() ? `Tel: ${telefono.trim()}\n` : "") +
         (entregaTxt ? entregaTxt + "\n" : "") +
+        cuandoTxt +
         `\n${lineasMsg}\n\n*Total: ${fmt(totalMsg)}*` +
         (nota.trim() ? `\n\nNota: ${nota.trim()}` : "");
 
@@ -405,7 +439,7 @@ export default function CartDrawer({
                     }}
                     className="mn-opcion min-h-[3.75rem]"
                   >
-                    <CIcon icon={op === "mesa" ? "mesa" : op === "retiro" ? "bolsa" : "moto"} size={22} />
+                    <CIcon icon={ICONO[op]} size={22} />
                     <span className="flex-1 text-base font-bold">
                       {op === "mesa" ? `${entregaLabel.mesa} · ${t("tableN", { n: mesa })}` : entregaLabel[op]}
                     </span>
@@ -422,11 +456,41 @@ export default function CartDrawer({
                   {t("tableFromQr", { n: mesa })}
                 </p>
               )}
-              {tipo === "delivery" && (
+              {(tipo === "delivery" || tipo === "envio") && (
                 <label className="mt-5 block">
-                  <span className="mn-field-label">{t("deliveryAddress")}</span>
-                  <textarea value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder={t("addressPlaceholder")} rows={3} className="mn-field" />
+                  <span className="mn-field-label">{tipo === "envio" ? t("shippingAddress") : t("deliveryAddress")}</span>
+                  <textarea value={direccion} autoComplete="street-address" onChange={(e) => setDireccion(e.target.value)}
+                    placeholder={tipo === "envio" ? t("shippingAddressPlaceholder") : t("addressPlaceholder")} rows={3} className="mn-field" />
                 </label>
+              )}
+              {tipo === "mostrador" && (
+                <p className="mt-5 rounded-[var(--r-sm)] bg-[var(--surface)] px-4 py-3 text-[15px] ring-1 ring-[var(--line)]">{t("counterHint")}</p>
+              )}
+              {puedeProgramar && (
+                <fieldset className="mt-5 min-w-0">
+                  <legend className="mn-field-label">{t("whenTitle")}</legend>
+                  <div className="mt-1 grid gap-2">
+                    {[false, true].map((prog) => (
+                      <label key={String(prog)} className="mn-opcion">
+                        <input type="radio" name="cuando" className="sr-only" checked={programar === prog}
+                          onChange={() => {
+                            setProgramar(prog);
+                            setError("");
+                          }} />
+                        <span className="mn-marca" aria-hidden>{programar === prog && <span className="h-2 w-2 rounded-full bg-current" />}</span>
+                        <span className="flex-1 text-[15px] font-semibold">{prog ? t("whenLater") : t("whenAsap")}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {programar && (
+                    <label className="mt-3 block">
+                      <span className="mn-field-label">{t("whenDateTime")}</span>
+                      <input type="datetime-local" className="mn-field" value={cuando} min={minimoProgramado()}
+                        aria-describedby="cuando-ayuda" onChange={(e) => setCuando(e.target.value)} />
+                      <span id="cuando-ayuda" className="mt-1 block text-[13px] text-[var(--fg-2)]">{t("whenHint")}</span>
+                    </label>
+                  )}
+                </fieldset>
               )}
               {requierePhone && (
                 <label className="mt-5 block">

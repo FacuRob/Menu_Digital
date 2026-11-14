@@ -82,6 +82,8 @@ const TIPO: Record<TipoEntrega, { key: string; color: string }> = {
   mesa: { key: "pedTable", color: "var(--chart-1)" },
   delivery: { key: "pedDelivery", color: "var(--chart-2)" },
   retiro: { key: "pedPickup", color: "var(--chart-3)" },
+  mostrador: { key: "pedCounter", color: "var(--chart-4)" },
+  envio: { key: "pedShipping", color: "var(--chart-5)" },
 };
 
 type Dias = 7 | 30 | 90;

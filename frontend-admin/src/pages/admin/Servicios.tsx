@@ -35,7 +35,7 @@ const VACIO: Form = {
   activo: true,
   orden: 0,
 };
-const MODALIDADES: ModalidadServicio[] = ["presencial", "domicilio", "virtual"];
+const MODALIDADES: ModalidadServicio[] = ["presencial", "domicilio", "virtual", "visita"];
 
 export default function Servicios() {
   const { t } = useLang();

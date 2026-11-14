@@ -367,9 +367,11 @@ export interface Configuracion {
   modulos?: Partial<Record<string, boolean>>;
   // Link público del negocio (/menu/:slug).
   slug?: string | null;
+  // Modalidades extra: mostrador, envío por correo y programar para después.
+  modalidades?: { mostrador?: boolean; envio?: boolean; retiro_programado?: boolean; entrega_programada?: boolean } | null;
 }
 
-export type TipoEntrega = "mesa" | "retiro" | "delivery";
+export type TipoEntrega = "mesa" | "retiro" | "delivery" | "mostrador" | "envio";
 
 export interface PedidoItem {
   id?: number;

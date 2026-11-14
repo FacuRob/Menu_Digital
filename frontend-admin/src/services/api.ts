@@ -352,6 +352,7 @@ export interface Configuracion {
   horarios_config?: HorariosConfig | null;
   // Opciones de la agenda de turnos.
   agenda?: AgendaOpciones | null;
+  modalidades?: ModalidadesEntrega | null;
   moneda?: string | null;
   // Multi-rubro (viven en `negocios`, se editan desde Configuración).
   tipo_rubro?: TipoRubro;
@@ -366,7 +367,14 @@ export interface Configuracion {
 
 export type TipoRubro = "gastronomia" | "retail" | "servicios" | "generico";
 
-export type TipoEntrega = "mesa" | "retiro" | "delivery";
+export type TipoEntrega = "mesa" | "retiro" | "delivery" | "mostrador" | "envio";
+// Modalidades extra del negocio (mostrador, envío y pedidos programados).
+export interface ModalidadesEntrega {
+  mostrador?: boolean;
+  envio?: boolean;
+  retiro_programado?: boolean;
+  entrega_programada?: boolean;
+}
 
 export interface PedidoItem {
   id?: number;
@@ -487,7 +495,7 @@ export const reservasService = {
 
 // ── Servicios ──
 export type TipoPrecio = "fijo" | "desde" | "variable";
-export type ModalidadServicio = "presencial" | "domicilio" | "virtual";
+export type ModalidadServicio = "presencial" | "domicilio" | "virtual" | "visita";
 export interface Servicio {
   id: number;
   nombre: string;
@@ -515,6 +523,8 @@ export const serviciosService = {
 };
 
 export interface Pedido {
+  // Para cuándo lo quiere el cliente (retiro o entrega programada).
+  programado_para?: string | null;
   id: number;
   mesa: string | null;
   cliente: string | null;

@@ -51,12 +51,19 @@ const TIPOS: {
   { key: "mesa", labelKey: "pedTable", Icon: IconUtensils, color: "var(--info)" },
   { key: "delivery", labelKey: "pedDelivery", Icon: IconTruck, color: "var(--accent-ink)" },
   { key: "retiro", labelKey: "pedPickup", Icon: IconBag, color: "var(--ok)" },
+  { key: "mostrador", labelKey: "pedCounter", Icon: IconBag, color: "var(--violet)" },
+  { key: "envio", labelKey: "pedShipping", Icon: IconTruck, color: "var(--teal)" },
 ];
+// Los tipos nuevos aparecen en los filtros sólo si hay pedidos de ese tipo.
+const TIPOS_SIEMPRE = ["todos", "mesa", "delivery", "retiro"];
+// Se "retiran" (listo para retirar) o "salen" (en camino).
+const SE_RETIRA = ["retiro", "mostrador"];
+const SALE = ["delivery", "envio"];
 
 // Icono según el tipo de entrega de un pedido.
 const IconoEntrega = ({ tipo, size = 16 }: { tipo?: string | null; size?: number }) => {
-  if (tipo === "delivery") return <IconTruck size={size} />;
-  if (tipo === "retiro") return <IconBag size={size} />;
+  if (tipo === "delivery" || tipo === "envio") return <IconTruck size={size} />;
+  if (tipo === "retiro" || tipo === "mostrador") return <IconBag size={size} />;
   return <IconUtensils size={size} />;
 };
 
@@ -362,7 +369,7 @@ export default function Pedidos() {
         <div>
           <GroupLabel color={textMuted}>{t("pedTypeOrder")}</GroupLabel>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {TIPOS.map((tp) => {
+            {TIPOS.filter((tp) => TIPOS_SIEMPRE.includes(tp.key) || tipoCount(tp.key) > 0).map((tp) => {
               const active = tipoFiltro === tp.key;
               return (
                 <button
@@ -525,7 +532,11 @@ export default function Pedidos() {
                       ? t("pedDelivery")
                       : p.tipo_entrega === "retiro"
                         ? t("pedPickupInLocal")
-                        : p.mesa
+                        : p.tipo_entrega === "mostrador"
+                          ? t("pedCounter")
+                          : p.tipo_entrega === "envio"
+                            ? t("pedShipping")
+                            : p.mesa
                           ? t("pedTableN", { n: p.mesa })
                           : t("pedOrder")}
                   </div>
@@ -534,6 +545,11 @@ export default function Pedidos() {
                     {p.cliente ? ` · ${p.cliente}` : ""}
                     {p.created_at ? ` · ${formatFechaHora(p.created_at)}` : ""}
                   </div>
+                  {p.programado_para && (
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--warn)", marginTop: 2 }}>
+                      {t("pedProgramado", { f: formatFechaHora(p.programado_para) })}
+                    </div>
+                  )}
                 </div>
                 <span
                   style={{
@@ -582,7 +598,7 @@ export default function Pedidos() {
               </div>
 
               {/* Dirección de delivery */}
-              {p.tipo_entrega === "delivery" && p.direccion_entrega && (
+              {(p.tipo_entrega === "delivery" || p.tipo_entrega === "envio") && p.direccion_entrega && (
                 <div style={{ fontSize: 12.5, color: textSecondary, marginTop: 8, display: "flex", gap: 6, alignItems: "center" }}>
                   <span style={{ display: "flex", flexShrink: 0 }}><IconPin size={14} /></span>
                   <span>{p.direccion_entrega}</span>
@@ -649,9 +665,9 @@ export default function Pedidos() {
                 )}
                 {/* Preparando → según el tipo: delivery sale "en camino", retiro
                     queda "listo para retirar"; mesa se entrega directo. */}
-                {p.estado === "preparando" && p.tipo_entrega === "delivery" && (
+                {p.estado === "preparando" && SALE.includes(p.tipo_entrega || "") && (
                   <EstadoBtn color="var(--teal)" onClick={() => cambiarEstado(p.id, "en_camino")}>
-                    🛵 {t("pedSend")}
+                    <span aria-hidden>{p.tipo_entrega === "envio" ? "📦" : "🛵"}</span> {p.tipo_entrega === "envio" ? t("pedDespachar") : t("pedSend")}
                   </EstadoBtn>
                 )}
                 {/* Mapa del repartidor: plan Estándar o Premium. */}
@@ -662,7 +678,7 @@ export default function Pedidos() {
                     📍 {t("pedCourier")}
                   </EstadoBtn>
                 )}
-                {p.estado === "preparando" && p.tipo_entrega === "retiro" && (
+                {p.estado === "preparando" && SE_RETIRA.includes(p.tipo_entrega || "") && (
                   <EstadoBtn color="var(--violet)" onClick={() => cambiarEstado(p.id, "listo")}>
                     {t("pedMarkReady")}
                   </EstadoBtn>
@@ -670,8 +686,8 @@ export default function Pedidos() {
                 {(p.estado === "listo" ||
                   p.estado === "en_camino" ||
                   (p.estado === "preparando" &&
-                    p.tipo_entrega !== "delivery" &&
-                    p.tipo_entrega !== "retiro")) && (
+                    !SALE.includes(p.tipo_entrega || "") &&
+                    !SE_RETIRA.includes(p.tipo_entrega || ""))) && (
                   <EstadoBtn color="var(--ok)" onClick={() => entregar(p)}>
                     {t("pedDeliver")}
                   </EstadoBtn>

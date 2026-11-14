@@ -6,6 +6,7 @@ const { mesaValida, normalizarMesa } = require("../utils/mesaQr");
 const { firmaValida, linkPedido } = require("../utils/linksPedido");
 const { modulosNegocio } = require("../middleware/requiereModulo");
 const { validarPersonalizacion } = require("../utils/personalizacion");
+const { tiposActivos, programable, validarProgramado } = require("../utils/entregas");
 
 // Dispara el aviso de WhatsApp en segundo plano (nunca bloquea la respuesta).
 const avisarEnSegundoPlano = (pedido, estado) => {
@@ -28,6 +29,7 @@ const createPedido = async (req, res) => {
       telefono_cliente,
       acepta_whatsapp,
       mesa_token,
+      programado_para,
     } = req.body;
 
     if (!Array.isArray(items) || items.length === 0) {
@@ -55,24 +57,41 @@ const createPedido = async (req, res) => {
     if (!modulos.entregas && tipo_entrega) {
       return res.status(400).json({ message: "Ese tipo de entrega no está disponible en este local." });
     }
+    // Tipos que el negocio acepta hoy (la misma regla que ve el checkout).
+    const activas = tiposActivos(cfg, modulos);
     if (cfg) {
-      // Sin el módulo de entregas, ninguna (pedido en mostrador).
-      const conEntregas = modulos.entregas;
-      const activas = {
-        mesa: conEntregas && !!cfg.mesas_activo && Number(cfg.mesas_cantidad) > 0,
-        retiro: conEntregas && !!cfg.retiro_activo,
-        delivery: conEntregas && !!cfg.delivery_activo,
-      };
       if (tipo_entrega && !activas[tipo_entrega]) {
         return res.status(400).json({ message: "Ese tipo de entrega no está disponible en este local." });
       }
       // Sin tipo sólo vale si el local no ofrece ninguno (pedido en mostrador).
-      if (!tipo_entrega && (activas.mesa || activas.retiro || activas.delivery)) {
-        const soloMesa = activas.mesa && !activas.retiro && !activas.delivery;
+      const algunaActiva = Object.values(activas).some(Boolean);
+      if (!tipo_entrega && algunaActiva) {
+        const soloMesa = activas.mesa && Object.entries(activas).every(([k, v]) => k === "mesa" || !v);
         return res
           .status(400)
           .json({ message: soloMesa ? MSG_QR : "Elegí cómo querés recibir tu pedido." });
       }
+    } else if (tipo_entrega === "mostrador" || tipo_entrega === "envio") {
+      return res.status(400).json({ message: "Ese tipo de entrega no está disponible en este local." });
+    }
+
+    // Envío por correo o transporte: hace falta una dirección completa.
+    if (tipo_entrega === "envio" && String(direccion_entrega || "").trim().length < 10) {
+      return res.status(400).json({ message: "Para el envío, poné la dirección completa (calle, número, ciudad y código postal)." });
+    }
+    if (tipo_entrega === "envio" && !String(telefono_cliente || "").trim()) {
+      return res.status(400).json({ message: "Para el envío, dejá un teléfono de contacto." });
+    }
+
+    // Para más tarde: sólo si el negocio lo permite para ese tipo.
+    let programado = null;
+    if (programado_para) {
+      if (!programable(cfg, tipo_entrega)) {
+        return res.status(400).json({ message: "Este local no toma pedidos programados para esa modalidad." });
+      }
+      const p = validarProgramado(programado_para, cfg);
+      if (p.error) return res.status(400).json({ message: p.error });
+      programado = p.valor;
     }
 
     // "En mesa" sólo con el QR firmado de esa mesa, y si la mesa existe hoy:
@@ -272,6 +291,8 @@ const createPedido = async (req, res) => {
       direccion_entrega: direccion_entrega || null,
       telefono_cliente: telefono_cliente || null,
       total,
+      // Sólo si se programó (así el pedido anda aunque falte la columna).
+      ...(programado ? { programado_para: programado } : {}),
     };
     const filas = itemsCalc.map(({ _opciones, ...i }) => i);
 

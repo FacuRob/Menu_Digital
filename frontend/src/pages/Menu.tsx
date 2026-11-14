@@ -375,6 +375,8 @@ const Menu = ({ general = false }: { general?: boolean }) => {
     config?.mesas_activo && (config.mesas_cantidad || 0) > 0 ? { k: "mesa", l: t("deliveryTable") } : null,
     config?.retiro_activo ? { k: "bolsa", l: t("deliveryPickup") } : null,
     config?.delivery_activo ? { k: "moto", l: t("deliveryDelivery") } : null,
+    config?.modalidades?.mostrador ? { k: "mostrador", l: t("deliveryCounter") } : null,
+    config?.modalidades?.envio ? { k: "caja", l: t("deliveryShipping") } : null,
   ].filter(Boolean) as { k: string; l: string }[];
 
   return (
@@ -825,6 +827,8 @@ const NegocioCabecera = ({ neg }: { neg: NegocioMenu }) => {
     cfg?.mesas_activo && (cfg.mesas_cantidad || 0) > 0 ? { k: "mesa", l: t("deliveryTable") } : null,
     cfg?.retiro_activo ? { k: "bolsa", l: t("deliveryPickup") } : null,
     cfg?.delivery_activo ? { k: "moto", l: t("deliveryDelivery") } : null,
+    cfg?.modalidades?.mostrador ? { k: "mostrador", l: t("deliveryCounter") } : null,
+    cfg?.modalidades?.envio ? { k: "caja", l: t("deliveryShipping") } : null,
   ].filter(Boolean) as { k: string; l: string }[];
   return (
     <div className="border-b-2 border-[var(--fg)] pb-4">

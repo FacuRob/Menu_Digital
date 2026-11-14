@@ -5,7 +5,8 @@
 // de cada venta y la hora pico salen del reloj del local, no del servidor.
 
 const TZ = "America/Argentina/Buenos_Aires";
-const TIPOS = ["mesa", "delivery", "retiro"];
+const TIPOS = ["mesa", "delivery", "retiro", "mostrador", "envio"];
+const TIPOS_SIEMPRE = ["mesa", "delivery", "retiro"];
 const ESTADOS = ["pendiente", "preparando", "listo", "en_camino", "entregado", "cancelado"];
 
 const partes = new Intl.DateTimeFormat("en-CA", {
@@ -133,7 +134,7 @@ function calcularActividad(pedidos, { dias = 30, ahora = new Date() } = {}) {
     totales,
     anterior: { ventas: r2(anterior.ventas), ganancia: r2(anterior.ganancia), pedidos: anterior.pedidos },
     serie_anterior: serieAnterior.map(r2),
-    por_tipo: TIPOS.map((t) => ({ ...porTipo[t], ventas: r2(porTipo[t].ventas) })),
+    por_tipo: TIPOS.filter((t) => TIPOS_SIEMPRE.includes(t) || porTipo[t].pedidos > 0).map((t) => ({ ...porTipo[t], ventas: r2(porTipo[t].ventas) })),
     estados,
     horas,
     hoy: { ...hoyRes, ventas: r2(hoyRes.ventas) },

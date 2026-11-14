@@ -488,6 +488,17 @@ const contactIcons: Record<string, ReactNode> = {
       <path d="M9 8V6a3 3 0 0 1 6 0v2" />
     </>
   ),
+  caja: (
+    <>
+      <path d="M21 8 12 3 3 8v8l9 5 9-5V8z" />
+      <path d="M3 8l9 5 9-5M12 13v8" />
+    </>
+  ),
+  mostrador: (
+    <>
+      <path d="M3 10h18v10H3zM3 10l2-5h14l2 5M9 20v-5h6v5" />
+    </>
+  ),
   moto: (
     <>
       <circle cx="6" cy="17" r="3" />

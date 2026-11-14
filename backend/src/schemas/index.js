@@ -175,7 +175,9 @@ const createPedidoSchema = z.object({
   mesa_token: z.string().max(64).optional().nullable(),
   cliente: z.string().trim().max(120).optional().nullable(),
   nota: z.string().trim().max(1000).optional().nullable(),
-  tipo_entrega: z.enum(["mesa", "retiro", "delivery"]).optional().nullable(),
+  tipo_entrega: z.enum(["mesa", "retiro", "delivery", "mostrador", "envio"]).optional().nullable(),
+  // Para cuándo lo quiere (retiro o entrega programada).
+  programado_para: z.string().datetime({ offset: true }).optional().nullable(),
   direccion_entrega: z.string().trim().max(300).optional().nullable(),
   telefono_cliente: z.string().trim().max(40).optional().nullable(),
   // Opt-in del cliente para recibir avisos del pedido por WhatsApp.
@@ -220,7 +222,7 @@ const servicioSchema = z
     tipo_precio: z.enum(["fijo", "desde", "variable"]).optional().default("fijo"),
     precio: z.coerce.number().min(0).max(99999999).optional().nullable(),
     duracion_min: z.coerce.number().int().min(5).max(1440).optional().nullable(),
-    modalidades: z.array(z.enum(["presencial", "domicilio", "virtual"])).min(1).max(3).optional().default(["presencial"]),
+    modalidades: z.array(z.enum(["presencial", "domicilio", "virtual", "visita"])).min(1).max(4).optional().default(["presencial"]),
     requiere_turno: z.boolean().optional().default(false),
     requiere_presupuesto: z.boolean().optional().default(false),
     activo: z.boolean().optional().default(true),

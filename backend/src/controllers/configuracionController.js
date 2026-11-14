@@ -5,6 +5,7 @@ const { avisosDisponibles } = require("../services/avisosPedidoService");
 const { sincronizarSlug } = require("../utils/slug");
 const { resolverRubro } = require("../utils/rubros");
 const { opcionesAgenda } = require("../utils/agenda");
+const { normalizarModalidades } = require("../utils/entregas");
 const { modulosDe, normalizar } = require("../utils/modulos");
 const { olvidarModulos } = require("../middleware/requiereModulo");
 
@@ -61,6 +62,7 @@ const getConfiguracion = async (req, res) => {
     const sinEntregas = esPublica && !(modulos.pedidos && modulos.entregas);
     res.json({
       ...base,
+      modalidades: sinEntregas ? normalizarModalidades(null) : normalizarModalidades(base.modalidades),
       ...(sinEntregas ? { mesas_activo: false, retiro_activo: false, delivery_activo: false } : {}),
       modulos,
       slug: negRes.data?.slug || null,
@@ -99,6 +101,7 @@ const updateConfiguracion = async (req, res) => {
       ciudad,
       provincia,
       agenda,
+      modalidades: modalidadesEntrega,
       tipo_rubro,
       rubro_categoria,
       rubro_especialidad,
@@ -158,6 +161,7 @@ const updateConfiguracion = async (req, res) => {
       ciudad,
       provincia,
       ...(agenda !== undefined ? { agenda: agenda === null ? null : opcionesAgenda(agenda) } : {}),
+      ...(modalidadesEntrega !== undefined ? { modalidades: normalizarModalidades(modalidadesEntrega) } : {}),
       updated_at: new Date().toISOString(),
     };
 

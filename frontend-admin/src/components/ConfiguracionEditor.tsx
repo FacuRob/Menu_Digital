@@ -179,7 +179,7 @@ const GRUPOS: {
         labelKey: "cfgServiceTitle",
         accent: "var(--ok)",
         Icon: IconTruck,
-        campos: ["mesas_activo", "mesas_cantidad", "retiro_activo", "delivery_activo"],
+        campos: ["mesas_activo", "mesas_cantidad", "retiro_activo", "delivery_activo", "modalidades"],
       },
       { id: "horarios", labelKey: "cfgHours", accent: "var(--info)", Icon: IconClock, campos: ["horarios", "horarios_config"] },
     ],
@@ -278,6 +278,7 @@ export default function ConfiguracionEditor({
           horarios_config: cfg.horarios_config || null,
           moneda: cfg.moneda || "ARS",
           modulos: cfg.modulos,
+          modalidades: cfg.modalidades || {},
           rubro_categoria: cfg.rubro_categoria ?? null,
           rubro_especialidad: cfg.rubro_especialidad ?? null,
           ciudad: cfg.ciudad || "",
@@ -696,6 +697,20 @@ export default function ConfiguracionEditor({
             value={form.delivery_activo}
             onChange={(v) => setForm((f) => ({ ...f, delivery_activo: v }))}
           />
+          {([
+            ["mostrador", "cfgMostrador", "cfgMostradorDesc"],
+            ["envio", "cfgEnvio", "cfgEnvioDesc"],
+            ["retiro_programado", "cfgRetiroProg", "cfgRetiroProgDesc"],
+            ["entrega_programada", "cfgEntregaProg", "cfgEntregaProgDesc"],
+          ] as const).map(([k, label, desc]) => (
+            <Toggle
+              key={k}
+              label={t(label)}
+              desc={t(desc)}
+              value={!!form.modalidades?.[k]}
+              onChange={(v) => setForm((f) => ({ ...f, modalidades: { ...(f.modalidades || {}), [k]: v } }))}
+            />
+          ))}
         </div>
       </SectionCard>
       )}
