@@ -2,39 +2,47 @@ const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 const cloudinary = require("../config/cloudinary");
-const authMiddleware = require("../middleware/authMiddleware");
+const { getNegocioId } = require("../utils/negocio");
+const { esImagen } = require("../utils/imagen");
+
+// Se monta en server.js detrás de authMiddleware + scopeNegocio: cada negocio
+// sube a su propia carpeta y sólo puede borrar lo que está en ella.
+const carpetaDe = (req) => `menu-digital/negocios/${getNegocioId(req)}`;
 
 // Multer en memoria (no guarda en disco)
-const storage = multer.memoryStorage();
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB máximo
-  fileFilter: (req, file, cb) => {
-    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    if (allowed.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Solo se permiten imágenes (jpg, png, webp, gif)"));
-    }
-  },
-});
+  fileFilter: (req, file, cb) =>
+    ["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.mimetype)
+      ? cb(null, true)
+      : cb(new Error("tipo")),
+}).single("imagen");
+
+const MSG_TIPO = "Solo se permiten imágenes (jpg, png, webp, gif)";
+const subir = (req, res, next) =>
+  upload(req, res, (err) =>
+    err
+      ? res.status(400).json({
+          message: err.code === "LIMIT_FILE_SIZE" ? "La imagen pesa más de 5 MB." : MSG_TIPO,
+        })
+      : next(),
+  );
 
 // POST /api/upload — sube imagen y devuelve la URL de Cloudinary
-router.post("/", authMiddleware, upload.single("imagen"), async (req, res) => {
+router.post("/", subir, async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "No se recibió ningún archivo" });
     }
+    // El tipo declarado no alcanza: se revisa el contenido real.
+    if (!esImagen(req.file.buffer)) {
+      return res.status(400).json({ message: MSG_TIPO });
+    }
 
-    // Subir desde buffer a Cloudinary
     const result = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
-        {
-          folder: "menu-digital/productos",
-          resource_type: "image",
-          // Sin transformation para que quede a tamaño original
-          // Cloudinary auto-optimiza si se configura en el dashboard
-        },
+        { folder: carpetaDe(req), resource_type: "image" },
         (error, result) => {
           if (error) reject(error);
           else resolve(result);
@@ -53,12 +61,17 @@ router.post("/", authMiddleware, upload.single("imagen"), async (req, res) => {
   }
 });
 
-// DELETE /api/upload — elimina una imagen de Cloudinary por public_id
-router.delete("/", authMiddleware, async (req, res) => {
+// DELETE /api/upload — elimina una imagen de Cloudinary por public_id.
+// Sólo las de la carpeta del negocio: las imágenes son públicas y su
+// public_id se ve en la URL, así que no alcanza con conocerlo.
+router.delete("/", async (req, res) => {
   try {
-    const { public_id } = req.body;
-    if (!public_id) {
+    const { public_id } = req.body || {};
+    if (!public_id || typeof public_id !== "string") {
       return res.status(400).json({ message: "Se requiere el public_id" });
+    }
+    if (!public_id.startsWith(`${carpetaDe(req)}/`) || public_id.includes("..")) {
+      return res.status(403).json({ message: "Esa imagen no es de este negocio" });
     }
 
     await cloudinary.uploader.destroy(public_id);

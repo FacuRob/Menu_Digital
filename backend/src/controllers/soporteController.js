@@ -3,6 +3,7 @@ const cloudinary = require("../config/cloudinary");
 const { respondError } = require("../utils/respondError");
 const { getAuthScope } = require("../utils/cuenta");
 const { sendSoporteAviso } = require("../services/emailService");
+const { esImagen } = require("../utils/imagen");
 
 // ══════════════════════════════════════════════════════════════
 // Soporte: los clientes reportan problemas (con capturas) y el usuario
@@ -274,6 +275,9 @@ const cambiarEstado = async (req, res) => {
 const subirImagen = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: "No se recibió ninguna imagen." });
+    if (!esImagen(req.file.buffer)) {
+      return res.status(400).json({ message: "Solo se permiten imágenes (jpg, png, webp o gif)." });
+    }
     const result = await new Promise((resolve, reject) => {
       cloudinary.uploader
         .upload_stream({ folder: CARPETA, resource_type: "image" }, (err, r) => (err ? reject(err) : resolve(r)))

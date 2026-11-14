@@ -149,6 +149,7 @@ app.get("/api/seguimiento/:id", repartoLimiter, reparto.getSeguimiento);
 app.use(
   "/api/upload",
   authMiddleware,
+  scopeNegocio, // carpeta por negocio y borrado sólo de lo propio
   checkSuscripcion,
   checkPermiso("productos"),
   uploadRoutes,

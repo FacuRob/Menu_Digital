@@ -93,52 +93,85 @@ const createPedido = async (req, res) => {
       prodsDB = Object.fromEntries(prods.map((p) => [p.id, p]));
     }
 
-    // Multi-rubro: opciones de variante elegidas. Se recalcula el precio_extra
-    // real desde la BD (scopeado al negocio vía el grupo) — nunca del cliente.
-    const opcionIds = [
-      ...new Set(
-        items
-          .flatMap((i) => (Array.isArray(i.opciones) ? i.opciones : []))
-          .filter((id) => Number.isInteger(id)),
-      ),
-    ];
-    let opcionesDB = {};
-    if (opcionIds.length > 0) {
-      const { data: ops, error: opsErr } = await supabase
-        .from("variantes_opcion")
-        .select("id, nombre, precio_extra, grupo_id, variantes_grupo!inner(negocio_id)")
-        .in("id", opcionIds)
-        .eq("variantes_grupo.negocio_id", negocioId);
-      if (opsErr) throw opsErr;
-      opcionesDB = Object.fromEntries((ops || []).map((o) => [o.id, o]));
+    // Cada ítem tiene que ser un producto real, de este negocio y disponible.
+    // Nunca se usa el precio ni el nombre que manda el cliente.
+    if (items.some((i) => !prodsDB[i.producto_id] || prodsDB[i.producto_id].disponible === false)) {
+      return res
+        .status(400)
+        .json({ message: "Algún producto ya no está disponible. Actualizá el menú y volvé a intentar." });
     }
+
+    // Variantes de los productos del pedido (scopeadas al negocio). El precio
+    // extra se toma de la BD y se valida que cada opción sea de ese producto,
+    // esté activa y con stock, y que se respeten los grupos obligatorios y
+    // los de una sola opción.
+    const hayOpciones = items.some((i) => Array.isArray(i.opciones) && i.opciones.length > 0);
+    const { data: grupos, error: grpErr } = await supabase
+      .from("variantes_grupo")
+      .select("id, producto_id, nombre, tipo, obligatorio, variantes_opcion(id, nombre, precio_extra, activo, stock)")
+      .eq("negocio_id", negocioId)
+      .in("producto_id", ids);
+    // Sin la tabla de variantes sólo se aceptan pedidos sin opciones.
+    if (grpErr && hayOpciones) throw grpErr;
+    const gruposPorProducto = {};
+    for (const g of grpErr ? [] : grupos || []) {
+      const opciones = (g.variantes_opcion || []).filter(
+        (o) => o.activo !== false && (o.stock === null || o.stock === undefined || Number(o.stock) > 0),
+      );
+      (gruposPorProducto[g.producto_id] ||= []).push({ ...g, opciones });
+    }
+
+    const errorOpciones = (i) => {
+      const elegidas = new Set(Array.isArray(i.opciones) ? i.opciones : []);
+      const gs = gruposPorProducto[i.producto_id] || [];
+      const validas = new Set(gs.flatMap((g) => g.opciones.map((o) => o.id)));
+      if ([...elegidas].some((id) => !validas.has(id))) {
+        return "Alguna opción elegida ya no está disponible. Actualizá el menú y volvé a intentar.";
+      }
+      for (const g of gs) {
+        const n = g.opciones.filter((o) => elegidas.has(o.id)).length;
+        if (g.tipo === "single" && n > 1) return `En "${g.nombre}" elegí una sola opción.`;
+        // Un grupo obligatorio sin opciones disponibles no bloquea el pedido.
+        if (g.obligatorio && g.opciones.length > 0 && n === 0) return `Elegí una opción de "${g.nombre}".`;
+      }
+      return null;
+    };
+    for (const i of items) {
+      const msg = errorOpciones(i);
+      if (msg) return res.status(400).json({ message: msg });
+    }
+
+    const opcionesDB = Object.fromEntries(
+      Object.values(gruposPorProducto)
+        .flat()
+        .flatMap((g) => g.opciones.map((o) => [o.id, o])),
+    );
 
     const itemsCalc = items.map((i) => {
       const prod = prodsDB[i.producto_id];
       // Por peso: cantidad en kg con gramos (mínimo 100 g); si no, unidades enteras.
-      const porPeso = prod?.unidad_venta === "kg";
+      const porPeso = prod.unidad_venta === "kg";
       const cantidad = porPeso
         ? Math.min(99, Math.max(0.1, Math.round((Number(i.cantidad) || 0.1) * 1000) / 1000))
         : Math.max(1, parseInt(i.cantidad, 10) || 1);
-      const base = prod ? Number(prod.precio) : Number(i.precio) || 0;
+      const base = Number(prod.precio);
 
-      // Opciones válidas de este ítem (que pertenezcan al negocio).
-      const opsSel = (Array.isArray(i.opciones) ? i.opciones : [])
-        .map((id) => opcionesDB[id])
-        .filter(Boolean);
+      const opsSel = [...new Set(Array.isArray(i.opciones) ? i.opciones : [])].map((id) => opcionesDB[id]);
       const extra = opsSel.reduce((a, o) => a + Number(o.precio_extra || 0), 0);
       const precio_unit = +(base + extra).toFixed(2);
-      const costo_unit = prod ? Number(prod.costo) : 0;
+      const costo_unit = Number(prod.costo) || 0;
 
-      const baseNombre = prod ? prod.nombre : i.nombre || "Producto";
       const nombre =
         opsSel.length > 0
-          ? `${baseNombre} (${opsSel.map((o) => o.nombre).join(", ")})`
-          : baseNombre;
+          ? `${prod.nombre} (${opsSel.map((o) => o.nombre).join(", ")})`
+          : prod.nombre;
 
       return {
-        producto_id: Number.isInteger(i.producto_id) ? i.producto_id : null,
-        nombre: nombre.slice(0, 250),
+        producto_id: prod.id,
+        // pedido_items.nombre es VARCHAR(150).
+        nombre: nombre.slice(0, 150),
+        // Uso interno (descuento de stock por opción); no se inserta.
+        _opciones: opsSel,
         precio_unit,
         costo_unit,
         cantidad,
@@ -178,27 +211,58 @@ const createPedido = async (req, res) => {
     if (pedErr) throw pedErr;
 
     // Insertar los items.
-    const itemsRows = itemsCalc.map((i) => ({ ...i, pedido_id: pedido.id }));
+    const itemsRows = itemsCalc.map(({ _opciones, ...i }) => ({ ...i, pedido_id: pedido.id }));
     const { data: itemsData, error: itemsErr } = await supabase
       .from("pedido_items")
       .insert(itemsRows)
       .select();
 
-    if (itemsErr) throw itemsErr;
+    if (itemsErr) {
+      // Sin ítems el pedido no sirve: se borra para no dejarlo vacío en el panel.
+      await supabase.from("pedidos").delete().eq("id", pedido.id).eq("negocio_id", negocioId);
+      throw itemsErr;
+    }
 
-    // Descontar stock de los productos que lo controlan.
-    await Promise.all(
-      itemsCalc.map(async (i) => {
-        const prod = prodsDB[i.producto_id];
-        if (!prod || !prod.controlar_stock) return;
-        const nuevoStock = Math.max(0, +(Number(prod.stock) - i.cantidad).toFixed(3));
-        await supabase
-          .from("productos")
-          .update({ stock: nuevoStock, updated_at: new Date().toISOString() })
-          .eq("id", prod.id)
-          .eq("negocio_id", negocioId);
+    // Descontar stock (sumando las líneas del mismo producto u opción).
+    const porProducto = {};
+    const porOpcion = {};
+    for (const i of itemsCalc) {
+      porProducto[i.producto_id] = (porProducto[i.producto_id] || 0) + i.cantidad;
+      // Stock por opción en unidades: una línea por peso descuenta 1.
+      const unidades = i.unidad === "kg" ? 1 : i.cantidad;
+      for (const o of i._opciones) {
+        if (o.stock !== null && o.stock !== undefined) porOpcion[o.id] = (porOpcion[o.id] || 0) + unidades;
+      }
+    }
+    const ahora = new Date().toISOString();
+    // shortcut: leer y escribir el stock no es atómico (dos pedidos a la vez
+    // pueden pisarse). Va a una función SQL en la Etapa 4. Un fallo acá no
+    // anula el pedido, pero queda en los logs.
+    const logStock = (r) => r?.error && console.error("[Pedidos] no se pudo descontar stock:", r.error.message);
+    await Promise.all([
+      ...Object.entries(porProducto).map(async ([id, cant]) => {
+        const prod = prodsDB[id];
+        if (!prod.controlar_stock) return;
+        const nuevoStock = Math.max(0, +(Number(prod.stock) - cant).toFixed(3));
+        logStock(
+          await supabase
+            .from("productos")
+            .update({ stock: nuevoStock, updated_at: ahora })
+            .eq("id", prod.id)
+            .eq("negocio_id", negocioId),
+        );
       }),
-    );
+      ...Object.entries(porOpcion).map(async ([id, cant]) => {
+        const o = opcionesDB[id];
+        // La opción ya se validó contra el negocio (vino de sus grupos).
+        logStock(
+          await supabase
+            .from("variantes_opcion")
+            .update({ stock: Math.max(0, Number(o.stock) - cant) })
+            .eq("id", o.id),
+        );
+      }),
+    ]);
 
     // Consentimiento para avisos por WhatsApp. Se guarda aparte para que el
     // pedido no falle si la migración db/whatsapp_avisos.sql aún no corrió.
