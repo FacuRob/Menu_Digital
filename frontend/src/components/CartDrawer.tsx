@@ -127,6 +127,9 @@ export default function CartDrawer({
       precio: l.unitPrice,
       cantidad: l.cantidad,
       opciones: l.opciones.map((o) => o.opcion_id),
+      ...(l.personalizacion.length
+        ? { personalizacion: l.personalizacion.map(({ campo_id, valor, adjunto }) => ({ campo_id, valor, adjunto })) }
+        : {}),
     })),
   });
 
@@ -212,9 +215,10 @@ export default function CartDrawer({
             ? ` (${l.opciones.map((o) => o.nombre).join(", ")})`
             : "";
         const cant = esPorPeso(l.producto) ? fmtPeso(l.cantidad) : `${l.cantidad}x`;
+        const pers = l.personalizacion.map((v) => `\n   ${v.etiqueta}: ${v.texto}`).join("");
         return `• ${cant} ${l.producto.nombre}${ops} — ${fmt(
           l.cantidad * l.unitPrice,
-        )}`;
+        )}${pers}`;
       })
       .join("\n");
     const totalMsg = total;
@@ -322,6 +326,15 @@ export default function CartDrawer({
                       </div>
                       {l.opciones.length > 0 && (
                         <p className="mt-0.5 text-[13px] leading-snug text-[var(--fg-2)]">{l.opciones.map((o) => o.nombre).join(" · ")}</p>
+                      )}
+                      {l.personalizacion.length > 0 && (
+                        <ul className="mt-0.5 grid gap-0.5">
+                          {l.personalizacion.map((v) => (
+                            <li key={v.campo_id} className="line-clamp-3 break-words text-[13px] leading-snug text-[var(--fg-2)]">
+                              {v.etiqueta}: <span className="font-semibold text-[var(--fg)]">{v.texto}</span>
+                            </li>
+                          ))}
+                        </ul>
                       )}
                       <div className="mt-2 flex items-center gap-1">
                         {/* Por peso: de a 100 g; bajar de 100 g quita la línea. */}

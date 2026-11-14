@@ -13,8 +13,8 @@
 const REGISTRO = [
   { codigo: "catalogo", nombre: "Catálogo", descripcion: "Tu página pública con lo que ofrecés.", disponible: true, fijo: true },
   { codigo: "productos", nombre: "Productos", descripcion: "Productos con precio, fotos, opciones y stock.", disponible: true, requiere: ["catalogo"] },
-  { codigo: "personalizados", nombre: "Productos personalizados", descripcion: "Campos que completa el cliente (texto, medidas, archivos).", disponible: false, requiere: ["productos"] },
-  { codigo: "servicios", nombre: "Servicios", descripcion: "Servicios con precio fijo, desde o a consultar, y duración.", disponible: false, requiere: ["catalogo"] },
+  { codigo: "personalizados", nombre: "Productos personalizados", descripcion: "Campos que completa el cliente (texto, medidas, archivos).", disponible: true, requiere: ["productos"] },
+  { codigo: "servicios", nombre: "Servicios", descripcion: "Servicios con precio fijo, desde o a consultar, y duración.", disponible: true, requiere: ["catalogo"] },
   { codigo: "pedidos", nombre: "Pedidos", descripcion: "Los clientes arman su pedido y te llega al panel.", disponible: true, requiere: ["productos"] },
   // El carrito va con los pedidos (hoy es la única forma de pedir online).
   { codigo: "carrito", nombre: "Carrito", descripcion: "Carrito de compras en tu página.", disponible: true, requiere: ["pedidos"], oculto: true },

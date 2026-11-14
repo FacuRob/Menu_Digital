@@ -24,6 +24,7 @@ import TicketModal from "../../components/TicketModal";
 import { Segmented } from "../../components/ui";
 import { useDialogos } from "../../lib/dialogos";
 import { fmtCantidad } from "../../lib/cantidad";
+import PersonalizacionItem from "../../components/PersonalizacionItem";
 
 // Formatea la fecha del servidor respetando la zona horaria del que mira.
 // Postgres guarda en UTC; si el string no trae zona, la asumimos UTC.
@@ -560,20 +561,22 @@ export default function Pedidos() {
                 }}
               >
                 {(p.items || []).map((it) => (
-                  <div
-                    key={it.id ?? `${it.nombre}-${it.cantidad}`}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      fontSize: 13,
-                      color: textSecondary,
-                    }}
-                  >
-                    <span>
-                      <strong style={{ color: textPrimary }}>{fmtCantidad(it.cantidad, it.unidad)}</strong>{" "}
-                      {it.nombre}
-                    </span>
-                    <span>{fmt(Number(it.subtotal))}</span>
+                  <div key={it.id ?? `${it.nombre}-${it.cantidad}`}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        fontSize: 13,
+                        color: textSecondary,
+                      }}
+                    >
+                      <span>
+                        <strong style={{ color: textPrimary }}>{fmtCantidad(it.cantidad, it.unidad)}</strong>{" "}
+                        {it.nombre}
+                      </span>
+                      <span>{fmt(Number(it.subtotal))}</span>
+                    </div>
+                    <PersonalizacionItem datos={it.personalizacion} />
                   </div>
                 ))}
               </div>

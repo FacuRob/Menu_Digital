@@ -12,6 +12,7 @@ import {
 } from "../../services/api";
 import AdminLayout from "../../components/AdminLayout";
 import VariantesEditor from "../../components/VariantesEditor";
+import CamposEditor from "../../components/CamposEditor";
 import { useStyles } from "../../components/sharedStyles";
 import Modal from "../../components/Modal";
 import { useNegocio } from "../../context/NegocioContext";
@@ -37,7 +38,7 @@ import {
   IconSparkle,
 } from "../../lib/icons";
 
-type ProdSeccion = "datos" | "precio" | "imagen" | "stock" | "atributos" | "opciones";
+type ProdSeccion = "datos" | "precio" | "imagen" | "stock" | "atributos" | "opciones" | "personalizacion";
 
 const IconCoin = ({ size = 16 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
@@ -74,7 +75,8 @@ type ViewMode = "lista" | "cards";
 
 export default function Productos() {
   const S = useStyles();
-  const { moneda } = useNegocio();
+  const { moneda, tieneModulo } = useNegocio();
+  const conPersonalizados = tieneModulo("personalizados");
   const { t } = useLang();
   const { avisar } = useDialogos();
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -1113,6 +1115,9 @@ export default function Productos() {
                       items: [
                         { id: "atributos", label: t("attrTitle"), accent: "var(--teal)", Icon: IconList, dirty: !!editing && JSON.stringify(atributos) !== atributosIniciales },
                         { id: "opciones", label: t("prodSecOptions"), accent: "var(--chart-5)", Icon: IconSparkle },
+                        ...(conPersonalizados
+                          ? [{ id: "personalizacion" as const, label: t("campTitle"), accent: "var(--info)", Icon: IconList }]
+                          : []),
                       ],
                     },
                   ]}
@@ -1497,6 +1502,19 @@ export default function Productos() {
                       </button>
                     </SectionCard>
                   </SeccionPanel>
+
+                  {/* ── Personalización: campos que completa el cliente ── */}
+                  {conPersonalizados && (
+                    <SeccionPanel id="personalizacion" visible={seccion === "personalizacion"}>
+                      <SectionCard accent="var(--info)" title={t("campTitle")} subtitle={t("campSub")}>
+                        {editing ? (
+                          <CamposEditor key={editing.id} productoId={editing.id} />
+                        ) : (
+                          <p style={{ margin: 0, fontSize: 13.5, color: "var(--fg-2)" }}>{t("campPrimeroGuardar")}</p>
+                        )}
+                      </SectionCard>
+                    </SeccionPanel>
+                  )}
 
                   {/* ── Variantes/opciones — solo para productos ya creados. ── */}
                   <SeccionPanel id="opciones" visible={seccion === "opciones"}>

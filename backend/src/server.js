@@ -47,10 +47,16 @@ const {
 } = require("./controllers/negociosController");
 const { keepAlive } = require("./controllers/keepAliveController");
 const { startKeepAlive } = require("./services/keepAlive");
+const { startLimpiezaAdjuntos } = require("./services/limpiezaAdjuntos");
 const { pedidosLimiter, repartoLimiter } = require("./middleware/rateLimiters");
 const reparto = require("./controllers/repartoController");
 const onboarding = require("./controllers/onboardingController");
 const { requiereModulo } = require("./middleware/requiereModulo");
+const adjuntos = require("./controllers/adjuntosController");
+const servicios = require("./controllers/serviciosController");
+const multer = require("multer");
+const { adjuntosLimiter } = require("./middleware/rateLimiters");
+const { servicioSchema } = require("./schemas");
 const { REGISTRO } = require("./utils/modulos");
 const { validate } = require("./middleware/validate");
 const { createPedidoSchema, onboardingSchema } = require("./schemas");
@@ -143,6 +149,23 @@ app.get("/api/modulos", (req, res) => {
   res.set("Cache-Control", "public, max-age=300");
   res.json(REGISTRO);
 });
+// Archivos del cliente para personalizar (privados; ver adjuntosController).
+const subidaAdjunto = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: adjuntos.MAX_MB * 1024 * 1024, files: 1 },
+}).single("archivo");
+app.post("/api/adjuntos", adjuntosLimiter, (req, res, next) =>
+  subidaAdjunto(req, res, (err) =>
+    err
+      ? res.status(400).json({
+          message: err.code === "LIMIT_FILE_SIZE" ? `El archivo pesa más de ${adjuntos.MAX_MB} MB.` : "No se pudo leer el archivo.",
+        })
+      : next(),
+  ),
+  adjuntos.subirAdjunto,
+);
+// Servicios activos del negocio (menú público).
+app.get("/api/servicios/disponibles", servicios.getServiciosDisponibles);
 app.post("/api/pedidos", pedidosLimiter, validate(createPedidoSchema), createPedido);
 // Ticket de un pedido (link firmado que llega por WhatsApp).
 app.get("/api/tickets/:id", getTicketPublico);
@@ -205,6 +228,15 @@ app.use(
   configuracionRoutes,
 );
 // Firmas de los QR por mesa (pantalla "Código QR" del panel).
+// Adjuntos de pedidos: link firmado que vence (quien atiende pedidos).
+app.get("/api/adjuntos/:id", authMiddleware, scopeNegocio, checkSuscripcion, checkPermiso("pedidos"), adjuntos.verAdjunto);
+// Servicios del negocio (panel).
+const serviciosMw = [authMiddleware, scopeNegocio, checkSuscripcion, requiereModulo("servicios"), checkPermiso("servicios")];
+app.get("/api/servicios", ...serviciosMw, servicios.getServicios);
+app.post("/api/servicios", ...serviciosMw, validate(servicioSchema), servicios.createServicio);
+app.put("/api/servicios/:id", ...serviciosMw, validate(servicioSchema), servicios.updateServicio);
+app.delete("/api/servicios/:id", ...serviciosMw, servicios.deleteServicio);
+
 // Progreso del onboarding del negocio activo.
 app.get("/api/onboarding", authMiddleware, scopeNegocio, checkSuscripcion, checkPermiso("configuracion"), onboarding.getOnboarding);
 app.put(
@@ -297,4 +329,5 @@ app.listen(PORT, () => {
   // Keep-alive interno: mantiene despiertos Render y Supabase mientras el
   // proceso está vivo (ping a la DB + auto-llamada HTTP cada 14 min).
   startKeepAlive();
+  startLimpiezaAdjuntos();
 });

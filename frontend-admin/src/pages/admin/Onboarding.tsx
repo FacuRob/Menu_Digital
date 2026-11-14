@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import {
   categoriasService,
   configuracionService,
+  serviciosService,
   getApiErrorMessage,
   onboardingService,
   productosService,
@@ -72,6 +73,7 @@ export default function Onboarding() {
   const [agregados, setAgregados] = useState<string[]>([]);
   // Módulos que salen de lo elegido (el paso 7 depende de si hay productos).
   const [conProductos, setConProductos] = useState(true);
+  const [conServicios, setConServicios] = useState(false);
 
   const cargar = () =>
     Promise.all([
@@ -89,7 +91,10 @@ export default function Onboarding() {
       setErrorCarga(false);
       const p = ob?.onboarding?.paso;
       if (p && p >= 2 && p <= TOTAL) setPaso(p as Paso);
-      if (ob?.modulos) setConProductos(ob.modulos.productos !== false);
+      if (ob?.modulos) {
+        setConProductos(ob.modulos.productos !== false);
+        setConServicios(ob.modulos.servicios === true);
+      }
       if (ob?.onboarding?.ofrece) setOfrece(ob.onboarding.ofrece);
       if (ob?.onboarding?.funciones) setFunciones(ob.onboarding.funciones);
       setSlug(ob?.slug ?? cfg?.slug ?? null);
@@ -142,11 +147,17 @@ export default function Onboarding() {
     if (paso === 3 && rubro.rubro_categoria) await configuracionService.update(rubro);
     if (paso === 4) {
       const r = await onboardingService.update({ ofrece: ofreceSel });
-      if (r.modulos) setConProductos(r.modulos.productos !== false);
+      if (r.modulos) {
+        setConProductos(r.modulos.productos !== false);
+        setConServicios(r.modulos.servicios === true);
+      }
     }
     if (paso === 5) {
       const r = await onboardingService.update({ funciones: funcionesSel });
-      if (r.modulos) setConProductos(r.modulos.productos !== false);
+      if (r.modulos) {
+        setConProductos(r.modulos.productos !== false);
+        setConServicios(r.modulos.servicios === true);
+      }
       // Lo que ya existe se prende ya: retiro, delivery y (en gastronomía) mesa.
       await configuracionService.update({
         retiro_activo: funcionesSel.includes("retiro"),
@@ -220,17 +231,34 @@ export default function Onboarding() {
     setError("");
     setGuardando(true);
     try {
-      const cats = await categoriasService.getAll();
-      const cat = cats[0] || (await categoriasService.create({ nombre: t("obCatGeneral"), orden: 1, activo: true }));
-      await productosService.create({
-        nombre: nuevo.nombre.trim(),
-        descripcion: "",
-        precio,
-        imagen_url: null,
-        categoria_id: cat.id,
-        disponible: true,
-        orden: cantProductos + 1,
-      });
+      if (!conProductos) {
+        await serviciosService.create({
+          nombre: nuevo.nombre.trim(),
+          descripcion: null,
+          imagen_url: null,
+          categoria: null,
+          tipo_precio: "fijo",
+          precio,
+          duracion_min: null,
+          modalidades: ["presencial"],
+          requiere_turno: false,
+          requiere_presupuesto: false,
+          activo: true,
+          orden: cantProductos,
+        });
+      } else {
+        const cats = await categoriasService.getAll();
+        const cat = cats[0] || (await categoriasService.create({ nombre: t("obCatGeneral"), orden: 1, activo: true }));
+        await productosService.create({
+          nombre: nuevo.nombre.trim(),
+          descripcion: "",
+          precio,
+          imagen_url: null,
+          categoria_id: cat.id,
+          disponible: true,
+          orden: cantProductos + 1,
+        });
+      }
       setAgregados((a) => [...a, nuevo.nombre.trim()]);
       setCantProductos((n) => n + 1);
       setNuevo({ nombre: "", precio: "" });
@@ -444,8 +472,8 @@ export default function Onboarding() {
       )}
 
       {/* ── 7. Catálogo ── */}
-      {paso === 7 && !conProductos && <Nota>{t("obCatalogoSinProductos")}</Nota>}
-      {paso === 7 && conProductos && (
+      {paso === 7 && !conProductos && !conServicios && <Nota>{t("obCatalogoSinProductos")}</Nota>}
+      {paso === 7 && (conProductos || conServicios) && (
         <>
           <p className="mb-4 text-[0.9375rem]">
             {cantProductos === 0 ? t("obCatalogoVacio") : cantProductos === 1 ? t("obCatalogoUno") : t("obCatalogoHay", { n: cantProductos })}
@@ -457,7 +485,7 @@ export default function Onboarding() {
               agregarProducto();
             }}
           >
-            <Campo id="ob-pnombre" label={t("obProdNombre")}>
+            <Campo id="ob-pnombre" label={conProductos ? t("obProdNombre") : t("obServNombre")}>
               <input id="ob-pnombre" className="auth-input pl-4!" value={nuevo.nombre} maxLength={150}
                 onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} />
             </Campo>

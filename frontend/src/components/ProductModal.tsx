@@ -3,6 +3,8 @@ import type { Producto, VarianteGrupo } from "../services/api";
 import type { SelectedOption } from "../hooks/useCart";
 import { fmt, neto, ProductImage, esPorPeso, fmtPeso, redondearKg, PASO_KG } from "../lib/menuUi";
 import { useLang } from "../lib/i18n";
+import CamposCliente, { type ValorCampo } from "./CamposCliente";
+import { faltanCampos } from "../lib/campos";
 
 // Estado de selección: grupo_id → set de opcion_id elegidas.
 type Sel = Record<number, number[]>;
@@ -20,6 +22,7 @@ export default function ProductModal({
     producto: Producto,
     cantidad: number,
     opciones: SelectedOption[],
+    personalizacion: ValorCampo[],
   ) => void;
   // Sin pedidos online: link para consultar al negocio (WhatsApp).
   contacto?: string | null;
@@ -85,13 +88,24 @@ export default function ProductModal({
   }, [grupos, sel]);
 
   // Faltan grupos obligatorios sin elegir → no se puede agregar.
-  const faltanObligatorios = grupos.some(
-    (g) => g.obligatorio && (sel[g.id]?.length ?? 0) === 0,
-  );
+  // Personalización (campos que completa el cliente).
+  const campos = useMemo(() => (Array.isArray(producto.campos) ? producto.campos : []), [producto]);
+  const [valores, setValores] = useState<Record<number, ValorCampo>>({});
+  const faltanVariantes = grupos.some((g) => g.obligatorio && (sel[g.id]?.length ?? 0) === 0);
+  const camposFaltantes = faltanCampos(campos, valores);
+  const faltanObligatorios = faltanVariantes || camposFaltantes.length > 0;
+  // Al tocar "Agregar" con campos sin completar: se marcan y se avisa cuáles.
+  const [intentos, setIntentos] = useState(0);
+  const intento = intentos > 0;
 
   const base = Number(producto.precio);
   const extra = elegidas.reduce((a, o) => a + o.precio_extra, 0);
   const unit = base + extra;
+
+  // Tras tocar "Agregar" con campos sin completar: foco al primero marcado.
+  useEffect(() => {
+    if (intentos) hojaRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+  }, [intentos]);
 
   // Escape cierra; el foco entra a la hoja y vuelve al cerrar.
   const hojaRef = useRef<HTMLDivElement>(null);
@@ -195,6 +209,11 @@ export default function ProductModal({
             </fieldset>
           ))}
 
+          {/* Personalización */}
+          {onAdd && campos.length > 0 && (
+            <CamposCliente campos={campos} valores={valores} onChange={setValores} negocioId={producto.negocio_id} marcarFaltantes={intento} />
+          )}
+
           {/* Por peso: atajos de 250 g, 500 g y 1 kg */}
           {porPeso && (
             <div className="mt-6 border-t border-[var(--line)] pt-5">
@@ -236,9 +255,14 @@ export default function ProductModal({
           )}
 
           {/* Agregar al pedido. Si faltan opciones, el aviso va aparte y legible. */}
-          {onAdd && faltanObligatorios && (
+          {onAdd && faltanVariantes && (
             <p role="status" className="mt-5 text-sm font-semibold text-[var(--fg-2)]">
               {t("chooseRequired")}
+            </p>
+          )}
+          {onAdd && !faltanVariantes && intento && camposFaltantes.length > 0 && (
+            <p role="alert" className="mt-5 text-sm font-semibold text-[var(--err)]">
+              {t("missingFields", { lista: camposFaltantes.join(", ") })}
             </p>
           )}
           {!onAdd && (
@@ -253,11 +277,15 @@ export default function ProductModal({
           <button
             type="button"
             onClick={() => {
-              if (faltanObligatorios) return;
-              onAdd(producto, cantidad, elegidas);
+              if (faltanVariantes) return;
+              if (camposFaltantes.length) {
+                setIntentos((n) => n + 1);
+                return;
+              }
+              onAdd(producto, cantidad, elegidas, campos.map((c) => valores[c.id]).filter(Boolean));
               onClose();
             }}
-            disabled={faltanObligatorios}
+            disabled={faltanVariantes}
             className={`mn-btn mn-num w-full ${faltanObligatorios ? "mt-2" : "mt-5"}`}
           >
             {`${t("addToOrder")} · ${fmt(unit * cantidad)}`}

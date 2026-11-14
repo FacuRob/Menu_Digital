@@ -12,6 +12,14 @@ function createSupabaseMock() {
     setHandler(fn) {
       handler = fn;
     },
+    // supabase.rpc(nombre, params). Si el handler no la contesta, se
+    // comporta como una función inexistente (PGRST202).
+    rpc(nombre, params) {
+      const r = handler({ table: `rpc:${nombre}`, op: "rpc", payload: params, filters: {} });
+      return Promise.resolve(
+        r && (r.data !== null || r.error) ? r : { data: null, error: { code: "PGRST202", message: "sin rpc en el mock" } },
+      );
+    },
     from(table) {
       const q = {
         table,
@@ -50,6 +58,14 @@ function createSupabaseMock() {
         },
         eq(col, val) {
           q.filters[col] = val;
+          return b;
+        },
+        lt(col, val) {
+          q.lts = { ...(q.lts || {}), [col]: val };
+          return b;
+        },
+        gte(col, val) {
+          q.gtes = { ...(q.gtes || {}), [col]: val };
           return b;
         },
         neq(col, val) {

@@ -53,4 +53,13 @@ const soporteCrearLimiter = rateLimit({
   message: { message: "Ya enviaste varios reportes. Esperá un rato o seguí en uno abierto." },
 });
 
-module.exports = { authLimiter, pedidosLimiter, repartoLimiter, soporteLimiter, soporteCrearLimiter };
+// Archivos que suben los clientes (personalización): por IP.
+const adjuntosLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Subiste muchos archivos seguidos. Esperá unos minutos." },
+});
+
+module.exports = { authLimiter, pedidosLimiter, repartoLimiter, soporteLimiter, soporteCrearLimiter, adjuntosLimiter };

@@ -5,6 +5,7 @@ const { notificarPedido } = require("../services/avisosPedidoService");
 const { mesaValida, normalizarMesa } = require("../utils/mesaQr");
 const { firmaValida, linkPedido } = require("../utils/linksPedido");
 const { modulosNegocio } = require("../middleware/requiereModulo");
+const { validarPersonalizacion } = require("../utils/personalizacion");
 
 // Dispara el aviso de WhatsApp en segundo plano (nunca bloquea la respuesta).
 const avisarEnSegundoPlano = (pedido, estado) => {
@@ -153,13 +154,57 @@ const createPedido = async (req, res) => {
       if (msg) return res.status(400).json({ message: msg });
     }
 
+    // Opciones válidas, con el nombre de su grupo (para la foto del pedido).
     const opcionesDB = Object.fromEntries(
       Object.values(gruposPorProducto)
         .flat()
-        .flatMap((g) => g.opciones.map((o) => [o.id, o])),
+        .flatMap((g) => g.opciones.map((o) => [o.id, { ...o, grupo: g.nombre }])),
     );
 
-    const itemsCalc = items.map((i) => {
+    // Personalización (módulo "personalizados"): lo que completa el cliente se
+    // valida contra los campos del producto y queda como foto en el ítem.
+    const pidePersonalizacion = items.some((i) => Array.isArray(i.personalizacion) && i.personalizacion.length > 0);
+    const camposPorProducto = {};
+    let adjuntosValidos = {};
+    if (modulos.personalizados) {
+      const { data: campos, error: cErr } = await supabase
+        .from("producto_campos")
+        .select("*")
+        .eq("negocio_id", negocioId)
+        .in("producto_id", ids);
+      // Sin la tabla (migración pendiente) sólo valen pedidos sin personalizar.
+      if (cErr && pidePersonalizacion) throw cErr;
+      for (const c of cErr ? [] : campos || []) (camposPorProducto[c.producto_id] ||= []).push(c);
+
+      const tokens = [
+        ...new Set(items.flatMap((i) => (Array.isArray(i.personalizacion) ? i.personalizacion : []).map((p) => p.adjunto).filter(Boolean))),
+      ];
+      if (tokens.length) {
+        // Archivos de ESTE negocio, sin usar y subidos en las últimas 24 h.
+        const desde = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const { data: adjs, error: aErr } = await supabase
+          .from("adjuntos")
+          .select("id, token, tipo, nombre")
+          .eq("negocio_id", negocioId)
+          .eq("usado", false)
+          .gte("created_at", desde)
+          .in("token", tokens);
+        if (aErr) throw aErr;
+        adjuntosValidos = Object.fromEntries((adjs || []).map((a) => [a.token, a]));
+      }
+    }
+    const personalizaciones = [];
+    for (const i of items) {
+      const r = validarPersonalizacion(
+        camposPorProducto[i.producto_id] || [],
+        modulos.personalizados ? i.personalizacion : [],
+        adjuntosValidos,
+      );
+      if (r.error) return res.status(400).json({ message: r.error });
+      personalizaciones.push(r);
+    }
+
+    const itemsCalc = items.map((i, idx) => {
       const prod = prodsDB[i.producto_id];
       // Por peso: cantidad en kg con gramos (mínimo 100 g); si no, unidades enteras.
       const porPeso = prod.unidad_venta === "kg";
@@ -189,6 +234,11 @@ const createPedido = async (req, res) => {
         cantidad,
         subtotal: +(precio_unit * cantidad).toFixed(2),
         ...(porPeso ? { unidad: "kg" } : {}),
+        // Foto histórica: lo que eligió y completó el cliente, tal cual.
+        opciones: opsSel.length
+          ? opsSel.map((o) => ({ grupo: o.grupo, opcion: o.nombre, precio_extra: Number(o.precio_extra || 0) }))
+          : null,
+        personalizacion: personalizaciones[idx].snapshot,
       };
     });
 
@@ -201,41 +251,7 @@ const createPedido = async (req, res) => {
 
     const total = +itemsCalc.reduce((acc, i) => acc + i.subtotal, 0).toFixed(2);
 
-    // Insertar el pedido.
-    const { data: pedido, error: pedErr } = await supabase
-      .from("pedidos")
-      .insert([
-        {
-          negocio_id: negocioId,
-          mesa: mesaFinal,
-          cliente: cliente || null,
-          nota: nota || null,
-          tipo_entrega: tipo_entrega || null,
-          direccion_entrega: direccion_entrega || null,
-          telefono_cliente: telefono_cliente || null,
-          total,
-          estado: "pendiente",
-        },
-      ])
-      .select()
-      .single();
-
-    if (pedErr) throw pedErr;
-
-    // Insertar los items.
-    const itemsRows = itemsCalc.map(({ _opciones, ...i }) => ({ ...i, pedido_id: pedido.id }));
-    const { data: itemsData, error: itemsErr } = await supabase
-      .from("pedido_items")
-      .insert(itemsRows)
-      .select();
-
-    if (itemsErr) {
-      // Sin ítems el pedido no sirve: se borra para no dejarlo vacío en el panel.
-      await supabase.from("pedidos").delete().eq("id", pedido.id).eq("negocio_id", negocioId);
-      throw itemsErr;
-    }
-
-    // Descontar stock (sumando las líneas del mismo producto u opción).
+    // Stock a descontar (sumando las líneas del mismo producto u opción).
     const porProducto = {};
     const porOpcion = {};
     for (const i of itemsCalc) {
@@ -246,35 +262,35 @@ const createPedido = async (req, res) => {
         if (o.stock !== null && o.stock !== undefined) porOpcion[o.id] = (porOpcion[o.id] || 0) + unidades;
       }
     }
-    const ahora = new Date().toISOString();
-    // shortcut: leer y escribir el stock no es atómico (dos pedidos a la vez
-    // pueden pisarse). Va a una función SQL en la Etapa 4. Un fallo acá no
-    // anula el pedido, pero queda en los logs.
-    const logStock = (r) => r?.error && console.error("[Pedidos] no se pudo descontar stock:", r.error.message);
-    await Promise.all([
-      ...Object.entries(porProducto).map(async ([id, cant]) => {
-        const prod = prodsDB[id];
-        if (!prod.controlar_stock) return;
-        const nuevoStock = Math.max(0, +(Number(prod.stock) - cant).toFixed(3));
-        logStock(
-          await supabase
-            .from("productos")
-            .update({ stock: nuevoStock, updated_at: ahora })
-            .eq("id", prod.id)
-            .eq("negocio_id", negocioId),
-        );
-      }),
-      ...Object.entries(porOpcion).map(async ([id, cant]) => {
-        const o = opcionesDB[id];
-        // La opción ya se validó contra el negocio (vino de sus grupos).
-        logStock(
-          await supabase
-            .from("variantes_opcion")
-            .update({ stock: Math.max(0, Number(o.stock) - cant) })
-            .eq("id", o.id),
-        );
-      }),
-    ]);
+
+    const pedidoBase = {
+      negocio_id: negocioId,
+      mesa: mesaFinal,
+      cliente: cliente || null,
+      nota: nota || null,
+      tipo_entrega: tipo_entrega || null,
+      direccion_entrega: direccion_entrega || null,
+      telefono_cliente: telefono_cliente || null,
+      total,
+    };
+    const filas = itemsCalc.map(({ _opciones, ...i }) => i);
+
+    // Todo en una transacción (db/catalogo_universal.sql). Si la función
+    // todavía no existe, se guarda como siempre.
+    let guardado = await guardarConRpc({
+      pedidoBase,
+      filas,
+      stock: Object.entries(porProducto)
+        .filter(([id]) => prodsDB[id].controlar_stock)
+        .map(([id, cantidad]) => ({ id: Number(id), cantidad })),
+      stockOpciones: Object.entries(porOpcion).map(([id, cantidad]) => ({ id: Number(id), cantidad })),
+      adjuntos: [...new Set(personalizaciones.flatMap((p) => p.tokens))],
+    });
+    if (!guardado) {
+      if (filas.some((i) => i.personalizacion)) throw new Error("Falta correr db/catalogo_universal.sql");
+      guardado = await guardarSinRpc({ pedidoBase, filas, porProducto, porOpcion, prodsDB, opcionesDB, negocioId });
+    }
+    const { pedido, items: itemsData } = guardado;
 
     // Consentimiento para avisos por WhatsApp. Se guarda aparte para que el
     // pedido no falle si la migración db/whatsapp_avisos.sql aún no corrió.
@@ -291,9 +307,80 @@ const createPedido = async (req, res) => {
 
     res.status(201).json({ ...pedido, items: sinCosto(itemsData) });
   } catch (error) {
+    if (error.status === 400) return res.status(400).json({ message: error.message });
     return respondError(res, error, "pedidos");
   }
 };
+
+// Pedido + ítems + stock + adjuntos en una transacción. null si la función
+// todavía no existe en la base (migración pendiente).
+async function guardarConRpc({ pedidoBase, filas, stock, stockOpciones, adjuntos }) {
+  const { data, error } = await supabase.rpc("crear_pedido", {
+    p_pedido: pedidoBase,
+    p_items: filas,
+    p_stock: stock,
+    p_stock_opciones: stockOpciones,
+    p_adjuntos: adjuntos,
+  });
+  if (error) {
+    // PGRST202: la función no existe (todavía no se corrió la migración).
+    if (error.code === "PGRST202") return null;
+    if (String(error.message || "").includes("ADJUNTO_NO_DISPONIBLE")) {
+      const e = new Error("Un archivo ya no está disponible. Subilo de nuevo.");
+      e.status = 400;
+      throw e;
+    }
+    throw error;
+  }
+  return { pedido: data.pedido, items: data.items };
+}
+
+// Camino anterior (sin la función SQL): no es atómico, pero si fallan los
+// ítems se borra el pedido para no dejarlo vacío.
+async function guardarSinRpc({ pedidoBase, filas, porProducto, porOpcion, prodsDB, opcionesDB, negocioId }) {
+  const { data: pedido, error: pedErr } = await supabase
+    .from("pedidos")
+    .insert([{ ...pedidoBase, estado: "pendiente" }])
+    .select()
+    .single();
+  if (pedErr) throw pedErr;
+
+  // Sin la migración no existen las columnas de la foto histórica.
+  const itemsRows = filas.map(({ opciones, personalizacion, ...i }) => ({ ...i, pedido_id: pedido.id }));
+  const { data: itemsData, error: itemsErr } = await supabase.from("pedido_items").insert(itemsRows).select();
+  if (itemsErr) {
+    await supabase.from("pedidos").delete().eq("id", pedido.id).eq("negocio_id", negocioId);
+    throw itemsErr;
+  }
+
+  const ahora = new Date().toISOString();
+  const logStock = (r) => r?.error && console.error("[Pedidos] no se pudo descontar stock:", r.error.message);
+  await Promise.all([
+    ...Object.entries(porProducto).map(async ([id, cant]) => {
+      const prod = prodsDB[id];
+      if (!prod.controlar_stock) return;
+      const nuevoStock = Math.max(0, +(Number(prod.stock) - cant).toFixed(3));
+      logStock(
+        await supabase
+          .from("productos")
+          .update({ stock: nuevoStock, updated_at: ahora })
+          .eq("id", prod.id)
+          .eq("negocio_id", negocioId),
+      );
+    }),
+    ...Object.entries(porOpcion).map(async ([id, cant]) => {
+      const o = opcionesDB[id];
+      // La opción ya se validó contra el negocio (vino de sus grupos).
+      logStock(
+        await supabase
+          .from("variantes_opcion")
+          .update({ stock: Math.max(0, Number(o.stock) - cant) })
+          .eq("id", o.id),
+      );
+    }),
+  ]);
+  return { pedido, items: itemsData };
+}
 
 // El costo de cada ítem es información privada del negocio: solo se usa en
 // las analíticas del Dashboard, nunca se envía en las respuestas de pedidos.

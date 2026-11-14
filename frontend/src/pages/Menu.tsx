@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import {
   productosService,
+  serviciosService,
   categoriasService,
   configuracionService,
   negociosPublicoService,
@@ -9,6 +10,7 @@ import {
 } from "../services/api";
 import type {
   Producto,
+  Servicio,
   Categoria,
   Configuracion,
   NegocioPublico,
@@ -29,6 +31,7 @@ import {
 } from "../lib/menuUi";
 import ProductModal from "../components/ProductModal";
 import CartDrawer from "../components/CartDrawer";
+import type { ValorCampo } from "../components/CamposCliente";
 import { useLang, LangSelector, MULTI_IDIOMA } from "../lib/i18n";
 import "@fontsource-variable/archivo/wdth.css";
 import "../components/menu/menu.css";
@@ -95,7 +98,9 @@ const Menu = ({ general = false }: { general?: boolean }) => {
     prod: Producto;
     qty: number;
     opciones: SelectedOption[];
+    personalizacion: ValorCampo[];
   } | null>(null);
+  const [servicios, setServicios] = useState<Servicio[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [search, setSearch] = useState("");
@@ -191,12 +196,14 @@ const Menu = ({ general = false }: { general?: boolean }) => {
           }
         }
 
-        const [p, c, cfg] = await Promise.all([
+        const [p, c, cfg, sv] = await Promise.all([
           productosService.getDisponibles(),
           categoriasService.getActivas(),
           configuracionService.get().catch(() => null),
+          serviciosService.getDisponibles().catch(() => []),
         ]);
         setProductos(Array.isArray(p) ? p : []);
+        setServicios(Array.isArray(sv) ? sv : []);
         setCategorias(Array.isArray(c) ? c : []);
         setConfig(cfg);
         setMonedaMenu(cfg?.moneda); // moneda del negocio para el formato de precios
@@ -264,28 +271,33 @@ const Menu = ({ general = false }: { general?: boolean }) => {
   // de otro negocio, se pregunta antes de vaciarlo.
   // El negocio del pedido sale de lo que ya hay en el carrito.
   const cartNeg = cart.lines[0]?.producto.negocio_id ?? null;
-  const agregar = (prod: Producto, qty: number, opciones: SelectedOption[] = []) => {
+  const agregar = (prod: Producto, qty: number, opciones: SelectedOption[] = [], personalizacion: ValorCampo[] = []) => {
     if (general) {
       const neg = prod.negocio_id ?? null;
       if (cart.count > 0 && neg !== cartNeg) {
-        setCambio({ prod, qty, opciones });
+        setCambio({ prod, qty, opciones, personalizacion });
         return;
       }
       if (neg !== null) setNegocioActivo(neg); // el pedido se crea en ese negocio
     }
-    cart.add(prod, qty, opciones);
+    cart.add(prod, qty, opciones, personalizacion);
   };
   const confirmarCambio = () => {
     if (!cambio) return;
     cart.clear();
     if (cambio.prod.negocio_id != null) setNegocioActivo(cambio.prod.negocio_id);
-    cart.add(cambio.prod, cambio.qty, cambio.opciones);
+    cart.add(cambio.prod, cambio.qty, cambio.opciones, cambio.personalizacion);
     setCambio(null);
   };
   const negNombre = (id: number | null | undefined) => {
     const n = negocios.find((x) => x.id === id);
     return n?.config?.nombre || n?.nombre || "";
   };
+  // Servicios (sólo en el menú de un negocio), filtrados por la búsqueda.
+  const serviciosVisibles = general
+    ? []
+    : servicios.filter((s) => !q || s.nombre.toLowerCase().includes(q) || (s.descripcion || "").toLowerCase().includes(q));
+
   // ¿Toma pedidos online? (módulo "pedidos"). En el menú general, cada
   // negocio decide por sí mismo.
   const tomaPedidos = (negId?: number | null) => {
@@ -533,7 +545,7 @@ const Menu = ({ general = false }: { general?: boolean }) => {
 
       {/* ══ Productos ══ */}
       <main className="mx-auto max-w-6xl px-4 pt-8 sm:px-6">
-        {secciones.length === 0 ? (
+        {secciones.length === 0 && serviciosVisibles.length === 0 ? (
           q ? (
             <div className="py-20 text-center">
               <p className="mn-display text-2xl">{t("noResults")}</p>
@@ -574,7 +586,7 @@ const Menu = ({ general = false }: { general?: boolean }) => {
                             titulo="h4"
                             onOpen={() => setModalProd(prod)}
                             onAdd={!tomaPedidos(prod.negocio_id) ? undefined : () => {
-                              if ((prod.variantes && prod.variantes.length > 0) || esPorPeso(prod)) {
+                              if ((prod.variantes && prod.variantes.length > 0) || prod.campos?.length || esPorPeso(prod)) {
                                 setModalProd(prod);
                               } else {
                                 agregar(prod, 1);
@@ -612,7 +624,7 @@ const Menu = ({ general = false }: { general?: boolean }) => {
                       onOpen={() => setModalProd(prod)}
                       onAdd={!tomaPedidos() ? undefined : () => {
                         // Con variantes o por peso hay que elegir algo → abrir el modal.
-                        if ((prod.variantes && prod.variantes.length > 0) || esPorPeso(prod)) {
+                        if ((prod.variantes && prod.variantes.length > 0) || prod.campos?.length || esPorPeso(prod)) {
                           setModalProd(prod);
                         } else {
                           agregar(prod, 1);
@@ -624,6 +636,50 @@ const Menu = ({ general = false }: { general?: boolean }) => {
               </section>
             ))}
           </div>
+        )}
+        {serviciosVisibles.length > 0 && (
+          <section aria-labelledby="servicios" className={secciones.length ? "mt-12" : ""}>
+            <h2 id="servicios" className="mb-4 flex items-baseline gap-3">
+              <span className="mn-display text-[clamp(1.75rem,6vw,2.5rem)]">{t("services")}</span>
+              <span className="mn-num text-sm font-semibold text-[var(--fg-2)]" aria-hidden>{serviciosVisibles.length}</span>
+            </h2>
+            <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {serviciosVisibles.map((s) => (
+                <li key={s.id} className="mn-card relative flex-col !items-stretch gap-2 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="text-[16px] font-semibold leading-snug">{s.nombre}</h3>
+                    <span className="mn-num shrink-0 text-[16px] font-extrabold">
+                      {s.tipo_precio === "variable"
+                        ? t("priceAsk")
+                        : s.tipo_precio === "desde"
+                          ? t("priceFrom", { p: fmt(Number(s.precio)) })
+                          : fmt(Number(s.precio))}
+                    </span>
+                  </div>
+                  {s.descripcion && <p className="text-[13px] leading-snug text-[var(--fg-2)]">{s.descripcion}</p>}
+                  <p className="text-[13px] text-[var(--fg-2)]">
+                    {[s.duracion_min ? t("minutes", { n: s.duracion_min }) : null, ...s.modalidades.map((m: string) => t(`mod_${m}`))]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                  {(config?.whatsapp || config?.telefono) && (
+                    <a
+                      href={`${waLink(config)}?text=${encodeURIComponent(t("askServiceMsg", { s: s.nombre }))}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mn-btn mn-btn-borde mt-1 w-full"
+                      aria-label={`${t("askService")}: ${s.nombre}`}
+                    >
+                      {t("askService")}
+                    </a>
+                  )}
+                  {!(config?.whatsapp || config?.telefono) && (
+                    <p className="text-[13px] font-semibold text-[var(--fg-2)]">{t("askInPlace")}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
       </main>
 
@@ -707,7 +763,7 @@ const Menu = ({ general = false }: { general?: boolean }) => {
         <ProductModal
           producto={modalProd}
           onClose={() => setModalProd(null)}
-          onAdd={tomaPedidos(modalProd.negocio_id) ? (p, cantidad, opciones) => agregar(p, cantidad, opciones) : undefined}
+          onAdd={tomaPedidos(modalProd.negocio_id) ? (p, cantidad, opciones, pers) => agregar(p, cantidad, opciones, pers) : undefined}
           contacto={(() => {
             const cfg = general ? negocios.find((n) => n.id === modalProd.negocio_id)?.config ?? null : config;
             return cfg?.whatsapp || cfg?.telefono ? waLink(cfg) : null;

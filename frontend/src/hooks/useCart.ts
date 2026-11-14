@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import type { Producto } from "../services/api";
 import { esPorPeso, redondearKg } from "../lib/menuUi";
+import type { ValorCampo } from "../components/CamposCliente";
 
 // Una opción de variante elegida por el cliente (talle, color, extra…).
 export interface SelectedOption {
@@ -16,33 +17,39 @@ export interface CartLine {
   producto: Producto;
   cantidad: number; // en kg si el producto se vende por peso
   opciones: SelectedOption[];
+  // Lo que completó el cliente (si el producto se personaliza).
+  personalizacion: ValorCampo[];
   unitPrice: number; // precio base + extras de las opciones
 }
 export type Cart = Record<string, CartLine>;
 
 // Clave estable para una línea: mismo producto + mismas opciones = misma línea.
-export function lineKey(productoId: number, opciones: SelectedOption[]): string {
+// Con personalización distinta (otro nombre a grabar, otro archivo) es otra línea.
+export function lineKey(productoId: number, opciones: SelectedOption[], personalizacion: ValorCampo[] = []): string {
   const ids = opciones
     .map((o) => o.opcion_id)
     .sort((a, b) => a - b)
     .join("-");
-  return ids ? `${productoId}::${ids}` : `${productoId}`;
+  const base = ids ? `${productoId}::${ids}` : `${productoId}`;
+  if (!personalizacion.length) return base;
+  const p = personalizacion.map((v) => [v.campo_id, v.valor ?? null, v.adjunto ?? null]);
+  return `${base}::${JSON.stringify(p)}`;
 }
 
 export function useCart() {
   const [cart, setCart] = useState<Cart>({});
 
   const add = useCallback(
-    (producto: Producto, qty = 1, opciones: SelectedOption[] = []) => {
+    (producto: Producto, qty = 1, opciones: SelectedOption[] = [], personalizacion: ValorCampo[] = []) => {
       const unitPrice =
         Number(producto.precio) +
         opciones.reduce((a, o) => a + Number(o.precio_extra || 0), 0);
-      const key = lineKey(producto.id, opciones);
+      const key = lineKey(producto.id, opciones, personalizacion);
       setCart((c) => {
         const prev = c[key]?.cantidad ?? 0;
         return {
           ...c,
-          [key]: { key, producto, cantidad: redondearKg(prev + qty), opciones, unitPrice },
+          [key]: { key, producto, cantidad: redondearKg(prev + qty), opciones, personalizacion, unitPrice },
         };
       });
     },

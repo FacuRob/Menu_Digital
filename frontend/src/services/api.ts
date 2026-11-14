@@ -76,6 +76,37 @@ export interface VarianteOpcion {
   precio_extra: number;
   stock?: number | null;
 }
+// Campo que completa el cliente para personalizar un producto.
+export interface CampoProducto {
+  id: number;
+  tipo: "texto" | "texto_largo" | "numero" | "opcion" | "multiple" | "color" | "archivo";
+  etiqueta: string;
+  ayuda?: string | null;
+  opciones: string[];
+  obligatorio: boolean;
+  orden: number;
+  validaciones: { max_largo?: number; min?: number; max?: number; tipos?: ("imagen" | "pdf" | "3d")[] };
+}
+
+// Servicio del negocio (corte, instalación, consultoría…).
+export interface Servicio {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+  imagen_url: string | null;
+  categoria: string | null;
+  tipo_precio: "fijo" | "desde" | "variable";
+  precio: number | null;
+  duracion_min: number | null;
+  modalidades: ("presencial" | "domicilio" | "virtual")[];
+  requiere_turno: boolean;
+  requiere_presupuesto: boolean;
+}
+
+// Mensaje de error del backend (o el de respaldo).
+export const getErrorMessage = (e: unknown, respaldo: string) =>
+  (e as { response?: { data?: { message?: string } } })?.response?.data?.message || respaldo;
+
 export interface VarianteGrupo {
   id: number;
   nombre: string;
@@ -104,6 +135,8 @@ export interface Producto {
   sku?: string | null;
   atributos?: Record<string, unknown>;
   variantes?: VarianteGrupo[];
+  // Campos de personalización (si el negocio personaliza productos).
+  campos?: CampoProducto[];
   created_at?: string;
   updated_at?: string;
 }
@@ -189,6 +222,25 @@ export const productosService = {
     p: Omit<Producto, "id" | "created_at" | "updated_at" | "categoria_nombre">,
   ) => (await api.put<Producto>(`/productos/${id}`, p)).data,
   delete: async (id: number) => (await api.delete(`/productos/${id}`)).data,
+};
+
+export const serviciosService = {
+  getDisponibles: async (negocio?: number) =>
+    (await api.get<Servicio[]>("/servicios/disponibles", delNegocio(negocio))).data,
+};
+
+// Archivos del cliente para personalizar (quedan privados para el negocio).
+export const adjuntosService = {
+  subir: async (archivo: File, negocio?: number) => {
+    const fd = new FormData();
+    fd.append("archivo", archivo);
+    return (
+      await api.post<{ token: string; nombre: string; tipo: string }>("/adjuntos", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+        ...delNegocio(negocio),
+      })
+    ).data;
+  },
 };
 
 export const uploadService = {
@@ -293,6 +345,8 @@ export interface NuevoPedidoItem {
   precio: number;
   cantidad: number;
   opciones?: number[]; // ids de opciones de variante elegidas
+  // Personalización: valor por campo (o el token del archivo subido).
+  personalizacion?: { campo_id: number; valor?: string | number | string[] | null; adjunto?: string }[];
 }
 
 export const configuracionService = {

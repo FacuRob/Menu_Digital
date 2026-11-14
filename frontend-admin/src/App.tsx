@@ -17,6 +17,7 @@ const CambiarPassword = lazy(() => import("./pages/admin/CambiarPassword"));
 const Onboarding = lazy(() => import("./pages/admin/Onboarding"));
 const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
 const Categorias = lazy(() => import("./pages/admin/Categorias"));
+const Servicios = lazy(() => import("./pages/admin/Servicios"));
 const Productos = lazy(() => import("./pages/admin/Productos"));
 const QRCode = lazy(() => import("./pages/admin/QRCode"));
 const Usuarios = lazy(() => import("./pages/admin/Usuarios"));
@@ -123,6 +124,14 @@ function App() {
               element={
                 <ProtectedRoute permiso="categorias" modulo="productos">
                   <Categorias />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/servicios"
+              element={
+                <ProtectedRoute permiso="servicios" modulo="servicios">
+                  <Servicios />
                 </ProtectedRoute>
               }
             />

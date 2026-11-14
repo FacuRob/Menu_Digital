@@ -33,6 +33,8 @@ const I = {
     </Ico>
   ),
   categorias: <Ico d="M4 6h16M4 12h16M4 18h10" />,
+  // Llave: servicios (trabajos que hace el negocio).
+  servicios: <Ico d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 0 0 5.4-5.4l-2.3 2.3-2-2 2.3-2.3z" />,
   productos: (
     <Ico>
       <path d="M20 7H4a1 1 0 00-1 1v10a1 1 0 001 1h16a1 1 0 001-1V8a1 1 0 00-1-1z" />
@@ -153,6 +155,7 @@ const NAV: ItemNav[] = [
   { permiso: "pedidos", ruta: "/admin/chats", labelKey: "navChats", icon: I.chats },
   { permiso: "productos", ruta: "/admin/productos", labelKey: "navProductos", icon: I.productos, modulo: "productos" },
   { permiso: "categorias", ruta: "/admin/categorias", labelKey: "navCategorias", icon: I.categorias, modulo: "productos" },
+  { permiso: "servicios", ruta: "/admin/servicios", labelKey: "navServicios", icon: I.servicios, modulo: "servicios" },
   { permiso: "qr", ruta: "/admin/qr", labelKey: "navQr", icon: I.qr },
   { permiso: "configuracion", ruta: "/admin/whatsapp", labelKey: "navWhatsapp", icon: I.whatsapp },
   { permiso: "usuarios", ruta: "/admin/usuarios", labelKey: "navUsuarios", icon: I.usuarios },

@@ -149,6 +149,20 @@ const pedidoItemSchema = z.object({
   // Ids de opciones de variante elegidas (multi-rubro). El backend
   // recalcula el precio_extra real desde la BD; no se confía en el cliente.
   opciones: z.array(z.coerce.number().int().positive()).max(30).optional(),
+  // Personalización: valores por campo. El backend los valida contra los
+  // campos reales del producto (utils/personalizacion.js).
+  personalizacion: z
+    .array(
+      z.object({
+        campo_id: z.number().int().positive(),
+        valor: z
+          .union([z.string().max(1000), z.number(), z.array(z.string().max(100)).max(30), z.null()])
+          .optional(),
+        adjunto: z.string().regex(/^[a-f0-9]{48}$/).optional(),
+      }),
+    )
+    .max(20)
+    .optional(),
 });
 
 const createPedidoSchema = z.object({
@@ -167,6 +181,55 @@ const createPedidoSchema = z.object({
   // Opt-in del cliente para recibir avisos del pedido por WhatsApp.
   acepta_whatsapp: z.boolean().optional(),
 });
+
+// ── Campos de personalización de un producto ─────────────────
+const { TIPOS, TIPOS_ARCHIVO } = require("../utils/personalizacion");
+const campoSchema = z
+  .object({
+    id: z.number().int().positive().optional(), // campo que ya existe
+    tipo: z.enum(TIPOS),
+    etiqueta: z.string().trim().min(1, "Cada campo necesita una etiqueta").max(80),
+    ayuda: z.string().trim().max(200).optional().nullable(),
+    opciones: z.array(z.string().trim().min(1).max(60)).max(30).optional().default([]),
+    obligatorio: z.boolean().optional().default(false),
+    validaciones: z
+      .object({
+        max_largo: z.number().int().min(1).max(1000).optional(),
+        min: z.number().optional(),
+        max: z.number().optional(),
+        tipos: z.array(z.enum(TIPOS_ARCHIVO)).max(3).optional(),
+      })
+      .refine((v) => v.min === undefined || v.max === undefined || v.min <= v.max, {
+        message: "El mínimo no puede ser mayor que el máximo",
+      })
+      .optional()
+      .default({}),
+  })
+  .refine((c) => !["opcion", "multiple"].includes(c.tipo) || c.opciones.length > 0, {
+    message: "Las listas de opciones necesitan al menos una opción",
+  });
+const camposSchema = z.object({ campos: z.array(campoSchema).max(20) });
+
+// ── Servicios ────────────────────────────────────────────────
+const servicioSchema = z
+  .object({
+    nombre: z.string().trim().min(1, "El nombre es requerido").max(150),
+    descripcion: z.string().max(2000).optional().nullable(),
+    imagen_url: z.string().url().startsWith("https://").max(500).optional().nullable(),
+    categoria: z.string().trim().max(80).optional().nullable(),
+    tipo_precio: z.enum(["fijo", "desde", "variable"]).optional().default("fijo"),
+    precio: z.coerce.number().min(0).max(99999999).optional().nullable(),
+    duracion_min: z.coerce.number().int().min(5).max(1440).optional().nullable(),
+    modalidades: z.array(z.enum(["presencial", "domicilio", "virtual"])).min(1).max(3).optional().default(["presencial"]),
+    requiere_turno: z.boolean().optional().default(false),
+    requiere_presupuesto: z.boolean().optional().default(false),
+    activo: z.boolean().optional().default(true),
+    orden: z.coerce.number().int().min(0).max(999999).optional().default(0),
+  })
+  .refine((s) => s.tipo_precio === "variable" || (s.precio !== undefined && s.precio !== null), {
+    message: "Indicá el precio (o elegí precio a consultar)",
+    path: ["precio"],
+  });
 
 // ── Onboarding (progreso por negocio) ────────────────────────
 const { OFRECE, FUNCIONES } = require("../utils/rubros");
@@ -200,6 +263,8 @@ module.exports = {
   changeEmailSchema,
   createPedidoSchema,
   onboardingSchema,
+  camposSchema,
+  servicioSchema,
   productoSchema,
   varianteGrupoSchema,
   updateVarianteGrupoSchema,

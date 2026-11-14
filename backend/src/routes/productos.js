@@ -12,7 +12,8 @@ const {
 } = require('../controllers/productosController');
 const checkLimiteProductos = require('../middleware/checkLimiteProductos');
 const { validate } = require('../middleware/validate');
-const { productoSchema } = require('../schemas');
+const { productoSchema, camposSchema } = require('../schemas');
+const campos = require('../controllers/camposController');
 
 // Rutas públicas (para el cliente)
 router.get('/disponibles', getProductosDisponibles);
@@ -22,6 +23,9 @@ router.get('/', getProductos);
 router.get('/stock-bajo', getStockBajo);
 router.get('/categoria/:categoriaId', getProductosByCategoria);
 router.get('/:id', getProductoById);
+// Campos de personalización del producto.
+router.get('/:id/campos', campos.getCampos);
+router.put('/:id/campos', validate(camposSchema), campos.putCampos);
 router.post('/', validate(productoSchema), checkLimiteProductos, createProducto);
 router.put('/:id', validate(productoSchema), updateProducto);
 router.delete('/:id', deleteProducto);

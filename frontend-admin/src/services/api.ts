@@ -374,7 +374,67 @@ export interface PedidoItem {
   cantidad: number; // en kg si unidad = "kg"
   subtotal: number;
   unidad?: "unidad" | "kg";
+  // Foto de lo que eligió y completó el cliente (pedidos nuevos).
+  opciones?: { grupo: string; opcion: string; precio_extra: number }[] | null;
+  personalizacion?: ItemPersonalizacion[] | null;
 }
+
+// ── Personalización de productos ──
+export type TipoCampo = "texto" | "texto_largo" | "numero" | "opcion" | "multiple" | "color" | "archivo";
+export interface CampoProducto {
+  id?: number;
+  tipo: TipoCampo;
+  etiqueta: string;
+  ayuda?: string | null;
+  opciones: string[];
+  obligatorio: boolean;
+  validaciones: { max_largo?: number; min?: number; max?: number; tipos?: ("imagen" | "pdf" | "3d")[] };
+}
+export interface ItemPersonalizacion {
+  campo_id: number;
+  etiqueta: string;
+  tipo: TipoCampo;
+  valor: string | number | string[] | null;
+  adjunto?: { id: number; nombre: string };
+}
+export const camposService = {
+  get: async (productoId: number) => (await api.get<CampoProducto[]>(`/productos/${productoId}/campos`)).data,
+  put: async (productoId: number, campos: CampoProducto[]) =>
+    (await api.put<CampoProducto[]>(`/productos/${productoId}/campos`, { campos })).data,
+};
+export const adjuntosService = {
+  // Link firmado que vence a los pocos minutos.
+  ver: async (id: number) => (await api.get<{ url: string; nombre: string; tipo: string }>(`/adjuntos/${id}`)).data,
+};
+
+// ── Servicios ──
+export type TipoPrecio = "fijo" | "desde" | "variable";
+export type ModalidadServicio = "presencial" | "domicilio" | "virtual";
+export interface Servicio {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+  imagen_url: string | null;
+  categoria: string | null;
+  tipo_precio: TipoPrecio;
+  precio: number | null;
+  duracion_min: number | null;
+  modalidades: ModalidadServicio[];
+  requiere_turno: boolean;
+  requiere_presupuesto: boolean;
+  activo: boolean;
+  orden: number;
+}
+export const serviciosService = {
+  getAll: async () => (await api.get<Servicio[]>("/servicios")).data,
+  create: async (s: Omit<Servicio, "id">) => (await api.post<Servicio>("/servicios", s)).data,
+  update: async (id: number, s: Omit<Servicio, "id"> & { id?: number }) => {
+    const { id: _omit, ...datos } = s as Servicio;
+    void _omit;
+    return (await api.put<Servicio>(`/servicios/${id}`, datos)).data;
+  },
+  delete: async (id: number) => (await api.delete(`/servicios/${id}`)).data,
+};
 
 export interface Pedido {
   id: number;
