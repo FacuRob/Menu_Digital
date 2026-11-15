@@ -9,6 +9,9 @@ import { faltanCampos } from "../lib/campos";
 // Estado de selección: grupo_id → set de opcion_id elegidas.
 type Sel = Record<number, number[]>;
 
+// Opción con stock cargado y en 0: no se puede elegir (talle agotado, etc.).
+const agotada = (o: { stock?: number | null }) => o.stock !== null && o.stock !== undefined && Number(o.stock) <= 0;
+
 export default function ProductModal({
   producto,
   onClose,
@@ -38,12 +41,14 @@ export default function ProductModal({
     [producto],
   );
 
-  // Preselección: grupos single obligatorios arrancan con su primera opción.
+  // Preselección: grupos single obligatorios arrancan con su primera opción
+  // con stock.
   const [sel, setSel] = useState<Sel>(() => {
     const init: Sel = {};
     for (const g of Array.isArray(producto.variantes) ? producto.variantes : []) {
-      if (g.tipo === "single" && g.obligatorio && g.opciones[0]) {
-        init[g.id] = [g.opciones[0].id];
+      const primera = g.opciones.find((o) => !agotada(o));
+      if (g.tipo === "single" && g.obligatorio && primera) {
+        init[g.id] = [primera.id];
       } else {
         init[g.id] = [];
       }
@@ -179,14 +184,16 @@ export default function ProductModal({
               <div className="grid gap-2">
                 {g.opciones.map((op) => {
                   const checked = (sel[g.id] || []).includes(op.id);
+                  const sinStock = agotada(op);
                   return (
                     <button
                       key={op.id}
                       type="button"
                       role={g.tipo === "single" ? "radio" : "checkbox"}
                       aria-checked={checked}
+                      disabled={sinStock}
                       onClick={() => toggle(g, op.id)}
-                      className="mn-opcion"
+                      className="mn-opcion disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <span className={`mn-marca ${g.tipo === "single" ? "" : "mn-marca-cuadro"}`} aria-hidden>
                         {checked &&
@@ -199,7 +206,8 @@ export default function ProductModal({
                           ))}
                       </span>
                       <span className="flex-1 text-[15px] font-semibold">{op.nombre}</span>
-                      {Number(op.precio_extra) > 0 && (
+                      {sinStock && <span className="text-sm font-semibold text-[var(--fg-2)]">{t("noStock")}</span>}
+                      {!sinStock && Number(op.precio_extra) > 0 && (
                         <span className="mn-num text-sm font-bold text-[var(--fg-2)]">+{fmt(Number(op.precio_extra))}</span>
                       )}
                     </button>

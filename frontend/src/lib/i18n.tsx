@@ -99,6 +99,7 @@ const es: Dict = {
   quoteTitle: "¿Necesitás algo a medida?",
   quoteSub: "Contanos qué buscás, sumá fotos o archivos de referencia y te respondemos con una cotización.",
   quoteCta: "Pedir presupuesto",
+  noStock: "Sin stock",
   bookTitle: "¿Querés sacar turno?",
   bookSub: "Elegí el servicio, el día y el horario que te quede cómodo.",
   bookCta: "Ver horarios disponibles",
