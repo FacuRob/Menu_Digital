@@ -336,12 +336,12 @@ export function AdminShell() {
   };
   const { user, logout, hasPermiso, isSuperAdmin, isPlataforma, isAuthenticated } = useAuth();
   const { t } = useLang();
-  const { negocioId, negocios, slug, rubro, setNegocioId, conWhatsapp, tieneModulo } = useNegocio();
+  const { negocioId, negocios, slug, rubro, setNegocioId, conWhatsapp, tieneModulo, usaModulo } = useNegocio();
   // Avisos de pedidos y de stock: sólo si el negocio usa esos módulos.
   const avisaPedidos = hasPermiso("pedidos") && tieneModulo("pedidos");
   const avisaStock = hasPermiso("productos") && tieneModulo("productos");
-  const avisaPresupuestos = hasPermiso("presupuestos") && tieneModulo("presupuestos");
-  const avisaTurnos = hasPermiso("reservas") && tieneModulo("reservas");
+  const avisaPresupuestos = hasPermiso("presupuestos") && usaModulo("presupuestos");
+  const avisaTurnos = hasPermiso("reservas") && usaModulo("reservas");
   // Presupuestos que esperan algo del negocio y turnos por confirmar.
   const [agendaAviso, setAgendaAviso] = useState({ presupuestos: 0, turnos: 0 });
   useEffect(() => {

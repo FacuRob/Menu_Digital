@@ -21,6 +21,9 @@ interface NegocioContextType {
   // ¿El negocio activo usa este módulo? Mientras no se sabe, sí (así no
   // desaparece el menú de un restaurante mientras carga).
   tieneModulo: (codigo: string) => boolean;
+  // Igual, pero estricto: mientras no se sabe, no (para pedir datos de
+  // módulos opcionales como presupuestos o turnos sin recibir un 403).
+  usaModulo: (codigo: string) => boolean;
   // Vuelve a leer la configuración (después de guardar módulos, por ejemplo).
   recargarConfig: () => void;
   setNegocioId: (id: number) => void;
@@ -71,6 +74,7 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
   }, [isAuthenticated, negocioId, userId, versionCfg]);
 
   const tieneModulo = (codigo: string) => (modulos ? modulos[codigo] !== false : true);
+  const usaModulo = (codigo: string) => modulos?.[codigo] === true;
   const recargarConfig = () => setVersionCfg((v) => v + 1);
 
   // Qué incluye el plan (para bloquear WhatsApp, chats e IA en el Básico).
@@ -130,7 +134,7 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <NegocioContext.Provider
-      value={{ negocioId, negocios, moneda, slug, rubro, conWhatsapp, tieneModulo, recargarConfig, setNegocioId, refresh }}
+      value={{ negocioId, negocios, moneda, slug, rubro, conWhatsapp, tieneModulo, usaModulo, recargarConfig, setNegocioId, refresh }}
     >
       {children}
     </NegocioContext.Provider>

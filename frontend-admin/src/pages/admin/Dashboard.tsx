@@ -116,13 +116,13 @@ export default function Dashboard() {
   const { t, lang } = useLang();
   const locale = LOCALE[lang];
   const fmt = useCallback((n: number) => fmtMoney(n, moneda), [moneda]);
-  const { tieneModulo, rubro } = useNegocio();
+  const { tieneModulo, usaModulo, rubro } = useNegocio();
   // Las analíticas son de ventas: sin pedidos (p. ej. una peluquería) no van.
   const verAnaliticas = hasPermiso("analiticas") && tieneModulo("estadisticas") && tieneModulo("pedidos");
-  const verPresupuestos = hasPermiso("presupuestos") && tieneModulo("presupuestos");
-  const verTurnos = hasPermiso("reservas") && tieneModulo("reservas");
+  const verPresupuestos = hasPermiso("presupuestos") && usaModulo("presupuestos");
+  const verTurnos = hasPermiso("reservas") && usaModulo("reservas");
   // Números de presupuestos y turnos (últimos 30 días).
-  const verStatsAgenda = hasPermiso("analiticas") && tieneModulo("estadisticas") && (tieneModulo("presupuestos") || tieneModulo("reservas"));
+  const verStatsAgenda = hasPermiso("analiticas") && tieneModulo("estadisticas") && (usaModulo("presupuestos") || usaModulo("reservas"));
   const [statsAgenda, setStatsAgenda] = useState<StatsAgenda | null>(null);
   const [agenda, setAgenda] = useState<{ presupuestos: number | null; turnos: number | null; primera: string | null } | null>(null);
   const verPedidos = hasPermiso("pedidos") && tieneModulo("pedidos");
