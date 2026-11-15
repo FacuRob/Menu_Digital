@@ -102,7 +102,7 @@ async function guardarConfig(negocioId, { activo, estados }) {
 
 // ¿El menú debe ofrecer la casilla "avisarme por WhatsApp"?
 async function avisosDisponibles(negocioId) {
-  if (!estaConfigurado()) return false;
+  if (!(await estaConfigurado(negocioId))) return false;
   if (!(await negocioConWhatsapp(negocioId))) return false; // plan Básico
   return (await obtenerConfig(negocioId)).activo;
 }
@@ -126,7 +126,7 @@ const renderizar = (texto, params) =>
   texto.replace(/\{\{(\d+)\}\}/g, (m, n) => (params[n - 1] !== undefined ? String(params[n - 1]) : m));
 
 async function enviarYRegistrar({ negocioId, pedidoId, telefono, aviso, etiqueta, params, nombre }) {
-  const res = await enviarPlantilla(telefono, { nombre: aviso.plantilla, parametros: params });
+  const res = await enviarPlantilla(telefono, { nombre: aviso.plantilla, parametros: params }, negocioId);
   const texto = renderizar(aviso.texto, params);
   try {
     // El aviso también queda en el chat de ese cliente (Fase 2).
@@ -168,7 +168,7 @@ async function notificarPedido(pedido, estado = pedido?.estado) {
     if (!pedido.acepta_whatsapp || !pedido.telefono_cliente) {
       return { ok: false, motivo: "sin_consentimiento" };
     }
-    if (!estaConfigurado()) return { ok: false, motivo: "no_configurado" };
+    if (!(await estaConfigurado(pedido.negocio_id))) return { ok: false, motivo: "no_configurado" };
     if (!(await negocioConWhatsapp(pedido.negocio_id))) return { ok: false, motivo: "plan" };
 
     const cfg = await obtenerConfig(pedido.negocio_id);
@@ -197,7 +197,7 @@ async function notificarPedido(pedido, estado = pedido?.estado) {
 
 // Mensaje de prueba desde el panel (usa la plantilla de "pedido recibido").
 async function enviarPrueba(negocioId, telefono) {
-  if (!estaConfigurado()) return { ok: false, error: "WhatsApp no está configurado" };
+  if (!(await estaConfigurado(negocioId))) return { ok: false, error: "WhatsApp no está configurado" };
   const local = await nombreNegocio(negocioId);
   return enviarYRegistrar({
     negocioId,

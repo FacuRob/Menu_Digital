@@ -1,25 +1,20 @@
 // WhatsApp Cloud API (oficial de Meta). HTTP puro: sin QR, sin sockets,
 // funciona en Render free.
 //
-// Fase 1 (opción A): un único número de la plataforma para todos los
-// negocios, configurado por env. Más adelante (opción B) cada negocio podrá
-// conectar su número: bastará con que credenciales() devuelva las suyas.
+// Cada local envía desde su propio número si lo conectó (whatsappCuentas);
+// si no, desde el número de la plataforma (env):
 //
 //   WHATSAPP_TOKEN            token permanente (System User de Meta)
-//   WHATSAPP_PHONE_NUMBER_ID  id del número emisor
+//   WHATSAPP_PHONE_NUMBER_ID  id del número de la plataforma
 //   WHATSAPP_API_VERSION      opcional (default v21.0)
 //   WHATSAPP_DEFAULT_CC       código de país por defecto (default 54)
 
 const API_VERSION = () => process.env.WHATSAPP_API_VERSION || "v21.0";
 
-// Credenciales del número emisor (hoy, el de la plataforma).
-const credenciales = () => {
-  const token = process.env.WHATSAPP_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  return token && phoneNumberId ? { token, phoneNumberId } : null;
-};
+const { credencialesDe } = require("./whatsappCuentas");
 
-const estaConfigurado = () => !!credenciales();
+// ¿Este local puede enviar WhatsApp (con su número o el de la plataforma)?
+const estaConfigurado = async (negocioId) => !!(await credencialesDe(negocioId));
 
 // Normaliza un teléfono al formato internacional que pide WhatsApp (solo
 // dígitos, con código de país).
@@ -51,8 +46,8 @@ function normalizarTelefono(raw) {
   return `${cc}${num.replace(/^0/, "")}`;
 }
 
-async function enviarPayload(payload) {
-  const cred = credenciales();
+async function enviarPayload(payload, negocioId) {
+  const cred = await credencialesDe(negocioId);
   if (!cred) return { ok: false, error: "WhatsApp no está configurado" };
   const url = `https://graph.facebook.com/${API_VERSION()}/${cred.phoneNumberId}/messages`;
   try {
@@ -76,7 +71,7 @@ async function enviarPayload(payload) {
 
 // Plantilla aprobada por Meta: única vía para escribirle a alguien que no
 // nos escribió en las últimas 24 h (caso de los avisos de pedido).
-async function enviarPlantilla(telefono, { nombre, idioma, parametros = [] }) {
+async function enviarPlantilla(telefono, { nombre, idioma, parametros = [] }, negocioId) {
   const to = normalizarTelefono(telefono);
   if (!to) return { ok: false, error: "Teléfono inválido" };
   return enviarPayload({
@@ -93,12 +88,12 @@ async function enviarPlantilla(telefono, { nombre, idioma, parametros = [] }) {
         },
       ],
     },
-  });
+  }, negocioId);
 }
 
 // Texto libre: solo se permite dentro de las 24 h desde el último mensaje
 // que nos escribió el cliente (respuestas desde el chat del panel).
-async function enviarTexto(telefono, texto) {
+async function enviarTexto(telefono, texto, negocioId) {
   const to = normalizarTelefono(telefono);
   if (!to) return { ok: false, error: "Teléfono inválido" };
   return enviarPayload({
@@ -106,7 +101,7 @@ async function enviarTexto(telefono, texto) {
     to,
     type: "text",
     text: { body: String(texto), preview_url: false },
-  });
+  }, negocioId);
 }
 
 module.exports = { enviarPlantilla, enviarTexto, normalizarTelefono, estaConfigurado };

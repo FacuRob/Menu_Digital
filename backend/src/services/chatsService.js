@@ -1,8 +1,8 @@
 // Chats de WhatsApp (Fase 2): los mensajes que escribe el cliente llegan por
 // el webhook de Meta y se guardan acá; el negocio responde desde el panel.
 //
-// Hoy hay un único número de la plataforma para todos los negocios, así que
-// un mensaje entrante se asigna al negocio con el que ese teléfono ya habló
+// Si el mensaje llegó al número propio de un local, es de ese local. Si llegó
+// al número compartido de la plataforma, se asigna al negocio con el que ese teléfono ya habló
 // (un aviso o un chat previo), si no al del último pedido con ese teléfono y,
 // si es un número nuevo, al negocio de WHATSAPP_NEGOCIO_DEFECTO (si está).
 //
@@ -115,7 +115,8 @@ async function negocioDelTelefono(tel) {
 
 // Guarda los mensajes entrantes de un evento del webhook (`change.value`).
 // Devuelve los guardados ({ chat, mensaje }) — la Fase 3 (IA) los usará.
-async function registrarEntrantes(value) {
+// `negocioId`: el mensaje llegó al número propio de ese local.
+async function registrarEntrantes(value, { negocioId } = {}) {
   const nombres = Object.fromEntries(
     (value?.contacts || []).map((c) => [c.wa_id, c.profile?.name || null]),
   );
@@ -133,7 +134,7 @@ async function registrarEntrantes(value) {
         .maybeSingle();
       if (repetido) continue;
 
-      const destino = await negocioDelTelefono(tel);
+      const destino = negocioId ? { negocioId } : await negocioDelTelefono(tel);
       if (!destino) {
         console.warn(`[Chats] Mensaje de ${tel} sin negocio asociado (sin pedidos ni WHATSAPP_NEGOCIO_DEFECTO): se descarta.`);
         continue;
@@ -170,6 +171,49 @@ async function registrarEntrantes(value) {
     }
   }
   return guardados;
+}
+
+// Mensajes que el dueño escribió desde la app WhatsApp Business del celular
+// (coexistencia, webhook smb_message_echoes). Se guardan en el chat como
+// respuesta del local y la IA se corre a un lado, igual que al responder
+// desde el panel.
+async function registrarEcos(value, negocioId) {
+  for (const m of value?.message_echoes || []) {
+    try {
+      const tel = normalizarTelefono(m.to);
+      if (!tel || !m.id || !negocioId) continue;
+      const { data: repetido } = await supabase
+        .from("whatsapp_mensajes")
+        .select("id")
+        .eq("meta_id", m.id)
+        .maybeSingle();
+      if (repetido) continue;
+      const chat = await asegurarChat(negocioId, tel);
+      if (!chat) continue;
+      const texto = textoDeMensaje(m);
+      const fecha = m.timestamp ? new Date(Number(m.timestamp) * 1000).toISOString() : new Date().toISOString();
+      await supabase.from("whatsapp_mensajes").insert([
+        {
+          negocio_id: negocioId,
+          chat_id: chat.id,
+          telefono: tel,
+          direccion: "saliente",
+          autor: "negocio",
+          texto,
+          estado: "enviado",
+          meta_id: m.id,
+          created_at: fecha,
+        },
+      ]);
+      await tocarChat(chat, { texto, entrante: false, fecha });
+      await supabase
+        .from("whatsapp_chats")
+        .update({ necesita_humano: false, ia_pausada_hasta: new Date(Date.now() + PAUSA_IA_MS()).toISOString() })
+        .eq("id", chat.id);
+    } catch (e) {
+      console.error("[Chats] No se pudo guardar un mensaje del celular:", e.message);
+    }
+  }
 }
 
 // ── Panel ──
@@ -235,7 +279,7 @@ async function responder(negocioId, chatId, textoRaw) {
   const texto = String(textoRaw || "").trim();
   if (!texto) return { ok: false, status: 400, error: "Escribí un mensaje." };
   if (texto.length > MAX_TEXTO) return { ok: false, status: 400, error: "El mensaje es demasiado largo." };
-  if (!estaConfigurado()) return { ok: false, status: 503, error: "WhatsApp no está configurado." };
+  if (!(await estaConfigurado(negocioId))) return { ok: false, status: 503, error: "WhatsApp no está configurado." };
 
   const chat = await chatDelNegocio(negocioId, chatId);
   if (!chat) return { ok: false, status: 404, error: "Chat no encontrado." };
@@ -259,7 +303,7 @@ async function responder(negocioId, chatId, textoRaw) {
 
 // Envía un texto libre a un chat y lo registra. autor: negocio | ia.
 async function enviarSaliente(chat, texto, autor) {
-  const res = await enviarTexto(chat.telefono, texto);
+  const res = await enviarTexto(chat.telefono, texto, chat.negocio_id);
   const { data: mensaje } = await supabase
     .from("whatsapp_mensajes")
     .insert([
@@ -315,6 +359,7 @@ module.exports = {
   asegurarChat,
   tocarChat,
   registrarEntrantes,
+  registrarEcos,
   listarChats,
   resumenChats,
   mensajesDelChat,

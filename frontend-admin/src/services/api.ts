@@ -905,6 +905,8 @@ export type EstadoAviso = "pendiente" | "preparando" | "en_camino" | "listo" | "
 
 export interface AvisosWhatsapp {
   conectado: boolean;
+  // El local envía desde su propio número (si no, desde el de la plataforma).
+  numero_propio?: boolean;
   activo: boolean;
   estados: Record<EstadoAviso, boolean>;
   avisos: { estado: EstadoAviso; plantilla: string; texto: string }[];
@@ -919,6 +921,22 @@ export interface MensajeWhatsapp {
   error: string | null;
   created_at: string;
 }
+
+// Número de WhatsApp propio del local (Embedded Signup de Meta).
+export interface CuentaWhatsapp {
+  cuenta: { telefono: string | null; nombre_visible: string | null; coexistencia: boolean; conectado_at: string } | null;
+  plantillas: { nombre: string; estado: string }[] | null;
+  alta: { appId: string; configId: string; sdkVersion: string } | null;
+  plataforma: boolean;
+}
+
+export const whatsappCuentaService = {
+  get: async () => (await api.get<CuentaWhatsapp>("/whatsapp/cuenta")).data,
+  conectar: async (p: { code: string; waba_id: string; phone_number_id: string; coexistencia: boolean }) =>
+    (await api.post("/whatsapp/cuenta", p)).data,
+  recrearPlantillas: async () => (await api.post("/whatsapp/cuenta/plantillas")).data,
+  desconectar: async () => (await api.delete("/whatsapp/cuenta")).data,
+};
 
 export const whatsappService = {
   getAvisos: async () => (await api.get<AvisosWhatsapp>("/whatsapp/avisos")).data,

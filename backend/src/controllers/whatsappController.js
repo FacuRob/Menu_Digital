@@ -11,6 +11,7 @@ const {
   registrarEstadosMeta,
 } = require("../services/avisosPedidoService");
 const chats = require("../services/chatsService");
+const cuentas = require("../services/whatsappCuentas");
 const ia = require("../services/iaService");
 
 // ── Panel: configuración de avisos ─────────────────────────────
@@ -19,8 +20,10 @@ const getAvisos = async (req, res) => {
   try {
     const negocioId = getNegocioId(req);
     const cfg = await obtenerConfig(negocioId);
+    const propia = await cuentas.cuentaDeNegocio(negocioId);
     res.json({
-      conectado: estaConfigurado(),
+      conectado: await estaConfigurado(negocioId),
+      numero_propio: !!propia,
       activo: cfg.activo,
       estados: cfg.estados,
       avisos: AVISOS.map(({ estado, plantilla, texto }) => ({ estado, plantilla, texto })),
@@ -84,13 +87,76 @@ const postPrueba = async (req, res) => {
   }
 };
 
+// ── Panel: número propio del local ─────────────────────────────
+// GET /api/whatsapp/cuenta
+const getCuenta = async (req, res) => {
+  try {
+    const negocioId = getNegocioId(req);
+    const c = await cuentas.cuentaDeNegocio(negocioId);
+    let plantillas = null;
+    if (c) {
+      plantillas = await cuentas
+        .estadoPlantillas(c)
+        .then((todas) => {
+          const nuestras = new Map(todas.filter((t) => t.idioma === "es_AR").map((t) => [t.nombre, t.estado]));
+          return AVISOS.map((a) => ({ nombre: a.plantilla, estado: nuestras.get(a.plantilla) || "FALTA" }));
+        })
+        .catch((e) => {
+          console.error("[WhatsApp] No se pudieron leer las plantillas:", e.message);
+          return null;
+        });
+    }
+    res.json({
+      cuenta: cuentas.publica(c),
+      plantillas,
+      alta: cuentas.configAlta(),
+      plataforma: !!(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID),
+    });
+  } catch (error) {
+    return respondError(res, error, "whatsapp");
+  }
+};
+
+// POST /api/whatsapp/cuenta  { code, waba_id, phone_number_id, coexistencia }
+const postCuenta = async (req, res) => {
+  try {
+    const r = await cuentas.conectar(getNegocioId(req), req.body || {}, AVISOS);
+    res.json(r);
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ message: error.message });
+    console.error("[WhatsApp] Error al conectar el número:", error.message);
+    return res.status(502).json({ message: `Meta respondió: ${error.message}` });
+  }
+};
+
+// POST /api/whatsapp/cuenta/plantillas → vuelve a crear las que falten
+const postPlantillas = async (req, res) => {
+  try {
+    const c = await cuentas.cuentaDeNegocio(getNegocioId(req));
+    if (!c) return res.status(404).json({ message: "No hay un número conectado." });
+    res.json({ plantillas: await cuentas.crearPlantillas(c, AVISOS) });
+  } catch (error) {
+    return respondError(res, error, "whatsapp");
+  }
+};
+
+// DELETE /api/whatsapp/cuenta → deja de usar el número propio
+const deleteCuenta = async (req, res) => {
+  try {
+    await cuentas.desconectar(getNegocioId(req));
+    res.json({ ok: true });
+  } catch (error) {
+    return respondError(res, error, "whatsapp");
+  }
+};
+
 // ── Panel: chats (Fase 2) ──────────────────────────────────────
 // GET /api/whatsapp/chats
 const getChats = async (req, res) => {
   try {
     const negocioId = getNegocioId(req);
     const [lista, cfgIA] = await Promise.all([chats.listarChats(negocioId), ia.obtenerConfigIA(negocioId)]);
-    res.json({ conectado: estaConfigurado(), ia_activa: ia.iaConfigurada() && cfgIA.activo, chats: lista });
+    res.json({ conectado: await estaConfigurado(negocioId), ia_activa: ia.iaConfigurada() && cfgIA.activo, chats: lista });
   } catch (error) {
     return respondError(res, error, "whatsapp");
   }
@@ -216,14 +282,31 @@ const recibirWebhook = async (req, res) => {
   }
   // Meta espera un 200 rápido; se procesa después de responder.
   res.sendStatus(200);
-  const values = (payload?.entry || [])
-    .flatMap((e) => e?.changes || [])
-    .map((c) => c?.value)
-    .filter(Boolean);
-  for (const v of values) {
+  const cambios = (payload?.entry || []).flatMap((e) => e?.changes || []).filter((c) => c?.value);
+  const values = cambios.map((c) => c.value);
+  for (const { field, value: v } of cambios) {
+    // El local quitó el acceso desde Meta o desde la app.
+    if (field === "account_update" && ["PARTNER_REMOVED", "ACCOUNT_OFFBOARDED"].includes(v.event)) {
+      cuentas.marcarDesconectadaPorWaba(v.waba_info?.waba_id).catch(() => {});
+      continue;
+    }
+    // ¿Llegó al número propio de un local? Entonces el mensaje es de ese local.
+    const phoneId = v.metadata?.phone_number_id;
+    const propia = await cuentas.cuentaDePhoneId(phoneId);
+    // Llegó a un número que no es el de la plataforma ni de un local conectado
+    // (p. ej. uno que se desconectó): no se adivina el local, se descarta.
+    const dePlataforma = !phoneId || String(phoneId) === String(process.env.WHATSAPP_PHONE_NUMBER_ID || "");
+    if (!propia && !dePlataforma && (v.messages?.length || field === "smb_message_echoes")) {
+      console.warn(`[WhatsApp] Mensaje a un número sin local conectado (${phoneId}): se descarta.`);
+      continue;
+    }
+    if (field === "smb_message_echoes") {
+      if (propia) chats.registrarEcos(v, propia.negocio_id).catch((e) => console.error("[WhatsApp] ecos:", e.message));
+      continue;
+    }
     if (v.messages?.length) {
       chats
-        .registrarEntrantes(v)
+        .registrarEntrantes(v, { negocioId: propia?.negocio_id })
         // Fase 3: la IA responde (si el negocio la activó y el chat no está pausado).
         .then((guardados) => guardados.forEach((g) => ia.programarRespuesta(g.chat.id)))
         .catch((e) => console.error("[WhatsApp] entrantes:", e.message));
@@ -253,4 +336,8 @@ module.exports = {
   updateIA,
   verificarWebhook,
   recibirWebhook,
+  getCuenta,
+  postCuenta,
+  postPlantillas,
+  deleteCuenta,
 };

@@ -133,3 +133,42 @@ escribió son gratis.
 - El cliente recibe en el aviso de "en camino" el link `/seguimiento/<id>` con el mapa (OpenStreetMap), que se actualiza solo.
 - Límite: el repartidor tiene que dejar la página abierta; si la cierra o el celular bloquea el navegador, deja de mandar la ubicación (al volver a abrirla sigue).
 - Base de datos: correr `backend/db/seguimiento_delivery.sql`.
+
+## Número propio de cada local (Embedded Signup v4 + coexistencia)
+
+Cada local conecta su WhatsApp Business desde **Panel → WhatsApp → "Conectar mi WhatsApp"**. Si ya usa la app WhatsApp Business en el celular, la sigue usando (coexistencia): los mensajes se ven en los dos lados. Mientras un local no conecte su número, sus avisos salen por el número de la plataforma (`WHATSAPP_PHONE_NUMBER_ID`).
+
+Al conectar, el backend (`backend/src/services/whatsappCuentas.js`):
+1. cambia el `code` del popup por un token del negocio (vence a los 30 s),
+2. suscribe la app a la cuenta del local (`subscribed_apps`),
+3. registra el número en la Cloud API (**no** en coexistencia),
+4. crea las 6 plantillas de los avisos en la cuenta del local (Meta las revisa),
+5. guarda el token cifrado en `whatsapp_cuentas`.
+
+Los mensajes que llegan se asignan al local por el número al que llegaron (`metadata.phone_number_id`). Lo que el dueño escribe desde el celular llega como `smb_message_echoes`: se guarda en el chat y pausa la IA, igual que responder desde el panel.
+
+### Puesta en marcha (una sola vez, en Meta)
+1. Verificación del negocio aprobada (Centro de seguridad).
+2. Ser **Tech Provider**: developers.facebook.com → app DinexFlow → WhatsApp → completar el onboarding de Tech Provider.
+3. **Facebook Login for Business → Configuraciones → Crear**: variación *Embedded Signup* (v4), producto WhatsApp, permisos `whatsapp_business_management` y `whatsapp_business_messaging`. Copiar el **Configuration ID**.
+4. En Facebook Login for Business → Configuración: agregar `admin.dinexflow.com.ar` en *Allowed domains* y `https://admin.dinexflow.com.ar/` en *Valid OAuth redirect URIs*; activar *Login with the JavaScript SDK*.
+5. **App Review**: pedir *Advanced access* para `whatsapp_business_management` y `whatsapp_business_messaging` (hasta entonces sólo pueden conectar admins/testers de la app). Límite inicial: 10 locales nuevos cada 7 días.
+6. Webhook de la app: además de `messages`, suscribirse a `account_update`, `smb_message_echoes`, `history` y `smb_app_state_sync`.
+7. Base de datos: correr `backend/db/whatsapp_cuentas.sql`.
+
+### Variables en Render (backend)
+```
+META_APP_ID=              # id de la app de Meta
+WHATSAPP_ES_CONFIG_ID=    # Configuration ID del paso 3
+META_SDK_VERSION=v27.0    # opcional
+WHATSAPP_CUENTAS_KEY=     # opcional (32+ caracteres al azar); si no, deriva de JWT_SECRET
+```
+`WHATSAPP_APP_SECRET` (ya existe) también se usa para el alta.
+
+### Cobro de los mensajes
+Como Tech Provider, cada local paga sus mensajes: después de conectar tiene que cargar una tarjeta en **WhatsApp Manager → Métodos de pago** de su cuenta. Sin eso, los avisos fallan.
+
+### Límites de la coexistencia
+- 20 mensajes por segundo por número (sobra para avisos).
+- No se sincronizan grupos, mensajes temporales, ver una vez, ubicación en vivo ni listas de difusión.
+- El historial y los contactos del celular se pueden sincronizar sólo dentro de las 24 h de conectar (no implementado: el panel arranca con los chats nuevos).

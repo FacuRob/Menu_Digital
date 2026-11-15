@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import AdminLayout from "../../components/AdminLayout";
+import NumeroWhatsapp from "../../components/NumeroWhatsapp";
 import { useTheme } from "../../context/ThemeContext";
 import { useNegocio } from "../../context/NegocioContext";
 import { useLang, LOCALE } from "../../lib/i18n";
@@ -218,10 +219,17 @@ export default function WhatsApp() {
                   {data.conectado ? t("waConnected") : t("waNotConnected")}
                 </div>
                 <div className={`text-sm ${P.text}`}>
-                  {data.conectado ? t("waConnectedDesc") : t("waNotConnectedDesc")}
+                  {data.conectado
+                    ? data.numero_propio
+                      ? t("waConnectedOwnDesc")
+                      : t("waConnectedDesc")
+                    : t("waNotConnectedDesc")}
                 </div>
               </div>
             </div>
+
+            {/* Número propio del local (Embedded Signup de Meta) */}
+            <NumeroWhatsapp onCambio={() => whatsappService.getAvisos().then(setData).catch(() => {})} />
 
             {/* Interruptor general */}
             <div className={`dash-in flex items-center gap-4 rounded-2xl p-5 ${P.card}`} style={{ animationDelay: "60ms" }}>

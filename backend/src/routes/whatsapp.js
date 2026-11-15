@@ -11,6 +11,10 @@ const {
   patchIAChat,
   getIA,
   updateIA,
+  getCuenta,
+  postCuenta,
+  postPlantillas,
+  deleteCuenta,
 } = require("../controllers/whatsappController");
 
 // Configuración de avisos. Montado en server.js con authMiddleware +
@@ -22,6 +26,11 @@ router.get("/mensajes", getMensajes);
 router.post("/prueba", postPrueba);
 router.get("/ia", getIA);
 router.put("/ia", updateIA);
+// Número propio del local (Embedded Signup de Meta).
+router.get("/cuenta", getCuenta);
+router.post("/cuenta", postCuenta);
+router.post("/cuenta/plantillas", postPlantillas);
+router.delete("/cuenta", deleteCuenta);
 
 // Chats con clientes. Se monta aparte con checkPermiso("pedidos"): lo usa
 // quien atiende los pedidos, no solo quien configura.

@@ -52,7 +52,8 @@ services:
         value: no-referrer
       - path: /*
         name: Permissions-Policy
-        value: "camera=(), microphone=(), geolocation=()"
+        # geolocation=(self): la página del repartidor (/reparto) comparte su ubicación.
+        value: "camera=(), microphone=(), geolocation=(self)"
     envVars:
       - key: VITE_API_URL
         value: https://backend-menu-digital.onrender.com
@@ -74,7 +75,8 @@ services:
       - path: /*
         name: Content-Security-Policy
         # frame-src: la vista previa (/menu/:slug) carga el menú público en un iframe.
-        value: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-src 'self' https://dinexflow.com.ar https://www.dinexflow.com.ar https://menu-digital-frontend-qxjm.onrender.com; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://backend-menu-digital.onrender.com; upgrade-insecure-requests"
+        # facebook: "Conectar mi WhatsApp" (SDK de Meta + ventana de alta).
+        value: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-src 'self' https://dinexflow.com.ar https://www.dinexflow.com.ar https://menu-digital-frontend-qxjm.onrender.com https://*.facebook.com; frame-ancestors 'none'; form-action 'self' https://*.facebook.com; script-src 'self' https://connect.facebook.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://backend-menu-digital.onrender.com https://*.facebook.com https://graph.facebook.com; upgrade-insecure-requests"
       - path: /*
         name: X-Frame-Options
         value: DENY
