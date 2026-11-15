@@ -20,6 +20,8 @@ const gestionUsuarios = [authMiddleware, checkPermiso("usuarios")];
 
 router.get("/", ...gestionUsuarios, getUsuarios);
 router.get("/roles", ...gestionUsuarios, getRoles);
+// Registro de cambios de la cuenta (antes de "/:id").
+router.get("/registro", ...gestionUsuarios, require("../controllers/registroController").listar);
 router.get("/:id", ...gestionUsuarios, getUsuarioById);
 router.post("/", ...gestionUsuarios, createUsuario);
 router.put("/:id", ...gestionUsuarios, updateUsuario);

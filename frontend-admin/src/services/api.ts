@@ -759,7 +759,31 @@ export interface Actividad {
   }[];
 }
 
+// Presupuestos y turnos del período (null si el negocio no usa ese módulo).
+export interface StatsAgenda {
+  dias: number;
+  truncado?: boolean;
+  presupuestos: { recibidos: number; sin_responder: number; cotizados: number; aceptados: number; rechazados: number; tasa_aceptacion: number | null; monto_aceptado: number } | null;
+  turnos: { total: number; completados: number; ausentes: number; cancelados: number; tasa_ausencia: number | null; top_servicios: { nombre: string; turnos: number }[] } | null;
+}
+
+// Registro de cambios de la cuenta (Usuarios → Actividad reciente).
+export interface CambioRegistrado {
+  id: number;
+  negocio_id: number | null;
+  accion: string;
+  entidad: string;
+  entidad_id: string | null;
+  detalle: unknown;
+  created_at: string;
+  quien: string | null;
+}
+export const registroService = {
+  listar: async () => (await api.get<CambioRegistrado[]>("/usuarios/registro")).data,
+};
+
 export const analiticasService = {
+  getAgenda: async (dias: 7 | 30 | 90 = 30) => (await api.get<StatsAgenda>("/analiticas/agenda", { params: { dias } })).data,
   getActividad: async (dias: 7 | 30 | 90) =>
     (await api.get<Actividad>("/analiticas/actividad", { params: { dias } })).data,
   getResumen: async () => (await api.get<Resumen>("/analiticas/resumen")).data,

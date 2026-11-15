@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import RegistroCambios from "../../components/RegistroCambios";
 import { useDialogos } from "../../lib/dialogos";
 import {
   usuariosService,
@@ -855,6 +856,7 @@ export default function Usuarios() {
             </form>
         </Modal>
       )}
+      <RegistroCambios />
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </AdminLayout>
   );

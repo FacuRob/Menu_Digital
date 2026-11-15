@@ -3,6 +3,7 @@ const { respondError } = require("../utils/respondError");
 const cloudinary = require("../config/cloudinary");
 const { getNegocioId } = require("../utils/negocio");
 const { modulosNegocio } = require("../middleware/requiereModulo");
+const { registrar } = require("../utils/registroCambios");
 const { camposPorProducto } = require("./camposController");
 
 const extractPublicId = (url) => {
@@ -286,6 +287,7 @@ const deleteProducto = async (req, res) => {
       }
     }
 
+    registrar(req, "borrar", "producto", data.id, { nombre: data.nombre });
     res.json({ message: "Producto eliminado exitosamente" });
   } catch (error) {
     return respondError(res, error, "productos");

@@ -2,6 +2,7 @@ const supabase = require("../config/database");
 const bcrypt = require("bcryptjs");
 const { getCuentaId } = require("../utils/cuenta");
 const { respondError } = require("../utils/respondError");
+const { registrar } = require("../utils/registroCambios");
 
 // Labels visibles → claves DB:
 //   Tech       = flag es_plataforma (nunca asignable vía API)
@@ -67,6 +68,10 @@ const getUsuarioById = async (req, res) => {
     const { data, error } = await q.single();
     if (error || !data)
       return res.status(404).json({ message: "Usuario no encontrado" });
+    // Sólo lo que cambia el acceso (rol o activo).
+    if (rol !== undefined || activo !== undefined) {
+      registrar(req, "editar", "usuario", data.id, { username: data.username, ...(rol !== undefined && { rol }), ...(activo !== undefined && { activo }) });
+    }
     res.json(data);
   } catch (error) {
     return respondError(res, error, "usuarios");
@@ -133,6 +138,7 @@ const createUsuario = async (req, res) => {
       .single();
 
     if (error) throw error;
+    registrar(req, "crear", "usuario", data.id, { username: data.username, rol: data.rol });
     res.status(201).json(data);
   } catch (error) {
     return respondError(res, error, "usuarios");
@@ -259,6 +265,7 @@ const cambiarPassword = async (req, res) => {
 
     if (error || !data)
       return res.status(404).json({ message: "Usuario no encontrado" });
+    registrar(req, "password", "usuario", data.id ?? null, { username: data.username }); // nunca la clave
     res.json({ message: "Contraseña actualizada para " + data.username });
   } catch (error) {
     return respondError(res, error, "usuarios");
@@ -292,6 +299,7 @@ const deleteUsuario = async (req, res) => {
     const { data, error } = await q.select("id, username").single();
     if (error || !data)
       return res.status(404).json({ message: "Usuario no encontrado" });
+    registrar(req, "borrar", "usuario", data.id, { username: data.username });
     res.json({ message: "Usuario " + data.username + " eliminado" });
   } catch (error) {
     return respondError(res, error, "usuarios");

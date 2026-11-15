@@ -18,6 +18,7 @@ import {
   presupuestosService,
   reservasService,
   type Actividad,
+  type StatsAgenda,
   type Resumen,
   type TipoEntrega,
 } from "../../services/api";
@@ -120,6 +121,9 @@ export default function Dashboard() {
   const verAnaliticas = hasPermiso("analiticas") && tieneModulo("estadisticas") && tieneModulo("pedidos");
   const verPresupuestos = hasPermiso("presupuestos") && tieneModulo("presupuestos");
   const verTurnos = hasPermiso("reservas") && tieneModulo("reservas");
+  // Números de presupuestos y turnos (últimos 30 días).
+  const verStatsAgenda = hasPermiso("analiticas") && tieneModulo("estadisticas") && (tieneModulo("presupuestos") || tieneModulo("reservas"));
+  const [statsAgenda, setStatsAgenda] = useState<StatsAgenda | null>(null);
   const [agenda, setAgenda] = useState<{ presupuestos: number | null; turnos: number | null; primera: string | null } | null>(null);
   const verPedidos = hasPermiso("pedidos") && tieneModulo("pedidos");
 
@@ -171,6 +175,18 @@ export default function Dashboard() {
       vivo = false;
     };
   }, [verPresupuestos, verTurnos, negocioId]);
+
+  useEffect(() => {
+    if (!verStatsAgenda) return;
+    let vivo = true;
+    analiticasService
+      .getAgenda(30)
+      .then((r) => vivo && setStatsAgenda(r))
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, [verStatsAgenda, negocioId]);
 
   // Actividad del período (liviana: no baja todos los pedidos).
   useEffect(() => {
@@ -420,6 +436,52 @@ export default function Dashboard() {
                 </Link>
               )}
             </div>
+          </section>
+        )}
+
+        {/* Presupuestos y turnos: cómo vienen los últimos 30 días. */}
+        {statsAgenda && (statsAgenda.presupuestos || statsAgenda.turnos) && (
+          <section aria-labelledby="dsh-agenda-stats" className="space-y-3">
+            <h2 id="dsh-agenda-stats" className="pn-title text-lg text-fg">
+              {t("dshAgendaStats")} <span className="ml-1 text-sm font-medium text-fg-2" style={{ fontStretch: "100%" }}>{t("dshDays", { n: statsAgenda.dias })}</span>
+            </h2>
+            <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+              {[
+                ...(statsAgenda.presupuestos
+                  ? [
+                      { l: t("dshPresRecibidos"), v: String(statsAgenda.presupuestos.recibidos) },
+                      {
+                        l: t("dshPresAceptados"),
+                        v: String(statsAgenda.presupuestos.aceptados),
+                        sub: statsAgenda.presupuestos.tasa_aceptacion !== null ? t("dshPresTasa", { n: statsAgenda.presupuestos.tasa_aceptacion }) : null,
+                      },
+                      { l: t("dshPresMonto"), v: fmt(statsAgenda.presupuestos.monto_aceptado) },
+                    ]
+                  : []),
+                ...(statsAgenda.turnos
+                  ? [
+                      {
+                        l: t("dshTurnosAtendidos"),
+                        v: String(statsAgenda.turnos.completados),
+                        sub: statsAgenda.turnos.tasa_ausencia !== null ? t("dshTurnosAusencia", { n: statsAgenda.turnos.tasa_ausencia }) : null,
+                      },
+                    ]
+                  : []),
+              ].map((x) => (
+                <div key={x.l} className="flex min-w-0 flex-col-reverse rounded-[var(--r-md)] border border-line bg-surface px-4 py-3">
+                  <dt className="text-sm text-fg-2">{x.l}</dt>
+                  <dd className="min-w-0">
+                    <span className="pn-title pn-num block break-words text-xl text-fg sm:text-2xl">{x.v}</span>
+                    {"sub" in x && x.sub && <span className="block text-sm text-fg-2">{x.sub}</span>}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            {!!statsAgenda.turnos?.top_servicios.length && (
+              <p className="text-sm text-fg-2">
+                {t("dshTopServicios")}: {statsAgenda.turnos.top_servicios.map((s) => `${s.nombre}, ${s.turnos === 1 ? t("dshTurnos_1") : t("dshTurnosN", { n: s.turnos })}`).join(" · ")}
+              </p>
+            )}
           </section>
         )}
 

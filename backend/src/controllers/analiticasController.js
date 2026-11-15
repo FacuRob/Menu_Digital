@@ -2,6 +2,8 @@ const supabase = require("../config/database");
 const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
 const { calcularActividad, sumarDias, enArgentina } = require("../utils/actividad");
+const { statsPresupuestos, statsTurnos } = require("../utils/agendaStats");
+const { modulosNegocio } = require("../middleware/requiereModulo");
 
 const MESES_ABBR = [
   "ene", "feb", "mar", "abr", "may", "jun",
@@ -323,4 +325,37 @@ const getActividad = async (req, res) => {
   }
 };
 
-module.exports = { getResumen, getHistorial, getActividad };
+// GET /api/analiticas/agenda?dias=7|30|90 → presupuestos y turnos del
+// período (sólo de los módulos que usa el negocio; null si no lo usa).
+const MAX_AGENDA = 5000;
+const getAgenda = async (req, res) => {
+  try {
+    const negocioId = getNegocioId(req);
+    const dias = DIAS_VALIDOS.includes(Number(req.query.dias)) ? Number(req.query.dias) : 30;
+    const hoy = enArgentina(new Date()).fecha;
+    const desde = new Date(`${sumarDias(hoy, -(dias - 1))}T00:00:00-03:00`).toISOString();
+    const hasta = new Date(`${sumarDias(hoy, 1)}T00:00:00-03:00`).toISOString();
+    const modulos = await modulosNegocio(negocioId);
+    const [pres, turnos] = await Promise.all([
+      modulos.presupuestos
+        ? supabase.from("presupuestos").select("estado, precio_cotizado").eq("negocio_id", negocioId).gte("created_at", desde).lt("created_at", hasta).order("created_at", { ascending: false }).limit(MAX_AGENDA)
+        : null,
+      modulos.reservas
+        ? supabase.from("reservas").select("estado, servicio_nombre").eq("negocio_id", negocioId).gte("inicio", desde).lt("inicio", hasta).order("inicio", { ascending: false }).limit(MAX_AGENDA)
+        : null,
+    ]);
+    if (pres?.error) throw pres.error;
+    if (turnos?.error) throw turnos.error;
+    res.json({
+      dias,
+      presupuestos: pres ? statsPresupuestos(pres.data || []) : null,
+      turnos: turnos ? statsTurnos(turnos.data || []) : null,
+      // Más de MAX_AGENDA en el período: los números son de los más recientes.
+      truncado: [pres, turnos].some((r) => (r?.data?.length || 0) >= MAX_AGENDA),
+    });
+  } catch (error) {
+    return respondError(res, error, "analiticas.agenda");
+  }
+};
+
+module.exports = { getResumen, getHistorial, getActividad, getAgenda };

@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const supabase = require("../config/database");
+const { registrar } = require("../utils/registroCambios");
 const { respondError } = require("../utils/respondError");
 const { preciosPorPlan, mrrDeCuenta } = require("../utils/planPrecios");
 
@@ -175,6 +176,8 @@ const verComoCliente = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: `${VER_COMO_MINUTOS}m` },
     );
+    // Queda en el registro de la cuenta: el cliente ve que Soporte entró.
+    registrar({ user: { id: u.id, cuenta_id: cuentaId, tech_id: req.user.id } }, "ver_como", "cuenta", cuentaId, { minutos: VER_COMO_MINUTOS });
     console.info(`[plataforma] Tech ${req.user.id} ve la cuenta ${cuentaId} como el usuario ${u.id} (solo lectura)`);
     res.json({ token, cuenta: { id: cuenta.id, nombre: cuenta.nombre }, minutos: VER_COMO_MINUTOS });
   } catch (error) {

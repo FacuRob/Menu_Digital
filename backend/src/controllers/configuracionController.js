@@ -6,6 +6,7 @@ const { sincronizarSlug } = require("../utils/slug");
 const { resolverRubro } = require("../utils/rubros");
 const { opcionesAgenda } = require("../utils/agenda");
 const { normalizarModalidades } = require("../utils/entregas");
+const { registrar } = require("../utils/registroCambios");
 const { modulosDe, normalizar } = require("../utils/modulos");
 const { olvidarModulos } = require("../middleware/requiereModulo");
 
@@ -137,7 +138,10 @@ const updateConfiguracion = async (req, res) => {
         .update(negPatch)
         .eq("id", negocioId);
       if (negErr) throw negErr;
-      if (negPatch.modulos) olvidarModulos(negocioId);
+      if (negPatch.modulos) {
+        olvidarModulos(negocioId);
+        registrar(req, "modulos", "negocio", negocioId, negPatch.modulos);
+      }
     }
 
     const payload = {
