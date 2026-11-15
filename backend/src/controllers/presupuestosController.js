@@ -4,6 +4,10 @@ const { getNegocioId } = require("../utils/negocio");
 const { modulosNegocio } = require("../middleware/requiereModulo");
 const { firmaValida, linkPedido } = require("../utils/linksPedido");
 const { guardarConRpc, guardarSinRpc } = require("./pedidosController");
+const { notificarPresupuesto } = require("../services/avisosPedidoService");
+// Aviso por WhatsApp en segundo plano: nunca demora ni rompe la respuesta.
+const avisar = (fn, obj, clave) => Promise.resolve().then(() => fn(obj, clave)).catch((e) => console.error("[Avisos] fallo en segundo plano:", e.message));
+
 
 // ══════════════════════════════════════════════════════════════
 // Presupuestos: el cliente pide una cotización, el negocio la responde con
@@ -120,6 +124,7 @@ const crearPresupuesto = async (req, res) => {
       }
     }
     await registrar(p, "pendiente", "cliente");
+    avisar(notificarPresupuesto, p, "presupuesto.recibido");
     res.status(201).json({ ...publico(p), link: linkPedido("presupuesto", p) });
   } catch (error) {
     return respondError(res, error, "presupuestos.crear");
@@ -253,6 +258,7 @@ const cotizar = async (req, res) => {
     });
     if (!hecho) return res.status(409).json({ message: "El presupuesto cambió. Recargá." });
     await registrar(p, "cotizado", "negocio", { usuario_id: req.user?.id ?? null, nota: `Precio: ${precio}` });
+    avisar(notificarPresupuesto, hecho, "presupuesto.cotizado");
     res.json({ ...hecho, link: linkPedido("presupuesto", hecho) });
   } catch (error) {
     return respondError(res, error, "presupuestos.cotizar");

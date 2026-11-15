@@ -220,3 +220,48 @@ test("notificarPedido: 'en camino' manda la plantilla con el link al mapa", asyn
   assert.equal(tpl.name, "pedido_en_camino_mapa");
   assert.match(tpl.components[0].parameters[3].text, /\/seguimiento\/128\?t=/);
 });
+
+// ── Avisos de presupuestos y turnos (claves con prefijo) ──
+const avisosSvc = require("../src/services/avisosPedidoService");
+
+test("avisos por módulo: un restaurante sólo ve los de pedido; con turnos suma los de turno", () => {
+  const claves = (m) => avisosSvc.avisosDelNegocio(m).map((a) => a.estado);
+  const resto = claves({ pedidos: true });
+  assert.ok(resto.every((c) => !c.includes(".")));
+  const pelu = claves({ reservas: true, presupuestos: false });
+  assert.ok(pelu.includes("reserva.confirmada") && !pelu.includes("presupuesto.cotizado"));
+  assert.ok(!pelu.includes("pendiente")); // sin el módulo pedidos, sin avisos de pedido
+  // Ninguna plantilla nueva termina en variable (Meta no lo acepta).
+  for (const a of avisosSvc.AVISOS.filter((x) => x.grupo)) assert.doesNotMatch(a.texto, /\{\{\d+\}\}$/, a.estado);
+});
+
+test("aviso de turno confirmado: nombre, local, día y hora en Argentina, servicio y link firmado", async () => {
+  // Los avisos nuevos vienen apagados: el local los prende.
+  assert.equal((await avisosSvc.notificarReserva({ id: 40, negocio_id: 5, telefono: "3815052050", acepta_whatsapp: true, inicio: "2026-11-16T21:30:00Z" }, "reserva.confirmada")).motivo, "desactivado");
+  configNegocio = { activo: true, estados: { "reserva.confirmada": true } };
+  const r = await avisosSvc.notificarReserva(
+    { id: 40, negocio_id: 5, cliente_nombre: "Ana", telefono: "381 505-2050", acepta_whatsapp: true, inicio: "2026-11-16T21:30:00Z", servicio_nombre: "Corte\n  de   pelo" },
+    "reserva.confirmada",
+  );
+  assert.equal(r.ok, true);
+  const tpl = enviados[0].body.template;
+  assert.equal(tpl.name, "turno_confirmado");
+  const p = tpl.components[0].parameters.map((x) => x.text);
+  assert.deepEqual(p.slice(0, 4), ["Ana", "Bar Test", "lunes 16/11 a las 18:30", "Corte de pelo"]); // sin saltos de línea
+  // Una fecha inválida no rompe nada (se resuelve como error, no lanza).
+  configNegocio = { activo: true, estados: { "reserva.confirmada": true } };
+  const malo = await avisosSvc.notificarReserva({ id: 41, negocio_id: 5, telefono: "3815052050", acepta_whatsapp: true, inicio: "nunca" }, "reserva.confirmada");
+  assert.equal(malo.ok, false);
+  assert.match(p[4], /\/reserva\/40\?t=/);
+  const log = ops.find((o) => o.table === "whatsapp_mensajes" && o.op === "insert").payload[0];
+  assert.equal(log.aviso, "reserva.confirmada");
+  assert.equal(log.pedido_id, null);
+});
+
+test("aviso de presupuesto: sin consentimiento o apagado no se manda", async () => {
+  const p = { id: 12, negocio_id: 5, cliente_nombre: "Ana", telefono: "3815052050", acepta_whatsapp: false };
+  assert.equal((await avisosSvc.notificarPresupuesto(p, "presupuesto.cotizado")).motivo, "sin_consentimiento");
+  configNegocio = { activo: true, estados: { "presupuesto.cotizado": false } };
+  assert.equal((await avisosSvc.notificarPresupuesto({ ...p, acepta_whatsapp: true }, "presupuesto.cotizado")).motivo, "desactivado");
+  assert.equal(enviados.length, 0);
+});

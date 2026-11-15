@@ -5,7 +5,14 @@ const { createSupabaseMock, injectModule } = require("./helpers/supabaseMock");
 process.env.JWT_SECRET = process.env.JWT_SECRET || "secreto-de-prueba";
 const db = createSupabaseMock();
 injectModule(require.resolve("../src/config/database"), db);
-injectModule(require.resolve("../src/services/avisosPedidoService"), { notificarPedido: async () => {}, avisosDisponibles: async () => false });
+// Avisos de WhatsApp: se anota qué aviso se mandó (el envío real se prueba aparte).
+const avisos = [];
+injectModule(require.resolve("../src/services/avisosPedidoService"), {
+  notificarPedido: async () => {},
+  avisosDisponibles: async () => false,
+  notificarPresupuesto: async (p, clave) => avisos.push(clave),
+  notificarReserva: async (r, clave) => avisos.push(clave),
+});
 const { horariosLibres, opcionesAgenda, fechaLocal } = require("../src/utils/agenda");
 const { firmar } = require("../src/utils/linksPedido");
 const pres = require("../src/controllers/presupuestosController");
@@ -100,6 +107,7 @@ test("presupuesto: el cliente lo pide y recibe su link firmado", async () => {
   await pres.crearPresupuesto(pub(sch.presupuestoSchema.parse({ cliente_nombre: "Ana", telefono: "381", descripcion: "Una mesa de 2 m", producto_id: 1, adjuntos: ["a".repeat(48)] })), res);
   assert.equal(res.code, 201);
   assert.match(res.body.link, /\/presupuesto\/40\?t=/);
+  assert.ok(avisos.includes("presupuesto.recibido"));
   const ins = ops.find((o) => o.table === "presupuestos" && o.op === "insert").payload[0];
   assert.deepEqual([ins.negocio_id, ins.referencia], [NEG, "Mesa"]);
   const adj = ops.find((o) => o.table === "adjuntos");
@@ -153,6 +161,7 @@ test("presupuesto: cotizar sólo desde estados abiertos y pasa a cotizado", asyn
   await pres.cotizar({ negocioId: NEG, params: { id: "3" }, user: { id: 1 }, body: { precio: 20000 } }, ok);
   assert.equal(ok.body.estado, "cotizado");
   assert.equal(ok.body.precio_cotizado, 20000);
+  assert.equal(avisos.at(-1), "presupuesto.cotizado");
   filas.presupuestos.estado = "convertido";
   const no = respuesta();
   await pres.cotizar({ negocioId: NEG, params: { id: "3" }, user: { id: 1 }, body: { precio: 1 } }, no);
@@ -262,6 +271,7 @@ test("reserva (panel): reprogramar deja el horario anterior en el historial", as
     assert.equal(res.code, 200);
     const ev = ops.find((o) => o.table === "reserva_eventos").payload[0];
     assert.equal(ev.inicio_anterior, filas.reservas.inicio);
+    assert.equal(avisos.at(-1), "reserva.reprogramada");
   } finally {
     Date.now = realNow;
   }

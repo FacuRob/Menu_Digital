@@ -5,6 +5,10 @@ const { modulosNegocio } = require("../middleware/requiereModulo");
 const { firmaValida, linkPedido } = require("../utils/linksPedido");
 const { horariosLibres, opcionesAgenda, fechaLocal } = require("../utils/agenda");
 const { negocioPublico } = require("./presupuestosController");
+const { notificarReserva } = require("../services/avisosPedidoService");
+// Aviso por WhatsApp en segundo plano: nunca demora ni rompe la respuesta.
+const avisar = (fn, obj, clave) => Promise.resolve().then(() => fn(obj, clave)).catch((e) => console.error("[Avisos] fallo en segundo plano:", e.message));
+
 
 // ══════════════════════════════════════════════════════════════
 // Reservas (turnos). Proceso propio: no se mezcla con pedidos.
@@ -156,6 +160,8 @@ const crearReserva = async (req, res) => {
     if (error?.code === SOLAPADO) return res.status(409).json({ message: "Ese horario se acaba de ocupar. Elegí otro." });
     if (error) throw error;
     await registrar(r, r.estado, "cliente");
+    // Con confirmación automática, el turno ya queda confirmado: se avisa.
+    if (r.estado === "confirmada") avisar(notificarReserva, r, "reserva.confirmada");
     res.status(201).json({ ...publico(r), link: linkPedido("reserva", r) });
   } catch (error) {
     return respondError(res, error, "reservas.crear");
@@ -334,6 +340,9 @@ const cambiarEstado = async (req, res) => {
     const hecho = await pasar(r, r.estado, { estado });
     if (!hecho) return res.status(409).json({ message: "El turno cambió. Recargá." });
     await registrar(r, estado, "negocio", { usuario_id: req.user?.id ?? null });
+    // El negocio confirmó o canceló: se le avisa al cliente (si aceptó).
+    if (estado === "confirmada") avisar(notificarReserva, hecho, "reserva.confirmada");
+    if (estado === "cancelada") avisar(notificarReserva, hecho, "reserva.cancelada");
     res.json(hecho);
   } catch (error) {
     return respondError(res, error, "reservas.estado");
@@ -348,6 +357,7 @@ const reprogramarPanel = async (req, res) => {
     if (!ACTIVAS.includes(r.estado)) return res.status(409).json({ message: "Sólo se reprograma un turno pendiente o confirmado." });
     const out = await reprogramar(r, req.body.inicio, "negocio", req.user?.id, { panel: true });
     if (out.status) return res.status(out.status).json({ message: out.message });
+    avisar(notificarReserva, out.data, "reserva.reprogramada");
     res.json(out.data);
   } catch (error) {
     return respondError(res, error, "reservas.reprogramar");

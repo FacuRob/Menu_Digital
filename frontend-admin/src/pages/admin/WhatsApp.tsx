@@ -23,6 +23,11 @@ const EMOJI: Record<EstadoAviso, string> = {
   listo: "🛍️",
   entregado: "🎉",
   cancelado: "❌",
+  "presupuesto.recibido": "📝",
+  "presupuesto.cotizado": "💲",
+  "reserva.confirmada": "📅",
+  "reserva.reprogramada": "🔁",
+  "reserva.cancelada": "🚫",
 };
 
 const ESTADO_MSG: Record<MensajeWhatsapp["estado"], { color: string; check: string }> = {
@@ -173,8 +178,12 @@ export default function WhatsApp() {
     }
   };
 
-  const ejemplo = (texto: string) =>
-    texto.replace("{{1}}", "Juan").replace("{{2}}", local).replace("{{3}}", "128");
+  // Vista previa: valores de muestra del aviso (o los de un pedido) y el
+  // nombre real del local.
+  const ejemplo = (texto: string, ejemplos?: string[]) => {
+    const v = ejemplos || ["Juan", local, "128"];
+    return texto.replace(/\{\{(\d+)\}\}/g, (m, n) => (n === "2" ? local : v[Number(n) - 1] ?? m));
+  };
 
   const hora = new Date().toLocaleTimeString(LOCALE[lang], { hour: "2-digit", minute: "2-digit" });
 
@@ -280,7 +289,7 @@ export default function WhatsApp() {
                             P.isDark ? "bg-[#005c4b] text-[#e9edef]" : "bg-[#d9fdd3] text-[#111b21]"
                           }`}
                         >
-                          {ejemplo(a.texto)}
+                          {ejemplo(a.texto, a.ejemplos)}
                           <span className="ml-2 inline-block translate-y-1 text-[11px] opacity-75">
                             {hora} <span className="text-sky-400">✓✓</span>
                           </span>

@@ -148,7 +148,7 @@ async function crearPlantillas(cuenta, avisos, token = descifrar(cuenta.token_ci
           name: a.plantilla,
           language: "es_AR",
           category: "UTILITY",
-          components: [{ type: "BODY", text: a.texto, example: { body_text: [EJEMPLOS.slice(0, vars)] } }],
+          components: [{ type: "BODY", text: a.texto, example: { body_text: [(a.ejemplos || EJEMPLOS).slice(0, vars)] } }],
         },
       });
       resultado.push({ nombre: a.plantilla, ok: true });

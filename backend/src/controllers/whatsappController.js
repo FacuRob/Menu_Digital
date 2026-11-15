@@ -3,8 +3,9 @@ const supabase = require("../config/database");
 const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
 const { estaConfigurado, normalizarTelefono } = require("../services/whatsappService");
+const { modulosNegocio } = require("../middleware/requiereModulo");
 const {
-  AVISOS,
+  avisosDelNegocio,
   obtenerConfig,
   guardarConfig,
   enviarPrueba,
@@ -26,7 +27,8 @@ const getAvisos = async (req, res) => {
       numero_propio: !!propia,
       activo: cfg.activo,
       estados: cfg.estados,
-      avisos: AVISOS.map(({ estado, plantilla, texto }) => ({ estado, plantilla, texto })),
+      // Sólo los que corresponden a sus módulos (pedidos siempre).
+      avisos: avisosDelNegocio(await modulosNegocio(negocioId)).map(({ estado, plantilla, texto, ejemplos }) => ({ estado, plantilla, texto, ejemplos })),
     });
   } catch (error) {
     return respondError(res, error, "whatsapp");
@@ -79,7 +81,7 @@ const postPrueba = async (req, res) => {
     if (!normalizarTelefono(telefono)) {
       return res.status(400).json({ message: "Ingresá un teléfono válido (con código de área)." });
     }
-    const r = await enviarPrueba(negocioId, telefono);
+    const r = await enviarPrueba(negocioId, telefono, await modulosNegocio(negocioId));
     if (!r.ok) return res.status(502).json({ message: r.error || "No se pudo enviar" });
     res.json({ message: "Mensaje de prueba enviado" });
   } catch (error) {
@@ -93,13 +95,14 @@ const getCuenta = async (req, res) => {
   try {
     const negocioId = getNegocioId(req);
     const c = await cuentas.cuentaDeNegocio(negocioId);
+    const avisos = avisosDelNegocio(await modulosNegocio(negocioId));
     let plantillas = null;
     if (c) {
       plantillas = await cuentas
         .estadoPlantillas(c)
         .then((todas) => {
           const nuestras = new Map(todas.filter((t) => t.idioma === "es_AR").map((t) => [t.nombre, t.estado]));
-          return AVISOS.map((a) => ({ nombre: a.plantilla, estado: nuestras.get(a.plantilla) || "FALTA" }));
+          return avisos.map((a) => ({ nombre: a.plantilla, estado: nuestras.get(a.plantilla) || "FALTA" }));
         })
         .catch((e) => {
           console.error("[WhatsApp] No se pudieron leer las plantillas:", e.message);
@@ -120,7 +123,8 @@ const getCuenta = async (req, res) => {
 // POST /api/whatsapp/cuenta  { code, waba_id, phone_number_id, coexistencia }
 const postCuenta = async (req, res) => {
   try {
-    const r = await cuentas.conectar(getNegocioId(req), req.body || {}, AVISOS);
+    const negocioId = getNegocioId(req);
+    const r = await cuentas.conectar(negocioId, req.body || {}, avisosDelNegocio(await modulosNegocio(negocioId)));
     res.json(r);
   } catch (error) {
     if (error.status) return res.status(error.status).json({ message: error.message });
@@ -132,9 +136,10 @@ const postCuenta = async (req, res) => {
 // POST /api/whatsapp/cuenta/plantillas → vuelve a crear las que falten
 const postPlantillas = async (req, res) => {
   try {
-    const c = await cuentas.cuentaDeNegocio(getNegocioId(req));
+    const negocioId = getNegocioId(req);
+    const c = await cuentas.cuentaDeNegocio(negocioId);
     if (!c) return res.status(404).json({ message: "No hay un número conectado." });
-    res.json({ plantillas: await cuentas.crearPlantillas(c, AVISOS) });
+    res.json({ plantillas: await cuentas.crearPlantillas(c, avisosDelNegocio(await modulosNegocio(negocioId))) });
   } catch (error) {
     return respondError(res, error, "whatsapp");
   }

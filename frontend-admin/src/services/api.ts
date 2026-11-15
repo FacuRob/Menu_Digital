@@ -901,7 +901,19 @@ export const suscripcionService = {
 };
 
 // ── Avisos de pedido por WhatsApp ──────────────────────────────
-export type EstadoAviso = "pendiente" | "preparando" | "en_camino" | "listo" | "entregado" | "cancelado";
+export type EstadoAviso =
+  | "pendiente"
+  | "preparando"
+  | "en_camino"
+  | "listo"
+  | "entregado"
+  | "cancelado"
+  // Presupuestos y turnos (sólo si el negocio usa esos módulos).
+  | "presupuesto.recibido"
+  | "presupuesto.cotizado"
+  | "reserva.confirmada"
+  | "reserva.reprogramada"
+  | "reserva.cancelada";
 
 export interface AvisosWhatsapp {
   conectado: boolean;
@@ -909,7 +921,8 @@ export interface AvisosWhatsapp {
   numero_propio?: boolean;
   activo: boolean;
   estados: Record<EstadoAviso, boolean>;
-  avisos: { estado: EstadoAviso; plantilla: string; texto: string }[];
+  // ejemplos: valores de muestra para la vista previa ({{1}}, {{2}}, …).
+  avisos: { estado: EstadoAviso; plantilla: string; texto: string; ejemplos?: string[] }[];
 }
 
 export interface MensajeWhatsapp {

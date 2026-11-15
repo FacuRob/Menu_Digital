@@ -54,7 +54,64 @@ const AVISOS = [
     porDefecto: true,
     texto: "Hola {{1}}, lamentamos avisarte que tu pedido #{{3}} de {{2}} fue cancelado. Si tenés dudas, respondé este mensaje.",
   },
+  // ── Presupuestos y turnos: clave con prefijo (las de pedido no cambian).
+  // grupo = módulo que tiene que usar el negocio; ejemplos = valores de
+  // muestra para Meta y la vista previa. Ninguna termina en variable
+  // (Meta no lo acepta).
+  {
+    // {{3}} = número de presupuesto · {{4}} = link para seguirlo.
+    estado: "presupuesto.recibido",
+    grupo: "presupuestos",
+    plantilla: "presupuesto_recibido",
+    link: "presupuesto",
+    porDefecto: false, // el local los prende cuando Meta aprueba las plantillas
+    texto: "Hola {{1}}, {{2}} recibió tu pedido de presupuesto #{{3}}. Podés seguirlo acá: {{4}} Te avisamos cuando esté la cotización.",
+    ejemplos: ["Juan", "Estudio Lu", "12", "https://dinexflow.com.ar/presupuesto/12?t=abc123"],
+  },
+  {
+    estado: "presupuesto.cotizado",
+    grupo: "presupuestos",
+    plantilla: "presupuesto_cotizado",
+    link: "presupuesto",
+    porDefecto: false, // el local los prende cuando Meta aprueba las plantillas
+    texto: "Hola {{1}}, {{2}} ya cotizó tu presupuesto #{{3}}. Miralo acá: {{4}} Desde ese link lo aceptás o lo rechazás.",
+    ejemplos: ["Juan", "Estudio Lu", "12", "https://dinexflow.com.ar/presupuesto/12?t=abc123"],
+  },
+  {
+    // {{3}} = día y hora · {{4}} = servicio · {{5}} = link del turno.
+    estado: "reserva.confirmada",
+    grupo: "reservas",
+    plantilla: "turno_confirmado",
+    link: "reserva",
+    porDefecto: false, // el local los prende cuando Meta aprueba las plantillas
+    texto: "Hola {{1}}, tu turno de {{4}} en {{2}} quedó confirmado para el {{3}}. Si necesitás cancelarlo o cambiarlo: {{5}} ¡Te esperamos!",
+    ejemplos: ["Juan", "Estudio Lu", "lunes 16/11 a las 18:30", "Corte de pelo", "https://dinexflow.com.ar/reserva/40?t=abc123"],
+  },
+  {
+    estado: "reserva.reprogramada",
+    grupo: "reservas",
+    plantilla: "turno_reprogramado",
+    link: "reserva",
+    porDefecto: false, // el local los prende cuando Meta aprueba las plantillas
+    texto: "Hola {{1}}, {{2}} cambió tu turno de {{4}} para el {{3}}. Si no te queda bien, cambialo acá: {{5}} ¡Gracias!",
+    ejemplos: ["Juan", "Estudio Lu", "martes 17/11 a las 10:00", "Corte de pelo", "https://dinexflow.com.ar/reserva/40?t=abc123"],
+  },
+  {
+    estado: "reserva.cancelada",
+    grupo: "reservas",
+    plantilla: "turno_cancelado",
+    link: "reserva",
+    porDefecto: false, // el local los prende cuando Meta aprueba las plantillas
+    texto: "Hola {{1}}, lamentamos avisarte que {{2}} canceló tu turno de {{4}} del {{3}}. Más info: {{5}} Disculpá las molestias.",
+    ejemplos: ["Juan", "Estudio Lu", "lunes 16/11 a las 18:30", "Corte de pelo", "https://dinexflow.com.ar/reserva/40?t=abc123"],
+  },
 ];
+
+// Avisos que corresponden a un negocio según sus módulos (los de pedido, sin
+// grupo, son del módulo "pedidos"). Así un restaurante no ve ni crea en Meta
+// plantillas de presupuestos o turnos, y una peluquería sin pedidos no ve
+// las de pedido.
+const avisosDelNegocio = (modulos) => AVISOS.filter((a) => modulos?.[a.grupo || "pedidos"]);
 
 const avisoDe = (estado) => AVISOS.find((a) => a.estado === estado) || null;
 
@@ -195,18 +252,84 @@ async function notificarPedido(pedido, estado = pedido?.estado) {
   }
 }
 
-// Mensaje de prueba desde el panel (usa la plantilla de "pedido recibido").
-async function enviarPrueba(negocioId, telefono) {
+// Fecha del turno como la lee un cliente: "lunes 16/11 a las 18:30".
+function fechaTurno(iso) {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("es-AR", {
+      timeZone: "America/Argentina/Buenos_Aires",
+      weekday: "long",
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(new Date(iso))
+      .map((x) => [x.type, x.value]),
+  );
+  return `${p.weekday} ${p.day}/${p.month} a las ${p.hour}:${p.minute}`;
+}
+
+// Aviso de presupuesto o turno (clave con prefijo). Mismas reglas que el
+// de pedido: consentimiento, WhatsApp configurado, plan y aviso prendido.
+// Nunca lanza.
+async function enviarAviso(clave, { negocioId, telefono, acepta, cliente, params }) {
+  // params es una función: se arma recién acá adentro (si algo falla, como
+  // una fecha inválida, no sale del try ni rompe la respuesta).
+  try {
+    const aviso = avisoDe(clave);
+    if (!aviso) return { ok: false, motivo: "sin_aviso" };
+    if (!acepta || !telefono) return { ok: false, motivo: "sin_consentimiento" };
+    if (!(await estaConfigurado(negocioId))) return { ok: false, motivo: "no_configurado" };
+    if (!(await negocioConWhatsapp(negocioId))) return { ok: false, motivo: "plan" };
+    const cfg = await obtenerConfig(negocioId);
+    if (!cfg.activo || !cfg.estados[clave]) return { ok: false, motivo: "desactivado" };
+    const local = await nombreNegocio(negocioId);
+    const nombre = (cliente || "").trim() || null;
+    return await enviarYRegistrar({
+      negocioId,
+      pedidoId: null,
+      telefono,
+      aviso,
+      etiqueta: clave,
+      nombre,
+      // Meta rechaza saltos de línea y muchos espacios seguidos en un parámetro.
+      params: [nombre || "cliente", local, ...params()].map((v) => String(v).replace(/\s+/g, " ").trim().slice(0, 200)),
+    });
+  } catch (err) {
+    console.error("[Avisos] Error inesperado:", err.message);
+    return { ok: false, error: err.message };
+  }
+}
+
+// clave: "presupuesto.recibido" | "presupuesto.cotizado"
+const notificarPresupuesto = (p, clave) =>
+  enviarAviso(clave, {
+    negocioId: p.negocio_id,
+    telefono: p.telefono,
+    acepta: p.acepta_whatsapp,
+    cliente: p.cliente_nombre,
+    params: () => [p.id, linkPedido("presupuesto", p)],
+  });
+
+// clave: "reserva.confirmada" | "reserva.reprogramada" | "reserva.cancelada"
+const notificarReserva = (r, clave) =>
+  enviarAviso(clave, {
+    negocioId: r.negocio_id,
+    telefono: r.telefono,
+    acepta: r.acepta_whatsapp,
+    cliente: r.cliente_nombre,
+    params: () => [fechaTurno(r.inicio), r.servicio_nombre || "tu servicio", linkPedido("reserva", r)],
+  });
+
+// Mensaje de prueba desde el panel: el primer aviso que usa el negocio
+// ("pedido recibido" en un restaurante), con valores de muestra.
+async function enviarPrueba(negocioId, telefono, modulos = null) {
   if (!(await estaConfigurado(negocioId))) return { ok: false, error: "WhatsApp no está configurado" };
   const local = await nombreNegocio(negocioId);
-  return enviarYRegistrar({
-    negocioId,
-    pedidoId: null,
-    telefono,
-    aviso: avisoDe("pendiente"),
-    etiqueta: "prueba",
-    params: ["cliente", local, "123"],
-  });
+  const aviso = (modulos && avisosDelNegocio(modulos)[0]) || avisoDe("pendiente");
+  const params = aviso.ejemplos ? aviso.ejemplos.map((v, i) => (i === 1 ? local : v)) : ["cliente", local, "123"];
+  return enviarYRegistrar({ negocioId, pedidoId: null, telefono, aviso, etiqueta: "prueba", params });
 }
 
 // ── Estados que informa Meta por webhook ──
@@ -244,6 +367,10 @@ async function registrarEstadosMeta(statuses = []) {
 module.exports = {
   AVISOS,
   avisoDe,
+  avisosDelNegocio,
+  notificarPresupuesto,
+  notificarReserva,
+  fechaTurno,
   obtenerConfig,
   guardarConfig,
   avisosDisponibles,

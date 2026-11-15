@@ -172,3 +172,21 @@ Como Tech Provider, cada local paga sus mensajes: después de conectar tiene que
 - 20 mensajes por segundo por número (sobra para avisos).
 - No se sincronizan grupos, mensajes temporales, ver una vez, ubicación en vivo ni listas de difusión.
 - El historial y los contactos del celular se pueden sincronizar sólo dentro de las 24 h de conectar (no implementado: el panel arranca con los chats nuevos).
+
+## Avisos de presupuestos y turnos (Etapa 9)
+
+Se mandan sólo si el negocio usa el módulo (Presupuestos o Reservas y turnos), tiene los avisos prendidos en Panel → WhatsApp y el cliente marcó la casilla en el formulario (viene **desmarcada**). Las claves llevan prefijo (`presupuesto.*`, `reserva.*`); las de pedido no cambiaron. Vienen **apagados**: el local los prende en Panel → WhatsApp cuando Meta ya aprobó las plantillas.
+
+Plantillas (categoría **Utility**, idioma **es_AR**). En un número propio se crean solas al conectar o con "Volver a crear las que faltan", y sólo las de los módulos que usa el local. Para el **número de la plataforma** hay que crearlas a mano en el WhatsApp Manager de DinexFlow:
+
+| Plantilla | Cuándo | Texto |
+|---|---|---|
+| `presupuesto_recibido` | El cliente pide el presupuesto | Hola {{1}}, {{2}} recibió tu pedido de presupuesto #{{3}}. Podés seguirlo acá: {{4}} Te avisamos cuando esté la cotización. |
+| `presupuesto_cotizado` | El negocio guarda la cotización | Hola {{1}}, {{2}} ya cotizó tu presupuesto #{{3}}. Miralo acá: {{4}} Desde ese link lo aceptás o lo rechazás. |
+| `turno_confirmado` | El negocio confirma (o confirmación automática) | Hola {{1}}, tu turno de {{4}} en {{2}} quedó confirmado para el {{3}}. Si necesitás cancelarlo o cambiarlo: {{5}} ¡Te esperamos! |
+| `turno_reprogramado` | El negocio cambia el horario | Hola {{1}}, {{2}} cambió tu turno de {{4}} para el {{3}}. Si no te queda bien, cambialo acá: {{5}} ¡Gracias! |
+| `turno_cancelado` | El negocio cancela | Hola {{1}}, lamentamos avisarte que {{2}} canceló tu turno de {{4}} del {{3}}. Más info: {{5}} Disculpá las molestias. |
+
+{{1}} cliente · {{2}} local · {{3}} número de presupuesto o día y hora del turno ("lunes 16/11 a las 18:30") · {{4}} link del presupuesto o servicio del turno · {{5}} link del turno. Hasta que Meta las apruebe, esos avisos quedan como "fallido" en el registro (no rompen nada).
+
+No incluido todavía: recordatorio automático el día antes del turno (necesita una tarea programada).

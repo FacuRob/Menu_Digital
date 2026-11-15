@@ -19,7 +19,7 @@ export default function Reservar() {
   const [fecha, setFecha] = useState(fechaAR());
   const [horarios, setHorarios] = useState<string[] | null>(null);
   const [inicio, setInicio] = useState("");
-  const [f, setF] = useState({ nombre: "", telefono: "", email: "", notas: "", wa: true });
+  const [f, setF] = useState({ nombre: "", telefono: "", email: "", notas: "", wa: false }); // avisos por WhatsApp: sólo si el cliente lo marca
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState("");
   // Si el día elegido no tiene horarios, se salta solo al siguiente (una vez
@@ -192,9 +192,12 @@ export default function Reservar() {
                   onChange={(e) => setF({ ...f, notas: e.target.value })} />
               </label>
               {f.telefono.trim() && (
-                <label className="mn-opcion items-start" aria-checked={f.wa}>
-                  <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0" checked={f.wa} onChange={(e) => setF({ ...f, wa: e.target.checked })} />
-                  <span className="text-[15px]">Quiero recibir avisos del turno por WhatsApp</span>
+                <label className="mn-opcion items-start">
+                  <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0" checked={f.wa} aria-describedby={campo("wa-ayuda")} onChange={(e) => setF({ ...f, wa: e.target.checked })} />
+                  <span>
+                    <span className="block text-[15px]">Quiero recibir avisos de mi turno por WhatsApp al {f.telefono.trim()}</span>
+                    <span id={campo("wa-ayuda")} className="mt-0.5 block text-[13px] text-[var(--fg-2)]">Sólo mensajes sobre este turno. Podés pedir que no te escriban más cuando quieras.</span>
+                  </span>
                 </label>
               )}
             </fieldset>

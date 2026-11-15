@@ -16,7 +16,7 @@ export default function PedirPresupuesto() {
   const servicioId = parseInt(qs.get("servicio") || "", 10) || null;
   const productoId = parseInt(qs.get("producto") || "", 10) || null;
   const [referencia, setReferencia] = useState<string | null>(null);
-  const [f, setF] = useState({ descripcion: "", cantidad: "1", medidas: "", nombre: "", telefono: "", email: "", wa: true });
+  const [f, setF] = useState({ descripcion: "", cantidad: "1", medidas: "", nombre: "", telefono: "", email: "", wa: false }); // avisos por WhatsApp: sólo si el cliente lo marca
   const [archivos, setArchivos] = useState<{ token: string; nombre: string }[]>([]);
   const [subiendo, setSubiendo] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -163,9 +163,12 @@ export default function PedirPresupuesto() {
               onChange={(e) => setF({ ...f, email: e.target.value })} />
           </label>
           {f.telefono.trim() && (
-            <label className="mn-opcion items-start" aria-checked={f.wa}>
-              <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0" checked={f.wa} onChange={(e) => setF({ ...f, wa: e.target.checked })} />
-              <span className="text-[15px]">Quiero que me respondan por WhatsApp</span>
+            <label className="mn-opcion items-start">
+              <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0" checked={f.wa} aria-describedby={campo("wa-ayuda")} onChange={(e) => setF({ ...f, wa: e.target.checked })} />
+              <span>
+                <span className="block text-[15px]">Quiero recibir avisos de mi presupuesto por WhatsApp al {f.telefono.trim()}</span>
+                <span id={campo("wa-ayuda")} className="mt-0.5 block text-[13px] text-[var(--fg-2)]">Sólo mensajes sobre este presupuesto. Podés pedir que no te escriban más cuando quieras.</span>
+              </span>
             </label>
           )}
         </fieldset>
