@@ -8,13 +8,13 @@ web
 
 ## Users
 
-Dueños y encargados de locales gastronómicos chicos y medianos de **Argentina** (restaurantes, bares, cafeterías, hamburgueserías, pizzerías, heladerías, food trucks). Llegan a la landing desde el celular o la compu, buscando dejar la carta en PDF o papel y recibir pedidos sin pagar comisiones de apps de delivery. Se les habla de vos (español rioplatense).
+Dueños y encargados de negocios chicos y medianos de **Argentina**, de cualquier rubro: gastronomía, tiendas, productos personalizados, belleza, salud, servicios profesionales, hogar, automotor, educación y turismo (catálogo de 11 categorías y 78 especialidades). Llegan a la landing desde el celular o la compu, buscando dejar la carta en PDF o papel y recibir pedidos sin pagar comisiones de apps de delivery. Se les habla de vos (español rioplatense).
 
 Segundo público: los clientes del local, que escanean el QR y piden desde el navegador (no visitan la landing, pero son la experiencia que el dueño compra).
 
 ## Product Purpose
 
-DinexFlow es un SaaS multi-negocio de menú digital: el dueño carga su carta en un panel, imprime un QR, y sus clientes eligen y envían el pedido ordenado por WhatsApp. El dueño gestiona pedidos, tickets, stock, variantes y ventas desde el mismo panel. Éxito de la landing: que el dueño cree su cuenta de prueba gratis.
+DinexFlow es un SaaS multi-negocio y multirrubro: cada negocio tiene su página con productos, servicios, presupuestos y turnos, con QR y link; sus clientes compran, piden o reservan desde el celular y todo llega ordenado al panel (con avisos por WhatsApp). Cada negocio activa sólo los módulos que usa. Eslogan: "Tu negocio es Dinex". El dueño gestiona pedidos, tickets, stock, variantes y ventas desde el mismo panel. Éxito de la landing: que el dueño cree su cuenta de prueba gratis.
 
 ## Positioning
 

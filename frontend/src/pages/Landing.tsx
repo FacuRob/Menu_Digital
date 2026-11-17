@@ -133,25 +133,70 @@ function Navbar({ textoRef }: { textoRef: RefObject<HTMLDivElement | null> }) {
   );
 }
 
-// ── 1. Inicio: el QR se abre hasta llenar la pantalla ────────
+// ── 1. Inicio: el eslogan y el QR que se abre hasta llenar la pantalla ──
+// "Tu ___ es Dinex.": la palabra rota una sola vuelta (menos de 5 s, así no
+// hace falta un botón de pausa) y vuelve a "negocio"; al terminar, "Dinex"
+// se subraya. Con reducción de movimiento queda quieta en "negocio".
+const PALABRAS = ["negocio", "local", "tienda", "taller", "estudio", "empresa"];
+const PASO_MS = 760;
+
+function Eslogan() {
+  const [quieto] = useState(
+    () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true,
+  );
+  const [indice, setIndice] = useState(0);
+  const [listo, setListo] = useState(quieto);
+
+  useEffect(() => {
+    if (quieto) return;
+    let n = 0;
+    const id = window.setInterval(() => {
+      n += 1;
+      if (n >= PALABRAS.length) {
+        window.clearInterval(id);
+        // Vuelve a "negocio" (entra con la misma animación) y queda quieta.
+        setIndice(0);
+        setListo(true);
+        return;
+      }
+      setIndice(n);
+    }, PASO_MS);
+    return () => window.clearInterval(id);
+  }, [quieto]);
+
+  return (
+    <h1 id="hero-titulo" data-hero-titulo className="dx-display text-[clamp(2.75rem,10.5vw,11rem)]">
+      <span className="sr-only">Tu negocio es Dinex.</span>
+      <span aria-hidden className="block">
+        Tu{" "}
+        <span className="dx-rotador">
+          <span key={indice} className="dx-rotador-palabra">
+            {PALABRAS[indice]}
+          </span>
+        </span>
+      </span>
+      <span aria-hidden className="block">
+        es{" "}
+        <span className="dx-dinex" data-listo={listo}>
+          Dinex
+        </span>
+        .
+      </span>
+    </h1>
+  );
+}
+
 function Hero({ qrUrl }: { qrUrl: string }) {
   return (
     <section id="top" data-hero data-nav="claro" data-fondo="hueso" aria-labelledby="hero-titulo" className="relative min-h-[100svh] overflow-hidden bg-[var(--hueso)]">
       <div data-hero-contenido className={`${CONTENEDOR} flex min-h-[100svh] flex-col justify-center gap-10 pb-8 pt-28 lg:gap-16 lg:pb-12 lg:pt-28`}>
-        <h1
-          id="hero-titulo"
-          data-hero-titulo
-          className="dx-display text-[clamp(2.75rem,6.1vw,7.5rem)]"
-        >
-          <span className="block">Tu carta en el celu.</span>
-          <span className="block text-[var(--aji)]">El pedido, en tu WhatsApp.</span>
-        </h1>
+        <Eslogan />
 
         <div className="grid items-end gap-10 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div data-hero-bajada>
-            <p className="max-w-[38rem] text-lg leading-relaxed text-[var(--gris)] sm:text-xl">
-              Tus clientes escanean el QR, eligen y te piden. Vos recibís el pedido ordenado y manejás pedidos, stock y
-              ventas desde un solo panel.
+            <p className="max-w-[40rem] text-lg leading-relaxed text-[var(--gris)] sm:text-xl">
+              Tu página con productos, servicios, presupuestos y turnos. Tus clientes compran, piden o reservan desde el
+              celular, y vos manejás todo desde un solo panel.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
               <a href={ADMIN_SIGNUP_URL} className="dx-btn">
@@ -174,11 +219,11 @@ function Hero({ qrUrl }: { qrUrl: string }) {
 
           {/* La ficha QR: real, abre el menú de ejemplo (/menu). */}
           <figure className="relative z-30 flex items-end gap-4 lg:flex-col lg:items-end" data-tile>
-            <a href="/menu" aria-label="Abrir el menú de ejemplo" className="block w-[clamp(9rem,18vw,17rem)] rounded-[var(--radio)] bg-[var(--tinta)] p-3">
+            <a href="/menu" aria-label="Abrir la página de ejemplo" className="block w-[clamp(9rem,18vw,17rem)] rounded-[var(--radio)] bg-[var(--tinta)] p-3">
               <QrCodigo texto={qrUrl} className="block w-full rounded-[18px] bg-white text-[var(--tinta)]" />
             </a>
             <figcaption className="max-w-[12rem] text-sm text-[var(--gris)] lg:text-right">
-              Escanealo con tu celular: abre un menú de ejemplo. <a href="/menu" className="font-semibold text-[var(--tinta)] underline">O probalo acá.</a>
+              Escanealo con tu celular: abre una página de ejemplo. <a href="/menu" className="font-semibold text-[var(--tinta)] underline">O probala acá.</a>
             </figcaption>
           </figure>
         </div>
@@ -191,7 +236,7 @@ function Hero({ qrUrl }: { qrUrl: string }) {
           className="dx-display absolute inset-0 grid place-items-center px-5 text-center text-[clamp(3.5rem,13vw,13rem)] text-[var(--hueso)] opacity-0"
         >
           <span>
-            Escaneá. <span className="dx-serif block text-[0.55em] text-[var(--aji)]">y pedí.</span>
+            Escaneá. <span className="dx-serif block text-[0.55em] text-[var(--aji)]">y listo.</span>
           </span>
         </p>
       </div>
@@ -201,7 +246,7 @@ function Hero({ qrUrl }: { qrUrl: string }) {
 
 // ── 2. Manifiesto: se enciende palabra por palabra ───────────
 const MANIFIESTO =
-  "Sin app, sin PDF, sin reimprimir la carta. Tus clientes escanean el QR, eligen y el pedido te llega anotado a WhatsApp.";
+  "Sin app, sin PDF, sin mensajes perdidos. Tus clientes entran desde el celular, compran, piden un presupuesto o sacan turno, y todo te llega ordenado.";
 
 function Manifiesto() {
   return (
@@ -213,7 +258,7 @@ function Manifiesto() {
               {w}{" "}
             </span>
           ))}
-          <span className="dx-serif dx-palabra text-[var(--aji)]">Vos sólo lo preparás.</span>
+          <span className="dx-serif dx-palabra text-[var(--aji)]">Vos sólo atendés.</span>
         </p>
       </div>
     </section>
@@ -223,16 +268,16 @@ function Manifiesto() {
 // ── 3. Escena fija: del QR al WhatsApp ───────────────────────
 const PASOS = [
   {
-    titulo: "Escanea",
-    texto: "Tu cliente apunta la cámara al QR de la mesa y tu carta se abre en el navegador. No baja nada.",
+    titulo: "Entra",
+    texto: "Tu cliente escanea tu QR o abre tu link y tu página se abre en el navegador. No baja nada.",
   },
   {
     titulo: "Elige",
-    texto: "Recorre tu carta con fotos y precios y arma el pedido, con tamaños y extras.",
+    texto: "Recorre tus productos o servicios con fotos y precios, y arma su pedido, saca un turno o te pide un presupuesto.",
   },
   {
     titulo: "Te llega",
-    texto: "El pedido te llega ordenado a WhatsApp y lo seguís por estado en tu panel.",
+    texto: "Te llega ordenado al panel y, si quiere, le avisás cada paso por WhatsApp.",
   },
 ];
 
@@ -242,7 +287,7 @@ function EscenaTelefono() {
       <div className={`${CONTENEDOR} grid min-h-[100svh] items-center gap-5 pb-6 pt-20 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,0.7fr)] lg:gap-12 lg:py-24`}>
         <div>
           <h2 id="como-titulo" className="dx-display text-balance text-[clamp(2.4rem,5.6vw,5.75rem)]">
-            Del QR a tu WhatsApp
+            Del celu de tu cliente a tu panel
           </h2>
           <ol className="dx-pasos mt-5 lg:mt-14 lg:space-y-8">
             {PASOS.map((p, i) => (
@@ -280,15 +325,18 @@ function EscenaTelefono() {
 // ── 4. Funciones: la que pasa por el centro se ilumina ───────
 type Funcion = { titulo: string; texto: string; plan: string };
 const FUNCIONES: Funcion[] = [
-  { titulo: "Carta con QR", texto: "Cambiás precios, fotos o productos y se ve al momento. El QR es siempre el mismo.", plan: "Todos los planes" },
-  { titulo: "Pedidos por WhatsApp", texto: "El cliente arma el pedido y te llega ordenado, listo para preparar.", plan: "Todos los planes" },
-  { titulo: "Pedidos y tickets", texto: "Seguí cada pedido por estado (pendiente, listo, entregado) e imprimí el ticket.", plan: "Todos los planes" },
-  { titulo: "Variantes y extras", texto: "Tamaños, agregados y modificadores, como los pide la gente.", plan: "Todos los planes" },
-  { titulo: "Tu marca", texto: "Logo, colores, portada y horarios. La carta se ve como tu local.", plan: "Todos los planes" },
-  { titulo: "Varios locales", texto: "Todas tus sucursales en una cuenta y tu equipo con permisos por rol.", plan: "Según el plan" },
-  { titulo: "Analíticas", texto: "Productos estrella, horarios pico y cuánto vendés por día.", plan: "Todos los planes" },
+  { titulo: "Tu página con QR", texto: "Tu catálogo con fotos y precios, con tu QR y tu link. Cambiás algo y se ve al momento.", plan: "Todos los planes" },
+  { titulo: "Pedidos y envíos", texto: "Retiro, delivery, en el mostrador o envío por correo, ahora o programado para más tarde. Seguí cada pedido por estado e imprimí el ticket.", plan: "Todos los planes" },
+  { titulo: "Talles, colores y extras", texto: "Talles, colores, tamaños y agregados, cada uno con su precio, como los pide la gente.", plan: "Todos los planes" },
+  { titulo: "A medida", texto: "Productos personalizados: tu cliente escribe el texto, pone las medidas o sube su foto.", plan: "Todos los planes" },
+  { titulo: "Servicios y turnos", texto: "Tu cliente elige el servicio, el día y el horario libre. Nunca se pisan dos turnos.", plan: "Todos los planes" },
+  { titulo: "Presupuestos", texto: "Te piden un presupuesto, lo cotizás desde el panel y el cliente lo acepta con un toque.", plan: "Todos los planes" },
+  { titulo: "Tus clientes", texto: "Quién te compró, te pidió un presupuesto o sacó turno, todo en una lista.", plan: "Todos los planes" },
+  { titulo: "Tu marca", texto: "Logo, colores, portada y horarios. Tu página se ve como tu negocio.", plan: "Todos los planes" },
+  { titulo: "Varios negocios", texto: "Todos tus negocios y sucursales en una cuenta, y tu equipo con permisos por rol.", plan: "Según el plan" },
+  { titulo: "Analíticas", texto: "Lo que más se vende, horarios pico, cuánto vendés por día y cómo vienen tus presupuestos y turnos.", plan: "Todos los planes" },
   { titulo: "Control de stock", texto: "Avisos de stock bajo para no vender lo que no tenés.", plan: "Estándar y Premium" },
-  { titulo: "Avisos y chats con IA", texto: "Avisos automáticos de cada pedido por WhatsApp, chats con tus clientes y un bot que responde por vos.", plan: "Estándar y Premium" },
+  { titulo: "Avisos y chats con IA", texto: "Avisos automáticos por WhatsApp de cada pedido, presupuesto y turno, chats con tus clientes y un asistente que responde por vos.", plan: "Estándar y Premium" },
   { titulo: "Repartidor en el mapa", texto: "Tu cliente sigue el delivery en vivo desde el celular, sin instalar nada.", plan: "Estándar y Premium" },
 ];
 
@@ -324,7 +372,7 @@ function Funciones() {
 }
 
 // ── 5. Rubros: dos filas que se deslizan con el scroll ───────
-const RUBROS = ["Hamburgueserías", "Cafeterías", "Pizzerías", "Heladerías", "Bares", "Sushi", "Panaderías", "Food trucks"];
+const RUBROS = ["Restaurantes", "Tiendas de ropa", "Peluquerías", "Impresión 3D", "Cafeterías", "Consultorios", "Talleres", "Estética", "Ferreterías", "Academias", "Fotógrafos", "Cabañas"];
 
 function Rubros() {
   const fila = (calado: boolean) => (
@@ -338,8 +386,8 @@ function Rubros() {
     </div>
   );
   return (
-    <section data-rubros data-nav="claro" data-fondo="hueso" aria-label="Para qué locales sirve" className="overflow-hidden bg-[var(--hueso)] py-20 sm:py-28">
-      <p className="sr-only">Sirve para {RUBROS.join(", ").toLowerCase()} y cualquier local gastronómico.</p>
+    <section data-rubros data-nav="claro" data-fondo="hueso" aria-label="Para qué negocios sirve" className="overflow-hidden bg-[var(--hueso)] py-20 sm:py-28">
+      <p className="sr-only">Sirve para {RUBROS.join(", ").toLowerCase()} y cualquier otro negocio.</p>
       <div aria-hidden>
         <div data-fila="1">{fila(false)}</div>
         <div data-fila="2" className="mt-2">
@@ -360,8 +408,8 @@ function Probalo() {
             Probalo vos
           </h2>
           <p className="max-w-[36rem] text-lg leading-relaxed text-white/85 sm:text-xl">
-            Hacé de cliente un minuto: elegí un local, sumá productos y mirá el pedido que le llegaría al local. Los locales
-            y precios son de ejemplo.
+            Hacé de cliente un minuto: elegí un negocio, sumá productos y mirá el pedido que le llegaría. Los negocios y
+            precios son de ejemplo.
           </p>
         </div>
         <div className="mt-12">
@@ -387,14 +435,14 @@ const PLANES: Plan[] = [
   {
     code: "basic",
     name: "Básico",
-    desc: "Para arrancar con tu primer local.",
+    desc: "Para arrancar con tu primer negocio.",
     mensual: 20000,
     perks: [
       "Un solo negocio",
       "Hasta 50 productos",
-      "Carta con QR",
-      "Variantes y modificadores",
-      "Personalización del menú",
+      "Tu página con QR y link",
+      "Talles, colores y productos a medida",
+      "Servicios, presupuestos y turnos",
       "Analíticas de ventas",
     ],
     estilo: "claro",
@@ -402,7 +450,7 @@ const PLANES: Plan[] = [
   {
     code: "standard",
     name: "Estándar",
-    desc: "Para locales que crecen.",
+    desc: "Para negocios que crecen.",
     mensual: 41000,
     perks: [
       "Todo lo del Básico",
@@ -410,7 +458,7 @@ const PLANES: Plan[] = [
       "180 productos repartidos entre tus negocios (60 c/u con 3)",
       "Control de stock",
       "Avisos automáticos y chats por WhatsApp",
-      "Bot con IA que responde en WhatsApp",
+      "Asistente con IA que responde en WhatsApp",
       "Seguimiento del repartidor en el mapa",
     ],
     estilo: "aji",
@@ -418,7 +466,7 @@ const PLANES: Plan[] = [
   {
     code: "premium",
     name: "Premium",
-    desc: "Para cadenas y franquicias.",
+    desc: "Para varios negocios o sucursales.",
     mensual: 65000,
     perks: ["Todo lo del Estándar", "Hasta 5 negocios", "1.000 productos repartidos entre tus negocios (200 c/u con 5)"],
     estilo: "tinta",
@@ -492,12 +540,13 @@ function Precios() {
 
 // ── 8. Preguntas ─────────────────────────────────────────────
 const FAQS = [
-  { q: "¿Necesito saber de tecnología?", a: `No. Si sabés usar WhatsApp, sabés usar ${BRAND}. Cargás tus productos desde el panel y la carta se arma sola.` },
-  { q: "¿Mis clientes tienen que descargar una app?", a: "No. Escanean el QR con la cámara del celular y la carta se abre en el navegador, al instante." },
+  { q: "¿Sirve para mi rubro?", a: "Sí. Restaurantes, tiendas, productos a medida, peluquerías, consultorios, profesionales, talleres, academias, alojamientos y más. Al crear tu cuenta elegís tu rubro y activás sólo lo que usás: productos, servicios, pedidos, presupuestos o turnos." },
+  { q: "¿Necesito saber de tecnología?", a: `No. Si sabés usar WhatsApp, sabés usar ${BRAND}. Cargás lo que vendés desde el panel y tu página se arma sola.` },
+  { q: "¿Mis clientes tienen que descargar una app?", a: "No. Escanean el QR o abren tu link y tu página se abre en el navegador, al instante." },
   { q: "¿Cómo contrato el servicio?", a: `Creás tu cuenta gratis y usás todo durante ${TRIAL_DIAS} días. Cuando quieras, en el panel entrás a "Suscripción", elegís un plan y lo pagás con Mercado Pago. Se renueva solo cada mes y se activa al instante.` },
-  { q: "¿Puedo cambiar precios cuando quiera?", a: "Sí, todas las veces que quieras. Los cambios se ven en la carta en el momento, sin reimprimir el QR." },
+  { q: "¿Puedo cambiar precios cuando quiera?", a: "Sí, todas las veces que quieras. Los cambios se ven en tu página en el momento, sin reimprimir el QR." },
   { q: "¿Puedo cancelar o cambiar de plan?", a: "Sí. Subís, bajás o cancelás tu plan cuando quieras desde el panel, sin permanencia mínima." },
-  { q: "¿Sirve para varios locales?", a: "Sí. Según tu plan administrás varios negocios desde una sola cuenta, cada uno con su carta y su QR." },
+  { q: "¿Sirve para varios negocios?", a: "Sí. Según tu plan administrás varios negocios desde una sola cuenta, cada uno con su página y su QR." },
 ];
 
 function Preguntas() {

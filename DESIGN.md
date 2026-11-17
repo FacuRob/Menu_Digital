@@ -114,7 +114,7 @@ Orden de secciones y su bloque de color:
 
 ### Hierarchy
 - **display-xl**: contador 01/02/03, wordmark del pie, rubros. `font-stretch:125%`, `line-height:0.82`.
-- **display**: h1 en dos bloques ("Tu carta en el celu." / "El pedido, en tu WhatsApp."), h2 de cada sección, títulos de pasos y planes.
+- **display**: h1 = eslogan "Tu ___ es Dinex." (la palabra rota una vuelta: negocio, local, tienda, taller, estudio, empresa y vuelve a negocio, en menos de 5 s; "Dinex" en `aji-deep` con subrayado que se dibuja al final; quieto con reducción de movimiento), h2 de cada sección, títulos de pasos y planes.
 - **label**: rótulos en mayúscula (`.dx-label`), "Ejemplo · Sushi Zen", "Recomendado".
 - **body**: 1.0625–1.125rem, `leading-relaxed`, máximo ~34rem de ancho.
 - Precios y cantidades con `tabular-nums` (`.dx-tabular`).

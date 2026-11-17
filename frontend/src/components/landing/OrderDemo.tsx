@@ -57,7 +57,7 @@ export default function OrderDemo() {
       {/* Lo que toca el cliente */}
       <div className="rounded-[var(--radio)] bg-white p-5 text-[var(--tinta)] sm:p-7">
         <p id="demo-locales" className="dx-label text-[var(--gris)]">
-          Elegí un local de ejemplo
+          Elegí un negocio de ejemplo
         </p>
         <div role="group" aria-labelledby="demo-locales" className="mt-3 flex flex-wrap gap-2">
           {DEMOS.map((d, i) => (
@@ -155,7 +155,7 @@ export default function OrderDemo() {
         </div>
 
         {enviado && (
-          <div ref={mensajeRef} tabIndex={-1} aria-label="Mensaje que le llega al local" className="mt-6 scroll-mb-6 outline-none">
+          <div ref={mensajeRef} tabIndex={-1} aria-label="Mensaje que le llega a tu negocio" className="mt-6 scroll-mb-6 outline-none">
             <WhatsAppPedido negocio={demo.nombre} mesa={MESA} numero={numero} lineas={lineas} />
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
               <a href={ADMIN_SIGNUP_URL} className="dx-btn">
