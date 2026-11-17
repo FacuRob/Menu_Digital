@@ -58,7 +58,7 @@ function trasMedianoche(d, horarios) {
   return ayer.franjas.some((f) => typeof f?.desde === "string" && typeof f?.hasta === "string" && f.hasta <= f.desde && hora <= f.hasta);
 }
 
-function validarProgramado(iso, cfg, ahora = new Date()) {
+function validarProgramado(iso, cfg, ahora = new Date(Date.now())) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return { error: "La fecha elegida no es válida." };
   if (d.getTime() < ahora.getTime() + ANTICIPACION_MIN * MIN) {

@@ -53,7 +53,7 @@ const seSuperpone = (a1, a2, b1, b2) => a1 < b2 && b1 < a2;
  *  fecha: "YYYY-MM-DD"; duracion: minutos del servicio.
  *  ocupados / bloqueos: [{ inicio|desde, fin|hasta }] (ISO o Date).
  */
-function horariosLibres({ fecha, horariosConfig, agenda, duracion, ocupados = [], bloqueos = [], ahora = new Date() }) {
+function horariosLibres({ fecha, horariosConfig, agenda, duracion, ocupados = [], bloqueos = [], ahora = new Date(Date.now()) }) {
   if (!FECHA.test(fecha)) return [];
   const op = opcionesAgenda(agenda);
   const dur = Number.isInteger(duracion) && duracion > 0 ? duracion : op.paso_min;

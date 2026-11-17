@@ -131,7 +131,7 @@ const crearReserva = async (req, res) => {
       .eq("negocio_id", negocioId)
       .eq(contacto[0], contacto[1])
       .in("estado", ACTIVAS)
-      .gte("inicio", new Date().toISOString());
+      .gte("inicio", new Date(Date.now()).toISOString());
     if (cErr) throw cErr;
     if ((count || 0) >= MAX_ACTIVAS) {
       return res.status(429).json({ message: "Ya tenés varios turnos pedidos. Para otro, escribile al negocio." });
@@ -288,7 +288,7 @@ const delNegocio = async (req) => {
 // GET /api/reservas?desde=YYYY-MM-DD&hasta=YYYY-MM-DD (hasta incluido)
 const listar = async (req, res) => {
   try {
-    const hoy = fechaLocal(new Date());
+    const hoy = fechaLocal(new Date(Date.now()));
     const desde = /^\d{4}-\d{2}-\d{2}$/.test(req.query.desde || "") ? req.query.desde : hoy;
     const hasta = /^\d{4}-\d{2}-\d{2}$/.test(req.query.hasta || "") ? req.query.hasta : desde;
     const fin = new Date(new Date(`${hasta}T00:00:00-03:00`).getTime() + 24 * 60 * MIN).toISOString();
