@@ -21,13 +21,17 @@ import {
   type Configuracion,
   type HorariosConfig,
   type DiaHorario,
+  type EnvioConfig,
 } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 import RubroSelector from "./RubroSelector";
 import { modulosService, type ModuloInfo, type Modulos } from "../services/api";
 import { useNegocio } from "../context/NegocioContext";
 import { PROVINCIAS } from "../lib/provincias";
 
 type Form = Omit<Configuracion, "id">;
+
+const ENVIO_VACIO: EnvioConfig = { cobrar: false, monto: 0, gratis_desde: null, cobro: "pedido" };
 
 const EMPTY: Form = {
   nombre: "",
@@ -179,7 +183,7 @@ const GRUPOS: {
         labelKey: "cfgServiceTitle",
         accent: "var(--ok)",
         Icon: IconTruck,
-        campos: ["mesas_activo", "mesas_cantidad", "retiro_activo", "delivery_activo", "modalidades"],
+        campos: ["mesas_activo", "mesas_cantidad", "retiro_activo", "delivery_activo", "modalidades", "envio"],
       },
       { id: "horarios", labelKey: "cfgHours", accent: "var(--info)", Icon: IconClock, campos: ["horarios", "horarios_config"] },
     ],
@@ -216,6 +220,11 @@ export default function ConfiguracionEditor({
   const [seccion, setSeccion] = useState<SeccionId>("datos");
   const [registro, setRegistro] = useState<ModuloInfo[] | null>(null);
   const { recargarConfig } = useNegocio();
+  // El costo del envío lo cambia sólo el dueño de la cuenta (rol "admin").
+  const { user } = useAuth();
+  const esDueno = user?.rol === "admin";
+  const setEnvio = (p: Partial<EnvioConfig>) =>
+    setForm((f) => ({ ...f, envio: { ...(f.envio || ENVIO_VACIO), ...p } }));
   useEffect(() => {
     modulosService.getRegistro().then(setRegistro).catch(() => setRegistro([]));
   }, []);
@@ -279,6 +288,7 @@ export default function ConfiguracionEditor({
           moneda: cfg.moneda || "ARS",
           modulos: cfg.modulos,
           modalidades: cfg.modalidades || {},
+          envio: cfg.envio || ENVIO_VACIO,
           rubro_categoria: cfg.rubro_categoria ?? null,
           rubro_especialidad: cfg.rubro_especialidad ?? null,
           ciudad: cfg.ciudad || "",
@@ -366,15 +376,23 @@ export default function ConfiguracionEditor({
   };
 
   const save = async () => {
+    // El envío va por su propia ruta (sólo el dueño).
+    const { rubro_categoria, rubro_especialidad, envio, ...resto } = form;
+    const envioCambiado = esDueno && JSON.stringify(envio) !== JSON.stringify(initial?.form.envio);
+    if (envioCambiado && envio?.cobrar && !(Number(envio.monto) > 0)) {
+      setSeccion("servicio");
+      setToast({ type: "err", text: t("cfgShipAmountError") });
+      return;
+    }
     setSaving(true);
     try {
       // Sin categoría elegida no se manda el rubro (el backend lo rechazaría).
-      const { rubro_categoria, rubro_especialidad, ...resto } = form;
       await configuracionService.update({
         ...resto,
         ...(rubro_categoria ? { rubro_categoria, rubro_especialidad } : {}),
         horarios_config: usarPorDia ? form.horarios_config : null,
       });
+      if (envioCambiado && envio) await configuracionService.updateEnvio(envio);
       setInitial({ form, usarPorDia });
       setToast({ type: "ok", text: t("cfgSaved") });
       // El menú del panel depende de los módulos.
@@ -382,7 +400,8 @@ export default function ConfiguracionEditor({
       onSaved?.();
     } catch (e) {
       console.error(e);
-      setToast({ type: "err", text: t("cfgSaveError") });
+      const msg = (e as { response?: { data?: { message?: string } } }).response?.data?.message;
+      setToast({ type: "err", text: msg || t("cfgSaveError") });
     } finally {
       setSaving(false);
     }
@@ -697,6 +716,13 @@ export default function ConfiguracionEditor({
             value={form.delivery_activo}
             onChange={(v) => setForm((f) => ({ ...f, delivery_activo: v }))}
           />
+          {form.delivery_activo && (
+            <CostoEnvio
+              value={form.envio || ENVIO_VACIO}
+              onChange={setEnvio}
+              soloLectura={!esDueno}
+            />
+          )}
           {([
             ["mostrador", "cfgMostrador", "cfgMostradorDesc"],
             ["envio", "cfgEnvio", "cfgEnvioDesc"],
@@ -886,16 +912,124 @@ function TextField({
   );
 }
 
+// Costo del envío del delivery (dentro de Opciones de servicio).
+function CostoEnvio({
+  value,
+  onChange,
+  soloLectura,
+}: {
+  value: EnvioConfig;
+  onChange: (p: Partial<EnvioConfig>) => void;
+  soloLectura: boolean;
+}) {
+  const s = useStyles();
+  const { t } = useLang();
+  const id = useId();
+  // Pesos enteros.
+  const num = (v: string) => Math.max(0, Math.round(Number(v.replace(",", ".")) || 0));
+  return (
+    <fieldset
+      disabled={soloLectura}
+      style={{ position: "relative", border: "none", margin: 0, padding: "0 0 0 14px", borderLeft: "2px solid var(--line)", display: "grid", gap: 12, minWidth: 0 }}
+    >
+      <legend style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>{t("cfgShipCharge")}</legend>
+      {soloLectura && (
+        <p role="note" style={{ margin: 0, fontSize: 13, color: "var(--fg-2)" }}>
+          {t("cfgShipOwnerOnly")}
+        </p>
+      )}
+      <Toggle
+        label={t("cfgShipCharge")}
+        desc={t("cfgShipChargeDesc")}
+        value={value.cobrar}
+        disabled={soloLectura}
+        onChange={(v) => onChange({ cobrar: v })}
+      />
+      {value.cobrar && (
+        <>
+          <div style={{ maxWidth: 240 }}>
+            <label htmlFor={`${id}-monto`} style={s.label}>{t("cfgShipAmount")}</label>
+            <input
+              id={`${id}-monto`}
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={1}
+              value={value.monto || ""}
+              placeholder="1000"
+              onChange={(e) => onChange({ monto: num(e.target.value) })}
+              style={s.input}
+            />
+          </div>
+          <div role="radiogroup" aria-labelledby={`${id}-como`} style={{ display: "grid", gap: 8 }}>
+            <div id={`${id}-como`} style={s.label}>{t("cfgShipHow")}</div>
+            {([
+              ["pedido", "cfgShipWithOrder", "cfgShipWithOrderDesc"],
+              ["efectivo", "cfgShipCash", "cfgShipCashDesc"],
+            ] as const).map(([k, label, desc]) => (
+              <label
+                key={k}
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  alignItems: "flex-start",
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: `1px solid ${value.cobro === k ? "var(--ok)" : "var(--line)"}`,
+                  background: "var(--surface-2)",
+                  cursor: soloLectura ? "default" : "pointer",
+                }}
+              >
+                <input
+                  type="radio"
+                  name={`${id}-cobro`}
+                  checked={value.cobro === k}
+                  onChange={() => onChange({ cobro: k })}
+                  style={{ marginTop: 3, accentColor: "var(--ok)" }}
+                />
+                <span>
+                  <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: "var(--fg)" }}>{t(label)}</span>
+                  <span style={{ display: "block", fontSize: 13, color: "var(--fg-2)", marginTop: 2 }}>{t(desc)}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <div style={{ maxWidth: 240 }}>
+            <label htmlFor={`${id}-gratis`} style={s.label}>{t("cfgShipFreeFrom")}</label>
+            <input
+              id={`${id}-gratis`}
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={1}
+              value={value.gratis_desde ?? ""}
+              placeholder="15000"
+              aria-describedby={`${id}-gratis-ayuda`}
+              onChange={(e) => onChange({ gratis_desde: num(e.target.value) || null })}
+              style={s.input}
+            />
+            <div id={`${id}-gratis-ayuda`} style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 4 }}>
+              {t("cfgShipFreeFromHint")}
+            </div>
+          </div>
+        </>
+      )}
+    </fieldset>
+  );
+}
+
 function Toggle({
   label,
   desc,
   value,
   onChange,
+  disabled,
 }: {
   label: string;
   desc: string;
   value: boolean;
   onChange: (v: boolean) => void;
+  disabled?: boolean;
 }) {
   const id = useId();
   return (
@@ -921,6 +1055,7 @@ function Toggle({
       <button
         type="button"
         onClick={() => onChange(!value)}
+        disabled={disabled}
         role="switch"
         aria-checked={value}
         aria-labelledby={`${id}-l`}
@@ -930,7 +1065,8 @@ function Toggle({
           height: 26,
           borderRadius: 999,
           border: "none",
-          cursor: "pointer",
+          cursor: disabled ? "not-allowed" : "pointer",
+          opacity: disabled ? 0.6 : 1,
           background: value ? "var(--ok)" : "var(--fg-3)",
           position: "relative",
           transition: "background .2s",

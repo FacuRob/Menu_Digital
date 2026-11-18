@@ -369,6 +369,8 @@ export interface Configuracion {
   slug?: string | null;
   // Modalidades extra: mostrador, envío por correo y programar para después.
   modalidades?: { mostrador?: boolean; envio?: boolean; retiro_programado?: boolean; entrega_programada?: boolean } | null;
+  // Costo del delivery (lo configura el dueño). cobro "efectivo" = se paga al repartidor.
+  envio?: { cobrar: boolean; monto: number; gratis_desde: number | null; cobro: "pedido" | "efectivo" } | null;
 }
 
 export type TipoEntrega = "mesa" | "retiro" | "delivery" | "mostrador" | "envio";

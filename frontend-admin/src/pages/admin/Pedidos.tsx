@@ -641,6 +641,20 @@ export default function Pedidos() {
                 </div>
               )}
 
+              {/* Envío del delivery (aparte de los productos) */}
+              {Number(p.costo_envio) > 0 && (
+                <div style={{ display: "grid", gap: 2, marginTop: 12, fontSize: 13, color: textMuted }}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span>{t("pedProducts")}</span>
+                    <span>{fmt(Number(p.total))}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span>{t(p.envio_cobro === "efectivo" ? "pedShipCostCash" : "pedShipCost")}</span>
+                    <span>{fmt(Number(p.costo_envio))}</span>
+                  </div>
+                </div>
+              )}
+
               {/* Total */}
               <div
                 style={{
@@ -652,7 +666,7 @@ export default function Pedidos() {
               >
                 <span style={{ fontSize: 12, color: textMuted }}>{t("totalLabel")}</span>
                 <span style={{ fontSize: 18, fontWeight: 800, color: textPrimary }}>
-                  {fmt(Number(p.total))}
+                  {fmt(Number(p.total) + (Number(p.costo_envio) || 0))}
                 </span>
               </div>
 

@@ -26,8 +26,9 @@ export default function TicketModal({ pedido, config, onClose }: Props) {
   const fmt = (n: number) => fmtMoney(n, moneda);
 
   const totalVentas =
-    Number(pedido.total) ||
-    (pedido.items || []).reduce((a, it) => a + Number(it.subtotal || 0), 0);
+    (Number(pedido.total) ||
+      (pedido.items || []).reduce((a, it) => a + Number(it.subtotal || 0), 0)) +
+    (Number(pedido.costo_envio) || 0);
 
   const textPrimary = "var(--fg)";
   const textSecondary = "var(--fg-2)";

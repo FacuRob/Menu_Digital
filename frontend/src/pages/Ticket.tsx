@@ -13,6 +13,8 @@ interface TicketData {
   tipo_entrega: "mesa" | "retiro" | "delivery" | null;
   mesa: string | null;
   total: number;
+  costo_envio?: number;
+  envio_cobro?: "pedido" | "efectivo" | null;
   estado: string;
   created_at: string;
   entregado_at: string | null;
@@ -128,9 +130,18 @@ export default function Ticket() {
           </ul>
         </section>
 
+        {Number(data.costo_envio) > 0 && (
+          <section className="flex items-baseline justify-between border-t border-dashed border-[var(--field-border)] px-6 py-4 text-[15px]">
+            <span className="font-semibold">
+              Envío{data.envio_cobro === "efectivo" ? " (en efectivo al repartidor)" : ""}
+            </span>
+            <span className="mn-num font-semibold">{fmt(Number(data.costo_envio))}</span>
+          </section>
+        )}
+
         <section className="flex items-baseline justify-between border-t border-dashed border-[var(--field-border)] px-6 py-5">
           <span className="mn-label">Total</span>
-          <span className="mn-num text-[1.75rem] font-extrabold">{fmt(Number(data.total))}</span>
+          <span className="mn-num text-[1.75rem] font-extrabold">{fmt(Number(data.total) + Number(data.costo_envio || 0))}</span>
         </section>
 
         {(local.direccion || local.telefono) && (

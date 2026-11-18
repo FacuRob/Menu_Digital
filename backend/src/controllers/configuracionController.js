@@ -6,6 +6,7 @@ const { sincronizarSlug } = require("../utils/slug");
 const { resolverRubro } = require("../utils/rubros");
 const { opcionesAgenda } = require("../utils/agenda");
 const { normalizarModalidades } = require("../utils/entregas");
+const { normalizarEnvio, validarEnvio } = require("../utils/envio");
 const { registrar } = require("../utils/registroCambios");
 const { modulosDe, normalizar } = require("../utils/modulos");
 const { olvidarModulos } = require("../middleware/requiereModulo");
@@ -64,6 +65,7 @@ const getConfiguracion = async (req, res) => {
     res.json({
       ...base,
       modalidades: sinEntregas ? normalizarModalidades(null) : normalizarModalidades(base.modalidades),
+      envio: normalizarEnvio(base.envio),
       ...(sinEntregas ? { mesas_activo: false, retiro_activo: false, delivery_activo: false } : {}),
       modulos,
       slug: negRes.data?.slug || null,
@@ -193,7 +195,37 @@ const updateConfiguracion = async (req, res) => {
   }
 };
 
+// Costo del envío. Sólo el dueño de la cuenta (rol 'admin'): ni Admin
+// (manager) ni Staff. Va aparte de updateConfiguracion para que guardar la
+// configuración general nunca lo pise.
+const updateEnvio = async (req, res) => {
+  try {
+    if (req.user?.rol !== "admin") {
+      return res.status(403).json({ message: "Sólo el dueño de la cuenta puede cambiar el costo del envío." });
+    }
+    const negocioId = getNegocioId(req);
+    const { valor, error: invalido } = validarEnvio(req.body);
+    if (invalido) return res.status(400).json({ message: invalido });
+
+    const { data, error } = await supabase
+      .from("configuracion")
+      .upsert({ negocio_id: negocioId, envio: valor, updated_at: new Date().toISOString() }, { onConflict: "negocio_id" })
+      .select("envio")
+      .single();
+    // Falta db/costo_envio.sql: avisar claro en vez de un 500.
+    if (error && /envio/.test(error.message || "") && ["42703", "PGRST204"].includes(error.code)) {
+      return res.status(503).json({ message: "Falta activar el costo del envío en la base (db/costo_envio.sql)." });
+    }
+    if (error) throw error;
+    registrar(req, "envio", "negocio", negocioId, valor);
+    res.json({ envio: normalizarEnvio(data?.envio) });
+  } catch (error) {
+    return respondError(res, error, "configuracion");
+  }
+};
+
 module.exports = {
   getConfiguracion,
   updateConfiguracion,
+  updateEnvio,
 };

@@ -16,6 +16,8 @@ interface RepartoData {
   direccion: string | null;
   nota: string | null;
   total: number;
+  costo_envio?: number;
+  envio_cobro?: "pedido" | "efectivo" | null;
   items: { nombre: string; cantidad: number; unidad: string }[];
   local: { nombre: string; color_primario?: string | null; moneda?: string | null };
 }
@@ -221,9 +223,21 @@ export default function Reparto() {
                 </li>
               ))}
             </ul>
+            {Number(data.costo_envio) > 0 && (
+              <dl className="mt-3 grid gap-0.5 text-[15px]">
+                <div className="flex justify-between">
+                  <dt className="text-[var(--fg-2)]">Productos</dt>
+                  <dd className="mn-num font-semibold">{fmt(Number(data.total))}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-[var(--fg-2)]">Envío{data.envio_cobro === "efectivo" ? " (en efectivo)" : ""}</dt>
+                  <dd className="mn-num font-semibold">{fmt(Number(data.costo_envio))}</dd>
+                </div>
+              </dl>
+            )}
             <p className="mt-3 flex items-baseline justify-between">
               <span className="mn-label">Total a cobrar</span>
-              <span className="mn-num text-[1.5rem] font-extrabold">{fmt(Number(data.total))}</span>
+              <span className="mn-num text-[1.5rem] font-extrabold">{fmt(Number(data.total) + Number(data.costo_envio || 0))}</span>
             </p>
           </div>
         </section>

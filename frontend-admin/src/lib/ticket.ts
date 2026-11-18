@@ -50,6 +50,7 @@ interface Linea {
 
 interface TicketCalc {
   lineas: Linea[];
+  envio: number;
   total: number;
 }
 
@@ -61,9 +62,10 @@ const calcular = (pedido: Pedido): TicketCalc => {
     const subtotal = Number(it.subtotal) || precioUnit * cantidad;
     return { nombre: it.nombre, cantidad, unidad: it.unidad, precioUnit, subtotal };
   });
+  const envio = Number(pedido.costo_envio) || 0;
   const total =
-    Number(pedido.total) || lineas.reduce((a, l) => a + l.subtotal, 0);
-  return { lineas, total };
+    (Number(pedido.total) || lineas.reduce((a, l) => a + l.subtotal, 0)) + envio;
+  return { lineas, envio, total };
 };
 
 // Etiqueta del tipo de entrega del pedido.
@@ -111,6 +113,7 @@ const htmlTermica = (
     <div class="sep"></div>
     ${filas}
     <div class="sep"></div>
+    ${calc.envio > 0 ? `<div class="row"><span>${t("pedShipCost")}</span><span>${fmt(calc.envio)}</span></div>` : ""}
     <div class="row bold big"><span>${t("totalLabel")}</span><span>${fmt(calc.total)}</span></div>
     ${pedido.nota ? `<div class="sep"></div><div class="sm">${t("ticketNote")}: ${esc(pedido.nota)}</div>` : ""}
     <div class="sep"></div>
@@ -177,6 +180,7 @@ const htmlComun = (
     </div>
 
     <div class="totals">
+      ${calc.envio > 0 ? `<div class="t-row"><span>${t("pedShipCost")}</span><span>${fmt(calc.envio)}</span></div>` : ""}
       <div class="t-row big"><span>${t("totalLabel")}</span><span>${fmt(calc.total)}</span></div>
     </div>
 

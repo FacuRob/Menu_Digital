@@ -7,6 +7,7 @@ const { firmaValida, linkPedido } = require("../utils/linksPedido");
 const { modulosNegocio } = require("../middleware/requiereModulo");
 const { validarPersonalizacion } = require("../utils/personalizacion");
 const { tiposActivos, programable, validarProgramado } = require("../utils/entregas");
+const { costoEnvio } = require("../utils/envio");
 
 // Dispara el aviso de WhatsApp en segundo plano (nunca bloquea la respuesta).
 const avisarEnSegundoPlano = (pedido, estado) => {
@@ -269,6 +270,8 @@ const createPedido = async (req, res) => {
     }
 
     const total = +itemsCalc.reduce((acc, i) => acc + i.subtotal, 0).toFixed(2);
+    // Envío del delivery con la configuración actual (nunca el monto del cliente).
+    const envio = costoEnvio(cfg, tipo_entrega, total);
 
     // Stock a descontar (sumando las líneas del mismo producto u opción).
     const porProducto = {};
@@ -293,6 +296,8 @@ const createPedido = async (req, res) => {
       total,
       // Sólo si se programó (así el pedido anda aunque falte la columna).
       ...(programado ? { programado_para: programado } : {}),
+      // Sólo si se cobra (así el pedido anda aunque falte db/costo_envio.sql).
+      ...(envio.costo > 0 ? { costo_envio: envio.costo, envio_cobro: envio.cobro } : {}),
     };
     const filas = itemsCalc.map(({ _opciones, ...i }) => i);
 
@@ -312,6 +317,16 @@ const createPedido = async (req, res) => {
       guardado = await guardarSinRpc({ pedidoBase, filas, porProducto, porOpcion, prodsDB, opcionesDB, negocioId });
     }
     const { pedido, items: itemsData } = guardado;
+    // crear_pedido viejo (sin costo_envio.sql recreada) ignora el envío: se completa aparte.
+    if (envio.costo > 0 && Number(pedido.costo_envio || 0) !== envio.costo) {
+      const { error: envErr } = await supabase
+        .from("pedidos")
+        .update({ costo_envio: envio.costo, envio_cobro: envio.cobro })
+        .eq("id", pedido.id)
+        .eq("negocio_id", negocioId);
+      if (envErr) console.error("[Pedidos] no se pudo guardar el envío:", envErr.message);
+      else Object.assign(pedido, { costo_envio: envio.costo, envio_cobro: envio.cobro });
+    }
 
     // Consentimiento para avisos por WhatsApp. Se guarda aparte para que el
     // pedido no falle si la migración db/whatsapp_avisos.sql aún no corrió.
@@ -490,7 +505,8 @@ const getTicketPublico = async (req, res) => {
 
     const { data: p, error } = await supabase
       .from("pedidos")
-      .select("id, negocio_id, cliente, tipo_entrega, mesa, total, estado, created_at, entregado_at, pedido_items(*)")
+      // "*" para no fallar si falta db/costo_envio.sql.
+      .select("*, pedido_items(*)")
       .eq("id", id)
       .maybeSingle();
     if (error) throw error;
@@ -510,6 +526,8 @@ const getTicketPublico = async (req, res) => {
       tipo_entrega: p.tipo_entrega,
       mesa: p.mesa,
       total: p.total,
+      costo_envio: Number(p.costo_envio || 0),
+      envio_cobro: p.envio_cobro || null,
       estado: p.estado,
       created_at: p.created_at,
       entregado_at: p.entregado_at,

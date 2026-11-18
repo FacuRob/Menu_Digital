@@ -4,6 +4,7 @@ import { pedidosService } from "../services/api";
 import type { CartApi } from "../hooks/useCart";
 import { fmt, ProductImage, CIcon, esPorPeso, fmtPeso, redondearKg, PASO_KG } from "../lib/menuUi";
 import { useLang } from "../lib/i18n";
+import { calcularEnvio, type Envio } from "../lib/envio";
 
 export default function CartDrawer({
   open,
@@ -52,6 +53,9 @@ export default function CartDrawer({
   const [mesaRechazada, setMesaRechazada] = useState(false);
 
   const { lines, total, setQty, remove, clear } = cart;
+  // Envío del delivery (el backend lo vuelve a calcular con la configuración).
+  const envioSel = calcularEnvio(config, tipo, total);
+  const envioDelivery = calcularEnvio(config, "delivery", total);
   // Pedidos con teléfono (para avisar o coordinar): retiro, delivery y envío.
   const conTelefono = (x: TipoEntrega | null) => x === "retiro" || x === "delivery" || x === "envio";
   // ¿Se puede pedir para más tarde con esta modalidad?
@@ -247,10 +251,24 @@ export default function CartDrawer({
         )}${pers}`;
       })
       .join("\n");
-    const totalMsg = total;
+    const subtotalMsg = total;
+    const envioLocal = calcularEnvio(config, tipoEntrega, total);
 
     const pedido = await guardar(tipoEntrega);
     if (!pedido) return;
+
+    // El envío que guardó el servidor (por si el local lo cambió recién).
+    const guardado = typeof pedido === "object" ? (pedido as { costo_envio?: number; envio_cobro?: string | null }) : null;
+    const envioMsg = guardado
+      ? { costo: Number(guardado.costo_envio || 0), cobro: guardado.envio_cobro || null, gratis: envioLocal.gratis }
+      : envioLocal;
+    const envioTxt =
+      envioMsg.costo > 0
+        ? `\nEnvío: ${fmt(envioMsg.costo)}${envioMsg.cobro === "efectivo" ? " (en efectivo al repartidor)" : ""}`
+        : envioMsg.gratis
+          ? "\nEnvío: gratis"
+          : "";
+    const totalMsg = subtotalMsg + envioMsg.costo;
 
     if (conWhatsApp && !demo) {
       const entregaTxt =
@@ -275,7 +293,7 @@ export default function CartDrawer({
         (telefono.trim() ? `Tel: ${telefono.trim()}\n` : "") +
         (entregaTxt ? entregaTxt + "\n" : "") +
         cuandoTxt +
-        `\n${lineasMsg}\n\n*Total: ${fmt(totalMsg)}*` +
+        `\n${lineasMsg}\n${envioTxt}\n*Total: ${fmt(totalMsg)}*` +
         (nota.trim() ? `\n\nNota: ${nota.trim()}` : "");
 
       let num = (config?.whatsapp || config?.telefono || "").replace(/\D/g, "");
@@ -440,8 +458,17 @@ export default function CartDrawer({
                     className="mn-opcion min-h-[3.75rem]"
                   >
                     <CIcon icon={ICONO[op]} size={22} />
-                    <span className="flex-1 text-base font-bold">
-                      {op === "mesa" ? `${entregaLabel.mesa} · ${t("tableN", { n: mesa })}` : entregaLabel[op]}
+                    <span className="flex-1">
+                      <span className="block text-base font-bold">
+                        {op === "mesa" ? `${entregaLabel.mesa} · ${t("tableN", { n: mesa })}` : entregaLabel[op]}
+                      </span>
+                      {op === "delivery" && (envioDelivery.costo > 0 || envioDelivery.gratis) && (
+                        <span className="block text-[13px] font-semibold text-[var(--fg-2)]">
+                          {envioDelivery.gratis
+                            ? t("shippingFreeOption")
+                            : t(envioDelivery.cobro === "efectivo" ? "shippingCostOptionCash" : "shippingCostOption", { m: fmt(envioDelivery.costo) })}
+                        </span>
+                      )}
                     </span>
                     <span className="mn-marca" aria-hidden>
                       {tipo === op && <span className="h-2 w-2 rounded-full bg-current" />}
@@ -525,6 +552,7 @@ export default function CartDrawer({
 
             <Footer
               total={total}
+              envio={envioSel}
               error={error}
               primaryLabel={sending ? t("sending") : t("confirmOrder")}
               primaryDisabled={sending || !entregaOk}
@@ -543,6 +571,7 @@ export default function CartDrawer({
 // ── Subcomponentes ──
 function Footer({
   total,
+  envio,
   error,
   aviso,
   primaryLabel,
@@ -553,6 +582,8 @@ function Footer({
   onWhatsApp,
 }: {
   total: number;
+  // Sólo en el paso de entrega: desglose productos + envío.
+  envio?: Envio;
   error: string;
   aviso?: string;
   primaryLabel: string;
@@ -575,9 +606,31 @@ function Footer({
           {error}
         </p>
       )}
+      {/* Total y envío: se anuncian al cambiar la forma de entrega. */}
+      <div aria-live="polite">
+      {envio && (envio.costo > 0 || envio.gratis) && (
+        <dl className="mb-2 grid gap-1 text-[15px]">
+          <div className="flex justify-between">
+            <dt className="text-[var(--fg-2)]">{t("products")}</dt>
+            <dd className="mn-num font-semibold">{fmt(total)}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-[var(--fg-2)]">{t("shippingCost")}</dt>
+            <dd className="mn-num font-semibold">{envio.gratis ? t("shippingFree") : fmt(envio.costo)}</dd>
+          </div>
+        </dl>
+      )}
       <div className="mb-3 flex items-baseline justify-between">
         <span className="text-[15px] text-[var(--fg-2)]">{t("total")}</span>
-        <span className="mn-num mn-display text-[1.75rem]">{fmt(total)}</span>
+        <span className="mn-num mn-display text-[1.75rem]">{fmt(total + (envio?.costo || 0))}</span>
+      </div>
+      {envio && (envio.cobro === "efectivo" || envio.faltaParaGratis > 0) && (
+        <p className="-mt-1 mb-3 text-sm font-semibold leading-snug text-[var(--fg-2)]">
+          {envio.cobro === "efectivo" && t("shippingCashNote", { m: fmt(envio.costo) })}
+          {envio.cobro === "efectivo" && envio.faltaParaGratis > 0 && " "}
+          {envio.faltaParaGratis > 0 && t("shippingMissingForFree", { m: fmt(envio.faltaParaGratis) })}
+        </p>
+      )}
       </div>
 
       <button type="button" onClick={onPrimary} disabled={primaryDisabled} className="mn-btn w-full">

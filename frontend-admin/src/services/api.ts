@@ -353,6 +353,8 @@ export interface Configuracion {
   // Opciones de la agenda de turnos.
   agenda?: AgendaOpciones | null;
   modalidades?: ModalidadesEntrega | null;
+  // Costo del delivery. Sólo el dueño lo cambia (PUT /configuracion/envio).
+  envio?: EnvioConfig | null;
   moneda?: string | null;
   // Multi-rubro (viven en `negocios`, se editan desde Configuración).
   tipo_rubro?: TipoRubro;
@@ -546,7 +548,10 @@ export interface Pedido {
   mesa: string | null;
   cliente: string | null;
   nota: string | null;
+  // Sólo productos. Lo que paga el cliente = total + costo_envio.
   total: number;
+  costo_envio?: number;
+  envio_cobro?: "pedido" | "efectivo" | null;
   estado: "pendiente" | "preparando" | "listo" | "en_camino" | "entregado" | "cancelado";
   tipo_entrega?: TipoEntrega | null;
   direccion_entrega?: string | null;
@@ -564,10 +569,21 @@ export interface NuevoPedidoItem {
   cantidad: number;
 }
 
+export interface EnvioConfig {
+  cobrar: boolean;
+  monto: number;
+  // Con productos por este monto o más, el envío es gratis (null = nunca).
+  gratis_desde: number | null;
+  // "pedido": junto con el pedido · "efectivo": en efectivo al repartidor.
+  cobro: "pedido" | "efectivo";
+}
+
 export const configuracionService = {
   get: async () => (await api.get<Configuracion>("/panel/configuracion")).data,
   update: async (c: Partial<Configuracion>) =>
     (await api.put<Configuracion>("/configuracion", c)).data,
+  updateEnvio: async (e: EnvioConfig) =>
+    (await api.put<{ envio: EnvioConfig }>("/configuracion/envio", e)).data.envio,
 };
 
 export const pedidosService = {

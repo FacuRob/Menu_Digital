@@ -17,6 +17,9 @@ const { notificarPedido } = require("../services/avisosPedidoService");
 
 const NO_ENCONTRADO = { message: "Pedido no encontrado" };
 
+// Envío del pedido (0 / null si no se cobró o falta la migración).
+const envioDe = (p) => ({ costo_envio: Number(p.costo_envio || 0), envio_cobro: p.envio_cobro || null });
+
 // Pedido delivery cuyo link firmado (de ese tipo) es válido, o null.
 async function pedidoFirmado(tipo, req, campos) {
   const id = Number(req.params.id);
@@ -69,14 +72,15 @@ const getReparto = async (req, res) => {
     const p = await pedidoFirmado(
       "reparto",
       req,
-      "cliente, telefono_cliente, direccion_entrega, nota, total, pedido_items(nombre, cantidad, unidad)",
+      // "*" para no fallar si falta db/costo_envio.sql.
+      "*, pedido_items(nombre, cantidad, unidad)",
     );
     if (!p) return res.status(404).json(NO_ENCONTRADO);
     const local = await datosLocal(p.negocio_id);
     // Pedido cerrado: el link queda en el WhatsApp del repartidor, así que ya
     // no muestra teléfono, dirección ni nota del cliente.
     if (p.estado === "entregado" || p.estado === "cancelado") {
-      return res.json({ id: p.id, estado: p.estado, total: p.total, items: [], local });
+      return res.json({ id: p.id, estado: p.estado, total: p.total, ...envioDe(p), items: [], local });
     }
     res.json({
       id: p.id,
@@ -86,6 +90,7 @@ const getReparto = async (req, res) => {
       direccion: p.direccion_entrega,
       nota: p.nota,
       total: p.total,
+      ...envioDe(p),
       items: (p.pedido_items || []).map(({ nombre, cantidad, unidad }) => ({ nombre, cantidad, unidad: unidad || "unidad" })),
       local,
     });
