@@ -182,6 +182,12 @@ const createPedidoSchema = z.object({
   telefono_cliente: z.string().trim().max(40).optional().nullable(),
   // Opt-in del cliente para recibir avisos del pedido por WhatsApp.
   acepta_whatsapp: z.boolean().optional(),
+  // Medio de pago (si el local tiene alguno activo). Efectivo: con cuánto paga.
+  metodo_pago: z.enum(["efectivo", "transferencia"]).optional().nullable(),
+  paga_con: z.number().positive().max(10_000_000).optional().nullable(),
+  // Transferencia: quién la hizo y el comprobante (token de /api/adjuntos?uso=comprobante).
+  transfirio: z.string().trim().max(80).optional().nullable(),
+  comprobante: z.string().max(64).optional().nullable(),
 });
 
 // ── Campos de personalización de un producto ─────────────────

@@ -14,11 +14,23 @@ const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
 const { firmaValida, linkPedido } = require("../utils/linksPedido");
 const { notificarPedido } = require("../services/avisosPedidoService");
+const { montosDePago } = require("../utils/pagos");
 
 const NO_ENCONTRADO = { message: "Pedido no encontrado" };
 
-// Envío del pedido (0 / null si no se cobró o falta la migración).
-const envioDe = (p) => ({ costo_envio: Number(p.costo_envio || 0), envio_cobro: p.envio_cobro || null });
+// Envío y pago del pedido (0 / null si no se cobró o faltan las migraciones).
+// cobrar_efectivo: lo que el repartidor cobra en mano (sin medio de pago = todo).
+const envioDe = (p) => {
+  const envio = { costo: Number(p.costo_envio || 0), cobro: p.envio_cobro || null };
+  return {
+    costo_envio: envio.costo,
+    envio_cobro: envio.cobro,
+    metodo_pago: p.metodo_pago || null,
+    estado_pago: p.estado_pago || null,
+    paga_con: p.paga_con == null ? null : Number(p.paga_con),
+    cobrar_efectivo: montosDePago(p.metodo_pago, Number(p.total || 0), envio).efectivo,
+  };
+};
 
 // Pedido delivery cuyo link firmado (de ese tipo) es válido, o null.
 async function pedidoFirmado(tipo, req, campos) {

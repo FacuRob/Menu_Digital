@@ -4,10 +4,12 @@ const { respondError } = require("../utils/respondError");
 const { notificarPedido } = require("../services/avisosPedidoService");
 const { mesaValida, normalizarMesa } = require("../utils/mesaQr");
 const { firmaValida, linkPedido } = require("../utils/linksPedido");
+const { registrar } = require("../utils/registroCambios");
 const { modulosNegocio } = require("../middleware/requiereModulo");
 const { validarPersonalizacion } = require("../utils/personalizacion");
 const { tiposActivos, programable, validarProgramado } = require("../utils/entregas");
 const { costoEnvio } = require("../utils/envio");
+const { validarPago } = require("../utils/pagos");
 
 // Dispara el aviso de WhatsApp en segundo plano (nunca bloquea la respuesta).
 const avisarEnSegundoPlano = (pedido, estado) => {
@@ -31,6 +33,10 @@ const createPedido = async (req, res) => {
       acepta_whatsapp,
       mesa_token,
       programado_para,
+      metodo_pago,
+      paga_con,
+      transfirio,
+      comprobante,
     } = req.body;
 
     if (!Array.isArray(items) || items.length === 0) {
@@ -272,6 +278,34 @@ const createPedido = async (req, res) => {
     const total = +itemsCalc.reduce((acc, i) => acc + i.subtotal, 0).toFixed(2);
     // Envío del delivery con la configuración actual (nunca el monto del cliente).
     const envio = costoEnvio(cfg, tipo_entrega, total);
+    // Medio de pago (sólo si el local tiene alguno activo; nunca en mesa).
+    // Comprobante de la transferencia: archivo de ESTE negocio, sin usar, de las últimas 24 h.
+    let adjComprobante = null;
+    if (metodo_pago === "transferencia" && comprobante && cfg?.pagos?.comprobante && cfg.pagos.comprobante !== "no") {
+      const { data: adj, error: adjErr } = await supabase
+        .from("adjuntos")
+        .select("id, token, tipo")
+        .eq("negocio_id", negocioId)
+        .eq("usado", false)
+        .eq("uso", "comprobante")
+        .eq("token", comprobante)
+        .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .maybeSingle();
+      if (adjErr) throw adjErr;
+      if (!adj || !["imagen", "pdf"].includes(adj.tipo)) {
+        return res.status(400).json({ message: "El comprobante ya no está disponible. Subilo de nuevo." });
+      }
+      adjComprobante = adj;
+    }
+    const pago = validarPago({
+      cfg, tipoEntrega: tipo_entrega, metodo: metodo_pago, pagaCon: paga_con, total, envio, transfirio, comprobante: adjComprobante,
+    });
+    if (pago.error) return res.status(400).json({ message: pago.error });
+    // Columnas nuevas: sólo si hay valor (así el pedido anda aunque falten las migraciones).
+    const extras = {
+      ...(envio.costo > 0 ? { costo_envio: envio.costo, envio_cobro: envio.cobro } : {}),
+      ...(pago.valor || {}),
+    };
 
     // Stock a descontar (sumando las líneas del mismo producto u opción).
     const porProducto = {};
@@ -296,8 +330,7 @@ const createPedido = async (req, res) => {
       total,
       // Sólo si se programó (así el pedido anda aunque falte la columna).
       ...(programado ? { programado_para: programado } : {}),
-      // Sólo si se cobra (así el pedido anda aunque falte db/costo_envio.sql).
-      ...(envio.costo > 0 ? { costo_envio: envio.costo, envio_cobro: envio.cobro } : {}),
+      ...extras,
     };
     const filas = itemsCalc.map(({ _opciones, ...i }) => i);
 
@@ -310,22 +343,31 @@ const createPedido = async (req, res) => {
         .filter(([id]) => prodsDB[id].controlar_stock)
         .map(([id, cantidad]) => ({ id: Number(id), cantidad })),
       stockOpciones: Object.entries(porOpcion).map(([id, cantidad]) => ({ id: Number(id), cantidad })),
-      adjuntos: [...new Set(personalizaciones.flatMap((p) => p.tokens))],
+      adjuntos: [
+        ...new Set([
+          ...personalizaciones.flatMap((p) => p.tokens),
+          ...(pago.valor?.comprobante_id ? [adjComprobante.token] : []),
+        ]),
+      ],
     });
     if (!guardado) {
-      if (filas.some((i) => i.personalizacion)) throw new Error("Falta correr db/catalogo_universal.sql");
+      if (filas.some((i) => i.personalizacion) || pago.valor?.comprobante_id) throw new Error("Falta correr db/catalogo_universal.sql");
       guardado = await guardarSinRpc({ pedidoBase, filas, porProducto, porOpcion, prodsDB, opcionesDB, negocioId });
     }
     const { pedido, items: itemsData } = guardado;
-    // crear_pedido viejo (sin costo_envio.sql recreada) ignora el envío: se completa aparte.
-    if (envio.costo > 0 && Number(pedido.costo_envio || 0) !== envio.costo) {
-      const { error: envErr } = await supabase
+    // crear_pedido viejo (sin la última migración) ignora envío y pago: se completan aparte.
+    const faltan = Object.keys(extras).some((k) => String(pedido[k] ?? "") !== String(extras[k] ?? ""));
+    if (faltan) {
+      const { error: extErr } = await supabase
         .from("pedidos")
-        .update({ costo_envio: envio.costo, envio_cobro: envio.cobro })
+        .update(extras)
         .eq("id", pedido.id)
         .eq("negocio_id", negocioId);
-      if (envErr) console.error("[Pedidos] no se pudo guardar el envío:", envErr.message);
-      else Object.assign(pedido, { costo_envio: envio.costo, envio_cobro: envio.cobro });
+      if (extErr) {
+        console.error("[Pedidos] no se pudo guardar envío o pago:", extErr.message);
+        // Sin el medio de pago guardado el local no sabe cómo cobrar: mejor avisar.
+        if (pago.valor) throw new Error("No se pudo guardar el medio de pago (¿falta db/medios_pago.sql?)");
+      } else Object.assign(pedido, extras);
     }
 
     // Consentimiento para avisos por WhatsApp. Se guarda aparte para que el
@@ -528,6 +570,8 @@ const getTicketPublico = async (req, res) => {
       total: p.total,
       costo_envio: Number(p.costo_envio || 0),
       envio_cobro: p.envio_cobro || null,
+      metodo_pago: p.metodo_pago || null,
+      estado_pago: p.estado_pago || null,
       estado: p.estado,
       created_at: p.created_at,
       entregado_at: p.entregado_at,
@@ -603,6 +647,37 @@ const updateEstadoPedido = async (req, res) => {
   }
 };
 
+// ── Confirmar o rechazar una transferencia (protegida) ──
+// Sólo el dueño (rol admin) y el Admin (manager): es manejo de plata.
+const updatePagoPedido = async (req, res) => {
+  try {
+    if (!["admin", "manager"].includes(req.user?.rol)) {
+      return res.status(403).json({ message: "Sólo el dueño o un Admin pueden confirmar pagos." });
+    }
+    const id = Number(req.params.id);
+    const { estado_pago } = req.body || {};
+    if (!Number.isInteger(id) || !["pagado", "rechazado", "en_revision"].includes(estado_pago)) {
+      return res.status(400).json({ message: "Estado de pago inválido." });
+    }
+    const negocioId = getNegocioId(req);
+    const { data, error } = await supabase
+      .from("pedidos")
+      .update({ estado_pago })
+      .eq("id", id)
+      .eq("negocio_id", negocioId)
+      .eq("metodo_pago", "transferencia")
+      .neq("estado", "cancelado")
+      .select()
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ message: "Pedido no encontrado o sin transferencia." });
+    registrar(req, "pago_" + estado_pago, "pedido", id);
+    res.json(data);
+  } catch (error) {
+    return respondError(res, error, "pedidos");
+  }
+};
+
 // ── Eliminar un pedido cancelado (protegida) ──
 // Sólo cancelados: los entregados son ventas y alimentan el Dashboard.
 const deletePedido = async (req, res) => {
@@ -637,6 +712,7 @@ module.exports = {
   getPedidos,
   getPedidoById,
   updateEstadoPedido,
+  updatePagoPedido,
   deletePedido,
   getTicketPublico,
 };

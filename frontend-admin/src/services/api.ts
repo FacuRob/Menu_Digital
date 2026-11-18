@@ -355,6 +355,8 @@ export interface Configuracion {
   modalidades?: ModalidadesEntrega | null;
   // Costo del delivery. Sólo el dueño lo cambia (PUT /configuracion/envio).
   envio?: EnvioConfig | null;
+  // Medios de pago. Sólo el dueño los cambia (PUT /configuracion/pagos).
+  pagos?: PagosConfig | null;
   moneda?: string | null;
   // Multi-rubro (viven en `negocios`, se editan desde Configuración).
   tipo_rubro?: TipoRubro;
@@ -552,6 +554,13 @@ export interface Pedido {
   total: number;
   costo_envio?: number;
   envio_cobro?: "pedido" | "efectivo" | null;
+  // Medio de pago (null = el local no usa medios de pago).
+  metodo_pago?: "efectivo" | "transferencia" | null;
+  paga_con?: number | null;
+  estado_pago?: "pendiente" | "en_revision" | "pagado" | "rechazado" | null;
+  // Transferencia: quién la hizo y el comprobante adjunto (adjuntos.id).
+  transfirio?: string | null;
+  comprobante_id?: number | null;
   estado: "pendiente" | "preparando" | "listo" | "en_camino" | "entregado" | "cancelado";
   tipo_entrega?: TipoEntrega | null;
   direccion_entrega?: string | null;
@@ -578,12 +587,25 @@ export interface EnvioConfig {
   cobro: "pedido" | "efectivo";
 }
 
+export interface PagosConfig {
+  efectivo: boolean;
+  transferencia: boolean;
+  alias: string;
+  cbu: string;
+  titular: string;
+  banco: string;
+  // Comprobante de la transferencia: no se pide, opcional u obligatorio.
+  comprobante: "no" | "opcional" | "obligatorio";
+}
+
 export const configuracionService = {
   get: async () => (await api.get<Configuracion>("/panel/configuracion")).data,
   update: async (c: Partial<Configuracion>) =>
     (await api.put<Configuracion>("/configuracion", c)).data,
   updateEnvio: async (e: EnvioConfig) =>
     (await api.put<{ envio: EnvioConfig }>("/configuracion/envio", e)).data.envio,
+  updatePagos: async (p: PagosConfig) =>
+    (await api.put<{ pagos: PagosConfig }>("/configuracion/pagos", p)).data.pagos,
 };
 
 export const pedidosService = {
@@ -614,6 +636,9 @@ export const pedidosService = {
     (await api.get<Pedido>(`/pedidos/${id}`)).data,
   updateEstado: async (id: number, estado: Pedido["estado"]) =>
     (await api.put<Pedido>(`/pedidos/${id}/estado`, { estado })).data,
+  // Transferencias: "Llegó la plata" / "No llegó" (dueño y Admin).
+  updatePago: async (id: number, estado_pago: "pagado" | "rechazado" | "en_revision") =>
+    (await api.put<Pedido>(`/pedidos/${id}/pago`, { estado_pago })).data,
   // Link firmado para el repartidor (sólo pedidos delivery).
   linkReparto: async (id: number) =>
     (await api.get<{ url: string }>(`/pedidos/${id}/link-reparto`)).data.url,

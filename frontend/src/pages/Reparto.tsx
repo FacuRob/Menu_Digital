@@ -18,6 +18,11 @@ interface RepartoData {
   total: number;
   costo_envio?: number;
   envio_cobro?: "pedido" | "efectivo" | null;
+  metodo_pago?: "efectivo" | "transferencia" | null;
+  estado_pago?: "pendiente" | "en_revision" | "pagado" | "rechazado" | null;
+  paga_con?: number | null;
+  // Lo que se cobra en mano al entregar (lo calcula el backend).
+  cobrar_efectivo?: number;
   items: { nombre: string; cantidad: number; unidad: string }[];
   local: { nombre: string; color_primario?: string | null; moneda?: string | null };
 }
@@ -235,10 +240,29 @@ export default function Reparto() {
                 </div>
               </dl>
             )}
+            {data.metodo_pago === "transferencia" && (
+              <p className="mt-3 text-[15px]">
+                <span className="font-semibold">Pagó por transferencia</span>
+                {" · "}
+                <span className={data.estado_pago === "rechazado" ? "font-semibold text-[var(--err)]" : "font-semibold"}>
+                  {data.estado_pago === "pagado" ? "confirmada" : data.estado_pago === "rechazado" ? "NO llegó, consultá al local" : "sin confirmar, consultá al local"}
+                </span>
+              </p>
+            )}
             <p className="mt-3 flex items-baseline justify-between">
-              <span className="mn-label">Total a cobrar</span>
-              <span className="mn-num text-[1.5rem] font-extrabold">{fmt(Number(data.total) + Number(data.costo_envio || 0))}</span>
+              <span className="mn-label">{data.metodo_pago ? "Cobrar en efectivo" : "Total a cobrar"}</span>
+              <span className="mn-num text-[1.5rem] font-extrabold">
+                {fmt(data.cobrar_efectivo ?? Number(data.total) + Number(data.costo_envio || 0))}
+              </span>
             </p>
+            {data.metodo_pago && data.cobrar_efectivo === 0 && (
+              <p className="mt-1 text-[15px] font-semibold">No cobres nada.</p>
+            )}
+            {data.metodo_pago === "efectivo" && Number(data.paga_con) > Number(data.cobrar_efectivo) && (
+              <p className="mt-1 text-[15px] font-semibold">
+                Paga con {fmt(Number(data.paga_con))} · llevá <strong>{fmt(Number(data.paga_con) - Number(data.cobrar_efectivo))} de vuelto</strong>
+              </p>
+            )}
           </div>
         </section>
 

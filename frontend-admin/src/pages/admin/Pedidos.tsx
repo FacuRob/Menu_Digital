@@ -13,6 +13,7 @@ import {
 import {
   pedidosService,
   configuracionService,
+  adjuntosService,
   type Pedido,
   type Configuracion,
   type TipoEntrega,
@@ -23,6 +24,7 @@ import { useLang } from "../../lib/i18n";
 import TicketModal from "../../components/TicketModal";
 import { Segmented } from "../../components/ui";
 import { useDialogos } from "../../lib/dialogos";
+import { useAuth } from "../../context/AuthContext";
 import { fmtCantidad } from "../../lib/cantidad";
 import PersonalizacionItem from "../../components/PersonalizacionItem";
 
@@ -140,6 +142,9 @@ export default function Pedidos() {
       }[e],
     );
   const { confirmar, avisar } = useDialogos();
+  // Confirmar transferencias: dueño (admin) y Admin (manager).
+  const { user } = useAuth();
+  const puedeConfirmarPago = user?.rol === "admin" || user?.rol === "manager";
   const [vista, setVista] = useState<Vista>("curso");
   const [periodo, setPeriodo] = useState<Periodo>("hoy");
   const [rangoDesde, setRangoDesde] = useState("");
@@ -248,6 +253,17 @@ export default function Pedidos() {
       await pedidosService.updateEstado(id, estado);
     } catch (e) {
       console.error(e); // p. ej. 409: el repartidor lo cambió desde su link
+    }
+    load();
+  };
+
+  const cambiarPago = async (id: number, estado: "pagado" | "rechazado" | "en_revision") => {
+    if (estado === "rechazado" && !(await confirmar({ mensaje: t("pedPayNoConfirm", { id }), peligro: true }))) return;
+    try {
+      await pedidosService.updatePago(id, estado);
+    } catch (e) {
+      console.error(e);
+      void avisar({ mensaje: t("pedPayError"), tipo: "error" });
     }
     load();
   };
@@ -670,6 +686,11 @@ export default function Pedidos() {
                 </span>
               </div>
 
+              {/* Medio de pago */}
+              {p.metodo_pago && (
+                <PagoPedido p={p} fmt={fmt} puedeConfirmar={puedeConfirmarPago} onPago={(e) => cambiarPago(p.id, e)} />
+              )}
+
               {/* Acciones */}
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {p.estado === "pendiente" && (
@@ -794,6 +815,100 @@ function GroupLabel({
     >
       {children}
     </div>
+  );
+}
+
+// Cómo paga el pedido y, en transferencias, los botones para confirmar.
+function PagoPedido({
+  p,
+  fmt,
+  puedeConfirmar,
+  onPago,
+}: {
+  p: Pedido;
+  fmt: (n: number) => string;
+  puedeConfirmar: boolean;
+  onPago: (estado: "pagado" | "rechazado" | "en_revision") => void;
+}) {
+  const { t } = useLang();
+  const aPagar = Number(p.total) + (Number(p.costo_envio) || 0);
+  if (p.metodo_pago === "efectivo") {
+    const con = Number(p.paga_con) || 0;
+    return (
+      <div style={{ margin: "0 0 10px", padding: "8px 10px", borderRadius: 8, background: "var(--surface-2)", border: "1px solid var(--line)", fontSize: 13 }}>
+        <strong style={{ color: "var(--fg)" }}><span aria-hidden>💵</span> {t("pedPayCash")}</strong>
+        <span style={{ color: "var(--fg-2)" }}>
+          {" · "}
+          {con > aPagar ? t("pedPayCashWith", { m: fmt(con), v: fmt(con - aPagar) }) : t("pedPayCashExact")}
+        </span>
+      </div>
+    );
+  }
+  const est = p.estado_pago || "en_revision";
+  // Lo que tendría que haber llegado (si el envío es en efectivo, no se transfiere).
+  const aTransferir = aPagar - (p.envio_cobro === "efectivo" ? Number(p.costo_envio) || 0 : 0);
+  const estilo = {
+    en_revision: { bg: "var(--warn-bg)", color: "var(--warn)", key: "pedPayReview" },
+    pagado: { bg: "var(--ok-bg)", color: "var(--ok)", key: "pedPayPaid" },
+    rechazado: { bg: "var(--err-bg)", color: "var(--err)", key: "pedPayRejected" },
+    pendiente: { bg: "var(--warn-bg)", color: "var(--warn)", key: "pedPayReview" },
+  }[est];
+  return (
+    <div style={{ margin: "0 0 10px", padding: "8px 10px", borderRadius: 8, background: estilo.bg, fontSize: 13, display: "grid", gap: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+        <strong style={{ color: "var(--fg)" }}><span aria-hidden>🏦</span> {t("pedPayTransfer")} · {fmt(aTransferir)}</strong>
+        <span style={{ fontWeight: 700, color: estilo.color }}>{t(estilo.key)}</span>
+      </div>
+      {(p.transfirio || p.comprobante_id) && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", color: "var(--fg)" }}>
+          {p.transfirio && <span style={{ flex: 1, minWidth: 0 }}>{t("pedPayWho", { n: p.transfirio })}</span>}
+          {p.comprobante_id && <VerComprobante id={p.comprobante_id} />}
+        </div>
+      )}
+      {puedeConfirmar && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {est !== "pagado" && (
+            <EstadoBtn color="var(--ok)" onClick={() => onPago("pagado")}>{t("pedPayOk")}</EstadoBtn>
+          )}
+          {est === "en_revision" || est === "pendiente" ? (
+            <EstadoBtn color="var(--err)" ghost onClick={() => onPago("rechazado")}>{t("pedPayNo")}</EstadoBtn>
+          ) : (
+            <EstadoBtn color="var(--fg-2)" ghost onClick={() => onPago("en_revision")}>{t("pedPayUndo")}</EstadoBtn>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Abre el comprobante con un link firmado que vence (archivo privado).
+function VerComprobante({ id }: { id: number }) {
+  const { t } = useLang();
+  const { avisar } = useDialogos();
+  const abrir = async () => {
+    const ventana = window.open("", "_blank");
+    try {
+      const { url } = await adjuntosService.ver(id);
+      if (ventana) ventana.location.href = url;
+      else window.location.href = url;
+    } catch (e) {
+      ventana?.close();
+      console.error(e);
+      void avisar({ mensaje: t("pedPayReceiptError"), tipo: "error" });
+    }
+  };
+  return (
+    <button
+      type="button"
+      className="tap"
+      onClick={abrir}
+      style={{
+        minHeight: 36, padding: "6px 12px", borderRadius: 8, border: "1px solid var(--line)",
+        background: "var(--surface)", color: "var(--fg)", fontSize: 13, fontWeight: 700, cursor: "pointer",
+      }}
+    >
+      <span aria-hidden>📎</span> {t("pedPayReceipt")}
+    </button>
   );
 }
 

@@ -15,6 +15,8 @@ interface TicketData {
   total: number;
   costo_envio?: number;
   envio_cobro?: "pedido" | "efectivo" | null;
+  metodo_pago?: "efectivo" | "transferencia" | null;
+  estado_pago?: "pendiente" | "en_revision" | "pagado" | "rechazado" | null;
   estado: string;
   created_at: string;
   entregado_at: string | null;
@@ -143,6 +145,17 @@ export default function Ticket() {
           <span className="mn-label">Total</span>
           <span className="mn-num text-[1.75rem] font-extrabold">{fmt(Number(data.total) + Number(data.costo_envio || 0))}</span>
         </section>
+        {data.metodo_pago && (
+          <p className="-mt-3 px-6 pb-5 text-sm text-[var(--fg-2)]">
+            {data.metodo_pago === "efectivo"
+              ? "Pagado en efectivo"
+              : data.estado_pago === "pagado"
+                ? "Pagado por transferencia"
+                : data.estado_pago === "rechazado"
+                  ? "Transferencia: el local no la recibió"
+                  : "Transferencia: a confirmar por el local"}
+          </p>
+        )}
 
         {(local.direccion || local.telefono) && (
           <footer className="bg-[var(--bg-2)] px-6 py-4 text-[13px] text-[var(--fg-2)]">

@@ -7,6 +7,7 @@ const { resolverRubro } = require("../utils/rubros");
 const { opcionesAgenda } = require("../utils/agenda");
 const { normalizarModalidades } = require("../utils/entregas");
 const { normalizarEnvio, validarEnvio } = require("../utils/envio");
+const { normalizarPagos, validarPagos } = require("../utils/pagos");
 const { registrar } = require("../utils/registroCambios");
 const { modulosDe, normalizar } = require("../utils/modulos");
 const { olvidarModulos } = require("../middleware/requiereModulo");
@@ -66,6 +67,7 @@ const getConfiguracion = async (req, res) => {
       ...base,
       modalidades: sinEntregas ? normalizarModalidades(null) : normalizarModalidades(base.modalidades),
       envio: normalizarEnvio(base.envio),
+      pagos: pagosVisibles(normalizarPagos(base.pagos), esPublica),
       ...(sinEntregas ? { mesas_activo: false, retiro_activo: false, delivery_activo: false } : {}),
       modulos,
       slug: negRes.data?.slug || null,
@@ -79,6 +81,10 @@ const getConfiguracion = async (req, res) => {
     return respondError(res, error, "configuracion");
   }
 };
+
+// En el menú los datos de la cuenta sólo se muestran si la transferencia está activa.
+const pagosVisibles = (p, esPublica) =>
+  esPublica && !p.transferencia ? { ...p, alias: "", cbu: "", titular: "", banco: "" } : p;
 
 // Actualizar la configuración del negocio. Ruta protegida.
 const updateConfiguracion = async (req, res) => {
@@ -195,37 +201,45 @@ const updateConfiguracion = async (req, res) => {
   }
 };
 
-// Costo del envío. Sólo el dueño de la cuenta (rol 'admin'): ni Admin
-// (manager) ni Staff. Va aparte de updateConfiguracion para que guardar la
-// configuración general nunca lo pise.
-const updateEnvio = async (req, res) => {
+// Costo del envío y medios de pago. Sólo el dueño de la cuenta (rol 'admin'):
+// ni Admin (manager) ni Staff. Van aparte de updateConfiguracion para que
+// guardar la configuración general nunca los pise.
+const guardarSoloDueno = ({ campo, validar, normalizar, quien, migracion }) => async (req, res) => {
   try {
     if (req.user?.rol !== "admin") {
-      return res.status(403).json({ message: "Sólo el dueño de la cuenta puede cambiar el costo del envío." });
+      return res.status(403).json({ message: `Sólo el dueño de la cuenta puede cambiar ${quien}.` });
     }
     const negocioId = getNegocioId(req);
-    const { valor, error: invalido } = validarEnvio(req.body);
+    const { valor, error: invalido } = validar(req.body);
     if (invalido) return res.status(400).json({ message: invalido });
 
     const { data, error } = await supabase
       .from("configuracion")
-      .upsert({ negocio_id: negocioId, envio: valor, updated_at: new Date().toISOString() }, { onConflict: "negocio_id" })
-      .select("envio")
+      .upsert({ negocio_id: negocioId, [campo]: valor, updated_at: new Date().toISOString() }, { onConflict: "negocio_id" })
+      .select(campo)
       .single();
-    // Falta db/costo_envio.sql: avisar claro en vez de un 500.
-    if (error && /envio/.test(error.message || "") && ["42703", "PGRST204"].includes(error.code)) {
-      return res.status(503).json({ message: "Falta activar el costo del envío en la base (db/costo_envio.sql)." });
+    // Falta la migración: avisar claro en vez de un 500.
+    if (error && new RegExp(campo).test(error.message || "") && ["42703", "PGRST204"].includes(error.code)) {
+      return res.status(503).json({ message: `Falta activar ${quien} en la base (db/${migracion}).` });
     }
     if (error) throw error;
-    registrar(req, "envio", "negocio", negocioId, valor);
-    res.json({ envio: normalizarEnvio(data?.envio) });
+    registrar(req, campo, "negocio", negocioId, campo === "pagos" ? { efectivo: valor.efectivo, transferencia: valor.transferencia } : valor);
+    res.json({ [campo]: normalizar(data?.[campo]) });
   } catch (error) {
     return respondError(res, error, "configuracion");
   }
 };
 
+const updateEnvio = guardarSoloDueno({
+  campo: "envio", validar: validarEnvio, normalizar: normalizarEnvio, quien: "el costo del envío", migracion: "costo_envio.sql",
+});
+const updatePagos = guardarSoloDueno({
+  campo: "pagos", validar: validarPagos, normalizar: normalizarPagos, quien: "los medios de pago", migracion: "medios_pago.sql",
+});
+
 module.exports = {
   getConfiguracion,
   updateConfiguracion,
   updateEnvio,
+  updatePagos,
 };

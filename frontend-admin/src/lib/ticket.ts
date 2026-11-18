@@ -68,6 +68,18 @@ const calcular = (pedido: Pedido): TicketCalc => {
   return { lineas, envio, total };
 };
 
+// Medio de pago en una línea ("Efectivo · Paga con $X · vuelto $Y").
+const pagoTxt = (pedido: Pedido, total: number, fmt: (n: number) => string, t: T) => {
+  if (pedido.metodo_pago === "efectivo") {
+    const con = Number(pedido.paga_con) || 0;
+    return con > total ? `${t("pedPayCash")} · ${t("pedPayCashWith", { m: fmt(con), v: fmt(con - total) })}` : t("pedPayCash");
+  }
+  if (pedido.metodo_pago === "transferencia") {
+    return `${t("pedPayTransfer")} · ${t(pedido.estado_pago === "pagado" ? "pedPayPaid" : pedido.estado_pago === "rechazado" ? "pedPayRejected" : "pedPayReview")}`;
+  }
+  return "";
+};
+
 // Etiqueta del tipo de entrega del pedido.
 const tipoLabel = (pedido: Pedido, t: T) => {
   if (pedido.tipo_entrega === "delivery") return t("pedDelivery");
@@ -115,6 +127,7 @@ const htmlTermica = (
     <div class="sep"></div>
     ${calc.envio > 0 ? `<div class="row"><span>${t("pedShipCost")}</span><span>${fmt(calc.envio)}</span></div>` : ""}
     <div class="row bold big"><span>${t("totalLabel")}</span><span>${fmt(calc.total)}</span></div>
+    ${pagoTxt(pedido, calc.total, fmt, t) ? `<div class="row sm"><span>${esc(pagoTxt(pedido, calc.total, fmt, t))}</span></div>` : ""}
     ${pedido.nota ? `<div class="sep"></div><div class="sm">${t("ticketNote")}: ${esc(pedido.nota)}</div>` : ""}
     <div class="sep"></div>
     <div class="center sm">${t("ticketThanks")}</div>
@@ -182,6 +195,7 @@ const htmlComun = (
     <div class="totals">
       ${calc.envio > 0 ? `<div class="t-row"><span>${t("pedShipCost")}</span><span>${fmt(calc.envio)}</span></div>` : ""}
       <div class="t-row big"><span>${t("totalLabel")}</span><span>${fmt(calc.total)}</span></div>
+      ${pagoTxt(pedido, calc.total, fmt, t) ? `<div class="t-row"><span>${esc(pagoTxt(pedido, calc.total, fmt, t))}</span></div>` : ""}
     </div>
 
     ${pedido.nota ? `<div class="nota"><strong>${t("ticketNote")}:</strong> ${esc(pedido.nota)}</div>` : ""}

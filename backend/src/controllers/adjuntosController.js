@@ -5,6 +5,7 @@ const cloudinary = require("../config/cloudinary");
 const { respondError } = require("../utils/respondError");
 const { esImagen } = require("../utils/imagen");
 const { modulosNegocio } = require("../middleware/requiereModulo");
+const { normalizarPagos, mediosActivos } = require("../utils/pagos");
 
 // ══════════════════════════════════════════════════════════════
 // Adjuntos que sube el cliente (personalización; después presupuestos).
@@ -60,18 +61,34 @@ const subirAdjunto = async (req, res) => {
       .maybeSingle();
     if (negErr) throw negErr;
     if (!neg || neg.activo === false) return res.status(404).json({ message: "Negocio no encontrado." });
-    const mods = await modulosNegocio(negocioId);
-    if (!mods.personalizados && !mods.presupuestos) {
-      return res.status(403).json({ error: "MODULO_INACTIVO", message: "Este negocio no recibe archivos." });
+    // Comprobante de transferencia (?uso=comprobante): el local tiene que pedirlo.
+    const esComprobante = req.query?.uso === "comprobante";
+    if (esComprobante) {
+      const { data: cfg, error: cfgErr } = await supabase
+        .from("configuracion")
+        .select("pagos")
+        .eq("negocio_id", negocioId)
+        .maybeSingle();
+      if (cfgErr) throw cfgErr;
+      if (!mediosActivos(cfg).includes("transferencia") || normalizarPagos(cfg?.pagos).comprobante === "no") {
+        return res.status(403).json({ message: "Este negocio no recibe comprobantes." });
+      }
+    } else {
+      const mods = await modulosNegocio(negocioId);
+      if (!mods.personalizados && !mods.presupuestos) {
+        return res.status(403).json({ error: "MODULO_INACTIVO", message: "Este negocio no recibe archivos." });
+      }
     }
 
     const desde = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { count, error: cErr } = await supabase
+    // Los comprobantes tienen su propio tope (no frenan la personalización ni al revés).
+    let consulta = supabase
       .from("adjuntos")
       .select("id", { count: "exact", head: true })
       .eq("negocio_id", negocioId)
-      .eq("usado", false)
-      .gte("created_at", desde);
+      .eq("usado", false);
+    if (esComprobante) consulta = consulta.eq("uso", "comprobante");
+    const { count, error: cErr } = await consulta.gte("created_at", desde);
     if (cErr) throw cErr;
     if ((count || 0) >= MAX_SIN_USAR) {
       return res.status(429).json({ message: "Este negocio recibió muchos archivos. Probá de nuevo más tarde." });
@@ -79,8 +96,12 @@ const subirAdjunto = async (req, res) => {
 
     const nombre = limpiarNombre(req.file.originalname);
     const tipo = tipoDeArchivo(req.file.buffer, nombre);
-    if (!tipo) {
-      return res.status(400).json({ message: "Ese tipo de archivo no se acepta (imágenes, PDF, STL, OBJ o 3MF)." });
+    if (!tipo || (esComprobante && tipo === "3d")) {
+      return res.status(400).json({
+        message: esComprobante
+          ? "El comprobante tiene que ser una foto o un PDF."
+          : "Ese tipo de archivo no se acepta (imágenes, PDF, STL, OBJ o 3MF).",
+      });
     }
 
     const resourceType = tipo === "imagen" ? "image" : "raw";
@@ -113,6 +134,8 @@ const subirAdjunto = async (req, res) => {
         tipo,
         nombre,
         bytes: req.file.size,
+        // Sólo en comprobantes (así la personalización anda aunque falte db/medios_pago.sql).
+        ...(esComprobante ? { uso: "comprobante" } : {}),
       },
     ]);
     if (error) {

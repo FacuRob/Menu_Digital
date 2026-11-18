@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import type { Configuracion, TipoEntrega } from "../services/api";
-import { pedidosService } from "../services/api";
+import { pedidosService, adjuntosService, getErrorMessage } from "../services/api";
 import type { CartApi } from "../hooks/useCart";
 import { fmt, ProductImage, CIcon, esPorPeso, fmtPeso, redondearKg, PASO_KG } from "../lib/menuUi";
 import { useLang } from "../lib/i18n";
 import { calcularEnvio, type Envio } from "../lib/envio";
+import { mediosActivos, montosDePago, type MetodoPago } from "../lib/pagos";
 
 export default function CartDrawer({
   open,
@@ -41,6 +42,15 @@ export default function CartDrawer({
   const [telefono, setTelefono] = useState("");
   // Opt-in para avisos del pedido por WhatsApp (solo si el local los activó).
   const [avisoWa, setAvisoWa] = useState(false);
+  // Medio de pago y, en efectivo, con cuánto paga (vacío = paga justo).
+  const [metodo, setMetodo] = useState<MetodoPago | null>(null);
+  const [pagaCon, setPagaCon] = useState("");
+  const [copiado, setCopiado] = useState("");
+  // Transferencia: quién la hizo y el comprobante (token del archivo subido).
+  const [transfirio, setTransfirio] = useState("");
+  const [comprobante, setComprobante] = useState<{ token: string; nombre: string } | null>(null);
+  const [subiendoComp, setSubiendoComp] = useState(false);
+  const [errorComp, setErrorComp] = useState("");
   const [tipo, setTipo] = useState<TipoEntrega | null>(null);
   // Para más tarde (retiro o entrega programada): "YYYY-MM-DDTHH:mm" local.
   const [programar, setProgramar] = useState(false);
@@ -56,6 +66,18 @@ export default function CartDrawer({
   // Envío del delivery (el backend lo vuelve a calcular con la configuración).
   const envioSel = calcularEnvio(config, tipo, total);
   const envioDelivery = calcularEnvio(config, "delivery", total);
+  const medios = mediosActivos(config, tipo);
+  // Si cambia la entrega y el medio elegido ya no está, se descarta.
+  const metodoSel = metodo && medios.includes(metodo) ? metodo : medios.length === 1 ? medios[0] : null;
+  const montos = montosDePago(metodoSel, total, envioSel);
+  const pagaConNum = Number(pagaCon.replace(/\D/g, "")) || 0;
+  const pagaConOk = metodoSel !== "efectivo" || !pagaCon || pagaConNum >= montos.efectivo;
+  const copiar = (texto: string, clave: string) => {
+    navigator.clipboard?.writeText(texto).then(() => {
+      setCopiado(clave);
+      setTimeout(() => setCopiado(""), 2000);
+    }).catch(() => {});
+  };
   // Pedidos con teléfono (para avisar o coordinar): retiro, delivery y envío.
   const conTelefono = (x: TipoEntrega | null) => x === "retiro" || x === "delivery" || x === "envio";
   // ¿Se puede pedir para más tarde con esta modalidad?
@@ -93,6 +115,11 @@ export default function CartDrawer({
     setDireccion("");
     setTelefono("");
     setAvisoWa(false);
+    setMetodo(null);
+    setPagaCon("");
+    setTransfirio("");
+    setComprobante(null);
+    setErrorComp("");
     setProgramar(false);
     setCuando("");
     setTipo(null);
@@ -142,6 +169,15 @@ export default function CartDrawer({
     telefono_cliente: conTelefono(tipoEntrega) ? telefono.trim() || null : null,
     acepta_whatsapp: !!config?.avisos_whatsapp && avisoWa && conTelefono(tipoEntrega),
     ...(programar && cuando && sePuedeProgramar(tipoEntrega) ? { programado_para: new Date(`${cuando}:00-03:00`).toISOString() } : {}),
+    ...(metodoSel && mediosActivos(config, tipoEntrega).includes(metodoSel)
+      ? {
+          metodo_pago: metodoSel,
+          paga_con: metodoSel === "efectivo" && pagaConNum > 0 ? pagaConNum : null,
+          ...(metodoSel === "transferencia"
+            ? { transfirio: transfirio.trim() || null, comprobante: modoComp !== "no" ? comprobante?.token || null : null }
+            : {}),
+        }
+      : {}),
     items: lines.map((l) => ({
       producto_id: l.producto.id,
       nombre: l.producto.nombre,
@@ -162,6 +198,24 @@ export default function CartDrawer({
     tipo === "mostrador" ||
     (tipo === "retiro" && !!telefono.trim()) ||
     ((tipo === "delivery" || tipo === "envio") && !!direccion.trim() && !!telefono.trim());
+  const modoComp = config?.pagos?.comprobante || "no";
+  const compOk = metodoSel !== "transferencia" || modoComp !== "obligatorio" || !!comprobante;
+  const pagoOk = medios.length === 0 || (!!metodoSel && pagaConOk && compOk && !subiendoComp);
+  const subirComprobante = async (file: File | undefined) => {
+    if (!file) return;
+    setErrorComp("");
+    if (!/^image\/|^application\/pdf$/.test(file.type)) return setErrorComp(t("payReceiptType"));
+    if (file.size > 10 * 1024 * 1024) return setErrorComp(t("fileTooBig", { n: 10 }));
+    setSubiendoComp(true);
+    try {
+      const r = await adjuntosService.subir(file, config?.negocio_id, "comprobante");
+      setComprobante({ token: r.token, nombre: r.nombre });
+    } catch (e) {
+      setErrorComp(getErrorMessage(e, t("fileError")));
+    } finally {
+      setSubiendoComp(false);
+    }
+  };
 
   const irAEntrega = () => {
     if (!nombreOk) {
@@ -231,6 +285,18 @@ export default function CartDrawer({
       setError(t("errEnterPhone"));
       return false;
     }
+    if (mediosActivos(config, tipoEntrega).length > 0 && !metodoSel) {
+      setError(t("errChoosePay"));
+      return false;
+    }
+    if (!pagaConOk) {
+      setError(t("payTooLow", { m: fmt(montos.efectivo) }));
+      return false;
+    }
+    if (!compOk) {
+      setError(t("errReceiptMissing"));
+      return false;
+    }
     return true;
   };
 
@@ -269,6 +335,12 @@ export default function CartDrawer({
           ? "\nEnvío: gratis"
           : "";
     const totalMsg = subtotalMsg + envioMsg.costo;
+    const pagoTxt =
+      metodoSel === "efectivo" && mediosActivos(config, tipoEntrega).length
+        ? `\nPago: Efectivo${pagaConNum > totalMsg ? ` (paga con ${fmt(pagaConNum)}, vuelto ${fmt(pagaConNum - totalMsg)})` : " (justo)"}`
+        : metodoSel === "transferencia" && mediosActivos(config, tipoEntrega).length
+          ? `\nPago: Transferencia (a confirmar)${transfirio.trim() ? `\nTransfirió: ${transfirio.trim()}` : ""}${comprobante ? "\nComprobante adjunto en el pedido" : ""}`
+          : "";
 
     if (conWhatsApp && !demo) {
       const entregaTxt =
@@ -293,7 +365,7 @@ export default function CartDrawer({
         (telefono.trim() ? `Tel: ${telefono.trim()}\n` : "") +
         (entregaTxt ? entregaTxt + "\n" : "") +
         cuandoTxt +
-        `\n${lineasMsg}\n${envioTxt}\n*Total: ${fmt(totalMsg)}*` +
+        `\n${lineasMsg}\n${envioTxt}\n*Total: ${fmt(totalMsg)}*${pagoTxt}` +
         (nota.trim() ? `\n\nNota: ${nota.trim()}` : "");
 
       let num = (config?.whatsapp || config?.telefono || "").replace(/\D/g, "");
@@ -533,6 +605,119 @@ export default function CartDrawer({
                   />
                 </label>
               )}
+              {medios.length > 0 && (
+                <fieldset className="mt-5 min-w-0">
+                  <legend className="mn-field-label">{t("payTitle")}</legend>
+                  <div className="mt-1 grid gap-2">
+                    {medios.map((m) => (
+                      <label key={m} className="mn-opcion" aria-checked={metodoSel === m}>
+                        <input type="radio" name="metodo-pago" className="sr-only" checked={metodoSel === m}
+                          onChange={() => {
+                            setMetodo(m);
+                            setError("");
+                          }} />
+                        <span className="mn-marca" aria-hidden>{metodoSel === m && <span className="h-2 w-2 rounded-full bg-current" />}</span>
+                        <span className="flex-1">
+                          <span className="block text-[15px] font-semibold">{t(m === "efectivo" ? "payCash" : "payTransfer")}</span>
+                          <span className="block text-[13px] text-[var(--fg-2)]">{t(m === "efectivo" ? "payCashSub" : "payTransferSub")}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  {metodoSel === "efectivo" && (
+                    <label className="mt-3 block">
+                      <span className="mn-field-label">{t("payWithHowMuch")}</span>
+                      <input type="text" inputMode="numeric" className="mn-field" value={pagaCon}
+                        placeholder={t("payWithPlaceholder")} aria-invalid={!pagaConOk || undefined}
+                        aria-describedby="paga-con-ayuda"
+                        onChange={(e) => setPagaCon(e.target.value.replace(/[^\d]/g, "").slice(0, 7))} />
+                      <span id="paga-con-ayuda" aria-live="polite"
+                        className={`mt-1 block text-sm font-semibold ${pagaConOk ? "text-[var(--fg)]" : "text-[var(--err)]"}`}>
+                        {!pagaCon
+                          ? <span className="font-normal text-[var(--fg-2)]">{t("payWithHint")}</span>
+                          : !pagaConOk
+                            ? t("payTooLow", { m: fmt(montos.efectivo) })
+                            : pagaConNum === montos.efectivo
+                              ? t("payExact", { m: fmt(montos.efectivo) })
+                              : t("payChange", { m: fmt(pagaConNum - montos.efectivo) })}
+                      </span>
+                    </label>
+                  )}
+                  {metodoSel === "transferencia" && config?.pagos && (
+                    <div className="mt-3 rounded-[var(--r-sm)] bg-[var(--surface)] px-4 py-3 ring-1 ring-[var(--line)]">
+                      <p className="text-[15px] font-bold">{t("payTransferTo", { m: fmt(montos.transferir) })}</p>
+                      <dl className="mt-2 grid gap-2 text-[15px]">
+                        {([
+                          ["alias", "payAlias", config.pagos.alias],
+                          ["cbu", "payCbu", config.pagos.cbu],
+                        ] as const).filter(([, , v]) => !!v).map(([k, label, v]) => (
+                          <div key={k} className="flex items-center gap-2">
+                            <div className="min-w-0 flex-1">
+                              <dt className="text-[13px] text-[var(--fg-2)]">{t(label)}</dt>
+                              <dd className="mn-num break-all font-semibold">{v}</dd>
+                            </div>
+                            <button type="button" onClick={() => copiar(v, k)} aria-label={`${t("payCopy")} ${t(label)}`}
+                              className="mn-btn mn-btn-borde min-h-11 shrink-0 px-3 text-sm">
+                              {copiado === k ? t("payCopied") : t("payCopy")}
+                            </button>
+                          </div>
+                        ))}
+                        {config.pagos.titular && (
+                          <div>
+                            <dt className="text-[13px] text-[var(--fg-2)]">{t("payHolder")}</dt>
+                            <dd className="font-semibold">{config.pagos.titular}</dd>
+                          </div>
+                        )}
+                        {config.pagos.banco && (
+                          <div>
+                            <dt className="text-[13px] text-[var(--fg-2)]">{t("payBank")}</dt>
+                            <dd className="font-semibold">{config.pagos.banco}</dd>
+                          </div>
+                        )}
+                      </dl>
+                      <p className="mt-3 text-sm leading-snug text-[var(--fg-2)]">{t("payTransferNote")}</p>
+                      <label className="mt-4 block">
+                        <span className="mn-field-label">{t("payWho")}</span>
+                        <input className="mn-field" value={transfirio} maxLength={80} autoComplete="name"
+                          placeholder={t("payWhoPlaceholder")} onChange={(e) => setTransfirio(e.target.value)} />
+                      </label>
+                      {modoComp !== "no" && (
+                        <div className="mt-4">
+                          <p id="comp-titulo" className="mn-field-label">
+                            {t(modoComp === "obligatorio" ? "payReceipt" : "payReceiptOptional")}
+                            {modoComp === "obligatorio" && <span aria-hidden> *</span>}
+                          </p>
+                          {comprobante ? (
+                            <div className="mt-1 flex items-center gap-2 rounded-[var(--r-sm)] bg-[var(--bg-2)] px-3 py-2">
+                              <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">✓ {comprobante.nombre}</span>
+                              <button type="button" onClick={() => setComprobante(null)}
+                                className="min-h-11 cursor-pointer px-2 text-sm font-semibold underline">{t("payReceiptRemove")}</button>
+                            </div>
+                          ) : (
+                            <label className="mn-btn mn-btn-borde mt-1 w-full cursor-pointer">
+                              <input type="file" accept="image/*,application/pdf" className="sr-only"
+                                aria-labelledby="comp-titulo" aria-describedby="comp-ayuda" disabled={subiendoComp}
+                                onChange={(e) => {
+                                  void subirComprobante(e.target.files?.[0]);
+                                  e.target.value = "";
+                                }} />
+                              {subiendoComp ? t("payReceiptUploading") : t("payReceiptAttach")}
+                            </label>
+                          )}
+                          <span id="comp-ayuda" className="mt-1 block text-[13px] text-[var(--fg-2)]">{t("payReceiptHint")}</span>
+                          {errorComp && (
+                            <span role="alert" className="mt-1 block text-sm font-semibold text-[var(--err)]">{errorComp}</span>
+                          )}
+                        </div>
+                      )}
+                      {montos.efectivo > 0 && (
+                        <p className="mt-1 text-sm font-semibold leading-snug">{t("payShippingCash", { m: fmt(montos.efectivo) })}</p>
+                      )}
+                      <span className="sr-only" role="status">{copiado ? t("payCopied") : ""}</span>
+                    </div>
+                  )}
+                </fieldset>
+              )}
               {requierePhone && config?.avisos_whatsapp && (
                 <label className="mn-opcion mt-4 items-start" aria-checked={avisoWa}>
                   <input
@@ -555,10 +740,10 @@ export default function CartDrawer({
               envio={envioSel}
               error={error}
               primaryLabel={sending ? t("sending") : t("confirmOrder")}
-              primaryDisabled={sending || !entregaOk}
+              primaryDisabled={sending || !entregaOk || !pagoOk}
               onPrimary={() => finalizar(tipo, false)}
               showWhatsApp
-              whatsAppDisabled={sending || !entregaOk}
+              whatsAppDisabled={sending || !entregaOk || !pagoOk}
               onWhatsApp={() => finalizar(tipo, true)}
             />
           </>

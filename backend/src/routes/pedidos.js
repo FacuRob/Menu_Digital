@@ -4,6 +4,7 @@ const {
   getPedidos,
   getPedidoById,
   updateEstadoPedido,
+  updatePagoPedido,
   deletePedido,
 } = require("../controllers/pedidosController");
 const { getLinkReparto } = require("../controllers/repartoController");
@@ -16,6 +17,8 @@ router.get("/:id", getPedidoById);
 // Mapa del repartidor: plan Estándar o Premium.
 router.get("/:id/link-reparto", noSoloLectura, requiereWhatsapp, getLinkReparto);
 router.put("/:id/estado", updateEstadoPedido);
+// Transferencias: "Llegó la plata" / "No llegó" (dueño y Admin).
+router.put("/:id/pago", updatePagoPedido);
 router.delete("/:id", deletePedido);
 
 module.exports = router;

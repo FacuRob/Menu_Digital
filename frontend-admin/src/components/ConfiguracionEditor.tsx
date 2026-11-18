@@ -22,6 +22,7 @@ import {
   type HorariosConfig,
   type DiaHorario,
   type EnvioConfig,
+  type PagosConfig,
 } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import RubroSelector from "./RubroSelector";
@@ -32,6 +33,7 @@ import { PROVINCIAS } from "../lib/provincias";
 type Form = Omit<Configuracion, "id">;
 
 const ENVIO_VACIO: EnvioConfig = { cobrar: false, monto: 0, gratis_desde: null, cobro: "pedido" };
+const PAGOS_VACIO: PagosConfig = { efectivo: false, transferencia: false, alias: "", cbu: "", titular: "", banco: "", comprobante: "no" };
 
 const EMPTY: Form = {
   nombre: "",
@@ -105,6 +107,7 @@ type SeccionId =
   | "color"
   | "moneda"
   | "servicio"
+  | "pagos"
   | "horarios";
 
 type IconoP = { size?: number };
@@ -185,6 +188,7 @@ const GRUPOS: {
         Icon: IconTruck,
         campos: ["mesas_activo", "mesas_cantidad", "retiro_activo", "delivery_activo", "modalidades", "envio"],
       },
+      { id: "pagos", labelKey: "cfgPayTitle", accent: "var(--warn)", Icon: IconCoin, campos: ["pagos"] },
       { id: "horarios", labelKey: "cfgHours", accent: "var(--info)", Icon: IconClock, campos: ["horarios", "horarios_config"] },
     ],
   },
@@ -225,6 +229,8 @@ export default function ConfiguracionEditor({
   const esDueno = user?.rol === "admin";
   const setEnvio = (p: Partial<EnvioConfig>) =>
     setForm((f) => ({ ...f, envio: { ...(f.envio || ENVIO_VACIO), ...p } }));
+  const setPagos = (p: Partial<PagosConfig>) =>
+    setForm((f) => ({ ...f, pagos: { ...(f.pagos || PAGOS_VACIO), ...p } }));
   useEffect(() => {
     modulosService.getRegistro().then(setRegistro).catch(() => setRegistro([]));
   }, []);
@@ -289,6 +295,7 @@ export default function ConfiguracionEditor({
           modulos: cfg.modulos,
           modalidades: cfg.modalidades || {},
           envio: cfg.envio || ENVIO_VACIO,
+          pagos: { ...PAGOS_VACIO, ...(cfg.pagos || {}) },
           rubro_categoria: cfg.rubro_categoria ?? null,
           rubro_especialidad: cfg.rubro_especialidad ?? null,
           ciudad: cfg.ciudad || "",
@@ -377,11 +384,17 @@ export default function ConfiguracionEditor({
 
   const save = async () => {
     // El envío va por su propia ruta (sólo el dueño).
-    const { rubro_categoria, rubro_especialidad, envio, ...resto } = form;
+    const { rubro_categoria, rubro_especialidad, envio, pagos, ...resto } = form;
     const envioCambiado = esDueno && JSON.stringify(envio) !== JSON.stringify(initial?.form.envio);
+    const pagosCambiado = esDueno && JSON.stringify(pagos) !== JSON.stringify(initial?.form.pagos);
     if (envioCambiado && envio?.cobrar && !(Number(envio.monto) > 0)) {
       setSeccion("servicio");
       setToast({ type: "err", text: t("cfgShipAmountError") });
+      return;
+    }
+    if (pagosCambiado && pagos?.transferencia && !pagos.alias.trim() && !pagos.cbu.trim()) {
+      setSeccion("pagos");
+      setToast({ type: "err", text: t("cfgPayAliasOrCbu") });
       return;
     }
     setSaving(true);
@@ -393,6 +406,7 @@ export default function ConfiguracionEditor({
         horarios_config: usarPorDia ? form.horarios_config : null,
       });
       if (envioCambiado && envio) await configuracionService.updateEnvio(envio);
+      if (pagosCambiado && pagos) await configuracionService.updatePagos(pagos);
       setInitial({ form, usarPorDia });
       setToast({ type: "ok", text: t("cfgSaved") });
       // El menú del panel depende de los módulos.
@@ -674,6 +688,17 @@ export default function ConfiguracionEditor({
       )}
 
       {/* ── Opciones de servicio ── */}
+      {/* ── Medios de pago ── */}
+      {seccion === "pagos" && (
+      <SectionCard
+        accent="var(--warn)"
+        title={t("cfgPayTitle")}
+        subtitle={t("cfgPaySubtitle")}
+      >
+        <MediosPago value={form.pagos || PAGOS_VACIO} onChange={setPagos} soloLectura={!esDueno} />
+      </SectionCard>
+      )}
+
       {seccion === "servicio" && (
       <SectionCard
         accent="var(--ok)"
@@ -909,6 +934,86 @@ function TextField({
         style={s.input}
       />
     </div>
+  );
+}
+
+// Medios de pago: efectivo y transferencia (sólo el dueño los cambia).
+function MediosPago({
+  value,
+  onChange,
+  soloLectura,
+}: {
+  value: PagosConfig;
+  onChange: (p: Partial<PagosConfig>) => void;
+  soloLectura: boolean;
+}) {
+  const s = useStyles();
+  const { t } = useLang();
+  const id = useId();
+  const campos = [
+    ["alias", "cfgPayAlias", "bar.esquina.mp", 20, "text"],
+    ["cbu", "cfgPayCbu", "0000003100012345678901", 22, "numeric"],
+    ["titular", "cfgPayHolder", "Ana Pérez", 80, "text"],
+    ["banco", "cfgPayBank", "Mercado Pago, Banco Nación…", 60, "text"],
+  ] as const;
+  return (
+    <fieldset disabled={soloLectura} style={{ position: "relative", border: "none", margin: 0, padding: 0, display: "grid", gap: 12, minWidth: 0 }}>
+      <legend style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>{t("cfgPayTitle")}</legend>
+      {soloLectura && (
+        <p role="note" style={{ margin: 0, fontSize: 13, color: "var(--fg-2)" }}>{t("cfgPayOwnerOnly")}</p>
+      )}
+      <Toggle label={t("cfgPayCash")} desc={t("cfgPayCashDesc")} value={value.efectivo} disabled={soloLectura}
+        onChange={(v) => onChange({ efectivo: v })} />
+      <Toggle label={t("cfgPayTransfer")} desc={t("cfgPayTransferDesc")} value={value.transferencia} disabled={soloLectura}
+        onChange={(v) => onChange({ transferencia: v })} />
+      {value.transferencia && (
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", paddingLeft: 14, borderLeft: "2px solid var(--line)" }}>
+          {campos.map(([k, label, ph, max, modo]) => (
+            <div key={k}>
+              <label htmlFor={`${id}-${k}`} style={s.label}>{t(label)}</label>
+              <input
+                id={`${id}-${k}`}
+                value={value[k]}
+                maxLength={max}
+                inputMode={modo}
+                placeholder={ph}
+                autoComplete="off"
+                onChange={(e) => onChange({ [k]: k === "cbu" ? e.target.value.replace(/\D/g, "") : e.target.value } as Partial<PagosConfig>)}
+                style={s.input}
+              />
+            </div>
+          ))}
+          <p style={{ margin: 0, fontSize: 13, color: "var(--fg-2)", gridColumn: "1 / -1" }}>{t("cfgPayAliasOrCbu")}</p>
+          <div role="radiogroup" aria-labelledby={`${id}-comp`} aria-describedby={`${id}-comp-d`} style={{ gridColumn: "1 / -1", display: "grid", gap: 6 }}>
+            <div id={`${id}-comp`} style={s.label}>{t("cfgPayReceipt")}</div>
+            <div id={`${id}-comp-d`} style={{ fontSize: 13, color: "var(--fg-2)" }}>{t("cfgPayReceiptDesc")}</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {([
+                ["no", "cfgPayReceiptNo"],
+                ["opcional", "cfgPayReceiptOptional"],
+                ["obligatorio", "cfgPayReceiptRequired"],
+              ] as const).map(([k, label]) => (
+                <label
+                  key={k}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8, minHeight: 44, padding: "0 14px", borderRadius: 10,
+                    border: `1px solid ${value.comprobante === k ? "var(--ok)" : "var(--line)"}`,
+                    background: "var(--surface-2)", cursor: soloLectura ? "default" : "pointer", fontSize: 14, fontWeight: 600, color: "var(--fg)",
+                  }}
+                >
+                  <input type="radio" name={`${id}-comp`} checked={value.comprobante === k}
+                    onChange={() => onChange({ comprobante: k })} style={{ accentColor: "var(--ok)" }} />
+                  {t(label)}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {!value.efectivo && !value.transferencia && (
+        <p style={{ margin: 0, fontSize: 13, color: "var(--fg-2)" }}>{t("cfgPayNone")}</p>
+      )}
+    </fieldset>
   );
 }
 

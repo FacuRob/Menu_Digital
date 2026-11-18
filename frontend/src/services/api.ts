@@ -285,13 +285,13 @@ export const reservasPublico = {
 
 // Archivos del cliente para personalizar (quedan privados para el negocio).
 export const adjuntosService = {
-  subir: async (archivo: File, negocio?: number) => {
+  subir: async (archivo: File, negocio?: number, uso?: "comprobante") => {
     const fd = new FormData();
     fd.append("archivo", archivo);
     return (
       await api.post<{ token: string; nombre: string; tipo: string }>("/adjuntos", fd, {
         headers: { "Content-Type": "multipart/form-data" },
-        ...delNegocio(negocio),
+        params: { ...(negocio ? { negocio } : {}), ...(uso ? { uso } : {}) },
       })
     ).data;
   },
@@ -344,6 +344,7 @@ export type HorariosConfig = DiaHorario[]; // 0=Lunes … 6=Domingo
 
 export interface Configuracion {
   id: number;
+  negocio_id?: number;
   nombre: string;
   descripcion: string | null;
   direccion: string | null;
@@ -371,6 +372,17 @@ export interface Configuracion {
   modalidades?: { mostrador?: boolean; envio?: boolean; retiro_programado?: boolean; entrega_programada?: boolean } | null;
   // Costo del delivery (lo configura el dueño). cobro "efectivo" = se paga al repartidor.
   envio?: { cobrar: boolean; monto: number; gratis_desde: number | null; cobro: "pedido" | "efectivo" } | null;
+  // Medios de pago (los configura el dueño). Datos de la cuenta sólo si hay transferencia.
+  pagos?: {
+    efectivo: boolean;
+    transferencia: boolean;
+    alias: string;
+    cbu: string;
+    titular: string;
+    banco: string;
+    // Comprobante de la transferencia: no se pide, opcional u obligatorio.
+    comprobante?: "no" | "opcional" | "obligatorio";
+  } | null;
 }
 
 export type TipoEntrega = "mesa" | "retiro" | "delivery" | "mostrador" | "envio";
