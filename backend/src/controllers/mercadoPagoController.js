@@ -23,6 +23,10 @@ const mercadoPagoWebhook = async (req, res) => {
       return res.status(401).json({ message: "Firma inválida" });
     }
 
+    if (tipo === "subscription_authorized_payment" && dataId) {
+      return await procesarCobro(dataId, res);
+    }
+
     if (!["subscription_preapproval", "preapproval"].includes(tipo) || !dataId) {
       return res.status(200).json({ message: "Evento ignorado", tipo });
     }
@@ -85,6 +89,47 @@ const mercadoPagoWebhook = async (req, res) => {
     // 500 → MP reintenta el aviso más tarde.
     return res.status(500).json({ message: "Error procesando el webhook" });
   }
+};
+
+// Aviso de un cobro mensual. Se consulta el cobro a MP (nunca el cuerpo):
+// - aprobado  → la cuenta sigue activa y periodo_fin pasa al próximo cobro.
+// - cancelado sin aprobar (MP agotó los reintentos) → la cuenta queda vencida.
+// - rechazado pero MP todavía reintenta → no se toca nada.
+// Solo cuenta si es de la suscripción vigente de la cuenta.
+const procesarCobro = async (cobroId, res) => {
+  const cobro = await mp.obtenerCobro(cobroId);
+  const preapprovalId = cobro?.preapproval_id;
+  if (!preapprovalId) return res.status(200).json({ message: "Cobro sin suscripción" });
+
+  const { data: cuenta } = await supabase
+    .from("cuentas")
+    .select("id, mp_preapproval_id")
+    .eq("mp_preapproval_id", preapprovalId)
+    .maybeSingle();
+  if (!cuenta) return res.status(200).json({ message: "Cobro de otra suscripción" });
+
+  const aprobado = cobro.payment?.status === "approved";
+  let datos = null;
+
+  if (aprobado) {
+    const sub = await mp.obtenerSuscripcion(preapprovalId);
+    if (sub?.status !== "authorized") {
+      return res.status(200).json({ message: "Suscripción no activa" });
+    }
+    datos = {
+      estado_suscripcion: "activo",
+      mp_status: sub.status,
+      periodo_fin: sub.next_payment_date || null,
+    };
+  } else if (cobro.status === "cancelled") {
+    datos = { estado_suscripcion: "vencido" };
+  }
+
+  if (!datos) return res.status(200).json({ message: "Cobro en reintento" });
+
+  const { error } = await supabase.from("cuentas").update(datos).eq("id", cuenta.id);
+  if (error) throw error;
+  return res.status(200).json({ message: "Cobro procesado", estado: datos.estado_suscripcion });
 };
 
 module.exports = { mercadoPagoWebhook };

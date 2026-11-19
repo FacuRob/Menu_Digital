@@ -19,14 +19,22 @@ let cuenta;
 
 global.fetch = async (url, opts = {}) => {
   mpCalls.push({ url, method: opts.method || "GET", body: opts.body && JSON.parse(opts.body) });
+  const cobroId = url.split("/authorized_payments/")[1];
+  if (cobroId) return { ok: true, status: 200, json: async () => cobros[cobroId] || {} };
   const id = url.split("/preapproval/")[1];
   return { ok: true, status: 200, json: async () => subs[id] || {} };
 };
+
+// Cobros mensuales que "devuelve" la API de MP.
+let cobros;
 
 beforeEach(() => {
   mpCalls = [];
   ops = [];
   cuenta = { id: 7, mp_preapproval_id: null };
+  cobros = {
+    pay1: { id: "pay1", preapproval_id: "sub1", status: "processed", payment: { status: "approved" } },
+  };
   subs = {
     sub1: {
       id: "sub1",
@@ -39,7 +47,10 @@ beforeEach(() => {
   db.setHandler((q) => {
     ops.push({ table: q.table, op: q.op, filters: { ...q.filters }, payload: q.payload });
     if (q.table === "cuentas" && q.op === "select") {
-      return { data: q.filters.id === cuenta.id ? cuenta : null, error: null };
+      const coincide =
+        q.filters.id === cuenta.id ||
+        (q.filters.mp_preapproval_id != null && q.filters.mp_preapproval_id === cuenta.mp_preapproval_id);
+      return { data: coincide ? cuenta : null, error: null };
     }
     return { data: null, error: null };
   });
@@ -53,7 +64,7 @@ const firmar = (dataId, requestId = "req-1", ts = "1700000000") => {
   return { "x-signature": `ts=${ts},v1=${v1}`, "x-request-id": requestId };
 };
 
-const llamar = async (dataId, headers = firmar(dataId)) => {
+const llamar = async (dataId, headers = firmar(dataId), type = "subscription_preapproval") => {
   const res = {
     code: null,
     body: null,
@@ -67,7 +78,7 @@ const llamar = async (dataId, headers = firmar(dataId)) => {
     },
   };
   await mercadoPagoWebhook(
-    { headers, query: { "data.id": dataId, type: "subscription_preapproval" }, body: { type: "subscription_preapproval", data: { id: dataId } } },
+    { headers, query: { "data.id": dataId, type }, body: { type, data: { id: dataId } } },
     res,
   );
   return res;
@@ -127,4 +138,43 @@ test("pendiente de pago: no cambia nada", async () => {
   subs.sub1.status = "pending";
   await llamar("sub1");
   assert.equal(updates().length, 0);
+});
+
+const cobrar = (id) => llamar(id, firmar(id), "subscription_authorized_payment");
+
+test("cobro mensual aprobado: sigue activa y periodo_fin pasa al próximo cobro", async () => {
+  cuenta.mp_preapproval_id = "sub1";
+  subs.sub1.next_payment_date = "2030-02-01T00:00:00Z";
+  const res = await cobrar("pay1");
+  assert.equal(res.code, 200);
+  const [u] = updates();
+  assert.equal(u.filters.id, 7);
+  assert.equal(u.payload.estado_suscripcion, "activo");
+  assert.equal(u.payload.periodo_fin, "2030-02-01T00:00:00Z");
+});
+
+test("cobro rechazado en reintento: no toca la cuenta", async () => {
+  cuenta.mp_preapproval_id = "sub1";
+  cobros.pay1 = { ...cobros.pay1, status: "recycling", payment: { status: "rejected" } };
+  await cobrar("pay1");
+  assert.equal(updates().length, 0);
+});
+
+test("cobro cancelado sin aprobar (sin más reintentos): queda vencida", async () => {
+  cuenta.mp_preapproval_id = "sub1";
+  cobros.pay1 = { ...cobros.pay1, status: "cancelled", payment: { status: "rejected" } };
+  await cobrar("pay1");
+  const [u] = updates();
+  assert.equal(u.payload.estado_suscripcion, "vencido");
+});
+
+test("cobro de otra suscripción: no toca la cuenta", async () => {
+  cuenta.mp_preapproval_id = "sub0";
+  await cobrar("pay1");
+  assert.equal(updates().length, 0);
+});
+
+test("cobro con firma inválida: 401", async () => {
+  const res = await llamar("pay1", { "x-signature": "ts=1,v1=abcd", "x-request-id": "r" }, "subscription_authorized_payment");
+  assert.equal(res.code, 401);
 });

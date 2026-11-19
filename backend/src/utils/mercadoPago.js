@@ -59,6 +59,9 @@ const crearSuscripcion = ({ cuentaId, plan, email, backUrl }) =>
 
 const obtenerSuscripcion = (id) => mpFetch(`/preapproval/${encodeURIComponent(id)}`);
 
+// Cobro mensual de una suscripción (topic subscription_authorized_payment).
+const obtenerCobro = (id) => mpFetch(`/authorized_payments/${encodeURIComponent(id)}`);
+
 const cancelarSuscripcion = (id) =>
   mpFetch(`/preapproval/${encodeURIComponent(id)}`, {
     method: "PUT",
@@ -96,6 +99,7 @@ const PORTAL_URL = "https://www.mercadopago.com.ar/subscriptions";
 module.exports = {
   crearSuscripcion,
   obtenerSuscripcion,
+  obtenerCobro,
   cancelarSuscripcion,
   estadoDeMP,
   firmaValida,
