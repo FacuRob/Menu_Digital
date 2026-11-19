@@ -80,6 +80,10 @@ function createSupabaseMock() {
           q.nots = [...(q.nots || []), { col, op, val }];
           return b;
         },
+        is(col, val) {
+          q.iss = { ...(q.iss || {}), [col]: val };
+          return b;
+        },
         in(col, vals) {
           q.inList = { col, vals };
           return b;

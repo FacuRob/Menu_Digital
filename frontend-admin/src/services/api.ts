@@ -898,11 +898,30 @@ export interface PlataformaResumen {
   };
 }
 
+export interface Cupon {
+  id: number;
+  codigo: string;
+  porcentaje: number;
+  meses: number;
+  created_at: string;
+  usado_por_cuenta_id: number | null;
+  usado_at: string | null;
+  cuenta?: { id: number; nombre: string; email: string | null } | null;
+}
+
 export const plataformaService = {
   getCuentas: async () =>
     (await api.get<Cuenta[]>("/plataforma/cuentas")).data,
   getResumen: async () =>
     (await api.get<PlataformaResumen>("/plataforma/resumen")).data,
+  // Cupones de descuento para la suscripción.
+  getCupones: async () =>
+    (await api.get<{ disponibles: Cupon[]; usados: Cupon[] }>("/plataforma/cupones")).data,
+  crearCupones: async (body: { porcentaje: number; meses: number; cantidad: number }) =>
+    (await api.post<Cupon[]>("/plataforma/cupones", body)).data,
+  eliminarCupon: async (id: number) => {
+    await api.delete(`/plataforma/cupones/${id}`);
+  },
   // Token de solo lectura para "Ver como el cliente".
   verComo: async (cuentaId: number) =>
     (
@@ -918,6 +937,8 @@ export type EstadoSuscripcion = "trial" | "activo" | "cancelado" | "vencido";
 export interface PlanCatalogo {
   code: "basic" | "standard" | "premium";
   precio_mensual: number;
+  // Solo si la cuenta tiene un cupón vigente.
+  precio_con_descuento?: number;
   limites: { negocios: number; productos: number };
 }
 
@@ -933,12 +954,15 @@ export interface SuscripcionEstado {
   trial_dias: number;
   portal_url: string;
   planes: PlanCatalogo[];
+  descuento?: { porcentaje: number; meses_restantes: number } | null;
 }
 
 export const suscripcionService = {
   get: async () => (await api.get<SuscripcionEstado>("/suscripcion")).data,
   checkout: async (plan: PlanCatalogo["code"]) =>
     (await api.get<{ url: string }>(`/suscripcion/checkout/${plan}`)).data,
+  canjearCupon: async (codigo: string) =>
+    (await api.post<{ porcentaje: number; meses: number }>("/suscripcion/cupon", { codigo })).data,
 };
 
 // ── Avisos de pedido por WhatsApp ──────────────────────────────

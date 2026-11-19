@@ -50,6 +50,29 @@ export default function Suscripcion() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [redirecting, setRedirecting] = useState<string>("");
+  const [cupon, setCupon] = useState("");
+  const [canjeando, setCanjeando] = useState(false);
+  const [cuponMsg, setCuponMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const canjear = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cupon.trim()) return;
+    setCanjeando(true);
+    setCuponMsg(null);
+    try {
+      const r = await suscripcionService.canjearCupon(cupon);
+      setCuponMsg({
+        ok: true,
+        text: t(r.meses === 1 ? "subCouponApplied1" : "subCouponApplied", { pct: r.porcentaje, n: r.meses }),
+      });
+      setCupon("");
+      setData(await suscripcionService.get());
+    } catch (err) {
+      setCuponMsg({ ok: false, text: getApiErrorMessage(err, t("subCouponError")) });
+    } finally {
+      setCanjeando(false);
+    }
+  };
 
   const textPrimary = "var(--fg)";
   const textMuted = "var(--fg-3)";
@@ -203,6 +226,23 @@ export default function Suscripcion() {
                 >
                   {t(info.key)}
                 </span>
+                {data.descuento && (
+                  <span
+                    style={{
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      padding: "3px 10px",
+                      borderRadius: 999,
+                      color: "var(--ok)",
+                      background: "var(--ok-bg)",
+                    }}
+                  >
+                    {t(data.descuento.meses_restantes === 1 ? "subCouponActive1" : "subCouponActive", {
+                      pct: data.descuento.porcentaje,
+                      n: data.descuento.meses_restantes,
+                    })}
+                  </span>
+                )}
               </div>
 
               {/* Timeline de días restantes (trial / Free y cancelado) */}
@@ -294,6 +334,59 @@ export default function Suscripcion() {
           </div>
         )}
 
+        {/* ── Cupón de descuento ── */}
+        {data && !data.es_plataforma && !data.descuento && (
+          <form onSubmit={canjear} style={{ ...S.card, padding: 18, marginBottom: 18 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 700, color: textPrimary }}>{t("subCouponTitle")}</div>
+            <p style={{ margin: "4px 0 12px", fontSize: 12.5, color: textMuted }}>{t("subCouponHint")}</p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <label htmlFor="cupon" className="sr-only">
+                {t("subCouponLabel")}
+              </label>
+              <input
+                id="cupon"
+                value={cupon}
+                onChange={(e) => setCupon(e.target.value.toUpperCase())}
+                placeholder="DINEX-XXXXXXXX"
+                autoComplete="off"
+                spellCheck={false}
+                style={{
+                  flex: "1 1 220px",
+                  minHeight: 42,
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: `1px solid ${border}`,
+                  background: cardBg,
+                  color: textPrimary,
+                  fontSize: 14,
+                  fontFamily: "ui-monospace, monospace",
+                  letterSpacing: "0.04em",
+                }}
+              />
+              <button
+                type="submit"
+                disabled={canjeando || !cupon.trim()}
+                style={{ ...S.btnPrimary, minHeight: 42, opacity: canjeando || !cupon.trim() ? 0.6 : 1 }}
+              >
+                {canjeando ? t("subCouponApplying") : t("subCouponApply")}
+              </button>
+            </div>
+            {cuponMsg && (
+              <div
+                role={cuponMsg.ok ? "status" : "alert"}
+                style={{ marginTop: 10, fontSize: 13, color: cuponMsg.ok ? "var(--ok)" : "var(--err)" }}
+              >
+                {cuponMsg.text}
+              </div>
+            )}
+          </form>
+        )}
+        {cuponMsg?.ok && data?.descuento && (
+          <div role="status" style={{ marginBottom: 18, fontSize: 13, color: "var(--ok)", fontWeight: 600 }}>
+            {cuponMsg.text}
+          </div>
+        )}
+
         {/* ── Planes ── */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "baseline", justifyContent: "space-between", margin: "6px 2px 14px" }}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: textPrimary }}>
@@ -359,9 +452,14 @@ export default function Suscripcion() {
                 <div style={{ fontSize: 15, fontWeight: 700, color: textPrimary }}>
                   {planNombre(p.code)}
                 </div>
-                <div style={{ margin: "8px 0 2px", display: "flex", alignItems: "baseline", gap: 5 }}>
-                  <span style={{ fontSize: 26, fontWeight: 800, color: textPrimary }}>
+                {p.precio_con_descuento != null && (
+                  <s style={{ display: "block", marginTop: 8, fontSize: 13, color: textMuted }}>
                     {money(p.precio_mensual)}
+                  </s>
+                )}
+                <div style={{ margin: p.precio_con_descuento != null ? "0 0 2px" : "8px 0 2px", display: "flex", alignItems: "baseline", gap: 5 }}>
+                  <span style={{ fontSize: 26, fontWeight: 800, color: p.precio_con_descuento != null ? "var(--ok)" : textPrimary }}>
+                    {money(p.precio_con_descuento ?? p.precio_mensual)}
                   </span>
                   <span style={{ fontSize: 12.5, color: textMuted }}>/{t("subPerMonth")}</span>
                 </div>

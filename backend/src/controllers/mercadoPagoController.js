@@ -1,6 +1,7 @@
 const supabase = require("../config/database");
 const { PRECIOS_MENSUALES } = require("../utils/planPrecios");
 const mp = require("../utils/mercadoPago");
+const { precioConDescuento, tieneDescuento } = require("../utils/cupones");
 
 // POST /api/webhooks/mercadopago   (público; la seguridad es la firma x-signature)
 //
@@ -37,22 +38,25 @@ const mercadoPagoWebhook = async (req, res) => {
       return res.status(200).json({ message: "Suscripción ajena a DinexFlow" });
     }
 
-    // El monto cobrado tiene que ser el del plan: si no, no se activa.
+    const { data: cuenta } = await supabase
+      .from("cuentas")
+      .select("id, mp_preapproval_id, descuento_pct, descuento_meses_restantes")
+      .eq("id", ref.cuentaId)
+      .maybeSingle();
+    if (!cuenta) return res.status(200).json({ message: "Cuenta no encontrada" });
+
+    // El monto cobrado tiene que ser el del plan (o el del plan con el cupón
+    // vigente de la cuenta): si no, no se activa.
     const monto = Number(sub.auto_recurring?.transaction_amount);
-    if (monto !== PRECIOS_MENSUALES[ref.plan]) {
+    const permitidos = [PRECIOS_MENSUALES[ref.plan]];
+    if (tieneDescuento(cuenta)) permitidos.push(precioConDescuento(ref.plan, cuenta.descuento_pct));
+    if (!permitidos.includes(monto)) {
       console.warn("[MercadoPago] monto no coincide con el plan:", sub.id, ref.plan, monto);
       return res.status(200).json({ message: "Monto no coincide con el plan" });
     }
 
     const estado = mp.estadoDeMP(sub.status);
     if (!estado) return res.status(200).json({ message: "Pendiente de pago" });
-
-    const { data: cuenta } = await supabase
-      .from("cuentas")
-      .select("id, mp_preapproval_id")
-      .eq("id", ref.cuentaId)
-      .maybeSingle();
-    if (!cuenta) return res.status(200).json({ message: "Cuenta no encontrada" });
 
     const anterior = cuenta.mp_preapproval_id;
     // Una baja o pausa solo cuenta si es de la suscripción vigente: la de un
@@ -96,6 +100,8 @@ const mercadoPagoWebhook = async (req, res) => {
 // - cancelado sin aprobar (MP agotó los reintentos) → la cuenta queda vencida.
 // - rechazado pero MP todavía reintenta → no se toca nada.
 // Solo cuenta si es de la suscripción vigente de la cuenta.
+// Con cupón: cada cobro aprobado consume un mes de descuento; al llegar a 0,
+// los próximos cobros vuelven al precio normal del plan.
 const procesarCobro = async (cobroId, res) => {
   const cobro = await mp.obtenerCobro(cobroId);
   const preapprovalId = cobro?.preapproval_id;
@@ -103,13 +109,14 @@ const procesarCobro = async (cobroId, res) => {
 
   const { data: cuenta } = await supabase
     .from("cuentas")
-    .select("id, mp_preapproval_id")
+    .select("id, tipo_plan, mp_preapproval_id, mp_ultimo_cobro_id, descuento_pct, descuento_meses_restantes")
     .eq("mp_preapproval_id", preapprovalId)
     .maybeSingle();
   if (!cuenta) return res.status(200).json({ message: "Cobro de otra suscripción" });
 
   const aprobado = cobro.payment?.status === "approved";
   let datos = null;
+  let terminaDescuento = false;
 
   if (aprobado) {
     const sub = await mp.obtenerSuscripcion(preapprovalId);
@@ -121,11 +128,30 @@ const procesarCobro = async (cobroId, res) => {
       mp_status: sub.status,
       periodo_fin: sub.next_payment_date || null,
     };
+    // MP puede repetir el aviso del mismo cobro: el mes se descuenta una vez.
+    const cobroNuevo = String(cobro.id) !== String(cuenta.mp_ultimo_cobro_id || "");
+    if (cobroNuevo) {
+      datos.mp_ultimo_cobro_id = String(cobro.id);
+      if (tieneDescuento(cuenta)) {
+        const restantes = Number(cuenta.descuento_meses_restantes) - 1;
+        datos.descuento_meses_restantes = restantes;
+        if (restantes <= 0) {
+          datos.descuento_pct = 0;
+          terminaDescuento = true;
+        }
+      }
+    }
   } else if (cobro.status === "cancelled") {
     datos = { estado_suscripcion: "vencido" };
   }
 
   if (!datos) return res.status(200).json({ message: "Cobro en reintento" });
+
+  // Se vuelve al precio normal ANTES de guardar: si MP falla, el webhook
+  // responde 500, MP reintenta y el mes no se pierde.
+  if (terminaDescuento) {
+    await mp.cambiarMonto(preapprovalId, PRECIOS_MENSUALES[cuenta.tipo_plan]);
+  }
 
   const { error } = await supabase.from("cuentas").update(datos).eq("id", cuenta.id);
   if (error) throw error;

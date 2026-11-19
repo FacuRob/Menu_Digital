@@ -8,6 +8,7 @@ const {
 } = require("../utils/suscripcion");
 const { preciosPorPlan } = require("../utils/planPrecios");
 const { crearSuscripcion, PORTAL_URL } = require("../utils/mercadoPago");
+const { precioConDescuento, tieneDescuento } = require("../utils/cupones");
 
 // Catálogo de planes para las tarjetas del frontend (precio mensual en ARS).
 const catalogoPlanes = () => {
@@ -50,14 +51,26 @@ const getEstado = async (req, res) => {
 
     const { data: cuenta, error } = await supabase
       .from("cuentas")
-      .select("tipo_plan, estado_suscripcion, periodo_fin, created_at")
+      .select("tipo_plan, estado_suscripcion, periodo_fin, created_at, descuento_pct, descuento_meses_restantes")
       .eq("id", cuentaId)
       .single();
     if (error || !cuenta) {
       return res.status(404).json({ message: "Cuenta no encontrada" });
     }
 
+    // Cupón vigente: cada plan muestra también su precio con descuento.
+    const descuento = tieneDescuento(cuenta)
+      ? { porcentaje: cuenta.descuento_pct, meses_restantes: cuenta.descuento_meses_restantes }
+      : null;
+    if (descuento) {
+      catalogo.planes = catalogo.planes.map((p) => ({
+        ...p,
+        precio_con_descuento: precioConDescuento(p.code, descuento.porcentaje),
+      }));
+    }
+
     res.json({
+      descuento,
       es_plataforma: false,
       tipo_plan: cuenta.tipo_plan,
       estado_suscripcion: cuenta.estado_suscripcion,
@@ -112,11 +125,20 @@ const getCheckout = async (req, res) => {
       });
     }
 
+    // Con cupón vigente, la suscripción nace con el precio rebajado.
+    const { data: cuenta } = await supabase
+      .from("cuentas")
+      .select("descuento_pct, descuento_meses_restantes")
+      .eq("id", cuentaId)
+      .maybeSingle();
+    const pct = tieneDescuento(cuenta) ? cuenta.descuento_pct : 0;
+
     const sub = await crearSuscripcion({
       cuentaId,
       plan,
       email: u.email,
       backUrl: urlDeVuelta(),
+      monto: precioConDescuento(plan, pct),
     });
     if (!sub?.init_point) {
       return res.status(502).json({ message: "Mercado Pago no devolvió el link de pago" });

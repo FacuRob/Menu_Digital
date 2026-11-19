@@ -174,6 +174,47 @@ test("cobro de otra suscripción: no toca la cuenta", async () => {
   assert.equal(updates().length, 0);
 });
 
+test("suscripción con el monto del cupón vigente: se activa", async () => {
+  cuenta.descuento_pct = 20;
+  cuenta.descuento_meses_restantes = 2;
+  subs.sub1.auto_recurring.transaction_amount = 32800;
+  await llamar("sub1");
+  assert.equal(updates()[0].payload.estado_suscripcion, "activo");
+});
+
+test("monto con descuento sin cupón en la cuenta: no activa", async () => {
+  subs.sub1.auto_recurring.transaction_amount = 32800;
+  await llamar("sub1");
+  assert.equal(updates().length, 0);
+});
+
+test("cobro con cupón: consume un mes y no toca el monto en MP", async () => {
+  Object.assign(cuenta, { mp_preapproval_id: "sub1", tipo_plan: "standard", descuento_pct: 20, descuento_meses_restantes: 2 });
+  await cobrar("pay1");
+  const [u] = updates();
+  assert.equal(u.payload.descuento_meses_restantes, 1);
+  assert.equal(u.payload.mp_ultimo_cobro_id, "pay1");
+  assert.equal(mpCalls.some((c) => c.method === "PUT"), false);
+});
+
+test("último mes del cupón: vuelve al precio normal en MP", async () => {
+  Object.assign(cuenta, { mp_preapproval_id: "sub1", tipo_plan: "standard", descuento_pct: 20, descuento_meses_restantes: 1 });
+  await cobrar("pay1");
+  const [u] = updates();
+  assert.equal(u.payload.descuento_meses_restantes, 0);
+  assert.equal(u.payload.descuento_pct, 0);
+  const put = mpCalls.find((c) => c.method === "PUT");
+  assert.ok(put.url.endsWith("/preapproval/sub1"));
+  assert.equal(put.body.auto_recurring.transaction_amount, 41000);
+});
+
+test("aviso repetido del mismo cobro: no descuenta otro mes", async () => {
+  Object.assign(cuenta, { mp_preapproval_id: "sub1", mp_ultimo_cobro_id: "pay1", descuento_pct: 20, descuento_meses_restantes: 2 });
+  await cobrar("pay1");
+  const [u] = updates();
+  assert.equal(u.payload.descuento_meses_restantes, undefined);
+});
+
 test("cobro con firma inválida: 401", async () => {
   const res = await llamar("pay1", { "x-signature": "ts=1,v1=abcd", "x-request-id": "r" }, "subscription_authorized_payment");
   assert.equal(res.code, 401);

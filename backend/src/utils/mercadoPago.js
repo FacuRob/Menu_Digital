@@ -39,7 +39,8 @@ const leerReferencia = (ref) => {
 };
 
 // Crea la suscripción pendiente de pago y devuelve su link de checkout (init_point).
-const crearSuscripcion = ({ cuentaId, plan, email, backUrl }) =>
+// `monto` permite cobrar con descuento (cupón); por defecto, el precio del plan.
+const crearSuscripcion = ({ cuentaId, plan, email, backUrl, monto = PRECIOS_MENSUALES[plan] }) =>
   mpFetch("/preapproval", {
     method: "POST",
     body: {
@@ -51,10 +52,17 @@ const crearSuscripcion = ({ cuentaId, plan, email, backUrl }) =>
       auto_recurring: {
         frequency: 1,
         frequency_type: "months",
-        transaction_amount: PRECIOS_MENSUALES[plan],
+        transaction_amount: monto,
         currency_id: "ARS",
       },
     },
+  });
+
+// Cambia el monto de los próximos cobros (aplicar o terminar un descuento).
+const cambiarMonto = (id, monto) =>
+  mpFetch(`/preapproval/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: { auto_recurring: { transaction_amount: monto, currency_id: "ARS" } },
   });
 
 const obtenerSuscripcion = (id) => mpFetch(`/preapproval/${encodeURIComponent(id)}`);
@@ -100,6 +108,7 @@ module.exports = {
   crearSuscripcion,
   obtenerSuscripcion,
   obtenerCobro,
+  cambiarMonto,
   cancelarSuscripcion,
   estadoDeMP,
   firmaValida,

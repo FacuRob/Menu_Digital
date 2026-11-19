@@ -9,6 +9,7 @@ import {
   type TipoPlan,
 } from "../../services/api";
 import { entrarComo } from "../../lib/verComo";
+import CuponesPanel from "../../components/CuponesPanel";
 
 const planColor: Record<TipoPlan, string> = {
   free: "var(--fg-3)",
@@ -321,6 +322,8 @@ export default function Plataforma() {
           </div>
         )}
       </div>
+
+      <CuponesPanel />
     </AdminLayout>
   );
 }
