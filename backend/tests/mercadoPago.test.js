@@ -8,6 +8,14 @@ process.env.MP_ACCESS_TOKEN = "token-de-test";
 
 const db = createSupabaseMock();
 injectModule(require.resolve("../src/config/database"), db);
+// Emails enviados (sin Resend real).
+let emails = [];
+injectModule(require.resolve("../src/services/emailService"), {
+  sendComprobantePago: async (args) => {
+    emails.push(args);
+  },
+});
+process.env.COMPROBANTES_COPIA_EMAIL = "duenio@dinex.test";
 const { mercadoPagoWebhook } = require("../src/controllers/mercadoPagoController");
 const { firmaValida, motivoRechazo } = require("../src/utils/mercadoPago");
 
@@ -28,9 +36,14 @@ global.fetch = async (url, opts = {}) => {
 // Cobros mensuales que "devuelve" la API de MP.
 let cobros;
 
+// Comprobantes ya emitidos (mp_cobro_id) para simular el UNIQUE de la BD.
+let emitidos;
+
 beforeEach(() => {
   mpCalls = [];
   ops = [];
+  emails = [];
+  emitidos = new Set();
   cuenta = { id: 7, mp_preapproval_id: null };
   cobros = {
     pay1: { id: "pay1", preapproval_id: "sub1", status: "processed", payment: { status: "approved" } },
@@ -51,6 +64,11 @@ beforeEach(() => {
         q.filters.id === cuenta.id ||
         (q.filters.mp_preapproval_id != null && q.filters.mp_preapproval_id === cuenta.mp_preapproval_id);
       return { data: coincide ? cuenta : null, error: null };
+    }
+    if (q.table === "comprobantes" && q.op === "insert") {
+      if (emitidos.has(q.payload.mp_cobro_id)) return { data: null, error: { code: "23505", message: "duplicado" } };
+      emitidos.add(q.payload.mp_cobro_id);
+      return { data: { id: 42, created_at: "2026-11-19T15:00:00Z", ...q.payload }, error: null };
     }
     return { data: null, error: null };
   });
@@ -217,17 +235,58 @@ test("aviso repetido del mismo cobro: no descuenta otro mes", async () => {
 
 test("motivo del rechazo de MP: traduce los casos comunes y si no muestra el texto de MP", () => {
   const err = (mp) => Object.assign(new Error("x"), { status: 400, mp });
-  assert.match(motivoRechazo(err({ message: "Cannot pay to yourself" })), /mismo de la cuenta/);
+  assert.match(motivoRechazo(err({ message: "Cannot pay to yourself" })), /cuenta de Mercado Pago que cobra/);
   assert.match(
     motivoRechazo(err({ message: "Both payer and collector must be real or test users" })),
     /usuario de prueba/,
   );
+  assert.match(motivoRechazo(err({ message: "Payer is associated with a different site" })), /usuario de prueba/);
   assert.match(motivoRechazo(err({ message: "Invalid back_url" })), /ADMIN_URL/);
   assert.equal(
     motivoRechazo(err({ message: "algo raro", cause: [{ description: "detalle" }] })),
     "Mercado Pago rechazó el pago: algo raro · detalle",
   );
   assert.equal(motivoRechazo(err({})), "No se pudo iniciar el pago con Mercado Pago");
+});
+
+test("cobro aprobado: emite el comprobante y lo manda al cliente con copia al dueño", async () => {
+  Object.assign(cuenta, {
+    mp_preapproval_id: "sub1",
+    tipo_plan: "standard",
+    nombre: "Bar La Esquina",
+    email: "cliente@ejemplo.test",
+    descuento_pct: 25,
+    descuento_meses_restantes: 2,
+  });
+  cobros.pay1 = { ...cobros.pay1, transaction_amount: 30750, payment: { id: 999, status: "approved" } };
+  await cobrar("pay1");
+
+  const ins = ops.find((o) => o.table === "comprobantes" && o.op === "insert").payload;
+  assert.equal(ins.mp_cobro_id, "pay1");
+  assert.equal(ins.precio_lista, 41000);
+  assert.equal(ins.total, 30750);
+  assert.equal(ins.descuento_pct, 25);
+  assert.equal(ins.periodo_hasta, "2030-01-01T00:00:00Z");
+
+  assert.equal(emails.length, 1);
+  assert.equal(emails[0].to, "cliente@ejemplo.test");
+  assert.equal(emails[0].copia, "duenio@dinex.test");
+  assert.equal(emails[0].comprobante.id, 42);
+});
+
+test("aviso repetido de un cobro ya emitido: no manda otro comprobante", async () => {
+  Object.assign(cuenta, { mp_preapproval_id: "sub1", tipo_plan: "standard", email: "c@e.test" });
+  emitidos.add("pay1");
+  await cobrar("pay1");
+  assert.equal(emails.length, 0);
+});
+
+test("cobro rechazado: no hay comprobante", async () => {
+  cuenta.mp_preapproval_id = "sub1";
+  cobros.pay1 = { ...cobros.pay1, status: "cancelled", payment: { status: "rejected" } };
+  await cobrar("pay1");
+  assert.equal(ops.some((o) => o.table === "comprobantes"), false);
+  assert.equal(emails.length, 0);
 });
 
 test("cobro con firma inválida: 401", async () => {

@@ -50,6 +50,7 @@ export default function Suscripcion() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [redirecting, setRedirecting] = useState<string>("");
+  const [mpEmail, setMpEmail] = useState("");
   const [cupon, setCupon] = useState("");
   const [canjeando, setCanjeando] = useState(false);
   const [cuponMsg, setCuponMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -83,7 +84,9 @@ export default function Suscripcion() {
   useEffect(() => {
     (async () => {
       try {
-        setData(await suscripcionService.get());
+        const d = await suscripcionService.get();
+        setData(d);
+        setMpEmail(d.mp_email || "");
       } catch (e) {
         setError(getApiErrorMessage(e, t("subLoadError")));
       } finally {
@@ -118,9 +121,16 @@ export default function Suscripcion() {
     })[code] ?? code;
 
   const irACheckout = async (plan: PlanCatalogo["code"]) => {
+    const email = mpEmail.trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError(t("subMpEmailInvalid"));
+      document.getElementById("mp-email")?.focus();
+      return;
+    }
     try {
+      setError("");
       setRedirecting(plan);
-      const { url } = await suscripcionService.checkout(plan);
+      const { url } = await suscripcionService.checkout(plan, email || undefined);
       window.location.assign(url);
     } catch (e) {
       setError(getApiErrorMessage(e, t("subCheckoutError")));
@@ -394,6 +404,39 @@ export default function Suscripcion() {
           </h3>
           <span style={{ fontSize: 12.5, color: textMuted }}>{t("subPayNote")}</span>
         </div>
+
+        {/* Email de la cuenta de Mercado Pago con la que se paga */}
+        {data && !data.es_plataforma && (
+          <div style={{ ...S.card, padding: 16, marginBottom: 14 }}>
+            <label htmlFor="mp-email" style={{ display: "block", fontSize: 13.5, fontWeight: 700, color: textPrimary }}>
+              {t("subMpEmailLabel")}
+            </label>
+            <p id="mp-email-hint" style={{ margin: "3px 0 10px", fontSize: 12.5, color: textMuted }}>
+              {t("subMpEmailHint")}
+            </p>
+            <input
+              id="mp-email"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              aria-describedby="mp-email-hint"
+              value={mpEmail}
+              onChange={(e) => setMpEmail(e.target.value)}
+              placeholder="tu-email@mercadopago.com"
+              style={{
+                width: "100%",
+                maxWidth: 420,
+                minHeight: 42,
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: `1px solid ${border}`,
+                background: cardBg,
+                color: textPrimary,
+                fontSize: 14,
+              }}
+            />
+          </div>
+        )}
 
         <div
           style={{

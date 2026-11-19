@@ -14,7 +14,7 @@ const { canjearCupon } = require("../controllers/cuponesController");
 // se exige el permiso "suscripcion", que sólo cubre el "*" del rol 'admin'.
 // El "Admin" (manager) y el staff quedan fuera.
 router.get("/", getEstado);
-router.get("/checkout/:plan", noSoloLectura, checkPermiso("suscripcion"), getCheckout);
+router.post("/checkout/:plan", noSoloLectura, checkPermiso("suscripcion"), getCheckout);
 router.post("/cupon", noSoloLectura, checkPermiso("suscripcion"), canjearCupon);
 
 module.exports = router;

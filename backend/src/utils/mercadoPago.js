@@ -112,10 +112,10 @@ const motivoRechazo = (err) => {
   const texto = [mp.message, mp.error, ...causas].filter(Boolean).join(" · ");
 
   if (/yourself|same user|pagarte|mismo usuario/i.test(texto)) {
-    return "El email de tu usuario es el mismo de la cuenta de Mercado Pago que cobra. Probá con un usuario que tenga otro email.";
+    return "Ese email es el de la cuenta de Mercado Pago que cobra. Escribí el email de otra cuenta de Mercado Pago para pagar.";
   }
-  if (/test user|real or test|usuarios? de prueba|different countries|invalid users/i.test(texto)) {
-    return "Mercado Pago rechazó al pagador: con credenciales de prueba el email tiene que ser de un usuario de prueba de Mercado Pago, y con credenciales reales, de una cuenta real de Argentina.";
+  if (/test user|real or test|usuarios? de prueba|different countries|different site|invalid users/i.test(texto)) {
+    return "Mercado Pago no reconoce ese email como una cuenta de Argentina. Escribí el email con el que entrás a tu Mercado Pago (con credenciales de prueba, el de un usuario de prueba).";
   }
   if (/back_?url/i.test(texto)) {
     return "La dirección de vuelta del pago no es válida. Revisá ADMIN_URL en el backend (tiene que ser https).";

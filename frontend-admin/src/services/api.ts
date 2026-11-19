@@ -955,12 +955,15 @@ export interface SuscripcionEstado {
   portal_url: string;
   planes: PlanCatalogo[];
   descuento?: { porcentaje: number; meses_restantes: number } | null;
+  // Email de Mercado Pago para precargar (último usado o el del usuario).
+  mp_email?: string | null;
 }
 
 export const suscripcionService = {
   get: async () => (await api.get<SuscripcionEstado>("/suscripcion")).data,
-  checkout: async (plan: PlanCatalogo["code"]) =>
-    (await api.get<{ url: string }>(`/suscripcion/checkout/${plan}`)).data,
+  // `email`: el de la cuenta de Mercado Pago con la que se paga.
+  checkout: async (plan: PlanCatalogo["code"], email?: string) =>
+    (await api.post<{ url: string }>(`/suscripcion/checkout/${plan}`, { email })).data,
   canjearCupon: async (codigo: string) =>
     (await api.post<{ porcentaje: number; meses: number }>("/suscripcion/cupon", { codigo })).data,
 };

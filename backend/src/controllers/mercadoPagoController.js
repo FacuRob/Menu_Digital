@@ -2,6 +2,7 @@ const supabase = require("../config/database");
 const { PRECIOS_MENSUALES } = require("../utils/planPrecios");
 const mp = require("../utils/mercadoPago");
 const { precioConDescuento, tieneDescuento } = require("../utils/cupones");
+const { emitirComprobante } = require("../utils/comprobantes");
 
 // POST /api/webhooks/mercadopago   (público; la seguridad es la firma x-signature)
 //
@@ -109,7 +110,7 @@ const procesarCobro = async (cobroId, res) => {
 
   const { data: cuenta } = await supabase
     .from("cuentas")
-    .select("id, tipo_plan, mp_preapproval_id, mp_ultimo_cobro_id, descuento_pct, descuento_meses_restantes")
+    .select("*")
     .eq("mp_preapproval_id", preapprovalId)
     .maybeSingle();
   if (!cuenta) return res.status(200).json({ message: "Cobro de otra suscripción" });
@@ -117,9 +118,11 @@ const procesarCobro = async (cobroId, res) => {
   const aprobado = cobro.payment?.status === "approved";
   let datos = null;
   let terminaDescuento = false;
+  let sub = null;
+  let cobroNuevo = false;
 
   if (aprobado) {
-    const sub = await mp.obtenerSuscripcion(preapprovalId);
+    sub = await mp.obtenerSuscripcion(preapprovalId);
     if (sub?.status !== "authorized") {
       return res.status(200).json({ message: "Suscripción no activa" });
     }
@@ -129,7 +132,7 @@ const procesarCobro = async (cobroId, res) => {
       periodo_fin: sub.next_payment_date || null,
     };
     // MP puede repetir el aviso del mismo cobro: el mes se descuenta una vez.
-    const cobroNuevo = String(cobro.id) !== String(cuenta.mp_ultimo_cobro_id || "");
+    cobroNuevo = String(cobro.id) !== String(cuenta.mp_ultimo_cobro_id || "");
     if (cobroNuevo) {
       datos.mp_ultimo_cobro_id = String(cobro.id);
       if (tieneDescuento(cuenta)) {
@@ -155,7 +158,16 @@ const procesarCobro = async (cobroId, res) => {
 
   const { error } = await supabase.from("cuentas").update(datos).eq("id", cuenta.id);
   if (error) throw error;
+
+  // Comprobante de pago al cliente (con copia al dueño de DinexFlow).
+  if (aprobado && cobroNuevo) {
+    await emitirComprobante({ cuenta, cobro, sub, enviar: enviarComprobante });
+  }
+
   return res.status(200).json({ message: "Cobro procesado", estado: datos.estado_suscripcion });
 };
+
+// Se carga al usarlo: el cliente de email exige RESEND_API_KEY al iniciar.
+const enviarComprobante = (args) => require("../services/emailService").sendComprobantePago(args);
 
 module.exports = { mercadoPagoWebhook };

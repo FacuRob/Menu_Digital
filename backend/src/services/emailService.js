@@ -145,4 +145,93 @@ const sendSoporteAviso = ({ to, cuenta, tipo, asunto, texto, url }) =>
     }),
   });
 
-module.exports = { sendPasswordResetEmail, sendWelcomeEmail, sendSoporteAviso };
+// ─── COMPROBANTE DE PAGO (cobro mensual aprobado) ────────────
+const NOMBRE_PLAN = { basic: "Básico", standard: "Estándar", premium: "Premium" };
+const dinero = (n, moneda = "ARS") =>
+  new Intl.NumberFormat("es-AR", { style: "currency", currency: moneda, maximumFractionDigits: 0 }).format(n || 0);
+const fecha = (iso) =>
+  iso
+    ? new Date(iso).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Argentina/Buenos_Aires" })
+    : "—";
+// 0001-00000042: punto de venta + número correlativo.
+const numeroComprobante = (id) => `0001-${String(id).padStart(8, "0")}`;
+
+// HTML del comprobante (exportado aparte para poder previsualizarlo).
+const comprobanteHtml = (c) => {
+  const etiqueta = (t) =>
+    `<p style="margin:0 0 4px;font-family:${FUENTE};font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${C.gris};">${t}</p>`;
+  const fila = (concepto, importe, { fuerte = false, color = C.tinta, borde = true } = {}) => `
+    <tr>
+      <td style="padding:12px 0;${borde ? `border-bottom:1px solid ${C.hueso2};` : ""}font-family:${FUENTE};font-size:${fuerte ? 16 : 14}px;line-height:1.45;font-weight:${fuerte ? 800 : 400};color:${color};">${concepto}</td>
+      <td align="right" style="padding:12px 0;${borde ? `border-bottom:1px solid ${C.hueso2};` : ""}font-family:${FUENTE};font-size:${fuerte ? 20 : 14}px;font-weight:${fuerte ? 800 : 600};color:${color};white-space:nowrap;">${importe}</td>
+    </tr>`;
+  const plan = NOMBRE_PLAN[c.plan] || c.plan;
+  const descuento = Math.max(0, (c.precio_lista || 0) - (c.total || 0));
+  const periodo =
+    c.periodo_desde || c.periodo_hasta ? `Período: ${fecha(c.periodo_desde)} al ${fecha(c.periodo_hasta)}` : "Suscripción mensual";
+
+  return plantilla({
+    previa: `Comprobante ${numeroComprobante(c.id)} · ${dinero(c.total, c.moneda)} · Plan ${plan}`,
+    cuerpo:
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+        <td style="vertical-align:top;">
+          ${etiqueta("Comprobante de pago")}
+          <p style="margin:0;font-family:'Courier New',monospace;font-size:20px;font-weight:700;color:${C.tinta};letter-spacing:1px;">N.º ${numeroComprobante(c.id)}</p>
+        </td>
+        <td align="right" style="vertical-align:top;">
+          ${etiqueta("Fecha")}
+          <p style="margin:0;font-family:${FUENTE};font-size:15px;font-weight:700;color:${C.tinta};">${fecha(c.fecha)}</p>
+        </td>
+      </tr></table>` +
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:22px 0 0;">
+        <tr><td style="background:${C.hueso};border-radius:14px;padding:18px 20px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+            <td width="50%" style="vertical-align:top;padding-right:10px;">
+              ${etiqueta("Emitido por")}
+              <p style="margin:0;font-family:${FUENTE};font-size:14px;line-height:1.5;color:${C.tinta};"><strong>${escapar(c.emisor?.nombre || "DinexFlow")}</strong>${c.emisor?.cuit ? `<br/>CUIT ${escapar(c.emisor.cuit)}` : ""}<br/>dinexflow.com.ar</p>
+            </td>
+            <td width="50%" style="vertical-align:top;padding-left:10px;">
+              ${etiqueta("Cliente")}
+              <p style="margin:0;font-family:${FUENTE};font-size:14px;line-height:1.5;color:${C.tinta};word-break:break-word;"><strong>${escapar(c.cliente_nombre || "—")}</strong>${c.cliente_email ? `<br/>${escapar(c.cliente_email)}` : ""}</p>
+            </td>
+          </tr></table>
+        </td></tr>
+      </table>` +
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:22px 0 0;">
+        <tr>
+          <td style="padding:0 0 8px;border-bottom:2px solid ${C.tinta};font-family:${FUENTE};font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${C.gris};">Detalle</td>
+          <td align="right" style="padding:0 0 8px;border-bottom:2px solid ${C.tinta};font-family:${FUENTE};font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${C.gris};">Importe</td>
+        </tr>
+        ${fila(`<strong>DinexFlow · Plan ${escapar(plan)}</strong><br/><span style="font-size:12.5px;color:${C.gris};">${periodo}</span>`, dinero(c.precio_lista, c.moneda))}
+        ${descuento > 0 ? fila(`Descuento por cupón${c.descuento_pct ? ` (${c.descuento_pct} %)` : ""}`, `−${dinero(descuento, c.moneda)}`, { color: C.gris }) : ""}
+        <tr><td colspan="2" style="height:4px;line-height:4px;font-size:0;border-bottom:3px solid ${C.aji};">&nbsp;</td></tr>
+        ${fila("Total pagado", dinero(c.total, c.moneda), { fuerte: true, borde: false })}
+      </table>` +
+      `<p style="margin:14px 0 0;font-family:${FUENTE};font-size:13px;line-height:1.55;color:${C.gris};">Pagado con <strong style="color:${C.tinta};">Mercado Pago</strong> · débito automático mensual${c.mp_pago_id ? ` · operación ${escapar(c.mp_pago_id)}` : ""}.</p>` +
+      (c.url ? boton(c.url, "Ver mi suscripción") : "") +
+      aviso("Gracias por confiar en DinexFlow. <strong>Documento no válido como factura.</strong>"),
+  });
+};
+
+// Manda el comprobante al cliente; `copia` (opcional) va en copia oculta.
+const sendComprobantePago = ({ to, copia, comprobante }) =>
+  resend.emails
+    .send({
+      from: FROM(),
+      to,
+      ...(copia ? { bcc: copia } : {}),
+      subject: `Comprobante de pago ${numeroComprobante(comprobante.id)} · DinexFlow`,
+      html: comprobanteHtml(comprobante),
+    })
+    .then(({ error }) => {
+      if (error) throw new Error(error.message);
+    });
+
+module.exports = {
+  sendPasswordResetEmail,
+  sendWelcomeEmail,
+  sendSoporteAviso,
+  sendComprobantePago,
+  comprobanteHtml,
+  numeroComprobante,
+};
