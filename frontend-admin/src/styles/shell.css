@@ -363,6 +363,9 @@
 
 /* Contenido */
 .sh-content {
+  /* Ancla los position:absolute del contenido (p. ej. .sr-only) a la zona
+     que scrollea: si no, estiran la página y queda espacio en blanco abajo. */
+  position: relative;
   flex: 1;
   overflow-y: auto;
   padding: 24px 28px 32px;

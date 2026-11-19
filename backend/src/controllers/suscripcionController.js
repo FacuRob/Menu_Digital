@@ -7,7 +7,7 @@ const {
   LIMITES_POR_PLAN: LIMITES,
 } = require("../utils/suscripcion");
 const { preciosPorPlan } = require("../utils/planPrecios");
-const { crearSuscripcion, PORTAL_URL } = require("../utils/mercadoPago");
+const { crearSuscripcion, motivoRechazo, PORTAL_URL } = require("../utils/mercadoPago");
 const { precioConDescuento, tieneDescuento } = require("../utils/cupones");
 
 // Catálogo de planes para las tarjetas del frontend (precio mensual en ARS).
@@ -146,8 +146,8 @@ const getCheckout = async (req, res) => {
     res.json({ url: sub.init_point });
   } catch (error) {
     if (error.status) {
-      console.error("[MercadoPago] checkout:", error.message);
-      return res.status(502).json({ message: "No se pudo iniciar el pago con Mercado Pago" });
+      console.error("[MercadoPago] checkout:", error.message, JSON.stringify(error.mp || {}));
+      return res.status(502).json({ message: motivoRechazo(error) });
     }
     return respondError(res, error, "suscripcion");
   }

@@ -9,7 +9,7 @@ process.env.MP_ACCESS_TOKEN = "token-de-test";
 const db = createSupabaseMock();
 injectModule(require.resolve("../src/config/database"), db);
 const { mercadoPagoWebhook } = require("../src/controllers/mercadoPagoController");
-const { firmaValida } = require("../src/utils/mercadoPago");
+const { firmaValida, motivoRechazo } = require("../src/utils/mercadoPago");
 
 // Suscripciones que "devuelve" la API de MP y llamadas que recibe.
 let subs;
@@ -213,6 +213,21 @@ test("aviso repetido del mismo cobro: no descuenta otro mes", async () => {
   await cobrar("pay1");
   const [u] = updates();
   assert.equal(u.payload.descuento_meses_restantes, undefined);
+});
+
+test("motivo del rechazo de MP: traduce los casos comunes y si no muestra el texto de MP", () => {
+  const err = (mp) => Object.assign(new Error("x"), { status: 400, mp });
+  assert.match(motivoRechazo(err({ message: "Cannot pay to yourself" })), /mismo de la cuenta/);
+  assert.match(
+    motivoRechazo(err({ message: "Both payer and collector must be real or test users" })),
+    /usuario de prueba/,
+  );
+  assert.match(motivoRechazo(err({ message: "Invalid back_url" })), /ADMIN_URL/);
+  assert.equal(
+    motivoRechazo(err({ message: "algo raro", cause: [{ description: "detalle" }] })),
+    "Mercado Pago rechazó el pago: algo raro · detalle",
+  );
+  assert.equal(motivoRechazo(err({})), "No se pudo iniciar el pago con Mercado Pago");
 });
 
 test("cobro con firma inválida: 401", async () => {

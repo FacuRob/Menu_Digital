@@ -26,6 +26,7 @@ const mpFetch = async (path, { method = "GET", body } = {}) => {
   if (!resp.ok) {
     const err = new Error(`Mercado Pago ${method} ${path} → ${resp.status}: ${json?.message || ""}`);
     err.status = resp.status;
+    err.mp = json; // respuesta completa de MP (message, error, cause) para diagnosticar
     throw err;
   }
   return json;
@@ -101,6 +102,30 @@ const firmaValida = ({ xSignature, xRequestId, dataId }) => {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 };
 
+// Motivo de un rechazo de MP en palabras para el cliente. Los casos comunes se
+// traducen; el resto muestra el texto de MP para poder diagnosticarlo.
+const motivoRechazo = (err) => {
+  const mp = err?.mp || {};
+  const causas = (Array.isArray(mp.cause) ? mp.cause : [])
+    .map((c) => c?.description || c?.code)
+    .filter(Boolean);
+  const texto = [mp.message, mp.error, ...causas].filter(Boolean).join(" · ");
+
+  if (/yourself|same user|pagarte|mismo usuario/i.test(texto)) {
+    return "El email de tu usuario es el mismo de la cuenta de Mercado Pago que cobra. Probá con un usuario que tenga otro email.";
+  }
+  if (/test user|real or test|usuarios? de prueba|different countries|invalid users/i.test(texto)) {
+    return "Mercado Pago rechazó al pagador: con credenciales de prueba el email tiene que ser de un usuario de prueba de Mercado Pago, y con credenciales reales, de una cuenta real de Argentina.";
+  }
+  if (/back_?url/i.test(texto)) {
+    return "La dirección de vuelta del pago no es válida. Revisá ADMIN_URL en el backend (tiene que ser https).";
+  }
+  if (/amount|monto/i.test(texto)) {
+    return `Mercado Pago no aceptó el monto (${texto}).`;
+  }
+  return texto ? `Mercado Pago rechazó el pago: ${texto}` : "No se pudo iniciar el pago con Mercado Pago";
+};
+
 // Página de Mercado Pago donde el cliente ve y cancela sus suscripciones.
 const PORTAL_URL = "https://www.mercadopago.com.ar/subscriptions";
 
@@ -112,6 +137,7 @@ module.exports = {
   cancelarSuscripcion,
   estadoDeMP,
   firmaValida,
+  motivoRechazo,
   referencia,
   leerReferencia,
   PORTAL_URL,
