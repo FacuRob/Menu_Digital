@@ -3,6 +3,7 @@ const supabase = require("../config/database");
 const { registrar } = require("../utils/registroCambios");
 const { respondError } = require("../utils/respondError");
 const { preciosPorPlan, mrrDeCuenta } = require("../utils/planPrecios");
+const { precioConDescuento, tieneDescuento } = require("../utils/cupones");
 
 // ══════════════════════════════════════════════════════════════
 // Panel de PLATAFORMA — sólo para el dueño del SaaS (es_plataforma).
@@ -62,56 +63,70 @@ const getCuentas = async (req, res) => {
   }
 };
 
+// Ids de las cuentas de Tech (las que tienen un usuario es_plataforma).
+const cuentasDeTech = async () => {
+  const { data, error } = await supabase.from("usuarios").select("cuenta_id").eq("es_plataforma", true);
+  if (error) throw error;
+  return new Set((data || []).map((u) => u.cuenta_id).filter((id) => id != null));
+};
+
+// Métricas de las cuentas CLIENTE. Las cuentas de Tech (las que tienen un
+// usuario es_plataforma) no son clientes: no suman a ningún número, y el MRR
+// de cada cuenta usa el precio con el descuento de cupón que está pagando.
+const calcularResumen = (cuentas, negocios, cuentasTech) => {
+  const clientes = cuentas.filter((c) => !cuentasTech.has(c.id));
+  const porPlan = { free: 0, basic: 0, standard: 0, premium: 0 };
+  // MRR = ingresos recurrentes; sólo cuenta suscripciones ACTIVAS.
+  const mrrPorPlan = { basic: 0, standard: 0, premium: 0 };
+  let activas = 0;
+  let canceladas = 0;
+  // Cuentas que pagan por una pasarela (Mercado Pago, o Hotmart / Lemon
+  // Squeezy históricos), frente a las cargadas a mano.
+  let porPago = 0;
+
+  for (const c of clientes) {
+    if (porPlan[c.tipo_plan] !== undefined) porPlan[c.tipo_plan] += 1;
+    if (c.estado_suscripcion === "activo") {
+      activas += 1;
+      if (mrrPorPlan[c.tipo_plan] !== undefined) {
+        mrrPorPlan[c.tipo_plan] += tieneDescuento(c)
+          ? precioConDescuento(c.tipo_plan, c.descuento_pct)
+          : mrrDeCuenta(c.tipo_plan);
+      }
+    } else if (c.estado_suscripcion === "cancelado") {
+      canceladas += 1;
+    }
+    if (c.mp_preapproval_id || ["hotmart", "lemonsqueezy"].includes(c.origen)) porPago += 1;
+  }
+
+  return {
+    total_cuentas: clientes.length,
+    activas,
+    canceladas,
+    por_pago: porPago,
+    por_plan: porPlan,
+    total_negocios: negocios.filter((n) => !cuentasTech.has(n.cuenta_id)).length,
+    mrr: mrrPorPlan.basic + mrrPorPlan.standard + mrrPorPlan.premium,
+    mrr_por_plan: mrrPorPlan,
+  };
+};
+
 // Métricas agregadas para las tarjetas del panel.
 const getResumen = async (req, res) => {
   try {
-    const [cuentasRes, negociosRes] = await Promise.all([
-      supabase
-        .from("cuentas")
-        .select("tipo_plan, estado_suscripcion, origen, mp_preapproval_id, created_at"),
-      supabase.from("negocios").select("id"),
+    const [cuentasRes, negociosRes, cuentasTech] = await Promise.all([
+      supabase.from("cuentas").select("*"),
+      supabase.from("negocios").select("id, cuenta_id"),
+      cuentasDeTech(),
     ]);
 
     if (cuentasRes.error) throw cuentasRes.error;
     if (negociosRes.error) throw negociosRes.error;
-
-    const cuentas = cuentasRes.data || [];
-
     const precios = preciosPorPlan();
-    const porPlan = { free: 0, basic: 0, standard: 0, premium: 0 };
-    // MRR = ingresos recurrentes; sólo cuenta suscripciones ACTIVAS.
-    const mrrPorPlan = { basic: 0, standard: 0, premium: 0 };
-    let activas = 0;
-    let canceladas = 0;
-    // Cuentas que pagan por una pasarela (Mercado Pago, o Hotmart / Lemon
-    // Squeezy históricos), frente a las cargadas a mano.
-    let porPago = 0;
-
-    for (const c of cuentas) {
-      if (porPlan[c.tipo_plan] !== undefined) porPlan[c.tipo_plan] += 1;
-      if (c.estado_suscripcion === "activo") {
-        activas += 1;
-        if (mrrPorPlan[c.tipo_plan] !== undefined) {
-          mrrPorPlan[c.tipo_plan] += mrrDeCuenta(c.tipo_plan);
-        }
-      } else if (c.estado_suscripcion === "cancelado") {
-        canceladas += 1;
-      }
-      if (c.mp_preapproval_id || ["hotmart", "lemonsqueezy"].includes(c.origen)) porPago += 1;
-    }
-
-    const mrr = mrrPorPlan.basic + mrrPorPlan.standard + mrrPorPlan.premium;
 
     res.json({
-      total_cuentas: cuentas.length,
-      activas,
-      canceladas,
-      por_pago: porPago,
-      por_plan: porPlan,
-      total_negocios: (negociosRes.data || []).length,
+      ...calcularResumen(cuentasRes.data || [], negociosRes.data || [], cuentasTech),
       moneda: precios.moneda,
-      mrr,
-      mrr_por_plan: mrrPorPlan,
       precios,
     });
   } catch (error) {
@@ -194,13 +209,14 @@ const MS_DIA = 24 * 60 * 60 * 1000;
 const getRiesgo = async (req, res) => {
   try {
     const desde = new Date(Date.now() - DIAS_SIN_PEDIDOS * MS_DIA).toISOString();
-    const [cuentasRes, negociosRes, productosRes, pedidosRes] = await Promise.all([
+    const [cuentasRes, negociosRes, productosRes, pedidosRes, cuentasTech] = await Promise.all([
       supabase
         .from("cuentas")
         .select("id, nombre, email, tipo_plan, estado_suscripcion, periodo_fin, created_at"),
       supabase.from("negocios").select("id, cuenta_id"),
       supabase.from("productos").select("negocio_id"),
       supabase.from("pedidos").select("negocio_id").gte("created_at", desde),
+      cuentasDeTech(),
     ]);
     for (const r of [cuentasRes, negociosRes, productosRes, pedidosRes]) if (r.error) throw r.error;
 
@@ -222,6 +238,8 @@ const getRiesgo = async (req, res) => {
 
     const cuentas = [];
     for (const c of cuentasRes.data || []) {
+      // La cuenta de Tech no es un cliente: nunca está "en riesgo".
+      if (cuentasTech.has(c.id)) continue;
       const motivos = [];
       const restan = dias(c.periodo_fin);
       const antiguedad = c.created_at ? Math.floor((ahora - new Date(c.created_at).getTime()) / MS_DIA) : 0;
@@ -264,4 +282,4 @@ const getRiesgo = async (req, res) => {
   }
 };
 
-module.exports = { getCuentas, getResumen, getRiesgo, verComoCliente };
+module.exports = { getCuentas, getResumen, getRiesgo, verComoCliente, calcularResumen };
