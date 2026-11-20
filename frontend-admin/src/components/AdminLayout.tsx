@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useRef, useState } from "react";
+import { ROL_LABEL as rolLabel } from "../lib/roles";
 import type { ReactNode } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -193,17 +194,6 @@ const NAV: ItemNav[] = [
 // Barra inferior del celular: lo de todos los días. El resto va en "Más".
 const RUTAS_ABAJO = ["/admin/dashboard", "/admin/pedidos", "/admin/chats", "/admin/productos"];
 
-// Label visible del rol (clave DB → nombre de negocio). El "Tech"
-// (es_plataforma) se resuelve aparte porque es un flag, no un rol.
-const rolLabel: Record<string, string> = {
-  admin: "SuperAdmin",
-  manager: "Admin",
-  staff: "Staff",
-  superadmin: "SuperAdmin",
-  editor: "Staff",
-  visor: "Staff",
-};
-
 // Tech viendo una cuenta con "Ver como el cliente": aviso fijo, hora de
 // cierre y botón para volver. Al vencer, vuelve solo.
 function CartelVerComo() {
@@ -393,6 +383,11 @@ export function AdminShell() {
   const stockRef = useRef<HTMLDivElement>(null);
   const configBtnRef = useRef<HTMLButtonElement>(null);
   const configPanelRef = useRef<HTMLDivElement>(null);
+  // Submenú de Plataforma (Tech): igual que Configuración, al costado.
+  const [platOpen, setPlatOpen] = useState(false);
+  const [platPos, setPlatPos] = useState({ left: 0, top: 0 });
+  const platBtnRef = useRef<HTMLButtonElement>(null);
+  const platPanelRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
 
   const masRef = useRef<HTMLButtonElement>(null);
@@ -401,6 +396,7 @@ export function AdminShell() {
   useCerrarAfuera(negOpen, [negRef], () => setNegOpen(false), boton(negRef));
   useCerrarAfuera(stockOpen, [stockRef], () => setStockOpen(false), boton(stockRef));
   useCerrarAfuera(configOpen, [configBtnRef, configPanelRef], () => setConfigOpen(false), () => configBtnRef.current);
+  useCerrarAfuera(platOpen, [platBtnRef, platPanelRef], () => setPlatOpen(false), () => platBtnRef.current);
 
   useEffect(() => {
     if (!isAuthenticated || !avisaPedidos) return;
@@ -644,6 +640,15 @@ export function AdminShell() {
     setConfigOpen((v) => !v);
   };
 
+  const togglePlat = () => {
+    if (!platOpen) {
+      const r = platBtnRef.current?.getBoundingClientRect();
+      if (r) setPlatPos({ left: r.right + 8, top: Math.max(12, Math.min(r.top, window.innerHeight - 260)) });
+    }
+    setPlatOpen((v) => !v);
+  };
+  const enPlataforma = location.pathname.startsWith("/admin/plataforma");
+
   const themeToggle = (
     <div className="sh-theme" role="group" aria-label={t("appearance")}>
       <button type="button" aria-pressed={!isDark} aria-label={t("themeLight")} onClick={() => setTheme("light")}>
@@ -740,7 +745,29 @@ export function AdminShell() {
 
           <nav className="sh-nav" aria-label={t("navMain")}>
             {visible.map((item) =>
-              item.external ? (
+              item.ruta === "/admin/plataforma" ? (
+                <button
+                  key={item.ruta}
+                  ref={platBtnRef}
+                  type="button"
+                  className={`sh-link${platOpen ? " is-open" : ""}`}
+                  aria-current={enPlataforma && !platOpen ? "page" : undefined}
+                  aria-expanded={platOpen}
+                  aria-haspopup="menu"
+                  onClick={togglePlat}
+                  title={collapsed ? t(item.labelKey) : undefined}
+                >
+                  {item.icon}
+                  <span className={collapsed ? "sr-only" : "sh-label"}>{t(item.labelKey)}</span>
+                  {!collapsed && (
+                    <span className="sh-chev" style={{ display: "grid", opacity: 0.6, marginLeft: "auto" }} aria-hidden>
+                      <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                        <path d="M9 6l6 6-6 6" />
+                      </svg>
+                    </span>
+                  )}
+                </button>
+              ) : item.external ? (
                 <a
                   key={item.ruta}
                   className="sh-link"
@@ -1040,6 +1067,49 @@ export function AdminShell() {
             {soporteSinLeer > 0 && <span className="sr-only">, hay reportes de soporte con novedades</span>}
           </button>
         </nav>
+
+        {/* Submenú de Plataforma (al costado del botón) */}
+        {platOpen && (
+          <div
+            ref={platPanelRef}
+            role="menu"
+            className="sh-cfg"
+            style={isMobile ? undefined : { left: platPos.left, top: platPos.top }}
+          >
+            <div className="sh-cfg-group">
+              <div className="sh-cfg-label">{t("navPlataforma")}</div>
+              {(
+                [
+                  { ruta: "/admin/plataforma", label: t("pfNavResumen"), desc: t("pfNavResumenDesc") },
+                  { ruta: "/admin/plataforma/cuentas", label: t("pfNavCuentas"), desc: t("pfNavCuentasDesc") },
+                  { ruta: "/admin/plataforma/cupones", label: t("pfNavCupones"), desc: t("pfNavCuponesDesc") },
+                ] as const
+              ).map((o) => (
+                <button
+                  key={o.ruta}
+                  type="button"
+                  role="menuitem"
+                  className="sh-pop-item"
+                  aria-current={location.pathname === o.ruta ? "true" : undefined}
+                  style={{ minHeight: 52, alignItems: "center" }}
+                  onClick={() => {
+                    setPlatOpen(false);
+                    setDrawerOpen(false);
+                    navigate(o.ruta);
+                  }}
+                >
+                  <span style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                    <span>{o.label}</span>
+                    <span style={{ fontSize: 12, color: "var(--fg-3)", fontWeight: 400 }}>{o.desc}</span>
+                  </span>
+                  <span className="sh-pop-meta" style={{ display: "grid", width: 16 }} aria-hidden>
+                    {I.chevron}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Panel de Configuración (al costado del botón) */}
         {configOpen && (

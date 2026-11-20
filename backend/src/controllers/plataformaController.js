@@ -185,4 +185,83 @@ const verComoCliente = async (req, res) => {
   }
 };
 
-module.exports = { getCuentas, getResumen, verComoCliente };
+// Cuentas en riesgo: las que conviene ayudar antes de que se vayan.
+// Usa sólo datos que ya existen (estado, periodo_fin, productos y pedidos).
+const DIAS_PRUEBA_POR_VENCER = 3;
+const DIAS_SIN_PEDIDOS = 14;
+const MS_DIA = 24 * 60 * 60 * 1000;
+
+const getRiesgo = async (req, res) => {
+  try {
+    const desde = new Date(Date.now() - DIAS_SIN_PEDIDOS * MS_DIA).toISOString();
+    const [cuentasRes, negociosRes, productosRes, pedidosRes] = await Promise.all([
+      supabase
+        .from("cuentas")
+        .select("id, nombre, email, tipo_plan, estado_suscripcion, periodo_fin, created_at"),
+      supabase.from("negocios").select("id, cuenta_id"),
+      supabase.from("productos").select("negocio_id"),
+      supabase.from("pedidos").select("negocio_id").gte("created_at", desde),
+    ]);
+    for (const r of [cuentasRes, negociosRes, productosRes, pedidosRes]) if (r.error) throw r.error;
+
+    const negocioACuenta = new Map((negociosRes.data || []).map((n) => [n.id, n.cuenta_id]));
+    const sumar = (arr) => {
+      const m = new Map();
+      for (const x of arr) {
+        const c = negocioACuenta.get(x.negocio_id);
+        if (c != null) m.set(c, (m.get(c) || 0) + 1);
+      }
+      return m;
+    };
+    const productos = sumar(productosRes.data || []);
+    const pedidos = sumar(pedidosRes.data || []);
+    const conNegocio = new Set((negociosRes.data || []).map((n) => n.cuenta_id));
+
+    const ahora = Date.now();
+    const dias = (f) => (f ? Math.ceil((new Date(f).getTime() - ahora) / MS_DIA) : null);
+
+    const cuentas = [];
+    for (const c of cuentasRes.data || []) {
+      const motivos = [];
+      const restan = dias(c.periodo_fin);
+      const antiguedad = c.created_at ? Math.floor((ahora - new Date(c.created_at).getTime()) / MS_DIA) : 0;
+
+      if (c.estado_suscripcion === "vencido") motivos.push({ tipo: "vencida", nivel: "alto" });
+      else if (c.estado_suscripcion === "cancelado")
+        motivos.push({ tipo: "cancelada", nivel: "alto", dias: restan != null ? Math.max(0, restan) : null });
+      else if (c.estado_suscripcion === "trial" && restan != null && restan <= DIAS_PRUEBA_POR_VENCER)
+        motivos.push({ tipo: restan < 0 ? "prueba_vencida" : "prueba_por_vencer", nivel: "alto", dias: Math.max(0, restan) });
+
+      // Lo de uso sólo aplica a cuentas que todavía pueden usar el panel.
+      if (c.estado_suscripcion !== "vencido") {
+        if (!conNegocio.has(c.id) || !productos.get(c.id)) {
+          if (antiguedad >= 2) motivos.push({ tipo: "sin_configurar", nivel: "medio" });
+        } else if (!pedidos.get(c.id) && antiguedad >= DIAS_SIN_PEDIDOS) {
+          motivos.push({ tipo: "sin_pedidos", nivel: "medio", dias: DIAS_SIN_PEDIDOS });
+        }
+      }
+
+      if (motivos.length)
+        cuentas.push({
+          id: c.id,
+          nombre: c.nombre,
+          email: c.email,
+          tipo_plan: c.tipo_plan,
+          estado_suscripcion: c.estado_suscripcion,
+          nivel: motivos.some((m) => m.nivel === "alto") ? "alto" : "medio",
+          motivos,
+        });
+    }
+    // Primero las de nivel alto; dentro de cada nivel, las de plan pago.
+    const peso = { premium: 3, standard: 2, basic: 1, free: 0 };
+    cuentas.sort(
+      (a, b) =>
+        (b.nivel === "alto") - (a.nivel === "alto") || (peso[b.tipo_plan] || 0) - (peso[a.tipo_plan] || 0),
+    );
+    res.json(cuentas);
+  } catch (error) {
+    return respondError(res, error, "plataforma.riesgo");
+  }
+};
+
+module.exports = { getCuentas, getResumen, getRiesgo, verComoCliente };

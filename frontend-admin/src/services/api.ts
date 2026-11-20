@@ -310,11 +310,12 @@ export const usuariosService = {
     username: string;
     password: string;
     nombre?: string;
+    email?: string;
     rol: string;
   }) => (await api.post<Usuario>("/usuarios", u)).data,
   update: async (
     id: number,
-    u: { nombre?: string; rol?: string; activo?: boolean },
+    u: { nombre?: string; email?: string; rol?: string; activo?: boolean },
   ) => (await api.put<Usuario>(`/usuarios/${id}`, u)).data,
   cambiarPassword: async (id: number, password: string) =>
     (await api.put(`/usuarios/${id}/password`, { password })).data,
@@ -871,7 +872,8 @@ export interface Cuenta {
   nombre: string;
   email: string | null;
   tipo_plan: TipoPlan;
-  estado_suscripcion: "activo" | "cancelado";
+  estado_suscripcion: "trial" | "activo" | "cancelado" | "vencido";
+  periodo_fin?: string | null;
   limite_negocios: number;
   limite_productos: number;
   origen: string | null;
@@ -909,7 +911,28 @@ export interface Cupon {
   cuenta?: { id: number; nombre: string; email: string | null } | null;
 }
 
+// Cuenta en riesgo (panel Tech): por qué conviene ayudarla.
+export type MotivoRiesgo =
+  | "vencida"
+  | "cancelada"
+  | "prueba_vencida"
+  | "prueba_por_vencer"
+  | "sin_configurar"
+  | "sin_pedidos";
+
+export interface CuentaRiesgo {
+  id: number;
+  nombre: string;
+  email: string | null;
+  tipo_plan: TipoPlan;
+  estado_suscripcion: string;
+  nivel: "alto" | "medio";
+  motivos: { tipo: MotivoRiesgo; nivel: "alto" | "medio"; dias?: number | null }[];
+}
+
 export const plataformaService = {
+  getRiesgo: async () =>
+    (await api.get<CuentaRiesgo[]>("/plataforma/riesgo")).data,
   getCuentas: async () =>
     (await api.get<Cuenta[]>("/plataforma/cuentas")).data,
   getResumen: async () =>

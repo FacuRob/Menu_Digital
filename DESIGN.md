@@ -291,7 +291,7 @@ Configuración, Mi cuenta, Usuarios, Negocios, QR, WhatsApp, Suscripción y Plat
 - el **código QR**, que queda negro sobre una tarjeta blanca en los dos temas para que se escanee bien;
 - los **colores citados de WhatsApp** en la vista previa de avisos.
 
-Los roles de usuario usan `--info` (SuperAdmin), `--teal` (Admin) y `--violet` (Staff). Los campos de formulario tienen el borde `--field-border` (3:1 contra el fondo). El texto sobre ají va en `--on-accent` (tinta); sobre los demás colores plenos, en `--surface`. Los interruptores apagados usan `--fg-3`, que se ve en los dos temas.
+Los roles de usuario usan `--info` (SuperAdmin), `--teal` (Admin) y `--violet` (Empleado; clave `staff`). Los nombres salen de `lib/roles.ts`. Los campos de formulario tienen el borde `--field-border` (3:1 contra el fondo). El texto sobre ají va en `--on-accent` (tinta); sobre los demás colores plenos, en `--surface`. Los interruptores apagados usan `--fg-3`, que se ve en los dos temas.
 
 ## Pantallas de acceso (fase 6)
 

@@ -28,6 +28,8 @@ const Configuracion = lazy(() => import("./pages/admin/Configuracion"));
 const Pedidos = lazy(() => import("./pages/admin/Pedidos"));
 const Negocios = lazy(() => import("./pages/admin/Negocios"));
 const Plataforma = lazy(() => import("./pages/admin/Plataforma"));
+const PlataformaCuentas = lazy(() => import("./pages/admin/PlataformaCuentas"));
+const PlataformaCupones = lazy(() => import("./pages/admin/PlataformaCupones"));
 const Soporte = lazy(() => import("./pages/admin/Soporte"));
 const Suscripcion = lazy(() => import("./pages/admin/Suscripcion"));
 const MenuPreview = lazy(() => import("./pages/MenuPreview"));
@@ -209,6 +211,22 @@ function App() {
               element={
                 <ProtectedRoute plataforma>
                   <Plataforma />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/plataforma/cuentas"
+              element={
+                <ProtectedRoute plataforma>
+                  <PlataformaCuentas />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/plataforma/cupones"
+              element={
+                <ProtectedRoute plataforma>
+                  <PlataformaCupones />
                 </ProtectedRoute>
               }
             />
