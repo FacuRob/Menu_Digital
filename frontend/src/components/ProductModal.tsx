@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import type { Producto, VarianteGrupo } from "../services/api";
 import type { SelectedOption } from "../hooks/useCart";
-import { fmt, neto, ProductImage, esPorPeso, fmtPeso, redondearKg, PASO_KG } from "../lib/menuUi";
+import { fmt, neto, esPorPeso, fmtPeso, redondearKg, PASO_KG, fotosDe } from "../lib/menuUi";
+import FotosCarrusel from "./FotosCarrusel";
 import { useLang } from "../lib/i18n";
 import CamposCliente, { type ValorCampo } from "./CamposCliente";
 import { faltanCampos } from "../lib/campos";
@@ -143,9 +144,8 @@ export default function ProductModal({
         tabIndex={-1}
         className="mn-sube relative max-h-[92vh] w-full max-w-[460px] self-end overflow-y-auto rounded-t-[var(--r-lg)] bg-[var(--surface)] outline-none sm:m-4 sm:self-center sm:rounded-[var(--r-lg)]"
       >
-        {/* Imagen */}
-        <div className="relative h-[260px] bg-[var(--bg-2)]">
-          <ProductImage url={producto.imagen_url} alt={producto.nombre} w={920} h={520} fill style={{ width: "100%", height: "100%" }} />
+        {/* Fotos: deslizar o flechas si hay varias */}
+        <FotosCarrusel fotos={fotosDe(producto)} alt={producto.nombre}>
           <button
             type="button"
             onClick={onClose}
@@ -156,7 +156,7 @@ export default function ProductModal({
               <path d="M15 18l-6-6 6-6" />
             </svg>
           </button>
-        </div>
+        </FotosCarrusel>
 
         {/* Contenido */}
         <div className="px-5 pb-6 pt-5">

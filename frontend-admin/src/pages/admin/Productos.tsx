@@ -25,6 +25,7 @@ import { SideNav, SectionCard, SeccionPanel } from "../../components/SeccionesUi
 import { abrirSeccionInvalida } from "../../lib/secciones";
 import { Switch, Segmented } from "../../components/ui";
 import { Campo, InfoTip } from "../../components/InfoTip";
+import FotosProducto, { fotosDeProducto, firmaFotos, type Foto } from "../../components/FotosProducto";
 import {
   IconPlus,
   IconX,
@@ -110,8 +111,9 @@ export default function Productos() {
   const [atributos, setAtributos] = useState<{ clave: string; valor: string }[]>(
     [],
   );
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState("");
+  // Fotos del producto en orden (la primera es la principal).
+  const [fotos, setFotos] = useState<Foto[]>([]);
+  const [fotosIniciales, setFotosIniciales] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -128,7 +130,6 @@ export default function Productos() {
     }
     return window.matchMedia(MOBILE_QUERY).matches ? "cards" : "lista";
   });
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const setViewMode = (v: ViewMode) => {
     try {
@@ -206,7 +207,7 @@ export default function Productos() {
         descripcion: p.descripcion,
         precio: p.precio,
         costo: p.costo ?? 0,
-        imagen_url: p.imagen_url,
+        // Sin fotos: el servidor conserva las que tiene.
         categoria_id: p.categoria_id,
         disponible: !p.disponible,
         orden: p.orden,
@@ -267,8 +268,9 @@ export default function Productos() {
       : [];
     setAtributos(attrs);
     setAtributosIniciales(JSON.stringify(attrs));
-    setImagePreview(p?.imagen_url || "");
-    setImageFile(null);
+    const iniciales = fotosDeProducto(p);
+    setFotos(iniciales);
+    setFotosIniciales(firmaFotos(iniciales));
     setUploadError("");
     setSaveError("");
     setShowModal(true);
@@ -277,26 +279,8 @@ export default function Productos() {
   const closeModal = () => {
     setShowModal(false);
     setEditing(null);
-    setImageFile(null);
-    setImagePreview("");
+    setFotos([]);
     setUploadError("");
-  };
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadError("");
-    setImageFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setImagePreview(reader.result as string);
-    reader.readAsDataURL(file);
-  };
-
-  const removeImage = () => {
-    setImageFile(null);
-    setImagePreview("");
-    setForm((prev) => ({ ...prev, imagen_url: "" }));
-    if (fileRef.current) fileRef.current.value = "";
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -305,13 +289,24 @@ export default function Productos() {
     setUploadError("");
     setSaveError("");
     try {
-      let url = form.imagen_url;
-      if (imageFile) {
+      // Sube las fotos nuevas en orden; las que ya estaban conservan su URL.
+      const imagenes: string[] = [];
+      for (const f of fotos) {
+        if (f.url) {
+          imagenes.push(f.url);
+          continue;
+        }
+        if (!f.file) continue;
         setUploading(true);
         try {
-          url = (await uploadService.uploadImagen(imageFile)).url;
+          const subida = (await uploadService.uploadImagen(f.file)).url;
+          imagenes.push(subida);
+          // Si después falla otra, ésta no se vuelve a subir.
+          URL.revokeObjectURL(f.preview);
+          setFotos((prev) => prev.map((x) => (x.key === f.key ? { ...x, url: subida, file: undefined, preview: subida } : x)));
         } catch {
           setUploadError(t("prodUploadError"));
+          setSeccion("imagen");
           setSaving(false);
           setUploading(false);
           return;
@@ -335,7 +330,8 @@ export default function Productos() {
       const data = {
         ...resto,
         ...(mandarUnidad ? { unidad_venta } : {}),
-        imagen_url: url || null,
+        imagen_url: imagenes[0] || null,
+        imagenes,
         atributos: atributosObj,
       };
       if (editing) {
@@ -1106,7 +1102,7 @@ export default function Productos() {
                       items: [
                         { id: "datos", label: t("prodSecData"), accent: "var(--info)", Icon: IconBox, dirty: cambio("nombre", "descripcion", "categoria_id") },
                         { id: "precio", label: t("prodSecPrice"), accent: "var(--warn)", Icon: IconCoin, dirty: cambio("unidad_venta", "precio", "costo") },
-                        { id: "imagen", label: t("prodSecImage"), accent: "var(--violet)", Icon: IconImage, dirty: !!editing && (!!imageFile || form.imagen_url !== inicial.imagen_url) },
+                        { id: "imagen", label: t("prodSecImage"), accent: "var(--violet)", Icon: IconImage, dirty: !!editing && firmaFotos(fotos) !== fotosIniciales },
                         { id: "stock", label: t("prodSecStock"), accent: "var(--ok)", Icon: IconCheck, dirty: cambio("controlar_stock", "stock", "orden", "disponible") },
                       ],
                     },
@@ -1254,108 +1250,16 @@ export default function Productos() {
                     </SectionCard>
                   </SeccionPanel>
 
-                  {/* ── Imagen ── */}
+                  {/* ── Fotos (varias, la primera es la principal) ── */}
                   <SeccionPanel id="imagen" visible={seccion === "imagen"}>
                     <SectionCard accent="var(--violet)" title={t("prodSecImage")} subtitle={t("prodSecImageSub")}>
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 14,
-                          alignItems: "stretch",
-                          flexDirection: isMobile ? "column" : "row",
-                        }}
-                      >
-                        {imagePreview && (
-                          <div style={{ position: "relative", flexShrink: 0, alignSelf: isMobile ? "center" : "flex-start" }}>
-                            <img
-                              src={imagePreview}
-                              alt={t("prodImageField")}
-                              style={{
-                                width: 140,
-                                height: 140,
-                                objectFit: "cover",
-                                borderRadius: 12,
-                                border: "1px solid var(--line)",
-                                display: "block",
-                              }}
-                            />
-                            <button
-                              type="button"
-                              onClick={removeImage}
-                              aria-label={t("prodRemoveImage")}
-                              style={{
-                                position: "absolute",
-                                top: -10,
-                                right: -10,
-                                width: 28,
-                                height: 28,
-                                borderRadius: "50%",
-                                background: "var(--err)",
-                                border: "2px solid var(--surface)",
-                                color: "var(--surface)",
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                              }}
-                            >
-                              <IconX size={13} />
-                            </button>
-                          </div>
-                        )}
-                        <input
-                          ref={fileRef}
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp,image/gif"
-                          onChange={handleFile}
-                          style={{ display: "none" }}
-                          tabIndex={-1}
-                          aria-hidden
-                        />
-                        <button
-                          type="button"
-                          onClick={() => fileRef.current?.click()}
-                          className="hover:!border-[var(--focus)]"
-                          style={{
-                            flex: 1,
-                            minHeight: 140,
-                            border: "2px dashed var(--line-strong)",
-                            borderRadius: 12,
-                            padding: 18,
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: 6,
-                            textAlign: "center",
-                            cursor: "pointer",
-                            background: "var(--surface-2)",
-                            font: "inherit",
-                            color: "var(--fg-3)",
-                            transition: "border-color 0.15s",
-                          }}
-                        >
-                          <IconImage size={24} />
-                          <span style={{ display: "block", color: "var(--fg-2)", fontSize: 13, fontWeight: 600 }}>
-                            {imagePreview ? t("prodChangeImage") : t("prodSelectImage")}
-                          </span>
-                          <span style={{ display: "block", fontSize: 12 }}>
-                            {t("prodImageHint")}
-                          </span>
-                        </button>
-                      </div>
+                      <FotosProducto fotos={fotos} onChange={setFotos} onError={setUploadError} />
                       {uploadError && (
                         <div
+                          role="alert"
                           style={{ fontSize: 11.5, color: "var(--err)", marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}
                         >
                           <IconAlert size={13} style={{ flexShrink: 0 }} /> {uploadError}
-                        </div>
-                      )}
-                      {imageFile && !uploadError && (
-                        <div
-                          style={{ fontSize: 11.5, color: "var(--info)", marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}
-                        >
-                          <IconImage size={13} style={{ flexShrink: 0 }} /> {t("prodImageWillUpload", { name: imageFile.name })}
                         </div>
                       )}
                     </SectionCard>

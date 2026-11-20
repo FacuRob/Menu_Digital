@@ -389,6 +389,10 @@ export function CategoriaIcon({
 }
 
 // ── Imagen de producto con fallback por defecto ──────────────
+// Fotos de un producto en orden: la lista o, si no hay, la foto de siempre.
+export const fotosDe = (p: { imagenes?: string[] | null; imagen_url?: string | null }) =>
+  p.imagenes?.length ? p.imagenes : p.imagen_url ? [p.imagen_url] : [];
+
 export function ProductImage({
   url,
   alt,
@@ -396,6 +400,7 @@ export function ProductImage({
   w,
   h,
   fill,
+  eager,
 }: {
   url?: string | null;
   alt: string;
@@ -403,13 +408,15 @@ export function ProductImage({
   w?: number;
   h?: number;
   fill?: boolean;
+  // La foto que se ve apenas se abre (no esperar al scroll).
+  eager?: boolean;
 }) {
   if (url) {
     return (
       <img
         src={cld(url, { w, h, fill }) || url}
         alt={alt}
-        loading="lazy"
+        loading={eager ? "eager" : "lazy"}
         style={{ objectFit: "cover", ...style }}
         onError={(e) => {
           const img = e.currentTarget;

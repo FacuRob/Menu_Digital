@@ -100,6 +100,11 @@ const productoSchema = z.object({
   precio: z.coerce.number().min(0).max(99999999),
   costo: z.coerce.number().min(0).max(99999999).optional(),
   imagen_url: z.string().max(500).optional().nullable(),
+  // Varias fotos en orden (la primera es la principal). Ver db/producto_imagenes.sql.
+  imagenes: z
+    .array(z.string().trim().url().startsWith("https://", "Las fotos tienen que ser https").max(500))
+    .max(6, "Máximo 6 fotos por producto")
+    .optional(),
   categoria_id: z.coerce.number().int().positive(),
   disponible: z.coerce.boolean().optional(),
   orden: z.coerce.number().int().min(0).max(999999).optional(),

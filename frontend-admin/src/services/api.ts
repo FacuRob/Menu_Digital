@@ -83,6 +83,8 @@ export interface Producto {
   descripcion: string;
   precio: number;
   imagen_url: string | null;
+  // Todas las fotos en orden (la primera = imagen_url). Vacía en productos de antes.
+  imagenes?: string[] | null;
   categoria_id: number;
   categoria_nombre?: string;
   disponible: boolean;

@@ -236,6 +236,17 @@ select.mn-field { appearance: auto; }
 .mn-card:hover .mn-card-img img { transform: scale(1.04); }
 .mn-card-img { position: relative; width: 6.5rem; height: 6.5rem; flex-shrink: 0; overflow: hidden; border-radius: 14px; background: var(--bg-2); }
 .mn-card-img img { transition: transform 400ms var(--ease); }
+
+/* ── Fotos del producto: deslizar con el dedo o con flechas ── */
+.mn-fotos { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; }
+.mn-fotos::-webkit-scrollbar { display: none; }
+.mn-foto { flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always; }
+.mn-foto-flecha { background: color-mix(in srgb, var(--surface) 92%, transparent); color: var(--fg); box-shadow: 0 0 0 1px var(--line), 0 2px 8px rgb(0 0 0 / 0.12); }
+.mn-foto-flecha:hover { background: var(--surface); }
+.mn-foto-puntos { display: flex; gap: 6px; padding: 5px 8px; border-radius: 999px; background: color-mix(in srgb, #111216 72%, transparent); }
+.mn-foto-punto { width: 7px; height: 7px; border-radius: 999px; background: rgb(255 255 255 / 0.7); transition: width 200ms var(--ease), background 200ms var(--ease); }
+.mn-foto-punto.is-on { width: 18px; background: #fff; }
+.mn-card-fotos { position: absolute; right: 5px; bottom: 5px; display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: 999px; background: color-mix(in srgb, #111216 78%, transparent); color: #fff; font-size: 0.75rem; font-weight: 700; line-height: 1.4; }
 @media (min-width: 640px) { .mn-card-img { width: 7.25rem; height: 7.25rem; } }
 
 .mn-badge {

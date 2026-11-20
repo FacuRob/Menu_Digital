@@ -98,7 +98,11 @@ const p = (
 });
 
 export const DEMO_PRODUCTOS: Producto[] = [
-  p(1, "Clásica de la casa", "Medallón de 150 g, cheddar, lechuga, tomate y salsa de la casa.", 8900, "1568901346375-23c9450c58cd", extrasBurger),
+  {
+    // Ejemplo de producto con varias fotos (se pasan deslizando o con flechas).
+    ...p(1, "Clásica de la casa", "Medallón de 150 g, cheddar, lechuga, tomate y salsa de la casa.", 8900, "1568901346375-23c9450c58cd", extrasBurger),
+    imagenes: ["1568901346375-23c9450c58cd", "1550547660-d9450f859349", "1520072959219-c595dc870360"].map(foto),
+  },
   p(1, "Smash con cheddar", "Doble carne aplastada, cheddar fundido, pickles y cebolla.", 9800, "1550547660-d9450f859349", extrasBurger),
   p(1, "Veggie", "Medallón de lentejas y quinoa, palta, rúcula y mayo de ajo.", 8500, "1520072959219-c595dc870360"),
   p(2, "Muzzarella", "Salsa de tomate, muzzarella y orégano. Horno a leña.", 9500, "1513104890138-7c749659a591", tamanoPizza),
