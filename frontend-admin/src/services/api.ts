@@ -842,6 +842,8 @@ export type TipoPlan = "free" | "basic" | "standard" | "premium";
 export interface PlanInfo {
   tipo_plan: TipoPlan;
   estado_suscripcion: "activo" | "cancelado";
+  // false sólo cuando ya no puede usar el panel (cancelada y pasó el mes pagado).
+  vigente?: boolean;
   limite_negocios: number;
   negocios_usados: number;
   limite_productos: number;

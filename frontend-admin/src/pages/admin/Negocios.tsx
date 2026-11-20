@@ -45,7 +45,8 @@ export default function Negocios() {
   }, []);
 
   // Uso del plan (multi-tenant).
-  const suscripcionCancelada = plan?.estado_suscripcion === "cancelado";
+  // Cancelada pero dentro del mes pagado (vigente) sigue cargando todo.
+  const suscripcionCancelada = plan?.estado_suscripcion === "cancelado" && plan?.vigente === false;
   const usados = plan ? plan.negocios_usados : negocios.length;
   const limite = plan?.limite_negocios ?? null;
   const alLimite = limite !== null && usados >= limite;

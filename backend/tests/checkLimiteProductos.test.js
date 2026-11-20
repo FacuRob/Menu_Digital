@@ -10,16 +10,18 @@ const checkLimiteProductos = require("../src/middleware/checkLimiteProductos");
 let plan;
 let negocios;
 let productos; // { [negocioId]: cantidad }
+let suscripcion; // { estado_suscripcion, periodo_fin }
 
 beforeEach(() => {
   plan = "standard";
   negocios = [1, 2, 3];
   productos = {};
+  suscripcion = { estado_suscripcion: "activo", periodo_fin: null };
 });
 
 db.setHandler((q) => {
   if (q.table === "negocios" && q.filters.id)
-    return { data: { cuenta_id: 9, cuentas: { tipo_plan: plan, estado_suscripcion: "activo" } }, error: null };
+    return { data: { cuenta_id: 9, cuentas: { tipo_plan: plan, ...suscripcion } }, error: null };
   if (q.table === "negocios") return { data: negocios.map((id) => ({ id })), error: null };
   if (q.table === "productos" && q.filters.negocio_id) return { count: productos[q.filters.negocio_id] || 0, error: null };
   if (q.table === "productos" && q.inList)
@@ -76,4 +78,16 @@ test("el total de la cuenta también manda (cargó todo antes de crear los otros
   const r = await correr(2);
   assert.equal(r.statusCode, 403);
   assert.match(r.body.message, /180 productos de tu plan/);
+});
+
+test("cancelada pero dentro del mes pagado: sigue cargando productos", async () => {
+  suscripcion = { estado_suscripcion: "cancelado", periodo_fin: new Date(Date.now() + 10 * 864e5).toISOString() };
+  assert.equal((await correr(1)).paso, true);
+});
+
+test("cancelada y ya pasó el mes pagado: no carga más", async () => {
+  suscripcion = { estado_suscripcion: "cancelado", periodo_fin: new Date(Date.now() - 864e5).toISOString() };
+  const r = await correr(1);
+  assert.equal(r.statusCode, 403);
+  assert.equal(r.body.error, "SUSCRIPCION_CANCELADA");
 });

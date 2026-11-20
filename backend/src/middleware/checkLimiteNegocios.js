@@ -1,6 +1,6 @@
 const supabase = require("../config/database");
 const { getCuentaId } = require("../utils/cuenta");
-const { limitesEfectivos } = require("../utils/suscripcion");
+const { limitesEfectivos, estaVigente } = require("../utils/suscripcion");
 
 /**
  * Middleware que valida el plan de la cuenta antes de permitir crear un
@@ -27,7 +27,7 @@ const checkLimiteNegocios = async (req, res, next) => {
 
     const { data: cuenta, error: cuentaError } = await supabase
       .from("cuentas")
-      .select("tipo_plan, limite_negocios, estado_suscripcion")
+      .select("tipo_plan, limite_negocios, estado_suscripcion, periodo_fin")
       .eq("id", cuentaId)
       .single();
 
@@ -35,7 +35,8 @@ const checkLimiteNegocios = async (req, res, next) => {
       return res.status(404).json({ message: "Cuenta no encontrada" });
     }
 
-    if (cuenta.estado_suscripcion === "cancelado") {
+    // Cancelada pero dentro del mes pagado: sigue pudiendo usar todo.
+    if (cuenta.estado_suscripcion === "cancelado" && !estaVigente(cuenta)) {
       return res.status(403).json({
         error: "SUSCRIPCION_CANCELADA",
         message:

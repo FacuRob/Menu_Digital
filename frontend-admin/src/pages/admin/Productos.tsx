@@ -191,7 +191,8 @@ export default function Productos() {
   const totalNoDisponibles = productos.filter((p) => !p.disponible).length;
 
   // Uso del plan (para el badge y bloquear el alta al llegar al límite).
-  const suscripcionCancelada = plan?.estado_suscripcion === "cancelado";
+  // Cancelada pero dentro del mes pagado (vigente) sigue cargando todo.
+  const suscripcionCancelada = plan?.estado_suscripcion === "cancelado" && plan?.vigente === false;
   const usados = plan ? plan.productos_usados : productos.length;
   const limite = plan?.limite_productos ?? null;
   const alLimite = limite !== null && usados >= limite;

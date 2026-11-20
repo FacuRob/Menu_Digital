@@ -1,5 +1,6 @@
 const { getNegocioId } = require("../utils/negocio");
 const { cupoProductos } = require("../utils/planNegocio");
+const { estaVigente } = require("../utils/suscripcion");
 
 /**
  * Valida el plan de la CUENTA dueña del negocio antes de crear un producto.
@@ -7,7 +8,8 @@ const { cupoProductos } = require("../utils/planNegocio");
  * El plan da un total de productos (Básico 50, Estándar 180, Premium 1000)
  * que se reparte entre los negocios de la cuenta: Estándar con 2 negocios
  * tiene 90 por negocio; con 3, 60. Bloquea con 403 si:
- *   - la suscripción está cancelada,
+ *   - la suscripción está cancelada Y ya pasó el mes pagado (cancelada
+ *     pero vigente hasta periodo_fin sigue usando todo),
  *   - el negocio ya llenó su parte, o
  *   - la cuenta ya llegó al total del plan (por ejemplo, si cargó todo en un
  *     negocio antes de crear los otros).
@@ -19,7 +21,7 @@ const checkLimiteProductos = async (req, res, next) => {
     const c = await cupoProductos(getNegocioId(req));
     if (!c) return res.status(404).json({ message: "Negocio o cuenta no encontrados" });
 
-    if (c.cuenta.estado_suscripcion === "cancelado") {
+    if (c.cuenta.estado_suscripcion === "cancelado" && !estaVigente(c.cuenta)) {
       return res.status(403).json({
         error: "SUSCRIPCION_CANCELADA",
         message: "La suscripción está cancelada. Reactivala para agregar productos.",

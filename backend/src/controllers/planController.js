@@ -1,6 +1,6 @@
 const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
-const { limitesEfectivos, incluyeWhatsapp, planEfectivo } = require("../utils/suscripcion");
+const { limitesEfectivos, incluyeWhatsapp, planEfectivo, estaVigente } = require("../utils/suscripcion");
 const { cupoProductos } = require("../utils/planNegocio");
 
 /**
@@ -21,6 +21,8 @@ const getPlan = async (req, res) => {
     res.json({
       tipo_plan: c.cuenta.tipo_plan,
       estado_suscripcion: c.cuenta.estado_suscripcion,
+      // Cancelada sigue vigente hasta periodo_fin (el mes que ya pagó).
+      vigente: estaVigente(c.cuenta),
       limite_negocios: limites.negocios,
       negocios_usados: c.negocios,
       // Productos: la parte de ESTE negocio (el total del plan repartido
