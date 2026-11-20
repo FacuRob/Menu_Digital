@@ -987,6 +987,9 @@ export const suscripcionService = {
   // `email`: el de la cuenta de Mercado Pago con la que se paga.
   checkout: async (plan: PlanCatalogo["code"], email?: string) =>
     (await api.post<{ url: string }>(`/suscripcion/checkout/${plan}`, { email })).data,
+  // Baja de la suscripción: DinexFlow se la pide a Mercado Pago.
+  cancelar: async () =>
+    (await api.post<{ estado_suscripcion: EstadoSuscripcion; periodo_fin: string | null }>("/suscripcion/cancelar")).data,
   canjearCupon: async (codigo: string) =>
     (await api.post<{ porcentaje: number; meses: number }>("/suscripcion/cupon", { codigo })).data,
 };

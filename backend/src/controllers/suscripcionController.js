@@ -7,7 +7,7 @@ const {
   LIMITES_POR_PLAN: LIMITES,
 } = require("../utils/suscripcion");
 const { preciosPorPlan } = require("../utils/planPrecios");
-const { crearSuscripcion, motivoRechazo, PORTAL_URL } = require("../utils/mercadoPago");
+const { crearSuscripcion, cancelarSuscripcion, motivoRechazo, PORTAL_URL } = require("../utils/mercadoPago");
 const { precioConDescuento, tieneDescuento } = require("../utils/cupones");
 
 // Catálogo de planes para las tarjetas del frontend (precio mensual en ARS).
@@ -184,4 +184,39 @@ const getCheckout = async (req, res) => {
   }
 };
 
-module.exports = { getEstado, getCheckout };
+// POST /api/suscripcion/cancelar → da de baja la suscripción en Mercado Pago.
+// La baja la pide DinexFlow (el vendedor), así funciona aunque el cliente haya
+// pagado sin cuenta de Mercado Pago. No hay más cobros y la cuenta sigue
+// usando el panel hasta periodo_fin (el mes que ya pagó).
+const cancelar = async (req, res) => {
+  try {
+    const cuentaId = req.user?.cuenta_id;
+    if (!cuentaId) return res.status(403).json({ message: "Usuario sin cuenta asociada" });
+
+    const { data: cuenta } = await supabase.from("cuentas").select("*").eq("id", cuentaId).maybeSingle();
+    if (!cuenta || cuenta.estado_suscripcion !== "activo" || !cuenta.mp_preapproval_id) {
+      return res.status(409).json({ message: "No tenés una suscripción activa para cancelar." });
+    }
+
+    let sub;
+    try {
+      sub = await cancelarSuscripcion(cuenta.mp_preapproval_id);
+    } catch (e) {
+      console.error("[MercadoPago] No se pudo cancelar:", cuenta.mp_preapproval_id, e.message, e.mp);
+      return res.status(502).json({ message: "Mercado Pago no pudo cancelar la suscripción. Probá de nuevo en un rato." });
+    }
+
+    const periodoFin = cuenta.periodo_fin || sub?.next_payment_date || null;
+    const { error } = await supabase
+      .from("cuentas")
+      .update({ estado_suscripcion: "cancelado", mp_status: "cancelled", periodo_fin: periodoFin })
+      .eq("id", cuenta.id);
+    if (error) throw error;
+
+    return res.json({ estado_suscripcion: "cancelado", periodo_fin: periodoFin });
+  } catch (error) {
+    return respondError(res, error, "suscripcion.cancelar");
+  }
+};
+
+module.exports = { getEstado, getCheckout, cancelar };

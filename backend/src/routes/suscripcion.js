@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const checkPermiso = require("../middleware/checkPermiso");
 const noSoloLectura = require("../middleware/noSoloLectura");
-const { getEstado, getCheckout } = require("../controllers/suscripcionController");
+const { getEstado, getCheckout, cancelar } = require("../controllers/suscripcionController");
 const { canjearCupon } = require("../controllers/cuponesController");
 
 // Todas requieren estar logueado (se monta authMiddleware en server.js).
@@ -15,6 +15,7 @@ const { canjearCupon } = require("../controllers/cuponesController");
 // El "Admin" (manager) y el staff quedan fuera.
 router.get("/", getEstado);
 router.post("/checkout/:plan", noSoloLectura, checkPermiso("suscripcion"), getCheckout);
+router.post("/cancelar", noSoloLectura, checkPermiso("suscripcion"), cancelar);
 router.post("/cupon", noSoloLectura, checkPermiso("suscripcion"), canjearCupon);
 
 module.exports = router;

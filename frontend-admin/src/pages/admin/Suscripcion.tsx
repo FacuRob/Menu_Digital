@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import { useStyles } from "../../components/sharedStyles";
 import { useTheme } from "../../context/ThemeContext";
+import { useAuth } from "../../context/AuthContext";
 import { useLang, LOCALE } from "../../lib/i18n";
 import { IconAlert } from "../../lib/icons";
 import { useIsMobile } from "../../lib/useIsMobile";
@@ -53,6 +54,9 @@ export default function Suscripcion() {
   const [mpEmail, setMpEmail] = useState("");
   const [cupon, setCupon] = useState("");
   const [canjeando, setCanjeando] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
+  const [cancelando, setCancelando] = useState(false);
+  const { hasPermiso } = useAuth();
   const [cuponMsg, setCuponMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const canjear = async (e: React.FormEvent) => {
@@ -137,6 +141,21 @@ export default function Suscripcion() {
       setRedirecting("");
       // El aviso está arriba de todo: sin esto, el botón parece no hacer nada.
       window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const cancelarSuscripcion = async () => {
+    try {
+      setError("");
+      setCancelando(true);
+      const r = await suscripcionService.cancelar();
+      setData((d) => (d ? { ...d, estado_suscripcion: r.estado_suscripcion, periodo_fin: r.periodo_fin } : d));
+      setConfirmando(false);
+    } catch (e) {
+      setError(getApiErrorMessage(e, t("subCancelError")));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } finally {
+      setCancelando(false);
     }
   };
 
@@ -314,7 +333,8 @@ export default function Suscripcion() {
                 </a>
               )}
 
-              {/* Cómo cancelar: solo informativo, la baja se hace en Mercado Pago */}
+              {/* Cancelar: la baja la pide DinexFlow a Mercado Pago, así funciona
+                  aunque el cliente haya pagado sin cuenta de Mercado Pago. */}
               {data.tipo_plan !== "free" && estado === "activo" && (
                 <div
                   style={{
@@ -325,19 +345,47 @@ export default function Suscripcion() {
                     border: `1px solid ${border}`,
                   }}
                 >
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: textPrimary, marginBottom: 8 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: textPrimary, marginBottom: 6 }}>
                     {t("subCancelTitle")}
                   </div>
-                  <ol style={{ margin: 0, paddingLeft: 20, listStyle: "decimal", fontSize: 13, lineHeight: 1.6, color: textMuted }}>
-                    <li>{t("subCancelStep1")}</li>
-                    <li>{t("subCancelStep2")}</li>
-                    <li>{t("subCancelStep3")}</li>
-                    <li>
-                      {data.periodo_fin
-                        ? t("subCancelStep4", { date: fmtFecha(data.periodo_fin) })
-                        : t("subCancelStep4NoDate")}
-                    </li>
-                  </ol>
+                  <p style={{ margin: "0 0 12px", fontSize: 13, lineHeight: 1.55, color: textMuted }}>
+                    {data.periodo_fin
+                      ? t("subCancelBody", { date: fmtFecha(data.periodo_fin) })
+                      : t("subCancelBodyNoDate")}
+                  </p>
+                  {!hasPermiso("suscripcion") ? (
+                    <p style={{ margin: 0, fontSize: 12.5, color: textMuted }}>{t("subCancelOnlyOwner")}</p>
+                  ) : confirmando ? (
+                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: textPrimary, flexBasis: "100%" }}>
+                        {t("subCancelConfirm")}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={cancelarSuscripcion}
+                        disabled={cancelando}
+                        style={{ ...S.btnPrimary, background: "var(--err)", borderColor: "var(--err)" }}
+                      >
+                        {cancelando ? t("subCancelling") : t("subCancelYes")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmando(false)}
+                        disabled={cancelando}
+                        style={S.btnGhost}
+                      >
+                        {t("subCancelNo")}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmando(true)}
+                      style={{ ...S.btnGhost, color: "var(--err)" }}
+                    >
+                      {t("subCancelBtn")}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
