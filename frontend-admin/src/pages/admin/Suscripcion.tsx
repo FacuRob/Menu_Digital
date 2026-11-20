@@ -313,6 +313,33 @@ export default function Suscripcion() {
                   {t("subManageMp")}
                 </a>
               )}
+
+              {/* Cómo cancelar: solo informativo, la baja se hace en Mercado Pago */}
+              {data.tipo_plan !== "free" && estado === "activo" && (
+                <div
+                  style={{
+                    marginTop: 16,
+                    padding: "14px 16px",
+                    borderRadius: 12,
+                    background: "var(--surface-2)",
+                    border: `1px solid ${border}`,
+                  }}
+                >
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: textPrimary, marginBottom: 8 }}>
+                    {t("subCancelTitle")}
+                  </div>
+                  <ol style={{ margin: 0, paddingLeft: 20, listStyle: "decimal", fontSize: 13, lineHeight: 1.6, color: textMuted }}>
+                    <li>{t("subCancelStep1")}</li>
+                    <li>{t("subCancelStep2")}</li>
+                    <li>{t("subCancelStep3")}</li>
+                    <li>
+                      {data.periodo_fin
+                        ? t("subCancelStep4", { date: fmtFecha(data.periodo_fin) })
+                        : t("subCancelStep4NoDate")}
+                    </li>
+                  </ol>
+                </div>
+              )}
             </div>
 
             {/* Calendario del mes de vencimiento */}
