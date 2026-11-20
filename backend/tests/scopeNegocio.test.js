@@ -91,6 +91,24 @@ test("usuario de PLATAFORMA puede pedir el negocio de cualquier cuenta (20)", as
   assert.equal(req.negocioId, 20);
 });
 
+test("PLATAFORMA sin negocios propios: NO cae al negocio de un cliente", async () => {
+  scope = { cuentaId: 3, esPlataforma: true }; // la cuenta 3 no tiene negocios
+  for (const headers of [{}, { "x-negocio-id": "999" }]) {
+    const req = { headers };
+    const { res, nextCalled } = await run(req);
+    assert.equal(nextCalled, false);
+    assert.equal(res.statusCode, 403);
+    assert.equal(req.negocioId, undefined);
+  }
+});
+
+test("PLATAFORMA sin header: usa el primer negocio de SU cuenta", async () => {
+  scope = { cuentaId: 2, esPlataforma: true };
+  const req = { headers: {} };
+  await run(req);
+  assert.equal(req.negocioId, 20);
+});
+
 test("cuenta sin negocios y sin header → 403", async () => {
   scope = { cuentaId: 3, esPlataforma: false }; // cuenta 3 no tiene negocios
   const req = { headers: {} };

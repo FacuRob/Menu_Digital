@@ -40,10 +40,14 @@ const scopeNegocio = async (req, res, next) => {
       }
     }
 
-    // Sin negocio resuelto: primer negocio (de la cuenta, o global si plataforma).
+    // Sin negocio resuelto: primer negocio DE SU CUENTA, también para
+    // plataforma. Antes Tech caía al primer negocio de toda la base y, sin
+    // negocios propios, terminaba operando el panel de un cliente.
     if (!negocioId) {
-      let q = supabase.from("negocios").select("id");
-      if (!esPlataforma) q = q.eq("cuenta_id", cuentaId);
+      if (!cuentaId) {
+        return res.status(403).json({ message: "No hay negocios disponibles" });
+      }
+      const q = supabase.from("negocios").select("id").eq("cuenta_id", cuentaId);
       const { data, error } = await q
         .order("id", { ascending: true })
         .limit(1)
