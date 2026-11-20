@@ -252,10 +252,12 @@ function App() {
             />
           </Route>
 
-          {/* Vista previa del menú público de un negocio: /menu/:slug
-              (o /menu?negocio=<id> si el negocio aún no tiene slug). */}
+          {/* Vista previa de la página pública de un negocio: /menu/:slug
+              (gastronomía), /negocio/:slug (el resto de los rubros) o
+              /menu?negocio=<id> si el negocio aún no tiene slug. */}
           <Route path="/menu" element={<MenuPreview />} />
           <Route path="/menu/:slug" element={<MenuPreview />} />
+          <Route path="/negocio/:slug" element={<MenuPreview />} />
 
           <Route path="*" element={<NotFound />} />
           </Routes>

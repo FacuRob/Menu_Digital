@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useLang } from "../lib/i18n";
@@ -16,15 +16,18 @@ const DEVICES: { id: Device; key: string; w: number; h: number }[] = [
 
 const STORE_KEY = "menu_preview_device";
 
-// Vista previa del menú público dentro del panel: /menu/:slug
+// Vista previa del menú público dentro del panel: /menu/:slug, /negocio/:slug
 // (o /menu?negocio=<id>). Carga el menú real en un iframe y permite
 // probarlo en distintos tamaños, copiar el link público o abrirlo.
 export default function MenuPreview() {
   const { slug } = useParams<{ slug?: string }>();
   const [params] = useSearchParams();
+  // /negocio/:slug → página de un negocio que no es gastronomía.
+  const esPagina = useLocation().pathname.startsWith("/negocio/");
   const { isDark } = useTheme();
   const { isAuthenticated } = useAuth();
   const { t } = useLang();
+  const titulo = t(esPagina ? "mpTitlePagina" : "mpTitle");
 
   const [device, setDevice] = useState<Device>(() => {
     try {
@@ -48,20 +51,20 @@ export default function MenuPreview() {
 
   // Ruta del menú + parámetros extra (p. ej. ?mesa=3) que vengan en la URL.
   const path = useMemo(() => {
-    const base = menuPath(slug, params.get("negocio"));
+    const base = menuPath(slug, params.get("negocio"), esPagina ? "otro" : null);
     const extra = new URLSearchParams(params);
     if (base.includes("?negocio=")) extra.delete("negocio");
     const qs = extra.toString();
     return qs ? `${base}${base.includes("?") ? "&" : "?"}${qs}` : base;
-  }, [slug, params]);
+  }, [slug, params, esPagina]);
 
   const previewUrl = `${MENU_PREVIEW_BASE}${path}`;
   const publicUrl = `${MENU_PUBLIC_BASE}${path}`;
   const dev = DEVICES.find((d) => d.id === device)!;
 
   useEffect(() => {
-    document.title = slug ? `${t("mpTitle")} · ${slug}` : t("mpTitle");
-  }, [t, slug]);
+    document.title = slug ? `${titulo} · ${slug}` : titulo;
+  }, [titulo, slug]);
 
   // Muestra el spinner hasta que el iframe actual termine de cargar.
   const frameKey = `${previewUrl}#${reloadKey}`;
@@ -105,7 +108,7 @@ export default function MenuPreview() {
 
         <div className="min-w-0 flex-1">
           <div className="text-xs" style={{ color: muted }}>
-            {t("mpTitle")}
+            {titulo}
           </div>
           <div className="truncate text-sm font-semibold">{publicUrl.replace(/^https?:\/\//, "")}</div>
         </div>
