@@ -270,9 +270,13 @@ export const productosService = {
   create: async (
     p: Omit<Producto, "id" | "created_at" | "updated_at" | "categoria_nombre">,
   ) => (await api.post<Producto>("/productos", p)).data,
+  // Sin `imagen_url` ni `imagenes` (p. ej. el interruptor de disponible) el
+  // servidor conserva las fotos que tiene.
   update: async (
     id: number,
-    p: Omit<Producto, "id" | "created_at" | "updated_at" | "categoria_nombre">,
+    p: Omit<Producto, "id" | "created_at" | "updated_at" | "categoria_nombre" | "imagen_url"> & {
+      imagen_url?: string | null;
+    },
   ) => (await api.put<Producto>(`/productos/${id}`, p)).data,
   delete: async (id: number) => (await api.delete(`/productos/${id}`)).data,
 };
