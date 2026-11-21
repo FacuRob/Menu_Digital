@@ -903,7 +903,7 @@ function VerComprobante({ id }: { id: number }) {
       className="tap"
       onClick={abrir}
       style={{
-        minHeight: 36, padding: "6px 12px", borderRadius: 8, border: "1px solid var(--line)",
+        minHeight: 44, padding: "6px 12px", borderRadius: 8, border: "1px solid var(--line)",
         background: "var(--surface)", color: "var(--fg)", fontSize: 13, fontWeight: 700, cursor: "pointer",
       }}
     >

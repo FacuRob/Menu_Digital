@@ -83,7 +83,7 @@ export default function Clientes() {
       {!!lista?.length && texto && !visibles.length && <p style={{ color: "var(--fg-2)" }}>{t("cliSinResultados")}</p>}
 
       {!!visibles.length && (
-        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(min(280px, 100%), 1fr))" }}>
           {visibles.map((c) => (
             <li key={c.clave} style={{ ...s.card, padding: 14, display: "grid", gap: 6, color: "var(--fg)" }}>
               <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{c.nombre || t("cliSinNombre")}</h3>

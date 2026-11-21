@@ -360,7 +360,7 @@ const Menu = ({ general = false, canonica = false }: { general?: boolean; canoni
 
   if (loading) {
     return (
-      <div className="mn grid min-h-screen place-items-center p-6" style={pageStyle} role="status" aria-busy="true">
+      <div className="mn grid min-h-dvh place-items-center p-6" style={pageStyle} role="status" aria-busy="true">
         <div className="w-48 text-center">
           <p className="text-[15px] font-semibold">{t("loading")}</p>
           <div className="mt-4 h-1 overflow-hidden rounded-full bg-[var(--bg-2)]">
@@ -374,7 +374,7 @@ const Menu = ({ general = false, canonica = false }: { general?: boolean; canoni
   // Slug inexistente: el negocio no existe o está inactivo.
   if (notFound) {
     return (
-      <div className="mn grid min-h-screen place-items-center p-6 text-center" style={pageStyle}>
+      <div className="mn grid min-h-dvh place-items-center p-6 text-center" style={pageStyle}>
         <div className="max-w-sm">
           <h1 className="mn-display text-[clamp(2.25rem,9vw,3.5rem)]">{t("notFoundTitle")}</h1>
           <p className="mt-4 text-[var(--fg-2)]">{t("notFoundDesc")}</p>
@@ -398,7 +398,7 @@ const Menu = ({ general = false, canonica = false }: { general?: boolean; canoni
   ].filter(Boolean) as { k: string; l: string }[];
 
   return (
-    <div className="mn min-h-screen" style={pageStyle}>
+    <div className="mn min-h-dvh" style={pageStyle}>
       <div inert={!!modalProd || cartOpen || !!cambio}>
       {demo && (
         <div className="mn-sobre-tinta flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-[var(--fg)] px-4 py-2.5 text-center text-[13px] text-[var(--bg)]">
@@ -744,7 +744,7 @@ const Menu = ({ general = false, canonica = false }: { general?: boolean; canoni
           </div>
           {tieneHorarios(config?.horarios_config) && <SemanaHorarios hc={config!.horarios_config!} />}
         </div>
-        <div className="mx-auto max-w-6xl border-t border-[var(--ink-2)] px-4 pb-28 pt-6 text-xs text-[var(--fg-dark-2)] sm:px-6">
+        <div className="mx-auto max-w-6xl border-t border-[var(--ink-2)] px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6 text-xs text-[var(--fg-dark-2)] sm:px-6">
           <p>{t("pricesIncludeTax")}</p>
           <p className="mt-1.5">
             {t("madeWith")} <span className="font-bold text-[var(--bg)]">DinexFlow</span>
@@ -759,7 +759,7 @@ const Menu = ({ general = false, canonica = false }: { general?: boolean; canoni
           onClick={() => window.scrollTo({ top: 0, behavior: suave() })}
           aria-label={t("ariaScrollTop")}
           title={t("ariaScrollTop")}
-          className="mn-in mn-icon-btn fixed bottom-24 right-4 z-[80] bg-[var(--surface)] text-[var(--fg)] ring-1 ring-[var(--field-border)] sm:right-6"
+          className="mn-in mn-icon-btn fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 z-[80] bg-[var(--surface)] text-[var(--fg)] ring-1 ring-[var(--field-border)] sm:right-6"
         >
           <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M12 19V5M6 11l6-6 6 6" />
@@ -773,8 +773,7 @@ const Menu = ({ general = false, canonica = false }: { general?: boolean; canoni
           type="button"
           onClick={() => setCartOpen(true)}
           aria-label={t("ariaViewOrder")}
-          className="mn-btn mn-sube fixed bottom-4 left-1/2 z-[80] w-[calc(100%-32px)] max-w-md -translate-x-1/2 justify-between ring-2 ring-[var(--fg)]"
-          style={{ marginBottom: "env(safe-area-inset-bottom)" }}
+          className="mn-btn mn-sube fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-[80] w-[calc(100%-32px)] max-w-md -translate-x-1/2 justify-between ring-2 ring-[var(--fg)]"
         >
           <span className="flex items-center gap-2.5">
             <span key={cart.count} className="mn-num mn-chip-lleno grid h-7 min-w-7 place-items-center rounded-full px-1.5 text-xs">
@@ -792,7 +791,7 @@ const Menu = ({ general = false, canonica = false }: { general?: boolean; canoni
           type="button"
           onClick={() => setCartOpen(true)}
           aria-label={t("ariaViewOrder")}
-          className="mn-icon-btn fixed bottom-4 right-4 z-[80] h-14 w-14 bg-[var(--fg)] text-[var(--bg)] ring-2 ring-[var(--bg)] sm:right-6"
+          className="mn-icon-btn fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 z-[80] h-14 w-14 bg-[var(--fg)] text-[var(--bg)] ring-2 ring-[var(--bg)] sm:right-6"
         >
           <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <circle cx="9" cy="21" r="1" />

@@ -119,7 +119,7 @@
 }
 /* Sobre la cabecera de color: borde con el color del texto. */
 .mn-chip-linea { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, currentColor 45%, transparent); }
-a.mn-chip { min-height: 2.75rem; }
+a.mn-chip, button.mn-chip { min-height: 2.75rem; }
   a.mn-chip-linea:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
 .mn-chip-lleno { background: var(--mp-on); color: var(--mp); }
 

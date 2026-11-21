@@ -478,7 +478,7 @@ export default function ConfiguracionEditor({
           style={{
             display: "grid",
             gap: 16,
-            gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(min(240px, 100%), 1fr))",
           }}
         >
           <TextField s={s} label={t("cfgVenueName")} value={form.nombre} onChange={set("nombre")} />
@@ -526,7 +526,7 @@ export default function ConfiguracionEditor({
           style={{
             display: "grid",
             gap: 20,
-            gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(min(240px, 100%), 1fr))",
           }}
         >
           <ImageField
@@ -803,7 +803,7 @@ export default function ConfiguracionEditor({
       </div>
 
       {/* Espaciador para que la barra flotante no tape la última tarjeta. */}
-      <div style={{ height: dirty ? 76 : 8, transition: "height 0.2s" }} />
+      <div style={{ height: dirty ? (isMobile ? 120 : 76) : 8, transition: "height 0.2s" }} />
 
       {/* ── Barra flotante: aparece al haber cambios sin guardar ──
           Se renderiza con un portal a <body> para que position:fixed sea
@@ -814,24 +814,31 @@ export default function ConfiguracionEditor({
         createPortal(
           <div
             style={{
+              // Anclada a los dos lados: con left:50% el ancho se calculaba
+              // con media pantalla y en el celular los botones se salían.
               position: "fixed",
-              left: "50%",
-              bottom: 24,
-              transform: "translateX(-50%)",
+              left: 16,
+              right: 16,
+              // En el celular, arriba de la barra de pestañas (.sh-bottom, ~65 px).
+              bottom: isMobile ? "calc(76px + env(safe-area-inset-bottom))" : "calc(16px + env(safe-area-inset-bottom))",
+              margin: "0 auto",
+              width: isMobile ? "auto" : "fit-content",
               zIndex: 350,
             display: "flex",
+            flexWrap: "wrap",
             alignItems: "center",
-            gap: 14,
-            padding: "11px 12px 11px 18px",
+            justifyContent: "space-between",
+            gap: isMobile ? 10 : 14,
+            padding: isMobile ? "10px 12px" : "11px 12px 11px 18px",
             borderRadius: 14,
             background: "var(--surface)",
             border: `1px solid ${cardBorder}`,
             boxShadow: "0 16px 44px rgba(0,0,0,0.30)",
             animation: "cfgBarIn .22s cubic-bezier(.2,.8,.2,1)",
-            maxWidth: "calc(100vw - 32px)",
+            maxWidth: 640,
           }}
         >
-          <style>{`@keyframes cfgBarIn{from{opacity:0;transform:translate(-50%,18px)}to{opacity:1;transform:translate(-50%,0)}}`}</style>
+          <style>{`@keyframes cfgBarIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}`}</style>
           <span
             style={{
               display: "inline-flex",
@@ -855,18 +862,18 @@ export default function ConfiguracionEditor({
             />
             {t("cfgUnsaved")}
           </span>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, flex: isMobile ? "1 1 100%" : undefined }}>
             <button
               onClick={cancel}
               disabled={saving}
-              style={{ ...s.btnGhost, padding: "8px 14px" }}
+              style={{ ...s.btnGhost, padding: "8px 14px", minHeight: 44, flex: isMobile ? 1 : undefined }}
             >
               {t("actionCancel")}
             </button>
             <button
               onClick={save}
               disabled={saving}
-              style={{ ...s.btnPrimary, padding: "8px 16px", opacity: saving ? 0.7 : 1 }}
+              style={{ ...s.btnPrimary, padding: "8px 16px", minHeight: 44, flex: isMobile ? 2 : undefined, opacity: saving ? 0.7 : 1 }}
             >
               {saving ? t("saving") : t("saveChanges")}
             </button>
@@ -967,7 +974,7 @@ function MediosPago({
       <Toggle label={t("cfgPayTransfer")} desc={t("cfgPayTransferDesc")} value={value.transferencia} disabled={soloLectura}
         onChange={(v) => onChange({ transferencia: v })} />
       {value.transferencia && (
-        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", paddingLeft: 14, borderLeft: "2px solid var(--line)" }}>
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))", paddingLeft: 14, borderLeft: "2px solid var(--line)" }}>
           {campos.map(([k, label, ph, max, modo]) => (
             <div key={k}>
               <label htmlFor={`${id}-${k}`} style={s.label}>{t(label)}</label>
@@ -1157,7 +1164,7 @@ function Toggle({
           {desc}
         </div>
       </div>
-      <button
+      <button className="tap-area"
         type="button"
         onClick={() => onChange(!value)}
         disabled={disabled}
@@ -1260,6 +1267,22 @@ function HorariosEditor({
     background: inputBg,
     color: textPrimary,
     fontSize: 13,
+    // Se reparten el ancho de la fila (antes medían lo que quisieran y se cortaban).
+    width: "100%",
+    minWidth: 0,
+    minHeight: 44,
+    boxSizing: "border-box",
+  };
+  // Botones de texto con área táctil de 44 px.
+  const linkBtn: React.CSSProperties = {
+    fontSize: 12,
+    color: "var(--info)",
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    minHeight: 44,
+    padding: "0 4px",
+    textAlign: "left",
   };
 
   return (
@@ -1271,9 +1294,10 @@ function HorariosEditor({
         return (
           <div key={diaKey} style={{ border: `1px solid ${border}`, borderRadius: 10, padding: "10px 12px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ width: 78, fontSize: 13, fontWeight: 600, color: textPrimary }}>
+              <span style={{ minWidth: 78, fontSize: 13, fontWeight: 600, color: textPrimary }}>
                 {dia}
               </span>
+              {/* Área táctil de 44 px; el interruptor visible es el span de adentro. */}
               <button
                 type="button"
                 onClick={() => toggleCerrado(i)}
@@ -1281,28 +1305,40 @@ function HorariosEditor({
                 aria-checked={!d.cerrado}
                 aria-label={`${dia}: ${t("cfgOpen")}`}
                 style={{
-                  width: 40,
-                  height: 22,
-                  borderRadius: 999,
+                  minWidth: 44,
+                  minHeight: 44,
+                  padding: 0,
                   border: "none",
+                  background: "none",
                   cursor: "pointer",
-                  background: d.cerrado ? "var(--fg-3)" : "var(--ok)",
-                  position: "relative",
+                  display: "inline-flex",
+                  alignItems: "center",
                   flexShrink: 0,
                 }}
               >
                 <span
+                  aria-hidden
                   style={{
-                    position: "absolute",
-                    top: 3,
-                    left: d.cerrado ? 3 : 21,
-                    width: 16,
-                    height: 16,
-                    borderRadius: "50%",
-                    background: "var(--surface)",
-                    transition: "left .2s",
+                    width: 40,
+                    height: 22,
+                    borderRadius: 999,
+                    background: d.cerrado ? "var(--fg-3)" : "var(--ok)",
+                    position: "relative",
                   }}
-                />
+                >
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: 3,
+                      left: d.cerrado ? 3 : 21,
+                      width: 16,
+                      height: 16,
+                      borderRadius: "50%",
+                      background: "var(--surface)",
+                      transition: "left .2s",
+                    }}
+                  />
+                </span>
               </button>
               <span style={{ fontSize: 12, color: textMuted }}>
                 {d.cerrado ? t("cfgClosed") : t("cfgOpen")}
@@ -1310,7 +1346,8 @@ function HorariosEditor({
               {!d.cerrado && (
                 <button
                   onClick={() => copiarATodos(i)}
-                  style={{ marginLeft: "auto", fontSize: 11, color: "var(--info)", background: "none", border: "none", cursor: "pointer" }}
+                  type="button"
+                  style={{ ...linkBtn, marginLeft: "auto" }}
                 >
                   {t("cfgCopyAll")}
                 </button>
@@ -1320,7 +1357,15 @@ function HorariosEditor({
             {!d.cerrado && (
               <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
                 {franjas.map((f, j) => (
-                  <div key={j} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div
+                    key={j}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: franjas.length > 1 ? "minmax(0,1fr) auto minmax(0,1fr) auto" : "minmax(0,1fr) auto minmax(0,1fr)",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
                     <input type="time" aria-label={`${dia} ${j + 1}: ${t("cfgFrom")}`} value={f.desde} onChange={(e) => setFranja(i, j, { desde: e.target.value })} style={timeInput} />
                     <span style={{ color: textMuted, fontSize: 12 }}>{t("cfgTo")}</span>
                     <input type="time" aria-label={`${dia} ${j + 1}: ${t("cfgTo")}`} value={f.hasta} onChange={(e) => setFranja(i, j, { hasta: e.target.value })} style={timeInput} />
@@ -1333,8 +1378,9 @@ function HorariosEditor({
                 ))}
                 {franjas.length < 3 && (
                   <button
+                    type="button"
                     onClick={() => addFranja(i)}
-                    style={{ fontSize: 12, color: "var(--info)", background: "none", border: "none", cursor: "pointer", justifySelf: "start", padding: 0 }}
+                    style={{ ...linkBtn, justifySelf: "start", padding: 0 }}
                   >
                     {t("cfgAddRange")}
                   </button>

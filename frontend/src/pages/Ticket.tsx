@@ -57,7 +57,7 @@ export default function Ticket() {
 
   if (error || !data) {
     return (
-      <div className="mn grid min-h-screen place-items-center p-6 text-center" style={pageStyle} role={error ? undefined : "status"}>
+      <div className="mn grid min-h-dvh place-items-center p-6 text-center" style={pageStyle} role={error ? undefined : "status"}>
         {error ? (
           <div className="max-w-sm">
             <h1 className="mn-display text-[clamp(2.25rem,9vw,3.5rem)]">Ticket no encontrado</h1>
@@ -72,7 +72,7 @@ export default function Ticket() {
 
   const { local } = data;
   return (
-    <div className="mn min-h-screen px-4 py-8 sm:py-12" style={pageStyle}>
+    <div className="mn min-h-dvh px-4 py-8 sm:py-12" style={pageStyle}>
       <main className="mx-auto max-w-md overflow-hidden rounded-[var(--r-lg)] bg-[var(--surface)] print:max-w-none print:rounded-none">
         <header className="mn-sobre-color px-6 pb-6 pt-7" style={{ background: PRIMARY, color: PRIMARY_ON }}>
           <div className="flex items-center gap-4">

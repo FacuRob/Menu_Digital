@@ -227,10 +227,11 @@ export function SectionCard({
         borderLeft: `3px solid ${accent}`,
         borderRadius: 12,
         marginBottom: 14,
-        overflow: "hidden",
+        // clip (no hidden): no esconde el halo de foco de los campos.
+        overflow: "clip",
       }}
     >
-      <div style={{ padding: "15px 18px 0" }}>
+      <div style={{ padding: "15px clamp(12px, 4vw, 18px) 0" }}>
         <h3 style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: "var(--fg)", display: "flex", alignItems: "center", gap: 6 }}>
           {title}
           {info && <InfoTip texto={info} titulo={title} />}
@@ -248,7 +249,7 @@ export function SectionCard({
           </p>
         )}
       </div>
-      <div style={{ padding: 18 }}>{children}</div>
+      <div style={{ padding: "clamp(12px, 4vw, 18px)" }}>{children}</div>
     </div>
   );
 }

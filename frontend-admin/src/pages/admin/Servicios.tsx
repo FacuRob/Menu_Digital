@@ -162,7 +162,7 @@ export default function Servicios() {
       {lista?.length === 0 && <EmptyState icon={<IconTools size={26} />} title={t("servVacio")} desc={t("servVacioDesc")} />}
 
       {!!lista?.length && (
-        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(min(280px, 100%), 1fr))" }}>
           {lista.map((sv) => (
             <li key={sv.id} style={{ ...s.card, padding: 14, display: "grid", gap: 6, borderStyle: sv.activo ? "solid" : "dashed" }}>
               <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
@@ -183,10 +183,10 @@ export default function Servicios() {
               </p>
               <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
                 <Switch checked={sv.activo} onChange={() => activar(sv)} label={sv.activo ? t("servActivo") : t("servPausado")} />
-                <button type="button" style={{ ...s.btnGhost, minHeight: 44, marginLeft: "auto" }} onClick={() => abrir(sv)}>
+                <button className="tap-area" type="button" style={{ ...s.btnGhost, minHeight: 44, marginLeft: "auto" }} onClick={() => abrir(sv)}>
                   {t("actionEdit")}
                 </button>
-                <button type="button" style={{ ...s.btnGhost, minHeight: 44, color: "var(--err)" }} onClick={() => borrar(sv)}>
+                <button className="tap-area" type="button" style={{ ...s.btnGhost, minHeight: 44, color: "var(--err)" }} onClick={() => borrar(sv)}>
                   {t("actionDelete")}
                 </button>
               </div>
@@ -214,7 +214,7 @@ export default function Servicios() {
               <textarea id={campo("descripcion")} style={{ ...s.input, minHeight: 70 }} value={form.descripcion || ""} maxLength={2000}
                 onChange={(e) => setForm({ ...form, descripcion: e.target.value })} />
             </div>
-            <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
+            <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(min(170px, 100%), 1fr))" }}>
               <div>
                 <label htmlFor={campo("categoria")} style={s.label}>{t("servCategoria")}</label>
                 <input id={campo("categoria")} style={s.input} value={form.categoria || ""} maxLength={80} placeholder={t("servCategoriaPh")}
@@ -229,7 +229,7 @@ export default function Servicios() {
                   onChange={(e) => setForm({ ...form, duracion_min: e.target.value ? Number(e.target.value) : null })} />
               </div>
             </div>
-            <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
+            <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(min(170px, 100%), 1fr))" }}>
               <div>
                 <label htmlFor={campo("tipo_precio")} style={s.label}>{t("servTipoPrecio")}</label>
                 <select id={campo("tipo_precio")} style={{ ...s.input, cursor: "pointer" }} value={form.tipo_precio}

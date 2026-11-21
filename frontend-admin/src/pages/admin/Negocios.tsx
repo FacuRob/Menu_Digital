@@ -269,7 +269,7 @@ export default function Negocios() {
                       {t("bizUseThis")}
                     </button>
                   )}
-                  <button
+                  <button className="tap-area"
                     onClick={() => open(n)}
                     style={{ ...s.btnGhost, padding: "7px 12px", fontSize: 12.5 }}
                   >
@@ -282,7 +282,7 @@ export default function Negocios() {
                     {n.activo ? t("bizDeactivate") : t("bizActivate")}
                   </button>
                   {n.id !== 1 && (
-                    <button
+                    <button className="tap-area"
                       onClick={() => eliminar(n)}
                       style={{ ...s.btnGhost, padding: "7px 12px", fontSize: 12.5, color: "var(--err)" }}
                     >

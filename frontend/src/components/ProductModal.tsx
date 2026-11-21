@@ -142,7 +142,7 @@ export default function ProductModal({
         aria-modal="true"
         aria-labelledby="producto-titulo"
         tabIndex={-1}
-        className="mn-sube relative max-h-[92vh] w-full max-w-[460px] self-end overflow-y-auto rounded-t-[var(--r-lg)] bg-[var(--surface)] outline-none sm:m-4 sm:self-center sm:rounded-[var(--r-lg)]"
+        className="mn-sube relative max-h-[92dvh] overscroll-contain w-full max-w-[460px] self-end overflow-y-auto rounded-t-[var(--r-lg)] bg-[var(--surface)] outline-none sm:m-4 sm:self-center sm:rounded-[var(--r-lg)]"
       >
         {/* Fotos: deslizar o flechas si hay varias */}
         <FotosCarrusel fotos={fotosDe(producto)} alt={producto.nombre}>
@@ -159,7 +159,7 @@ export default function ProductModal({
         </FotosCarrusel>
 
         {/* Contenido */}
-        <div className="px-5 pb-6 pt-5">
+        <div className="px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-5">
           <h2 id="producto-titulo" className="mn-display text-[1.75rem]">
             {producto.nombre}
           </h2>

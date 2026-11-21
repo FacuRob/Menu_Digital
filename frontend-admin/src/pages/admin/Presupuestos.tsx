@@ -137,7 +137,7 @@ export default function Presupuestos() {
       {lista?.length === 0 && <EmptyState icon={<IconReceipt size={26} />} title={t("presVacio")} desc={t("presVacioDesc")} />}
 
       {!!lista?.length && (
-        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))" }}>
+        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(min(290px, 100%), 1fr))" }}>
           {lista.map((p) => (
             <li key={p.id}>
               <button
@@ -242,7 +242,7 @@ export default function Presupuestos() {
             {puedeCotizar && ["pendiente", "en_revision", "cotizado"].includes(detalle.estado) && (
               <section style={{ display: "grid", gap: 10, padding: 12, borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface-2)" }}>
                 <strong style={{ color: "var(--fg)" }}>{detalle.estado === "cotizado" ? t("presRecotizar") : t("presCotizar")}</strong>
-                <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
+                <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(min(170px, 100%), 1fr))" }}>
                   <div>
                     <label htmlFor={`${uid}-precio`} style={s.label}>{t("presPrecio")}</label>
                     <input id={`${uid}-precio`} style={s.input} inputMode="decimal" value={cot.precio} onChange={(e) => setCot({ ...cot, precio: e.target.value })} />

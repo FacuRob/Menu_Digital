@@ -133,7 +133,7 @@ export default function CamposEditor({ productoId }: { productoId: number }) {
             <legend style={{ padding: "0 4px", fontSize: 12.5, fontWeight: 700, color: "var(--fg-2)" }}>
               {t("campNumero", { n: i + 1 })}
             </legend>
-            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
+            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(min(170px, 100%), 1fr))" }}>
               <div>
                 <label htmlFor={`${id}-et`} style={etiqueta}>{t("campEtiqueta")}</label>
                 <input id={`${id}-et`} style={input} value={c.etiqueta} maxLength={80} placeholder={t("campEtiquetaPh")}

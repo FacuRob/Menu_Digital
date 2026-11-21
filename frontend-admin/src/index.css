@@ -516,6 +516,12 @@
   transition: background 0.15s, color 0.15s;
 }
 .dx-modal-close:hover { background: var(--err-bg); color: var(--err); }
+/* Celular: menos margen alrededor del modal para que entre el contenido. */
+@media (max-width: 480px) {
+  .dx-modal-overlay { padding: 8px; }
+  .dx-modal-head { padding: 14px 12px 12px 14px; }
+  .dx-modal-close { width: 44px; height: 44px; }
+}
 
 /* Campos del panel: borde y anillo de foco con el color de foco. */
 .dx-modal :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):focus,

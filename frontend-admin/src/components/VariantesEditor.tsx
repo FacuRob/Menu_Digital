@@ -305,16 +305,18 @@ export default function VariantesEditor({
               <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
                 {g.opciones.map((o, oi) => (
                   <div key={oi} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    {/* minWidth 0: sin esto el campo no se achica y en el celular
+                        empujaba el precio y la X fuera de la tarjeta. */}
                     <input
-                      style={{ ...inputStyle, flex: 1 }}
+                      style={{ ...inputStyle, flex: 1, minWidth: 0 }}
                       placeholder={t("varOptionPh")}
                       value={o.nombre}
                       onChange={(e) => patchOpcion(gi, oi, { nombre: e.target.value })}
                     />
-                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                       <span style={{ fontSize: 12, color: "var(--fg-3)" }}>+</span>
                       <input
-                        style={{ ...inputStyle, width: 90 }}
+                        style={{ ...inputStyle, width: 76 }}
                         type="number"
                         step="0.01"
                         min="0"
@@ -331,13 +333,18 @@ export default function VariantesEditor({
                       type="button"
                       onClick={() => removeOpcion(gi, oi)}
                       title={t("varRemoveOption")}
+                      aria-label={t("varRemoveOption")}
                       style={{
                         border: "none",
                         background: "none",
                         color: "var(--err)",
                         cursor: "pointer",
-                        display: "flex",
-                        padding: "0 4px",
+                        display: "grid",
+                        placeItems: "center",
+                        width: 36,
+                        minHeight: 44,
+                        padding: 0,
+                        flexShrink: 0,
                       }}
                     >
                       <IconX size={14} />

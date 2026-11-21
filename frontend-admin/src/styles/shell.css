@@ -424,9 +424,20 @@
   .tap { min-height: 44px; }
 }
 
-/* Controles con estilos en línea: 44 px de alto en el celular. */
+/* Botones chicos que no conviene agrandar a la vista (etiquetas "Activo",
+   links "Editar", interruptores): en el celular el área de toque crece
+   hasta ~44 px con un pseudo-elemento invisible. */
 @media (max-width: 768px) {
-  .tap { min-height: 44px; }
+  .tap-area { position: relative; }
+  .tap-area::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
 }
 
 /* Barra inferior: sólo celular */

@@ -98,7 +98,7 @@ export default function FotosProducto({
           margin: 0,
           padding: 0,
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(116px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fill, minmax(min(116px, 100%), 1fr))",
           gap: 12,
         }}
       >

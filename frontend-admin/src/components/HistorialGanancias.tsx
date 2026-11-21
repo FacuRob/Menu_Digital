@@ -283,7 +283,7 @@ export default function HistorialGanancias() {
               key={p.id}
               type="button"
               onClick={() => elegirPreset(p.id)}
-              className={`cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+              className={`tap-area cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                 preset === p.id
                   ? "bg-surface-inv text-fg-inv"
                   : "bg-surface text-fg-2 ring-1 ring-[var(--line-strong)] hover:bg-surface-2"

@@ -23,7 +23,7 @@ export function Hoja({
     document.title = negocio ? `${titulo} · ${negocio}` : titulo;
   }, [titulo, negocio]);
   return (
-    <div className="mn min-h-screen px-4 py-6 sm:py-10" style={paletteVars(config?.color_primario)}>
+    <div className="mn min-h-dvh px-4 py-6 sm:py-10" style={paletteVars(config?.color_primario)}>
       <main className="mx-auto max-w-lg overflow-hidden rounded-[var(--r-lg)] bg-[var(--surface)]">
         <header className="mn-sobre-color px-6 pb-6 pt-6" style={{ background: PRIMARY, color: PRIMARY_ON }}>
           {volver && (
@@ -47,7 +47,7 @@ export function Hoja({
 
 export function Cargando({ texto = "Cargando…" }: { texto?: string }) {
   return (
-    <div className="mn grid min-h-screen place-items-center p-6 text-center" role="status">
+    <div className="mn grid min-h-dvh place-items-center p-6 text-center" role="status">
       <p className="text-[15px] font-semibold">{texto}</p>
     </div>
   );
@@ -55,7 +55,7 @@ export function Cargando({ texto = "Cargando…" }: { texto?: string }) {
 
 export function NoEncontrado({ titulo, texto }: { titulo: string; texto: string }) {
   return (
-    <div className="mn grid min-h-screen place-items-center p-6 text-center">
+    <div className="mn grid min-h-dvh place-items-center p-6 text-center">
       <div className="max-w-sm">
         <h1 className="mn-display text-[clamp(2rem,8vw,3rem)]">{titulo}</h1>
         <p className="mt-4 text-[var(--fg-2)]">{texto}</p>

@@ -64,7 +64,7 @@ export default function Plataforma() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(min(170px, 100%), 1fr))",
             gap: 14,
             marginBottom: 14,
           }}

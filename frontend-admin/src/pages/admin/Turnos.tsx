@@ -285,7 +285,7 @@ export default function Turnos() {
             {bloqueos.map((b) => (
               <li key={b.id} style={{ color: "var(--fg)", fontSize: 14 }}>
                 {fechaHoraAR(b.desde)} → {fechaHoraAR(b.hasta)} {b.motivo && `· ${b.motivo}`}{" "}
-                <button type="button" style={{ ...s.btnDanger, minHeight: 44, padding: "0 6px" }}
+                <button className="tap-area" type="button" style={{ ...s.btnDanger, minHeight: 44, padding: "0 6px" }}
                   onClick={async () => {
                     if (!(await confirmar({ mensaje: t("turConfirmBorrarBloqueo") }))) return;
                     try {
@@ -306,7 +306,7 @@ export default function Turnos() {
           {t("turOpciones")}
         </button>
         {ajustes && (
-          <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", alignItems: "end" }}>
+          <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(min(180px, 100%), 1fr))", alignItems: "end" }}>
             {([
               ["paso_min", "turPaso"],
               ["anticipacion_min", "turAnticipacion"],
@@ -378,7 +378,7 @@ export default function Turnos() {
               </div>
             </fieldset>
             {!form.reprogramar && (
-              <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
+              <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(min(170px, 100%), 1fr))" }}>
                 <div>
                   <label htmlFor={`${uid}-cl`} style={s.label}>{t("turCliente")}</label>
                   <input id={`${uid}-cl`} style={s.input} maxLength={120} value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value })} />

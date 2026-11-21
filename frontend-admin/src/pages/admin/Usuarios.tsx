@@ -222,7 +222,7 @@ export default function Usuarios() {
   const EstadoBtn = ({ u }: { u: Usuario }) => {
     const bloqueado = u.id === me?.id || !puedeGestionar(u);
     return (
-      <button
+      <button className="tap-area"
         onClick={() => toggle(u)}
         disabled={bloqueado}
         title={bloqueado ? undefined : u.activo ? t("clickToDeactivate") : t("clickToActivate")}
@@ -259,14 +259,14 @@ export default function Usuarios() {
   const Acciones = ({ u }: { u: Usuario }) =>
     puedeGestionar(u) ? (
       <div style={{ display: "flex", gap: 16 }}>
-        <button
+        <button className="tap-area"
           onClick={() => open("editar", u)}
           style={{ background: "none", border: "none", color: "var(--info)", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0 }}
         >
           {t("actionEdit")}
         </button>
         {u.id !== me?.id && (
-          <button
+          <button className="tap-area"
             onClick={() => del(u)}
             style={{ background: "none", border: "none", color: "var(--err)", fontSize: 13, cursor: "pointer", padding: 0 }}
           >
@@ -346,7 +346,7 @@ export default function Usuarios() {
               { key: "cards", label: t("viewCards"), Icon: GridIcon },
             ] as const
           ).map((v) => (
-            <button
+            <button className="tap-area"
               key={v.key}
               onClick={() => setViewMode(v.key)}
               title={v.label}
@@ -411,7 +411,7 @@ export default function Usuarios() {
         </div>
       ) : view === "cards" ? (
         /* ── Vista Tarjetas ── */
-        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))" }}>
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(min(240px, 100%), 1fr))" }}>
           {filtrados.map((u) => (
             <div key={u.id} style={{ ...S.card, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>

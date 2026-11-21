@@ -46,7 +46,7 @@ export default function FotosCarrusel({
   return (
     <div
       // Marco cuadrado con tope de alto: la foto entra entera (sin recortar).
-      className="relative aspect-square max-h-[55vh] w-full bg-[var(--bg-2)]"
+      className="relative aspect-square max-h-[55dvh] w-full bg-[var(--bg-2)]"
       role={varias ? "region" : undefined}
       aria-roledescription={varias ? t("photosCarousel") : undefined}
       aria-label={varias ? alt : undefined}

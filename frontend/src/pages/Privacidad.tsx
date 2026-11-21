@@ -26,7 +26,7 @@ export default function Privacidad() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#060912] font-sans text-slate-200 antialiased">
+    <div className="min-h-dvh bg-[#060912] font-sans text-slate-200 antialiased">
       <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
         <a href="/" className="text-sm text-cyan-400 hover:text-cyan-300">
           ← Volver a {BRAND}

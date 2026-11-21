@@ -687,7 +687,7 @@ export default function Productos() {
               { key: "cards", label: t("viewCards"), Icon: GridIcon },
             ] as const
           ).map((v) => (
-            <button
+            <button className="tap-area"
               key={v.key}
               onClick={() => setViewMode(v.key)}
               title={v.label}
@@ -783,7 +783,7 @@ export default function Productos() {
           style={{
             display: "grid",
             gap: 14,
-            gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))",
+            gridTemplateColumns: "repeat(auto-fill, minmax(min(220px, 100%), 1fr))",
           }}
         >
           {filtrados.map((p) => {
@@ -862,14 +862,14 @@ export default function Productos() {
                     <span style={{ ...S.badgeBlue, background: "var(--info-bg)" }}>
                       {p.categoria_nombre}
                     </span>
-                    <button
+                    <button className="tap-area"
                       onClick={() => openModal(p)}
                       style={{ background: "none", border: "none", color: "var(--info)", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0 }}
                     >
                       {t("actionEdit")}
                     </button>
                   </div>
-                  <button
+                  <button className="tap-area"
                     onClick={() => toggleDisponible(p)}
                     title={p.disponible ? t("clickToDeactivate") : t("clickToActivate")}
                     style={{
@@ -1012,7 +1012,7 @@ export default function Productos() {
                     <td style={S.td}>{renderStock(p) || <span style={{ color: "var(--fg-3)" }}>—</span>}</td>
                     <td style={S.td}>
                       {/* Toggle disponible directamente */}
-                      <button
+                      <button className="tap-area"
                         onClick={() => toggleDisponible(p)}
                         title={
                           p.disponible
@@ -1046,7 +1046,7 @@ export default function Productos() {
                     <td style={S.tdMuted}>{p.orden}</td>
                     <td style={S.td}>
                       <div style={{ display: "flex", gap: 14 }}>
-                        <button
+                        <button className="tap-area"
                           onClick={() => openModal(p)}
                           style={{
                             background: "none",
@@ -1189,7 +1189,7 @@ export default function Productos() {
                             <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 6 }}>{t("prodWeightHint")}</div>
                           )}
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(180px, 100%), 1fr))", gap: 12 }}>
                           <Campo
                             label={form.unidad_venta === "kg" ? t("qProdPriceKg") : t("qProdPrice")}
                             info={t("iProdPrice")}
@@ -1277,7 +1277,7 @@ export default function Productos() {
                           />
                           <InfoTip texto={t("iProdTrackStock")} titulo={t("qProdTrackStock")} />
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(180px, 100%), 1fr))", gap: 12 }}>
                           {form.controlar_stock && (
                           <Campo label={form.unidad_venta === "kg" ? t("qProdStockKg") : t("qProdStock")}>
                             <input
@@ -1373,8 +1373,8 @@ export default function Productos() {
                                   cursor: "pointer",
                                   display: "grid",
                                   placeItems: "center",
-                                  width: 36,
-                                  height: 36,
+                                  width: 44,
+                                  height: 44,
                                   flexShrink: 0,
                                 }}
                               >

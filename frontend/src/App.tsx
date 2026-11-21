@@ -17,7 +17,7 @@ const Seguimiento = lazy(() => import("./pages/Seguimiento"));
 
 // Mientras llega el código de la página se ve el fondo del <html>
 // (index.html elige el color según la ruta: sin flash blanco).
-const Cargando = () => <div role="status" aria-busy="true" aria-label="Cargando" style={{ minHeight: "100vh" }} />;
+const Cargando = () => <div role="status" aria-busy="true" aria-label="Cargando" style={{ minHeight: "100dvh" }} />;
 
 function NotFound() {
   const { t } = useLang();
@@ -27,7 +27,7 @@ function NotFound() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        height: "100vh",
+        height: "100dvh",
         background: "#0f1117",
         color: "#475569",
         fontFamily: "system-ui",

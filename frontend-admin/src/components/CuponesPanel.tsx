@@ -140,7 +140,7 @@ export default function CuponesPanel() {
           borderBottom: "1px solid var(--line)",
           display: "grid",
           gap: 12,
-          gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(130px, 100%), 1fr))",
           alignItems: "end",
         }}
       >

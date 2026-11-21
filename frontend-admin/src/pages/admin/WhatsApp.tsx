@@ -70,7 +70,7 @@ function Toggle({
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!on)}
-      className={`relative block h-6 w-11 shrink-0 cursor-pointer rounded-full p-0 transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+      className={`tap-area relative block h-6 w-11 shrink-0 cursor-pointer rounded-full p-0 transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
         on ? "bg-ok" : "bg-fg-3"
       }`}
     >

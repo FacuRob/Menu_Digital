@@ -850,7 +850,7 @@ export default function Landing() {
   );
 
   return (
-    <div ref={rootRef} className="dx min-h-screen">
+    <div ref={rootRef} className="dx min-h-dvh">
       <a
         href="#contenido"
         className="sr-only z-[60] rounded-full bg-[var(--aji)] px-5 py-3 font-semibold text-[var(--tinta)] focus:not-sr-only focus:fixed focus:left-4 focus:top-4"

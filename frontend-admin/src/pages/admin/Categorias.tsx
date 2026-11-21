@@ -208,7 +208,7 @@ export default function Categorias() {
               { key: "cards", label: t("viewCards"), Icon: GridIcon },
             ] as const
           ).map((v) => (
-            <button
+            <button className="tap-area"
               key={v.key}
               onClick={() => setViewMode(v.key)}
               title={v.label}
@@ -277,7 +277,7 @@ export default function Categorias() {
           style={{
             display: "grid",
             gap: 12,
-            gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))",
+            gridTemplateColumns: "repeat(auto-fill, minmax(min(220px, 100%), 1fr))",
           }}
         >
           {filtradas.map((c) => (
@@ -305,7 +305,7 @@ export default function Categorias() {
                 </span>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <button
+                <button className="tap-area"
                   onClick={() => toggleActivo(c)}
                   title={c.activo ? t("clickToDeactivate") : t("clickToActivate")}
                   style={{ ...(c.activo ? S.badgeGreen : S.badgeRed), cursor: "pointer", border: "none" }}
@@ -313,7 +313,7 @@ export default function Categorias() {
                   <span style={{ width: 5, height: 5, borderRadius: "50%", background: c.activo ? "var(--ok)" : "var(--err)" }} />
                   {c.activo ? t("statusActive") : t("statusInactive")}
                 </button>
-                <button
+                <button className="tap-area"
                   onClick={() => openModal(c)}
                   style={{ background: "none", border: "none", color: "var(--info)", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0 }}
                 >
@@ -354,7 +354,7 @@ export default function Categorias() {
                   <td style={S.tdMuted}>{c.orden}</td>
                   <td style={S.td}>
                     {/* Toggle activo/inactivo */}
-                    <button
+                    <button className="tap-area"
                       onClick={() => toggleActivo(c)}
                       title={
                         c.activo
@@ -387,7 +387,7 @@ export default function Categorias() {
                   </td>
                   <td style={S.td}>
                     <div style={{ display: "flex", gap: 16 }}>
-                      <button
+                      <button className="tap-area"
                         onClick={() => openModal(c)}
                         style={{
                           background: "none",
