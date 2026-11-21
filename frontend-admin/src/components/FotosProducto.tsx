@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLang } from "../lib/i18n";
 import { cld } from "../lib/cloudinary";
 import { IconImage, IconX } from "../lib/icons";
@@ -21,6 +22,14 @@ export const fotosDeProducto = (p?: { imagenes?: string[] | null; imagen_url?: s
 
 // Firma para saber si cambió algo (orden, fotos nuevas o quitadas).
 export const firmaFotos = (fotos: Foto[]) => fotos.map((f) => f.url ?? f.key).join("|");
+
+// Copia de la lista con la foto i llevada al lugar a.
+const moverEn = (lista: Foto[], i: number, a: number) => {
+  const nueva = lista.slice();
+  const [f] = nueva.splice(i, 1);
+  nueva.splice(a, 0, f);
+  return nueva;
+};
 
 const Flecha = ({ izq }: { izq?: boolean }) => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -82,17 +91,102 @@ export default function FotosProducto({
   };
 
   const mover = (i: number, a: number) => {
-    if (a < 0 || a >= fotos.length) return;
-    const nueva = fotos.slice();
-    const [f] = nueva.splice(i, 1);
-    nueva.splice(a, 0, f);
-    onChange(nueva);
-    setAviso(t("prodFotoMovida", { n: a + 1, total: nueva.length }));
+    if (a < 0 || a >= fotos.length || a === i) return;
+    onChange(moverEn(fotos, i, a));
+    setAviso(t("prodFotoMovida", { n: a + 1, total: fotos.length }));
   };
+
+  // ── Arrastrar para ordenar (mouse y dedo) ──
+  // Mouse: se arrastra apenas se mueve. Dedo: hay que dejarlo apretado un
+  // instante; si se desliza antes, es un scroll normal de la ventana.
+  const listaRef = useRef<HTMLUListElement>(null);
+  const [drag, setDrag] = useState<{ desde: number; sobre: number; x: number; y: number; w: number; ox: number; oy: number } | null>(null);
+  const dragRef = useRef(drag);
+  dragRef.current = drag;
+
+  // Mientras se arrastra con el dedo, el dedo no desplaza la ventana.
+  useEffect(() => {
+    const ul = listaRef.current;
+    if (!ul) return;
+    const frenar = (e: TouchEvent) => {
+      if (dragRef.current) e.preventDefault();
+    };
+    ul.addEventListener("touchmove", frenar, { passive: false });
+    return () => ul.removeEventListener("touchmove", frenar);
+  }, []);
+
+  const empezar = (e: React.PointerEvent, i: number) => {
+    if (fotos.length < 2 || e.button !== 0) return;
+    // Lugares de cada foto al empezar: el destino sale de sobre cuál está el puntero.
+    const lugares = Array.from(listaRef.current?.querySelectorAll<HTMLElement>("[data-foto]") ?? []).map((el) =>
+      el.getBoundingClientRect(),
+    );
+    const x0 = e.clientX;
+    const y0 = e.clientY;
+    const w = lugares[i]?.width ?? 116;
+    // Punto de la foto donde se agarró: la copia queda tomada de ahí, sin saltar.
+    const ox = x0 - (lugares[i]?.left ?? x0 - w / 2);
+    const oy = y0 - (lugares[i]?.top ?? y0 - w / 2);
+    const esDedo = e.pointerType !== "mouse";
+    let activo = false;
+    let timer = 0;
+
+    const destino = (x: number, y: number) => {
+      let mejor = i;
+      let dist = Infinity;
+      lugares.forEach((r, j) => {
+        const d = Math.hypot(x - (r.left + r.width / 2), y - (r.top + r.height / 2));
+        if (d < dist) [dist, mejor] = [d, j];
+      });
+      return mejor;
+    };
+    const activar = (x: number, y: number) => {
+      activo = true;
+      navigator.vibrate?.(15);
+      setDrag({ desde: i, sobre: destino(x, y), x, y, w, ox, oy });
+    };
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== e.pointerId) return;
+      const lejos = Math.hypot(ev.clientX - x0, ev.clientY - y0) > (esDedo ? 10 : 5);
+      if (!activo) {
+        if (esDedo) {
+          if (lejos) terminar(); // se movió antes de tiempo: era un scroll
+        } else if (lejos) activar(ev.clientX, ev.clientY);
+        return;
+      }
+      setDrag((d) => d && { ...d, x: ev.clientX, y: ev.clientY, sobre: destino(ev.clientX, ev.clientY) });
+    };
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== e.pointerId) return;
+      const d = dragRef.current;
+      if (activo && d) mover(d.desde, d.sobre);
+      terminar();
+    };
+    const onKey = (ev: KeyboardEvent) => ev.key === "Escape" && terminar();
+    const terminar = () => {
+      clearTimeout(timer);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", terminar);
+      window.removeEventListener("keydown", onKey, true);
+      setDrag(null);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", terminar);
+    window.addEventListener("keydown", onKey, true);
+    if (esDedo) timer = window.setTimeout(() => activar(x0, y0), 250);
+  };
+
+  // Mientras se arrastra, la lista se ve ya reordenada.
+  const vista = drag ? moverEn(fotos, drag.desde, drag.sobre) : fotos;
+  const arrastrada = drag ? fotos[drag.desde] : null;
+  const srcDe = (f: Foto) => (f.url ? cld(f.url, { w: 240, h: 240, fill: true }) || f.url : f.preview);
 
   return (
     <div>
       <ul
+        ref={listaRef}
         style={{
           listStyle: "none",
           margin: 0,
@@ -102,14 +196,32 @@ export default function FotosProducto({
           gap: 12,
         }}
       >
-        {fotos.map((f, i) => (
-          <li key={f.key} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ position: "relative" }}>
+        {vista.map((f, i) => (
+          <li key={f.key} data-foto style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div
+              style={{
+                position: "relative",
+                cursor: fotos.length > 1 ? (drag ? "grabbing" : "grab") : undefined,
+                opacity: f === arrastrada ? 0.35 : 1,
+                touchAction: drag ? "none" : "manipulation",
+                userSelect: "none",
+                WebkitUserSelect: "none",
+                WebkitTouchCallout: "none",
+              }}
+              onPointerDown={(e) => {
+                // La X de quitar no arrastra.
+                if ((e.target as HTMLElement).closest("button")) return;
+                empezar(e, fotos.indexOf(f));
+              }}
+              onContextMenu={(e) => fotos.length > 1 && e.preventDefault()}
+              title={fotos.length > 1 ? t("prodFotoArrastrar") : undefined}
+            >
               <img
-                src={f.url ? cld(f.url, { w: 240, h: 240, fill: true }) || f.url : f.preview}
+                src={srcDe(f)}
                 alt={t("prodFotoN", { n: i + 1 })}
                 loading="lazy"
                 decoding="async"
+                draggable={false}
                 style={{
                   width: "100%",
                   aspectRatio: "1",
@@ -117,6 +229,7 @@ export default function FotosProducto({
                   borderRadius: 12,
                   border: i === 0 ? "2px solid var(--accent)" : "1px solid var(--line)",
                   display: "block",
+                  pointerEvents: "none",
                 }}
               />
               {i === 0 && (
@@ -267,6 +380,31 @@ export default function FotosProducto({
         tabIndex={-1}
         aria-hidden
       />
+      {/* Copia que sigue al puntero mientras se arrastra. Va con portal a
+          <body>: el modal usa backdrop-filter, que vuelve "fixed" relativo al
+          modal y la copia aparecía corrida respecto del mouse. */}
+      {drag && arrastrada && createPortal(
+        <img
+          src={srcDe(arrastrada)}
+          alt=""
+          aria-hidden
+          style={{
+            position: "fixed",
+            left: drag.x - drag.ox,
+            top: drag.y - drag.oy,
+            width: drag.w,
+            height: drag.w,
+            objectFit: "cover",
+            borderRadius: 12,
+            border: "2px solid var(--accent)",
+            boxShadow: "0 14px 34px rgba(0,0,0,0.35)",
+            transform: "scale(1.05) rotate(-2deg)",
+            pointerEvents: "none",
+            zIndex: 1000,
+          }}
+        />,
+        document.body,
+      )}
       <p className="sr-only" role="status">
         {aviso}
       </p>
