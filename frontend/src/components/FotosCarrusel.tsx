@@ -45,7 +45,8 @@ export default function FotosCarrusel({
 
   return (
     <div
-      className="relative h-[260px] bg-[var(--bg-2)]"
+      // Marco cuadrado con tope de alto: la foto entra entera (sin recortar).
+      className="relative aspect-square max-h-[55vh] w-full bg-[var(--bg-2)]"
       role={varias ? "region" : undefined}
       aria-roledescription={varias ? t("photosCarousel") : undefined}
       aria-label={varias ? alt : undefined}
@@ -74,11 +75,10 @@ export default function FotosCarrusel({
             <ProductImage
               url={url}
               alt={alt}
-              w={720}
-              h={520}
-              fill
+              w={920}
+              h={920}
               eager={i === 0}
-              style={{ width: "100%", height: "100%" }}
+              style={{ width: "100%", height: "100%", objectFit: "contain" }}
             />
           </div>
         ))}
