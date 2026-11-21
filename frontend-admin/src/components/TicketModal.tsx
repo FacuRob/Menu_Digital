@@ -1,3 +1,4 @@
+import { numeroPedido } from "../lib/numeroPedido";
 // Modal que aparece al entregar un pedido: pregunta si se quiere generar el
 // ticket y ofrece elegir el tipo de impresora (térmica o común).
 
@@ -47,7 +48,7 @@ export default function TicketModal({ pedido, config, onClose }: Props) {
   return (
     <Modal
       title={t("ticketAsk")}
-      subtitle={t("ticketAskDesc", { n: pedido.id })}
+      subtitle={t("ticketAskDesc", { n: numeroPedido(pedido) })}
       icon={<IconReceipt size={20} />}
       onClose={onClose}
       maxWidth={440}

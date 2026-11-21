@@ -1,3 +1,4 @@
+import { numeroPedido } from "../../lib/numeroPedido";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import type { ComponentType } from "react";
 import AdminLayout from "../../components/AdminLayout";
@@ -230,7 +231,7 @@ export default function Pedidos() {
 
   // Sólo cancelados: los entregados son ventas y alimentan el Dashboard.
   const eliminar = async (p: Pedido) => {
-    if (!(await confirmar({ mensaje: t("pedConfirmDelete", { id: p.id }), peligro: true }))) return;
+    if (!(await confirmar({ mensaje: t("pedConfirmDelete", { id: numeroPedido(p) }), peligro: true }))) return;
     try {
       await pedidosService.delete(p.id);
       setPedidos((prev) => prev.filter((x) => x.id !== p.id));
@@ -257,10 +258,10 @@ export default function Pedidos() {
     load();
   };
 
-  const cambiarPago = async (id: number, estado: "pagado" | "rechazado" | "en_revision") => {
-    if (estado === "rechazado" && !(await confirmar({ mensaje: t("pedPayNoConfirm", { id }), peligro: true }))) return;
+  const cambiarPago = async (p: Pedido, estado: "pagado" | "rechazado" | "en_revision") => {
+    if (estado === "rechazado" && !(await confirmar({ mensaje: t("pedPayNoConfirm", { id: numeroPedido(p) }), peligro: true }))) return;
     try {
-      await pedidosService.updatePago(id, estado);
+      await pedidosService.updatePago(p.id, estado);
     } catch (e) {
       console.error(e);
       void avisar({ mensaje: t("pedPayError"), tipo: "error" });
@@ -274,7 +275,7 @@ export default function Pedidos() {
     const ventana = window.open("", "_blank");
     try {
       const url = await pedidosService.linkReparto(p.id);
-      const texto = `${t("pedCourierMsg", { id: p.id })} ${url}`;
+      const texto = `${t("pedCourierMsg", { id: numeroPedido(p) })} ${url}`;
       const wa = `https://wa.me/?text=${encodeURIComponent(texto)}`;
       if (ventana) ventana.location.href = wa;
       else window.location.href = wa;
@@ -557,7 +558,7 @@ export default function Pedidos() {
                           : t("pedOrder")}
                   </div>
                   <div style={{ fontSize: 11.5, color: textMuted }}>
-                    #{p.id}
+                    {numeroPedido(p)}
                     {p.cliente ? ` · ${p.cliente}` : ""}
                     {p.created_at ? ` · ${formatFechaHora(p.created_at)}` : ""}
                   </div>
@@ -688,7 +689,7 @@ export default function Pedidos() {
 
               {/* Medio de pago */}
               {p.metodo_pago && (
-                <PagoPedido p={p} fmt={fmt} puedeConfirmar={puedeConfirmarPago} onPago={(e) => cambiarPago(p.id, e)} />
+                <PagoPedido p={p} fmt={fmt} puedeConfirmar={puedeConfirmarPago} onPago={(e) => cambiarPago(p, e)} />
               )}
 
               {/* Acciones */}

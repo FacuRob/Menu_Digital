@@ -56,8 +56,11 @@ beforeEach(() => {
       { negocio_id: 5, categoria_id: 10, nombre: "Veggie", precio: 9000, disponible: true, controlar_stock: true, stock: 0 },
     ],
     pedidos: [
-      { id: 18, negocio_id: 5, estado: "preparando", tipo_entrega: "retiro", total: 9800, telefono_cliente: "381 505-2050" },
-      { id: 19, negocio_id: 5, estado: "pendiente", tipo_entrega: "retiro", total: 100, telefono_cliente: "011 4444-5555" },
+      {
+        id: 18, numero: 3, negocio_id: 5, estado: "preparando", tipo_entrega: "retiro", total: 9800, telefono_cliente: "381 505-2050",
+        pedido_items: [{ nombre: "Papas fritas", cantidad: 2, unidad: "unidad" }, { nombre: "Cheese", cantidad: 1 }],
+      },
+      { id: 19, numero: 4, negocio_id: 5, estado: "pendiente", tipo_entrega: "retiro", total: 100, telefono_cliente: "011 4444-5555" },
     ],
   };
   let nextId = 100;
@@ -120,8 +123,11 @@ test("responderConIA: contesta con los datos del local y lo registra como IA", a
   assert.match(system, /Cheese/);
   assert.doesNotMatch(system, /Doble bacon/); // no disponible
   assert.doesNotMatch(system, /Veggie/); // sin stock
-  assert.match(system, /Pedido #18/); // pedido de este cliente
-  assert.doesNotMatch(system, /Pedido #19/); // pedido de otro cliente
+  // Pedido de este cliente, nombrado por lo que pidió (el número, sólo al final).
+  assert.match(system, /- 2 Papas fritas y 1 Cheese: retiro, \$\s9\.800,00, en preparación \(N° 3\)/);
+  assert.match(system, /nombralo por lo que pidió/);
+  assert.doesNotMatch(system, /#18|N° 18/); // el id interno no se muestra
+  assert.doesNotMatch(system, /N° 4/); // pedido de otro cliente
   assert.match(system, /2x1 en pizzas/); // indicaciones del dueño
   assert.match(system, /menu\/bar-la-esquina/);
   assert.deepStrictEqual(llamadas[0].messages[1], { role: "user", content: "¿A qué hora abren?" });
@@ -205,6 +211,26 @@ test("abiertoAhora: franjas que cruzan la medianoche", () => {
   assert.strictEqual(ia.abiertoAhora(todos, new Date("2026-11-04T15:00:00Z")), false);
   assert.strictEqual(ia.abiertoAhora(null), null);
   delete process.env.NEGOCIO_TZ;
+});
+
+test("respuesta cortada por falta de tokens: se manda hasta la última oración completa", async () => {
+  global.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    if (String(url).includes("openrouter")) {
+      llamadas.push(body);
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [{ finish_reason: "length", message: { content: "Hola! El de papas por $8.500 está entregado. ¿A cuál" } }],
+        }),
+      };
+    }
+    enviados.push(body);
+    return { ok: true, json: async () => ({ messages: [{ id: "wamid.1" }] }) };
+  };
+  const r = await ia.responderConIA(1);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(enviados[0].text.body, "Hola! El de papas por $8.500 está entregado.");
 });
 
 test("modo simple: si el modelo rechaza sistema/herramientas, reintenta sin ellos", async () => {

@@ -1,3 +1,4 @@
+import { numeroPedido } from "../../lib/numeroPedido";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -671,7 +672,7 @@ export default function Dashboard() {
                             className="flex min-h-14 items-center gap-3 rounded-[var(--r-sm)] px-2 py-2.5 transition-colors hover:bg-surface-2"
                           >
                             <span className="pn-num grid h-10 min-w-10 shrink-0 place-items-center rounded-[var(--r-sm)] bg-surface-3 px-1.5 text-xs font-bold text-fg-2">
-                              #{p.id}
+                              {numeroPedido(p)}
                             </span>
                             <span className="min-w-0 flex-1">
                               <span className="block truncate font-medium text-fg">

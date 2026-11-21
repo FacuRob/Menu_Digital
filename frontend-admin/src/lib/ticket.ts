@@ -1,3 +1,4 @@
+import { numeroPedido } from "./numeroPedido";
 import { fmtPeso } from "./cantidad";
 // Generación e impresión de comprobantes de un pedido.
 //
@@ -118,7 +119,7 @@ const htmlTermica = (
     ${config?.direccion ? `<div class="center sm">${esc(config.direccion)}</div>` : ""}
     ${config?.telefono ? `<div class="center sm">${t("ticketPhoneShort")}: ${esc(config.telefono)}</div>` : ""}
     <div class="sep"></div>
-    <div class="row"><span>${t("ticketOrder")} #${pedido.id}</span><span>${esc(tipoLabel(pedido, t))}</span></div>
+    <div class="row"><span>${t("ticketOrder")} ${numeroPedido(pedido)}</span><span>${esc(tipoLabel(pedido, t))}</span></div>
     <div class="row sm"><span>${esc(fmtFecha(pedido.created_at))}</span></div>
     ${pedido.cliente ? `<div class="row sm"><span>${t("ticketClient")}: ${esc(pedido.cliente)}</span></div>` : ""}
     ${pedido.direccion_entrega ? `<div class="row sm"><span>${t("ticketAddress")}: ${esc(pedido.direccion_entrega)}</span></div>` : ""}
@@ -167,7 +168,7 @@ const htmlComun = (
       </div>
       <div class="doc-meta">
         <div class="doc-title">${t("ticketTitle")}</div>
-        <div class="muted">${t("ticketOrder")} #${pedido.id}</div>
+        <div class="muted">${t("ticketOrder")} ${numeroPedido(pedido)}</div>
         <div class="muted">${esc(fmtFecha(pedido.created_at))}</div>
       </div>
     </div>
@@ -294,7 +295,7 @@ export const generarTicketHTML = (
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${t("ticketTitle")} #${pedido.id} — ${esc(config?.nombre || "")}</title>
+  <title>${t("ticketTitle")} ${numeroPedido(pedido)} — ${esc(config?.nombre || "")}</title>
   <style>${estilos(formato)}
     .toolbar { position: fixed; top: 0; left: 0; right: 0; z-index: 10; display: flex; gap: 8px;
                justify-content: center; padding: 10px; background: #0f172a; }

@@ -1,3 +1,4 @@
+import { numeroPedido } from "../../lib/numeroPedido";
 import { useEffect, useState, type FormEvent } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import NumeroWhatsapp from "../../components/NumeroWhatsapp";
@@ -407,7 +408,7 @@ export default function WhatsApp() {
                           <div className="min-w-0 flex-1">
                             <div className={`truncate font-medium ${P.title}`}>
                               {m.aviso === "prueba" || !m.aviso ? t("waTestLabel") : t(`waAv_${m.aviso}`)}
-                              {m.pedido_id ? ` · ${t("waOrderN", { n: m.pedido_id })}` : ""}
+                              {m.pedido_id ? ` · ${t("waOrderN", { n: numeroPedido({ id: m.pedido_id, numero: m.pedido_numero }) })}` : ""}
                             </div>
                             <div className={`truncate text-xs ${P.muted}`} title={m.error || undefined}>
                               {m.telefono} ·{" "}

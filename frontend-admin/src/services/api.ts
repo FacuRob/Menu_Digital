@@ -447,6 +447,7 @@ export interface Presupuesto {
   observaciones: string | null;
   valido_hasta: string | null;
   pedido_id: number | null;
+  pedido_numero?: number | null;
   created_at: string;
 }
 export interface PresupuestoDetalle extends Presupuesto {
@@ -554,6 +555,8 @@ export interface Pedido {
   // Para cuándo lo quiere el cliente (retiro o entrega programada).
   programado_para?: string | null;
   id: number;
+  // Número que ve la gente (propio del negocio). `id` es interno.
+  numero?: number | null;
   mesa: string | null;
   cliente: string | null;
   nota: string | null;
@@ -1030,6 +1033,7 @@ export interface AvisosWhatsapp {
 export interface MensajeWhatsapp {
   id: number;
   pedido_id: number | null;
+  pedido_numero?: number | null;
   telefono: string;
   aviso: EstadoAviso | "prueba" | null;
   estado: "enviado" | "entregado" | "leido" | "fallido";
@@ -1088,6 +1092,7 @@ export interface MensajeChat {
   estado: "enviado" | "entregado" | "leido" | "fallido" | "recibido";
   error: string | null;
   pedido_id: number | null;
+  pedido_numero?: number | null;
   created_at: string;
 }
 

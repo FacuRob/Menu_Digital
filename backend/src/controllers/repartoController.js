@@ -92,10 +92,11 @@ const getReparto = async (req, res) => {
     // Pedido cerrado: el link queda en el WhatsApp del repartidor, así que ya
     // no muestra teléfono, dirección ni nota del cliente.
     if (p.estado === "entregado" || p.estado === "cancelado") {
-      return res.json({ id: p.id, estado: p.estado, total: p.total, ...envioDe(p), items: [], local });
+      return res.json({ id: p.id, numero: p.numero ?? p.id, estado: p.estado, total: p.total, ...envioDe(p), items: [], local });
     }
     res.json({
       id: p.id,
+      numero: p.numero ?? p.id,
       estado: p.estado,
       cliente: p.cliente,
       telefono: p.telefono_cliente,
@@ -163,7 +164,7 @@ const entregar = async (req, res) => {
 
 const getSeguimiento = async (req, res) => {
   try {
-    const p = await pedidoFirmado("seguimiento", req, "cliente, updated_at, repartidor_lat, repartidor_lng, repartidor_at");
+    const p = await pedidoFirmado("seguimiento", req, "*");
     if (!p) return res.status(404).json(NO_ENCONTRADO);
     // Sólo ubicaciones mandadas desde que salió (updated_at = último cambio de
     // estado): si el pedido volvió a "en camino", no se muestra una vieja.
@@ -173,6 +174,7 @@ const getSeguimiento = async (req, res) => {
       (!p.updated_at || Date.parse(p.repartidor_at) >= Date.parse(p.updated_at));
     res.json({
       id: p.id,
+      numero: p.numero ?? p.id,
       estado: p.estado,
       cliente: (p.cliente || "").trim().split(/\s+/)[0] || null,
       ubicacion:

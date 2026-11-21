@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const supabase = require("../config/database");
 const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
+const { conNumeroPedido } = require("../utils/numeroPedido");
 const { estaConfigurado, normalizarTelefono } = require("../services/whatsappService");
 const { modulosNegocio } = require("../middleware/requiereModulo");
 const {
@@ -67,7 +68,7 @@ const getMensajes = async (req, res) => {
       .limit(50);
     // Sin migración todavía → lista vacía en vez de error.
     if (error) return res.json([]);
-    res.json(data || []);
+    res.json(await conNumeroPedido(data || []));
   } catch (error) {
     return respondError(res, error, "whatsapp");
   }

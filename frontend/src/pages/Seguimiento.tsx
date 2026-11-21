@@ -6,11 +6,13 @@ import "@fontsource-variable/archivo/wdth.css";
 import "../components/menu/menu.css";
 import api from "../services/api";
 import { paletteVars, PRIMARY, PRIMARY_ON } from "../lib/menuUi";
+import { numeroPedido } from "../lib/numeroPedido";
 
 // Mapa del delivery para el cliente: /seguimiento/<id>?t=<firma>. Llega en el
 // aviso de WhatsApp de "en camino". Se actualiza solo cada 10 s.
 interface SeguimientoData {
   id: number;
+  numero?: number | null;
   estado: string;
   cliente: string | null;
   ubicacion: { lat: number; lng: number; at: string } | null;
@@ -135,7 +137,7 @@ export default function Seguimiento() {
       <header className="mn-sobre-color px-5 pb-5 pt-5" style={{ background: PRIMARY, color: PRIMARY_ON }}>
         <div className="mx-auto max-w-2xl">
           <p className="mn-label opacity-80">
-            {data.local.nombre} · Pedido #{data.id}
+            {data.local.nombre} · Pedido {numeroPedido(data)}
           </p>
           <h1 className="mn-display mt-2 text-[clamp(1.9rem,8vw,2.75rem)]">{TITULO[data.estado] || "Tu pedido"}</h1>
           <p className="sr-only" role="status">{TITULO[data.estado] || ""}</p>

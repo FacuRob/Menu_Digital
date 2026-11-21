@@ -242,7 +242,7 @@ async function notificarPedido(pedido, estado = pedido?.estado) {
       params: [
         (pedido.cliente || "").trim() || "cliente",
         local,
-        pedido.id,
+        pedido.numero ?? pedido.id,
         ...(aviso.link ? [linkPedido(aviso.link, pedido)] : []),
       ],
     });

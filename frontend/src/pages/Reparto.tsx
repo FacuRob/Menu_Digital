@@ -4,12 +4,14 @@ import "@fontsource-variable/archivo/wdth.css";
 import "../components/menu/menu.css";
 import api from "../services/api";
 import { fmt, fmtPeso, paletteVars, setMonedaMenu, PRIMARY, PRIMARY_ON } from "../lib/menuUi";
+import { numeroPedido } from "../lib/numeroPedido";
 
 // Página del repartidor: /reparto/<id>?t=<firma>. La comparte el local desde
 // Pedidos. "Salí" pasa el pedido a En camino y empieza a mandar la ubicación;
 // "Entregué" lo cierra. Sin app: sólo hay que dejar esta página abierta.
 interface RepartoData {
   id: number;
+  numero?: number | null;
   estado: string;
   cliente: string | null;
   telefono: string | null;
@@ -48,7 +50,7 @@ export default function Reparto() {
       .then((r) => {
         setMonedaMenu(r.data.local.moneda);
         setData(r.data);
-        document.title = `Reparto #${r.data.id} · ${r.data.local.nombre}`;
+        document.title = `Reparto ${numeroPedido(r.data)} · ${r.data.local.nombre}`;
       })
       .catch(() => setError(true));
   }, [id]);
@@ -173,7 +175,7 @@ export default function Reparto() {
       <main className="mx-auto max-w-md">
         <header className="mn-sobre-color rounded-[var(--r-lg)] px-6 pb-6 pt-6" style={{ background: PRIMARY, color: PRIMARY_ON }}>
           <p className="mn-label opacity-80">Reparto · {data.local.nombre}</p>
-          <h1 className="mn-display mt-2 text-[clamp(2rem,9vw,2.75rem)]">Pedido #{data.id}</h1>
+          <h1 className="mn-display mt-2 text-[clamp(2rem,9vw,2.75rem)]">Pedido {numeroPedido(data)}</h1>
           <p className="mt-3 text-[16px] font-semibold" role="status">
             {data.estado === "en_camino"
               ? "En camino · compartiendo tu ubicación"

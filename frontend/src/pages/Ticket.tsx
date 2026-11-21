@@ -4,11 +4,13 @@ import "@fontsource-variable/archivo/wdth.css";
 import "../components/menu/menu.css";
 import api from "../services/api";
 import { fmt, fmtPeso, paletteVars, setMonedaMenu, PRIMARY, PRIMARY_ON } from "../lib/menuUi";
+import { numeroPedido } from "../lib/numeroPedido";
 
 // Ticket de un pedido. Llega por WhatsApp al marcarlo "Entregado":
 // /ticket/<id>?t=<firma>. Sin la firma correcta el backend responde 404.
 interface TicketData {
   id: number;
+  numero?: number | null;
   cliente: string | null;
   tipo_entrega: "mesa" | "retiro" | "delivery" | null;
   mesa: string | null;
@@ -48,7 +50,7 @@ export default function Ticket() {
       .then((r) => {
         setMonedaMenu(r.data.local.moneda);
         setData(r.data);
-        document.title = `Ticket #${r.data.id} · ${r.data.local.nombre}`;
+        document.title = `Ticket ${numeroPedido(r.data)} · ${r.data.local.nombre}`;
       })
       .catch(() => setError(true));
   }, [id]);
@@ -90,7 +92,7 @@ export default function Ticket() {
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-[14px]">
             <div>
               <dt className="mn-label text-[var(--fg-2)]">Pedido</dt>
-              <dd className="mn-num mt-0.5 font-semibold">#{data.id}</dd>
+              <dd className="mn-num mt-0.5 font-semibold">{numeroPedido(data)}</dd>
             </div>
             <div>
               <dt className="mn-label text-[var(--fg-2)]">Fecha</dt>

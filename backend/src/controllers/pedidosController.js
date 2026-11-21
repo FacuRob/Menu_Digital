@@ -564,6 +564,7 @@ const getTicketPublico = async (req, res) => {
 
     res.json({
       id: p.id,
+      numero: p.numero ?? p.id,
       cliente: p.cliente,
       tipo_entrega: p.tipo_entrega,
       mesa: p.mesa,

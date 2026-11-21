@@ -1,4 +1,5 @@
 const supabase = require("../config/database");
+const { conNumeroPedido, numeroDe } = require("../utils/numeroPedido");
 const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
 const { modulosNegocio } = require("../middleware/requiereModulo");
@@ -214,7 +215,7 @@ const ver = async (req, res) => {
       supabase.from("presupuesto_eventos").select("estado, autor, nota, created_at").eq("presupuesto_id", p.id).eq("negocio_id", p.negocio_id).order("created_at"),
       supabase.from("adjuntos").select("id, nombre, tipo").eq("negocio_id", p.negocio_id).eq("contexto", "presupuesto").eq("ref_id", p.id),
     ]);
-    res.json({ ...p, eventos: ev.data || [], adjuntos: adj.data || [], link: linkPedido("presupuesto", p) });
+    res.json({ ...(await conNumeroPedido(p)), eventos: ev.data || [], adjuntos: adj.data || [], link: linkPedido("presupuesto", p) });
   } catch (error) {
     return respondError(res, error, "presupuestos.ver");
   }
@@ -322,8 +323,8 @@ const convertir = async (req, res) => {
     // El pedido ya existe: si falla sólo el enlace, igual se informa (queda
     // anotado en el historial con el número de pedido).
     if (error) console.error(`[Presupuestos] #${p.id}: no se guardó pedido_id ${guardado.pedido.id}:`, error.message);
-    await registrar(p, "convertido", "negocio", { usuario_id: req.user?.id ?? null, nota: `Pedido #${guardado.pedido.id}` });
-    res.json({ ...(final || tomado), pedido_id: guardado.pedido.id, pedido: guardado.pedido });
+    await registrar(p, "convertido", "negocio", { usuario_id: req.user?.id ?? null, nota: `Pedido N° ${numeroDe(guardado.pedido)}` });
+    res.json({ ...(final || tomado), pedido_id: guardado.pedido.id, pedido_numero: numeroDe(guardado.pedido), pedido: guardado.pedido });
   } catch (error) {
     return respondError(res, error, "presupuestos.convertir");
   }

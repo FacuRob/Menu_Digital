@@ -1,3 +1,4 @@
+import { numeroPedido } from "../../lib/numeroPedido";
 import { useCallback, useEffect, useId, useState } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import Modal from "../../components/Modal";
@@ -305,7 +306,7 @@ export default function Presupuestos() {
                   </button>
                 </>
               )}
-              {detalle.pedido_id && <p style={{ margin: 0, alignSelf: "center", color: "var(--ok)", fontWeight: 600 }}>{t("presEsPedido", { n: detalle.pedido_id })}</p>}
+              {detalle.pedido_id && <p style={{ margin: 0, alignSelf: "center", color: "var(--ok)", fontWeight: 600 }}>{t("presEsPedido", { n: numeroPedido({ id: detalle.pedido_id, numero: detalle.pedido_numero }) })}</p>}
             </div>
             {/* Historial */}
             <section>

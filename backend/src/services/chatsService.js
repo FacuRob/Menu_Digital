@@ -9,6 +9,7 @@
 // Regla de Meta: el texto libre solo se puede mandar dentro de las 24 h desde
 // el último mensaje del cliente. Pasado ese plazo, solo plantillas.
 const supabase = require("../config/database");
+const { conNumeroPedido } = require("../utils/numeroPedido");
 const { enviarTexto, normalizarTelefono, estaConfigurado } = require("./whatsappService");
 
 const VENTANA_MS = 24 * 60 * 60 * 1000;
@@ -270,7 +271,7 @@ async function mensajesDelChat(negocioId, chatId, { marcarLeido = true } = {}) {
   }
   return {
     chat: { ...chat, no_leidos: marcarLeido ? 0 : chat.no_leidos, puede_responder: ventanaAbierta(chat), ia_pausada: iaPausada(chat) },
-    mensajes: (data || []).reverse(),
+    mensajes: await conNumeroPedido((data || []).reverse()),
   };
 }
 

@@ -1,3 +1,4 @@
+import { numeroPedido } from "../../lib/numeroPedido";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import { useTheme } from "../../context/ThemeContext";
@@ -371,7 +372,7 @@ export default function Chats() {
                       {m.aviso && (
                         <div className="mb-0.5 text-[11px] font-semibold opacity-70">
                           🤖 {t("chAutoAviso")}
-                          {m.pedido_id ? ` · #${m.pedido_id}` : ""}
+                          {m.pedido_id ? ` · ${numeroPedido({ id: m.pedido_id, numero: m.pedido_numero })}` : ""}
                         </div>
                       )}
                       <span className="whitespace-pre-wrap break-words">{m.texto || "—"}</span>
