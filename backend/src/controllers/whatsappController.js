@@ -224,15 +224,18 @@ const getIA = async (req, res) => {
   }
 };
 
-// PUT /api/whatsapp/ia  { activo?: boolean, instrucciones?: string }
+// PUT /api/whatsapp/ia  { activo?: boolean, instrucciones?: string, nombre_asistente?: string }
 const updateIA = async (req, res) => {
   try {
-    const { activo, instrucciones } = req.body || {};
+    const { activo, instrucciones, nombre_asistente } = req.body || {};
+    if (nombre_asistente !== undefined && typeof nombre_asistente !== "string") {
+      return res.status(400).json({ message: "Valor inválido" });
+    }
     if (activo !== undefined && typeof activo !== "boolean") return res.status(400).json({ message: "Valor inválido" });
     if (instrucciones !== undefined && typeof instrucciones !== "string") {
       return res.status(400).json({ message: "Valor inválido" });
     }
-    res.json(await ia.guardarConfigIA(getNegocioId(req), { activo, instrucciones }));
+    res.json(await ia.guardarConfigIA(getNegocioId(req), { activo, instrucciones, nombre_asistente }));
   } catch (error) {
     return respondError(res, error, "whatsapp");
   }

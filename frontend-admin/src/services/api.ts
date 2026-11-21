@@ -1169,12 +1169,14 @@ export interface ConfigIA {
   configurada: boolean; // el servidor tiene la clave de OpenRouter
   activo: boolean;
   instrucciones: string;
+  // Nombre con el que se presenta ("Soy Alex…"). Vacío = sin nombre.
+  nombre_asistente?: string;
 }
 
 export const iaService = {
   get: async () => (await api.get<ConfigIA>("/whatsapp/ia")).data,
-  update: async (p: { activo?: boolean; instrucciones?: string }) =>
-    (await api.put<Pick<ConfigIA, "activo" | "instrucciones">>("/whatsapp/ia", p)).data,
+  update: async (p: { activo?: boolean; instrucciones?: string; nombre_asistente?: string }) =>
+    (await api.put<Pick<ConfigIA, "activo" | "instrucciones" | "nombre_asistente">>("/whatsapp/ia", p)).data,
 };
 
 export default api;

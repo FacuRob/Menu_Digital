@@ -99,6 +99,7 @@ export default function WhatsApp() {
   const [testMsg, setTestMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [ia, setIa] = useState<ConfigIA | null>(null);
   const [instrucciones, setInstrucciones] = useState("");
+  const [nombreIa, setNombreIa] = useState("");
   const [iaMsg, setIaMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [guardandoIa, setGuardandoIa] = useState(false);
 
@@ -119,6 +120,7 @@ export default function WhatsApp() {
       .then((c) => {
         setIa(c);
         setInstrucciones(c.instrucciones || "");
+        setNombreIa(c.nombre_asistente || "");
       })
       .catch(() => setIa(null));
     cargarMensajes();
@@ -146,7 +148,7 @@ export default function WhatsApp() {
   };
 
   // Asistente con IA: interruptor (optimista) e indicaciones del local.
-  const guardarIa = async (cambio: { activo?: boolean; instrucciones?: string }) => {
+  const guardarIa = async (cambio: { activo?: boolean; instrucciones?: string; nombre_asistente?: string }) => {
     if (!ia) return;
     const previo = ia;
     setIa({ ...ia, ...cambio });
@@ -155,6 +157,7 @@ export default function WhatsApp() {
     try {
       const r = await iaService.update(cambio);
       setIa({ ...previo, ...r });
+      if (r.nombre_asistente !== undefined) setNombreIa(r.nombre_asistente || "");
       if (cambio.instrucciones !== undefined) setIaMsg({ ok: true, text: t("iaSaved") });
     } catch (e) {
       setIa(previo);
@@ -331,6 +334,20 @@ export default function WhatsApp() {
                   <li className={`rounded-xl px-3 py-2 ${P.soft}`}>🚫 {t("iaDoes2")}</li>
                   <li className={`rounded-xl px-3 py-2 ${P.soft}`}>👋 {t("iaDoes3")}</li>
                 </ul>
+                <label className={`mt-4 block text-sm font-semibold ${P.title}`} htmlFor="ia-nombre">
+                  {t("iaNameTitle")}
+                </label>
+                <p className={`mt-0.5 text-xs ${P.muted}`}>{t("iaNameDesc", { local })}</p>
+                <input
+                  id="ia-nombre"
+                  type="text"
+                  value={nombreIa}
+                  onChange={(e) => setNombreIa(e.target.value)}
+                  maxLength={30}
+                  autoComplete="off"
+                  placeholder={t("iaNamePh")}
+                  className={`mt-2 w-full max-w-xs rounded-xl border px-3.5 py-2.5 text-sm ${P.input}`}
+                />
                 <label className={`mt-4 block text-sm font-semibold ${P.title}`} htmlFor="ia-instrucciones">
                   {t("iaInstrTitle")}
                 </label>
@@ -353,8 +370,11 @@ export default function WhatsApp() {
                     )}
                     <button
                       type="button"
-                      disabled={guardandoIa || instrucciones === (ia.instrucciones || "")}
-                      onClick={() => guardarIa({ instrucciones })}
+                      disabled={
+                        guardandoIa ||
+                        (instrucciones === (ia.instrucciones || "") && nombreIa.trim() === (ia.nombre_asistente || ""))
+                      }
+                      onClick={() => guardarIa({ instrucciones, nombre_asistente: nombreIa.trim() })}
                       className="cursor-pointer rounded-xl bg-accent px-4 py-2 text-sm font-bold text-on-accent hover:bg-accent-hover transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
                     >
                       {t("iaSave")}
