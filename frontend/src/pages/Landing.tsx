@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
@@ -10,7 +10,7 @@ import { useSmoothScroll } from "../components/landing/useSmoothScroll";
 import OrderDemo from "../components/landing/OrderDemo";
 import Telefono from "../components/landing/Telefono";
 import QrCodigo from "../components/landing/QrCodigo";
-import { IconArrow, IconCheck, IconClose, IconMenu, LogoMark } from "../components/landing/icons";
+import { IconArrow, IconCheck, IconClose, IconMenu, IconUsuario, LogoMark } from "../components/landing/icons";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -69,11 +69,6 @@ function Navbar({ textoRef }: { textoRef: RefObject<HTMLDivElement | null> }) {
                   </a>
                 </li>
               ))}
-              <li>
-                <a href={ADMIN_LOGIN_URL} className="inline-flex min-h-11 items-center px-3 text-[0.9375rem] font-medium hover:underline">
-                  Ingresar
-                </a>
-              </li>
             </ul>
           </nav>
         </div>
@@ -87,6 +82,17 @@ function Navbar({ textoRef }: { textoRef: RefObject<HTMLDivElement | null> }) {
           </a>
 
           <div className="pointer-events-auto flex items-center gap-2">
+          {/* Para los que ya tienen cuenta: botón oscuro con filete hueso, se ve sobre cualquier fondo. */}
+          {/* El envoltorio oculta el botón en el celular (.dx-btn le gana a "hidden"); ahí está en el menú. */}
+          <span className="hidden sm:contents">
+            <a
+              href={ADMIN_LOGIN_URL}
+              className="dx-btn dx-btn-oscuro min-h-11 whitespace-nowrap px-5 text-[0.9375rem] ring-2 ring-[var(--hueso)]/70"
+            >
+              <IconUsuario className="h-[1.125rem] w-[1.125rem]" />
+              Ingresar
+            </a>
+          </span>
           <a href={ADMIN_SIGNUP_URL} className="dx-btn dx-btn-nav min-h-11 whitespace-nowrap px-4 text-[0.9375rem] sm:px-5">
             Probar gratis
           </a>
@@ -124,7 +130,12 @@ function Navbar({ textoRef }: { textoRef: RefObject<HTMLDivElement | null> }) {
               </li>
             ))}
           </ul>
-          <a href={ADMIN_LOGIN_URL} className="mt-3 flex min-h-12 items-center text-lg font-medium text-[var(--gris-claro)]">
+          <a
+            href={ADMIN_LOGIN_URL}
+            onClick={() => setOpen(false)}
+            className="dx-btn-borde mt-5 w-full gap-2 text-lg font-medium text-[var(--hueso)]"
+          >
+            <IconUsuario />
             Ingresar a mi panel
           </a>
         </nav>
@@ -134,44 +145,66 @@ function Navbar({ textoRef }: { textoRef: RefObject<HTMLDivElement | null> }) {
 }
 
 // ── 1. Inicio: el eslogan y el QR que se abre hasta llenar la pantalla ──
-// "Tu ___ es Dinex.": la palabra rota una sola vuelta (menos de 5 s, así no
-// hace falta un botón de pausa) y vuelve a "negocio"; al terminar, "Dinex"
-// se subraya. Con reducción de movimiento queda quieta en "negocio".
+// "Tu ___ es Dinex.": la palabra rota una sola vuelta y vuelve a "negocio";
+// al terminar, "Dinex" se subraya. La que sale se desenfoca y la nueva
+// aparece letra por letra. Con reducción de movimiento queda quieta.
 const PALABRAS = ["negocio", "local", "tienda", "taller", "estudio", "empresa"];
-const PASO_MS = 760;
+const PASO_MS = 1700;
+const SALIDA_MS = 750; // un poco más que dx-desenfoca (700 ms) en landing.css
 
 function Eslogan() {
   const [quieto] = useState(
     () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true,
   );
-  const [indice, setIndice] = useState(0);
+  // paso va de 0 a PALABRAS.length: el último vuelve a "negocio".
+  const [paso, setPaso] = useState(0);
+  const [saliendo, setSaliendo] = useState<number | null>(null);
   const [listo, setListo] = useState(quieto);
 
   useEffect(() => {
     if (quieto) return;
     let n = 0;
+    let fuera = 0;
     const id = window.setInterval(() => {
       n += 1;
+      setSaliendo(n - 1);
+      setPaso(n);
+      window.clearTimeout(fuera);
+      fuera = window.setTimeout(() => setSaliendo(null), SALIDA_MS);
       if (n >= PALABRAS.length) {
         window.clearInterval(id);
-        // Vuelve a "negocio" (entra con la misma animación) y queda quieta.
-        setIndice(0);
         setListo(true);
-        return;
       }
-      setIndice(n);
     }, PASO_MS);
-    return () => window.clearInterval(id);
+    return () => {
+      window.clearInterval(id);
+      window.clearTimeout(fuera);
+    };
   }, [quieto]);
 
+  const palabra = (p: number) => PALABRAS[p % PALABRAS.length];
+
   return (
-    <h1 id="hero-titulo" data-hero-titulo className="dx-display text-[clamp(2.75rem,10.5vw,11rem)]">
+    // El tamaño mira el ancho y también el alto: en notebooks (pantalla baja)
+    // el título se achica para que el botón entre sin hacer scroll.
+    <h1 id="hero-titulo" data-hero-titulo className="dx-display text-[clamp(2.75rem,min(10.5vw,19svh),11rem)]">
       <span className="sr-only">Tu negocio es Dinex.</span>
       <span aria-hidden className="block">
         Tu{" "}
         <span className="dx-rotador">
-          <span key={indice} className="dx-rotador-palabra">
-            {PALABRAS[indice]}
+          {saliendo !== null && (
+            <span key={`s${saliendo}`} className="dx-rotador-palabra dx-rotador-sale">
+              {palabra(saliendo)}
+            </span>
+          )}
+          <span key={paso} className="dx-rotador-palabra">
+            {quieto || paso === 0
+              ? palabra(paso)
+              : [...palabra(paso)].map((l, i) => (
+                  <span key={i} className="dx-rotador-letra" style={{ "--i": i } as CSSProperties}>
+                    {l}
+                  </span>
+                ))}
           </span>
         </span>
       </span>
@@ -189,7 +222,7 @@ function Eslogan() {
 function Hero({ qrUrl }: { qrUrl: string }) {
   return (
     <section id="top" data-hero data-nav="claro" data-fondo="hueso" aria-labelledby="hero-titulo" className="relative min-h-[100svh] overflow-hidden bg-[var(--hueso)]">
-      <div data-hero-contenido className={`${CONTENEDOR} flex min-h-[100svh] flex-col justify-center gap-10 pb-8 pt-28 lg:gap-16 lg:pb-12 lg:pt-28`}>
+      <div data-hero-contenido className={`${CONTENEDOR} flex min-h-[100svh] flex-col justify-center gap-10 pb-8 pt-28 lg:gap-[clamp(1.5rem,4svh,4rem)] lg:pb-[clamp(1.5rem,5svh,3rem)] lg:pt-24`}>
         <Eslogan />
 
         <div className="grid items-end gap-10 lg:grid-cols-[minmax(0,1fr)_auto]">
@@ -219,7 +252,7 @@ function Hero({ qrUrl }: { qrUrl: string }) {
 
           {/* La ficha QR: real, abre el menú de ejemplo (/menu). */}
           <figure className="relative z-30 flex items-end gap-4 lg:flex-col lg:items-end" data-tile>
-            <a href="/menu" aria-label="Abrir la página de ejemplo" className="block w-[clamp(9rem,18vw,17rem)] rounded-[var(--radio)] bg-[var(--tinta)] p-3">
+            <a href="/menu" aria-label="Abrir la página de ejemplo" className="block w-[clamp(9rem,min(18vw,28svh),17rem)] rounded-[var(--radio)] bg-[var(--tinta)] p-3">
               <QrCodigo texto={qrUrl} className="block w-full rounded-[18px] bg-white text-[var(--tinta)]" />
             </a>
             <figcaption className="max-w-[12rem] text-sm text-[var(--gris)] lg:text-right">
@@ -671,7 +704,7 @@ export default function Landing() {
       const root = rootRef.current!;
       const q = gsap.utils.selector(root);
       const mm = gsap.matchMedia();
-      const condiciones = { movimiento: "(prefers-reduced-motion: no-preference)", escritorio: "(min-width: 1024px)" };
+      const condiciones = { movimiento: "(prefers-reduced-motion: no-preference)", escritorio: "(min-width: 1024px) and (min-height: 560px)" };
       // Color de la barra: atributo y variable en el DOM, sin estado de React
       // (no re-renderiza la página). El fondo copia el de la sección de abajo.
       const ponerTema = (t: TemaNav, fondo: string) => {

@@ -27,6 +27,15 @@ export function IconArrow({ className = "h-5 w-5" }: IconProps) {
   );
 }
 
+export function IconUsuario({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <circle cx="12" cy="8" r="3.75" />
+      <path d="M4.75 20c.9-3.6 3.7-5.5 7.25-5.5s6.35 1.9 7.25 5.5" />
+    </svg>
+  );
+}
+
 export function IconPlus({ className = "h-5 w-5" }: IconProps) {
   return (
     <svg {...base} className={className}>

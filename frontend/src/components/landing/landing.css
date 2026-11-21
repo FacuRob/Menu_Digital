@@ -168,23 +168,29 @@ html:has(.dx) { scrollbar-color: var(--tinta, #111216) #e4e1d8; }
   .dx-motion .dx-paso-texto { padding-left: 0; }
 }
 
-/* Eslogan del inicio: "Tu ___ es Dinex." La palabra entra desde abajo
-   dentro de una ventana; al terminar la vuelta, "Dinex" se subraya. */
+/* Eslogan del inicio: "Tu ___ es Dinex." La palabra que sale se desenfoca y
+   se apaga; la nueva aparece letra por letra, del desenfoque a nítida.
+   Al terminar la vuelta, "Dinex" se subraya. */
 .dx-rotador {
   display: inline-grid;
-  overflow: hidden;
-  /* La ventana tiene el alto de la letra (con su "g"), pero los márgenes
-     negativos la devuelven al interlineado del título: la línea no crece. */
-  line-height: 1.2;
-  margin-block: -0.14em;
 }
 .dx-rotador-palabra {
   grid-area: 1 / 1;
-  animation: dx-sube 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-@keyframes dx-sube {
-  from { transform: translateY(105%); }
-  to { transform: none; }
+.dx-rotador-letra {
+  display: inline-block;
+  animation: dx-enfoca 1000ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i) * 55ms);
+}
+.dx-rotador-sale {
+  animation: dx-desenfoca 700ms cubic-bezier(0.4, 0, 0.6, 1) both;
+}
+@keyframes dx-enfoca {
+  from { opacity: 0; filter: blur(14px); transform: translateY(0.18em); }
+  to { opacity: 1; filter: none; transform: none; }
+}
+@keyframes dx-desenfoca {
+  to { opacity: 0; filter: blur(14px); transform: translateY(-0.12em); }
 }
 .dx-dinex {
   position: relative;
@@ -206,6 +212,6 @@ html:has(.dx) { scrollbar-color: var(--tinta, #111216) #e4e1d8; }
 }
 .dx-dinex[data-listo="true"]::after { transform: scaleX(1); }
 @media (prefers-reduced-motion: reduce) {
-  .dx-rotador-palabra { animation: none; }
+  .dx-rotador-letra, .dx-rotador-sale { animation: none; }
   .dx-dinex::after { transition: none; }
 }
