@@ -8,3 +8,5 @@ Disallow: /presupuesto/
 Disallow: /reserva/
 
 Sitemap: https://dinexflow.com.ar/sitemap.xml
+# Páginas de los locales: la lista la arma el backend (sitemapController.js).
+Sitemap: https://backend-menu-digital.onrender.com/sitemap-negocios.xml
