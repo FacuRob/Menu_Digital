@@ -9,7 +9,7 @@ const router = express.Router();
 function motivoTecnico(err) {
   const st = Number(err.status);
   if (err.name === "AbortError") return "OpenRouter tardó más de 30 s en responder.";
-  if (st === 401 || st === 403) return "la clave de OpenRouter no es válida. Revisá DINEXAI_API_KEY en Render (sin comillas ni espacios).";
+  if (st === 401 || st === 403) return "OpenRouter no acepta la clave. En Render, DINEXAI_API_KEY tiene que ser la clave secreta completa (empieza con sk-or-v1-), no el nombre ni el ID de la clave.";
   if (st === 402) return "la cuenta de OpenRouter no tiene crédito o la clave tiene un límite de gasto agotado.";
   if (st === 429) return "OpenRouter está saturado o se pasó el límite de uso. Probá en un rato.";
   if (st === 404 || /model/i.test(err.message)) return `problema con el modelo (DINEXAI_MODEL): ${err.message}`;

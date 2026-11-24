@@ -15,14 +15,15 @@ const { llamarOpenRouter, textoDe, precio, textoHorarios } = require("./iaServic
 
 const MAX_MENSAJES = 12;
 
-// Limpia la clave pegada en Render: espacios, saltos de línea, comillas o un
-// "Bearer " de más (OpenRouter responde "Missing Authentication header").
-const limpiarClave = (v) =>
-  String(v || "")
-    .trim()
-    .replace(/^["']|["']$/g, "")
-    .replace(/^Bearer\s+/i, "")
-    .trim();
+// Limpia la clave pegada en Render: espacios, comillas, "Bearer " o el
+// nombre de la variable de más. Si adentro hay una clave de OpenRouter
+// (sk-or-…), se usa sólo esa.
+const limpiarClave = (v) => {
+  const t = String(v || "").trim();
+  const sk = t.match(/sk-or-[A-Za-z0-9_-]+/);
+  if (sk) return sk[0];
+  return t.replace(/^["']|["']$/g, "").replace(/^Bearer\s+/i, "").trim();
+};
 const claveDinexAI = () => limpiarClave(process.env.DINEXAI_API_KEY) || limpiarClave(process.env.OPENROUTER_API_KEY);
 const dinexAIConfigurado = () => !!claveDinexAI();
 const modeloDinexAI = () => {
@@ -214,6 +215,12 @@ async function responder({ negocioId, cuentaId, nombreUsuario, mensajes }) {
     throw err;
   }
   const datos = await diagnostico(negocioId, cuentaId);
+  const clave = claveDinexAI();
+  if (!clave.startsWith("sk-or-")) {
+    // OpenRouter responde "Missing Authentication header": no es una clave
+    // secreta (p. ej. se pegó el ID de la clave en vez de la clave).
+    console.warn(`[DinexAI] La clave no empieza con "sk-or-" (largo ${clave.length}). Copiá la clave secreta de OpenRouter en DINEXAI_API_KEY.`);
+  }
   const system = armarPrompt(datos, nombreUsuario);
   const pedir = (messages) =>
     llamarOpenRouter(

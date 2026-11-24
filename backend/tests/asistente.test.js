@@ -43,3 +43,8 @@ test("limpiarClave saca espacios, comillas y Bearer", () => {
   assert.strictEqual(limpiarClave("Bearer sk-or-v1-abc"), "sk-or-v1-abc");
   assert.strictEqual(limpiarClave("   "), "");
 });
+
+test("limpiarClave encuentra la clave aunque venga con el nombre de la variable", () => {
+  const { limpiarClave } = require("../src/services/asistenteService");
+  assert.strictEqual(limpiarClave("DINEXAI_API_KEY=sk-or-v1-abc_9"), "sk-or-v1-abc_9");
+});
