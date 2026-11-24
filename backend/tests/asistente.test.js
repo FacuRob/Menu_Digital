@@ -36,3 +36,10 @@ test("limpiarMensajes descarta roles raros y exige terminar en el usuario", () =
   assert.deepStrictEqual(limpiarMensajes([{ role: "user", content: "a" }, { role: "assistant", content: "b" }]), []);
   assert.deepStrictEqual(limpiarMensajes("x"), []);
 });
+
+test("limpiarClave saca espacios, comillas y Bearer", () => {
+  const { limpiarClave } = require("../src/services/asistenteService");
+  assert.strictEqual(limpiarClave('  "sk-or-v1-abc"\n'), "sk-or-v1-abc");
+  assert.strictEqual(limpiarClave("Bearer sk-or-v1-abc"), "sk-or-v1-abc");
+  assert.strictEqual(limpiarClave("   "), "");
+});

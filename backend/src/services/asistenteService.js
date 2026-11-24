@@ -14,7 +14,15 @@ const { llamarOpenRouter, textoDe, precio, textoHorarios } = require("./iaServic
 
 const MAX_MENSAJES = 12;
 
-const claveDinexAI = () => process.env.DINEXAI_API_KEY || process.env.OPENROUTER_API_KEY || "";
+// Limpia la clave pegada en Render: espacios, saltos de línea, comillas o un
+// "Bearer " de más (OpenRouter responde "Missing Authentication header").
+const limpiarClave = (v) =>
+  String(v || "")
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .replace(/^Bearer\s+/i, "")
+    .trim();
+const claveDinexAI = () => limpiarClave(process.env.DINEXAI_API_KEY) || limpiarClave(process.env.OPENROUTER_API_KEY);
 const dinexAIConfigurado = () => !!claveDinexAI();
 const modeloDinexAI = () => {
   const lista = String(process.env.DINEXAI_MODEL || "")
@@ -214,4 +222,4 @@ async function responder({ negocioId, cuentaId, nombreUsuario, mensajes }) {
   return textoDe(msg) || "No pude armar una respuesta. ¿Me lo preguntás de otra forma?";
 }
 
-module.exports = { dinexAIConfigurado, responder, diagnostico, motivosOculto, limpiarMensajes };
+module.exports = { limpiarClave, dinexAIConfigurado, responder, diagnostico, motivosOculto, limpiarMensajes };
