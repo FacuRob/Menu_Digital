@@ -20,6 +20,18 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Conversaciones de DinexAI (sessionStorage, "dinexai_chat_…"): se borran al
+// entrar o salir de una sesión para que nadie vea la charla de otro.
+const borrarChatsDinexAI = () => {
+  try {
+    Object.keys(sessionStorage)
+      .filter((k) => k.startsWith("dinexai_chat_"))
+      .forEach((k) => sessionStorage.removeItem(k));
+  } catch {
+    /* sin storage: no hay nada que borrar */
+  }
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<Usuario | null>(null);
   const [token, setToken] = useState<string | null>(
@@ -44,6 +56,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (saliendoDeVerComo()) return;
           if (verComoActivo()) return salirDeVerComo();
           localStorage.removeItem("token");
+          borrarChatsDinexAI();
           setToken(null);
           setUser(null);
           setPermisos([]);
@@ -68,6 +81,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Fija la sesión a partir de una respuesta de auth (login / signup / Google / 2FA).
   const setSession = (newToken: string, newUser: Usuario) => {
     olvidarVerComo();
+    borrarChatsDinexAI();
     setUser(newUser);
     setToken(newToken);
     setPermisos(newUser.permisos || []);
@@ -82,6 +96,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setMustChangePassword(false);
     localStorage.removeItem("token");
     olvidarVerComo();
+    borrarChatsDinexAI();
   };
 
   const hasPermiso = (permiso: string): boolean => {
