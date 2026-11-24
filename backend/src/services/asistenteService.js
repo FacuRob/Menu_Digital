@@ -5,8 +5,9 @@
 // Usa la conexión a OpenRouter del asistente de WhatsApp, con clave y modelo
 // propios (así el gasto de cada uno se ve por separado):
 //   DINEXAI_API_KEY   clave de OpenRouter para DinexAI (si falta, usa OPENROUTER_API_KEY)
-//   DINEXAI_MODEL     modelo (default anthropic/claude-haiku-5.5). Acepta varios
-//                     separados por coma como respaldo.
+//   DINEXAI_MODEL     modelo. Si falta, usa los de WhatsApp (OPENROUTER_MODEL,
+//                     hoy gratis) y si tampoco hay, anthropic/claude-haiku-5.5.
+//                     Acepta varios separados por coma como respaldo.
 const supabase = require("../config/database");
 const { modulosDe } = require("../utils/modulos");
 const { planEfectivo, diasRestantes, estaVigente } = require("../utils/suscripcion");
@@ -25,7 +26,7 @@ const limpiarClave = (v) =>
 const claveDinexAI = () => limpiarClave(process.env.DINEXAI_API_KEY) || limpiarClave(process.env.OPENROUTER_API_KEY);
 const dinexAIConfigurado = () => !!claveDinexAI();
 const modeloDinexAI = () => {
-  const lista = String(process.env.DINEXAI_MODEL || "")
+  const lista = String(process.env.DINEXAI_MODEL || process.env.OPENROUTER_MODEL || "")
     .split(",")
     .map((m) => m.trim())
     .filter(Boolean);
@@ -213,12 +214,28 @@ async function responder({ negocioId, cuentaId, nombreUsuario, mensajes }) {
     throw err;
   }
   const datos = await diagnostico(negocioId, cuentaId);
-  const msg = await llamarOpenRouter({
-    messages: [{ role: "system", content: armarPrompt(datos, nombreUsuario) }, ...historial],
-    ...modeloDinexAI(),
-    max_tokens: 700,
-    temperature: 0.2,
-  }, { apiKey: claveDinexAI() });
+  const system = armarPrompt(datos, nombreUsuario);
+  const pedir = (messages) =>
+    llamarOpenRouter(
+      // Margen para los modelos que "piensan" antes de responder.
+      { messages, ...modeloDinexAI(), max_tokens: 1200, temperature: 0.2 },
+      { apiKey: claveDinexAI() },
+    );
+  let msg;
+  try {
+    msg = await pedir([{ role: "system", content: system }, ...historial]);
+  } catch (err) {
+    // Clave inválida, sin crédito o saturado: reintentar no sirve.
+    if ([401, 402, 429].includes(Number(err.status))) throw err;
+    // Algunos modelos gratis (p. ej. Gemma) no aceptan instrucciones de
+    // sistema: van pegadas al primer mensaje del usuario.
+    console.warn(`[DinexAI] Falló con instrucciones de sistema (${err.message}); reintento sin ellas.`);
+    const [primero, ...resto] = historial;
+    msg = await pedir([{ role: "user", content: `${system}
+
+--- PREGUNTA DEL ADMIN ---
+${primero.content}` }, ...resto]);
+  }
   return textoDe(msg) || "No pude armar una respuesta. ¿Me lo preguntás de otra forma?";
 }
 
