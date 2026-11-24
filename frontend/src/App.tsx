@@ -1,5 +1,5 @@
-import { lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { lazy, Suspense, useEffect } from "react";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { LanguageProvider, useLang } from "./lib/i18n";
 
 // Cada página se descarga sólo cuando se visita: la landing no carga el
@@ -19,8 +19,34 @@ const Seguimiento = lazy(() => import("./pages/Seguimiento"));
 // (index.html elige el color según la ruta: sin flash blanco).
 const Cargando = () => <div role="status" aria-busy="true" aria-label="Cargando" style={{ minHeight: "100dvh" }} />;
 
+// Dirección oficial de cada página para Google (sin ?mesa=, ?negocio=, etc.).
+// /menu/:slug y /negocio/:slug muestran lo mismo: cuenta como una sola.
+const SITIO = "https://dinexflow.com.ar";
+function Canonica() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    let link = document.querySelector<HTMLLinkElement>("link[rel=canonical]");
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "canonical";
+      document.head.appendChild(link);
+    }
+    const ruta = pathname.replace(/\/+$/, "") || "/";
+    link.href = SITIO + ruta.replace(/^\/menu\/([^/]+)$/, "/negocio/$1");
+  }, [pathname]);
+  return null;
+}
+
 function NotFound() {
   const { t } = useLang();
+  // Que Google no guarde las páginas que no existen (el servidor igual da 200).
+  useEffect(() => {
+    const meta = document.createElement("meta");
+    meta.name = "robots";
+    meta.content = "noindex";
+    document.head.appendChild(meta);
+    return () => meta.remove();
+  }, []);
   return (
     <div
       style={{
@@ -45,6 +71,7 @@ function App() {
   return (
     <LanguageProvider>
       <BrowserRouter>
+      <Canonica />
       <Suspense fallback={<Cargando />}>
       <Routes>
         {/* Página informativa del producto (landing). */}

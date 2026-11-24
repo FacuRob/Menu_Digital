@@ -5,21 +5,67 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#efede6" />
-    <title>DinexFlow · Tu negocio es Dinex</title>
+    <title>DinexFlow · Menú digital con QR, catálogo online y turnos</title>
     <meta
       name="description"
-      content="Tu página con productos, servicios, presupuestos y turnos, con QR y link. Tus clientes compran, piden o reservan desde el celular; vos manejás todo desde un panel. Probalo gratis 15 días, sin tarjeta."
+      content="Menú digital con QR y catálogo online para tu negocio: productos, pedidos por WhatsApp, presupuestos y turnos, todo desde un panel. Probalo gratis 15 días, sin tarjeta."
     />
+    <!-- La dirección oficial de cada página (link rel=canonical) la pone App.tsx:
+         acá no, porque este HTML se sirve en todas las rutas. -->
     <!-- Vista previa al compartir el link (WhatsApp, Instagram, etc.) -->
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="es_AR" />
     <meta property="og:site_name" content="DinexFlow" />
+    <meta property="og:url" content="https://dinexflow.com.ar/" />
     <meta property="og:title" content="DinexFlow · Tu negocio es Dinex" />
     <meta
       property="og:description"
-      content="Tu página con productos, servicios, presupuestos y turnos. Probalo gratis 15 días, sin tarjeta."
+      content="Menú digital con QR, catálogo, pedidos, presupuestos y turnos. Probalo gratis 15 días, sin tarjeta."
     />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:image" content="https://dinexflow.com.ar/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="DinexFlow: Tu negocio es Dinex" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <!-- Datos para Google: quién somos y qué vendemos (precios en pesos, por mes). -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://dinexflow.com.ar/#org",
+            "name": "DinexFlow",
+            "url": "https://dinexflow.com.ar/",
+            "logo": "https://dinexflow.com.ar/email-logo.png",
+            "areaServed": "AR"
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://dinexflow.com.ar/#web",
+            "name": "DinexFlow",
+            "url": "https://dinexflow.com.ar/",
+            "inLanguage": "es-AR",
+            "publisher": { "@id": "https://dinexflow.com.ar/#org" }
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://dinexflow.com.ar/#app",
+            "name": "DinexFlow",
+            "url": "https://dinexflow.com.ar/",
+            "applicationCategory": "BusinessApplication",
+            "operatingSystem": "Web",
+            "description": "Menú digital con QR y catálogo online para negocios: productos, pedidos, presupuestos y turnos desde un panel.",
+            "publisher": { "@id": "https://dinexflow.com.ar/#org" },
+            "offers": [
+              { "@type": "Offer", "name": "Básico", "price": "20000", "priceCurrency": "ARS", "url": "https://dinexflow.com.ar/#precios" },
+              { "@type": "Offer", "name": "Estándar", "price": "41000", "priceCurrency": "ARS", "url": "https://dinexflow.com.ar/#precios" },
+              { "@type": "Offer", "name": "Premium", "price": "65000", "priceCurrency": "ARS", "url": "https://dinexflow.com.ar/#precios" }
+            ]
+          }
+        ]
+      }
+    </script>
     <!-- Color de fondo desde el primer instante (sin flash): hueso en la
          landing, oscuro en el menú público. -->
     <style>

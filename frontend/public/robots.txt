@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+# Links privados de cada pedido, turno o presupuesto: no son para buscadores.
+Disallow: /ticket/
+Disallow: /reparto/
+Disallow: /seguimiento/
+Disallow: /presupuesto/
+Disallow: /reserva/
+
+Sitemap: https://dinexflow.com.ar/sitemap.xml
