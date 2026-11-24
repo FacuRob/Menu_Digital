@@ -108,10 +108,12 @@ export default function DinexAI() {
 
   if (user?.solo_lectura) return null;
 
-  const enviar = async (pregunta: string) => {
+  // `previos`: historial sobre el que se pregunta (al reintentar, sin la
+  // pregunta que falló, para no duplicarla).
+  const enviar = async (pregunta: string, previos: MensajeAsistente[] = mensajes) => {
     const t = pregunta.trim();
     if (!t || pensando || disponible === false) return;
-    const nuevos: MensajeAsistente[] = [...mensajes, { role: "user", content: t }];
+    const nuevos: MensajeAsistente[] = [...previos, { role: "user", content: t }];
     setMensajes(nuevos);
     setTexto("");
     setError("");
@@ -130,8 +132,7 @@ export default function DinexAI() {
   const reintentar = () => {
     const ultima = mensajes[mensajes.length - 1];
     if (ultima?.role !== "user") return;
-    setMensajes(mensajes.slice(0, -1));
-    void enviar(ultima.content);
+    void enviar(ultima.content, mensajes.slice(0, -1));
   };
 
   return (
