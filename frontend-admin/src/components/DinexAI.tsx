@@ -190,18 +190,26 @@ export default function DinexAI() {
           </header>
 
           {confirmar && (
-            <div className="dx-confirm" role="alertdialog" aria-labelledby="dx-confirm-t">
-              <p id="dx-confirm-t">¿Querés cerrar y borrar esta conversación?</p>
-              <div className="dx-confirm-btns">
-                <button type="button" className="dx-btn is-danger" onClick={() => cerrar(true)} autoFocus>
-                  Cerrar y borrar
-                </button>
-                <button type="button" className="dx-btn" onClick={() => cerrar(false)}>
-                  Cerrar sin borrar
-                </button>
-                <button type="button" className="dx-btn is-ghost" onClick={() => setConfirmar(false)}>
-                  Seguir
-                </button>
+            <div className="dx-confirm" onClick={(e) => e.target === e.currentTarget && setConfirmar(false)}>
+              <div className="dx-confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="dx-confirm-t" aria-describedby="dx-confirm-d">
+                <span className="dx-confirm-icon" aria-hidden>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
+                  </svg>
+                </span>
+                <p id="dx-confirm-t">¿Cerrar y borrar el chat?</p>
+                <small id="dx-confirm-d">La conversación con DinexAI se va a borrar.</small>
+                <div className="dx-confirm-btns">
+                  <button type="button" className="dx-btn is-danger" onClick={() => cerrar(true)} autoFocus>
+                    Cerrar y borrar
+                  </button>
+                  <button type="button" className="dx-btn" onClick={() => cerrar(false)}>
+                    Cerrar sin borrar
+                  </button>
+                  <button type="button" className="dx-btn is-ghost" onClick={() => setConfirmar(false)}>
+                    Seguir en el chat
+                  </button>
+                </div>
               </div>
             </div>
           )}
