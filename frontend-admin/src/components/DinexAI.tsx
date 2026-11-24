@@ -58,6 +58,8 @@ export default function DinexAI() {
   const [texto, setTexto] = useState("");
   const [pensando, setPensando] = useState(false);
   const [error, setError] = useState("");
+  // Pregunta "¿cerrar y borrar?" antes de cerrar un chat con mensajes.
+  const [confirmar, setConfirmar] = useState(false);
   const listaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const botonRef = useRef<HTMLButtonElement>(null);
@@ -98,13 +100,18 @@ export default function DinexAI() {
     inputRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setAbierto(false);
-        botonRef.current?.focus();
+        // Con la pregunta abierta, Escape la cancela; si no, la muestra.
+        if (confirmar) setConfirmar(false);
+        else if (mensajes.length) setConfirmar(true);
+        else {
+          setAbierto(false);
+          botonRef.current?.focus();
+        }
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [abierto]);
+  }, [abierto, confirmar, mensajes.length]);
 
   if (user?.solo_lectura) return null;
 
@@ -127,6 +134,17 @@ export default function DinexAI() {
       setPensando(false);
       inputRef.current?.focus();
     }
+  };
+
+  const pedirCierre = () => (mensajes.length ? setConfirmar(true) : setAbierto(false));
+  const cerrar = (borrar: boolean) => {
+    if (borrar) {
+      setMensajes([]);
+      setError("");
+    }
+    setConfirmar(false);
+    setAbierto(false);
+    botonRef.current?.focus();
   };
 
   const reintentar = () => {
@@ -164,12 +182,29 @@ export default function DinexAI() {
                 </svg>
               </button>
             )}
-            <button type="button" className="dx-icon-btn" onClick={() => setAbierto(false)} aria-label="Cerrar DinexAI">
+            <button type="button" className="dx-icon-btn" onClick={pedirCierre} aria-label="Cerrar DinexAI">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
                 <path d="M18 6 6 18M6 6l12 12" />
               </svg>
             </button>
           </header>
+
+          {confirmar && (
+            <div className="dx-confirm" role="alertdialog" aria-labelledby="dx-confirm-t">
+              <p id="dx-confirm-t">¿Querés cerrar y borrar esta conversación?</p>
+              <div className="dx-confirm-btns">
+                <button type="button" className="dx-btn is-danger" onClick={() => cerrar(true)} autoFocus>
+                  Cerrar y borrar
+                </button>
+                <button type="button" className="dx-btn" onClick={() => cerrar(false)}>
+                  Cerrar sin borrar
+                </button>
+                <button type="button" className="dx-btn is-ghost" onClick={() => setConfirmar(false)}>
+                  Seguir
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="dx-list" ref={listaRef} aria-live="polite">
             {disponible === false && (
@@ -254,7 +289,7 @@ export default function DinexAI() {
         ref={botonRef}
         type="button"
         className={`dx-fab${abierto ? " is-open" : ""}`}
-        onClick={() => setAbierto((v) => !v)}
+        onClick={() => (abierto ? pedirCierre() : setAbierto(true))}
         aria-expanded={abierto}
         aria-label={abierto ? "Cerrar DinexAI" : "Abrir DinexAI, el asistente de tu cuenta"}
         title="DinexAI"

@@ -228,3 +228,30 @@
 @media (prefers-reduced-motion: reduce) {
   .dx-fab, .dx-panel, .dx-typing span { animation: none !important; transition: none !important; }
 }
+
+/* Pregunta al cerrar: "¿cerrar y borrar?" */
+.dx-confirm {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  animation: dx-in 0.18s ease-out;
+}
+.dx-confirm p { margin: 0 0 10px; font-size: 14px; font-weight: 700; }
+.dx-confirm-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.dx-btn {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.dx-btn:hover { background: var(--surface-3); }
+.dx-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.dx-btn.is-danger { border-color: transparent; background: var(--err); color: var(--surface); }
+.dx-btn.is-danger:hover { filter: brightness(1.1); background: var(--err); }
+.dx-btn.is-ghost { border-color: transparent; background: transparent; color: var(--fg-2); }
