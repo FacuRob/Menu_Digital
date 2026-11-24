@@ -28,15 +28,27 @@ Alternativa al número propio de Meta. El local conecta **el WhatsApp que ya usa
 ## Para activarlo
 
 1. **Supabase:** correr `backend/db/whatsapp_qr.sql`.
-2. **Servidor de Evolution API** (imagen `evoapicloud/evolution-api`, v2.3.8). Tiene que estar **siempre prendido**: el plan gratis de Render se duerme y la sesión de WhatsApp se corta. Opciones: Render Starter (Docker), Railway o un VPS chico.
-   Variables mínimas:
+2. **Servidor de Evolution API** (imagen `evoapicloud/evolution-api:v2.3.8`) en Render **Free**, en un **workspace aparte** (por ejemplo "Evolution"). En el workspace de DinexFlow no entra: el plan Free da 750 h/mes por workspace y el backend prendido todo el mes ya usa ~730; con dos servicios se agotan y Render suspende **los dos**. No se duerme porque el backend de DinexFlow le pega cada 14 min (`pingEvolution` en `backend/src/services/keepAlive.js`, usa `EVOLUTION_API_URL`). Si algún día se queda corto (512 MB de RAM del plan Free), pasarlo a Starter.
+   - New → Web Service → **Existing Image** → `docker.io/evoapicloud/evolution-api:v2.3.8`, plan Free, región Oregon (igual que el backend). Health check path: `/`.
+   Variables:
    ```
-   SERVER_URL=https://<url-del-servidor-evolution>
-   AUTHENTICATION_API_KEY=<clave larga al azar>
+   SERVER_URL=https://<url-que-da-render>.onrender.com
+   AUTHENTICATION_API_KEY=<Generate en Render>
    DATABASE_PROVIDER=postgresql
-   DATABASE_CONNECTION_URI=postgresql://...:5432/postgres?schema=evolution_api
+   DATABASE_CONNECTION_URI=<Session pooler de Supabase>?schema=evolution_api
+   DATABASE_CONNECTION_CLIENT_NAME=evolution_dinexflow
+   DATABASE_SAVE_DATA_INSTANCE=true
+   DATABASE_SAVE_DATA_NEW_MESSAGE=true
+   DATABASE_SAVE_MESSAGE_UPDATE=false
+   DATABASE_SAVE_DATA_CONTACTS=false
+   DATABASE_SAVE_DATA_CHATS=false
+   DATABASE_SAVE_DATA_LABELS=false
+   DATABASE_SAVE_DATA_HISTORIC=false
    CACHE_REDIS_ENABLED=false
    CACHE_LOCAL_ENABLED=true
+   DEL_INSTANCE=false
+   SERVER_DISABLE_MANAGER=true
+   SERVER_DISABLE_DOCS=true
    CONFIG_SESSION_PHONE_CLIENT=DinexFlow
    CONFIG_SESSION_PHONE_NAME=Chrome
    QRCODE_COLOR=#000000
@@ -44,7 +56,9 @@ Alternativa al número propio de Meta. El local conecta **el WhatsApp que ya usa
    ```
    - `CONFIG_SESSION_PHONE_CLIENT=DinexFlow`: así aparece en "Dispositivos vinculados" del celular del local (en vez de "Evolution API").
    - `QRCODE_COLOR=#000000`: QR negro sobre blanco, el que mejor escanean los celulares viejos.
-   - La base puede ser la misma de Supabase en otro esquema (`?schema=evolution_api`), con la conexión directa (puerto 5432), no la del pooler.
+   - Base: el mismo proyecto de Supabase, esquema aparte `evolution_api` (Evolution crea sus tablas solo al arrancar, no toca las de DinexFlow). Usar la cadena **Session pooler** (Connect → Session pooler, `aws-…pooler.supabase.com:5432`): la conexión directa `db.<ref>.supabase.co` es solo IPv6 y Render no llega. No usar el Transaction pooler (6543): las migraciones de Prisma fallan. Si la contraseña tiene caracteres raros (`@ # / ?`), codificarlos o cambiarla por una sin símbolos.
+   - Los `DATABASE_SAVE_*` en false: no guarda contactos, chats ni historial del WhatsApp de cada local (privacidad y espacio en el plan gratis de Supabase, 500 MB).
+   - Ojo: al arrancar, el script de Evolution imprime la `DATABASE_URL` en los logs de Render (solo los ve el dueño del workspace).
 3. **Render (backend de DinexFlow):**
    ```
    EVOLUTION_API_URL=https://<url-del-servidor-evolution>

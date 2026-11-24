@@ -21,7 +21,8 @@ const supabase = require("../config/database");
  *
  * Consumo: Render Free da 750 horas de instancia al mes y un servicio corriendo
  * 24/7 usa ~730. Entra, pero es UN solo servicio: si agregás otro, los dos
- * despiertos todo el mes se pasan del cupo.
+ * despiertos todo el mes se pasan del cupo. Por eso Evolution API va en otro
+ * workspace (ver pingEvolution).
  *
  * IMPORTANTE: si Render YA se durmió, este cron no corre (el proceso está
  * congelado) y no puede autodespertarse. Para ese caso está el keeper externo
@@ -73,9 +74,26 @@ async function selfPing() {
   }
 }
 
-/** Ejecuta ambos pings (DB + auto-llamada) en paralelo. */
+/**
+ * Mantiene despierto el servidor de Evolution API (WhatsApp común por QR).
+ * Va en un workspace de Render aparte (plan Free, sus propias 750 h): este
+ * llamado cada 14 min cuenta como tráfico entrante y no lo deja dormirse.
+ * Si se durmiera, los WhatsApp conectados dejarían de recibir mensajes.
+ */
+async function pingEvolution() {
+  const base = String(process.env.EVOLUTION_API_URL || "").replace(/\/+$/, "");
+  if (!base) return;
+  try {
+    const res = await fetch(`${base}/`, { signal: AbortSignal.timeout(30_000) });
+    console.log(`[keep-alive] Ping Evolution ${res.status}`);
+  } catch (err) {
+    console.error("[keep-alive] Ping Evolution FALLÓ:", err.message);
+  }
+}
+
+/** Ejecuta los pings (DB + auto-llamada + Evolution) en paralelo. */
 async function runKeepAlive() {
-  await Promise.allSettled([pingDatabase(), selfPing()]);
+  await Promise.allSettled([pingDatabase(), selfPing(), pingEvolution()]);
 }
 
 let task = null;
