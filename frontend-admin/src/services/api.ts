@@ -1024,6 +1024,9 @@ export interface AvisosWhatsapp {
   conectado: boolean;
   // El local envía desde su propio número (si no, desde el de la plataforma).
   numero_propio?: boolean;
+  // WhatsApp común conectado con código QR (null = no lo usa).
+  qr?: EstadoQR | null;
+  qr_disponible?: boolean;
   activo: boolean;
   estados: Record<EstadoAviso, boolean>;
   // ejemplos: valores de muestra para la vista previa ({{1}}, {{2}}, …).
@@ -1055,6 +1058,21 @@ export const whatsappCuentaService = {
     (await api.post("/whatsapp/cuenta", p)).data,
   recrearPlantillas: async () => (await api.post("/whatsapp/cuenta/plantillas")).data,
   desconectar: async () => (await api.delete("/whatsapp/cuenta")).data,
+};
+
+// WhatsApp común conectado con código QR (Evolution API).
+export type EstadoQR = "vinculando" | "conectado" | "desconectado";
+export interface ConexionQR {
+  disponible: boolean;
+  cuenta: { estado: EstadoQR; telefono: string | null; nombre_visible: string | null; conectado_at: string | null } | null;
+  qr?: string | null; // imagen (data:image/png;base64,…)
+  codigo?: string | null; // código de 8 letras (vincular con el número)
+}
+
+export const whatsappQRService = {
+  get: async () => (await api.get<ConexionQR>("/whatsapp/qr")).data,
+  iniciar: async (telefono?: string) => (await api.post<ConexionQR>("/whatsapp/qr", telefono ? { telefono } : {})).data,
+  desconectar: async () => (await api.delete("/whatsapp/qr")).data,
 };
 
 export const whatsappService = {

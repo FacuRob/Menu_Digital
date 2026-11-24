@@ -32,6 +32,7 @@ const { respondError } = require("./utils/respondError");
 const {
   verificarWebhook: verificarWebhookWhatsapp,
   recibirWebhook: recibirWebhookWhatsapp,
+  recibirWebhookEvolution,
 } = require("./controllers/whatsappController");
 
 // Importar controllers directamente para rutas públicas
@@ -117,6 +118,9 @@ app.post(
   express.raw({ type: "*/*" }),
   recibirWebhookWhatsapp,
 );
+
+// ── Webhook Evolution API (WhatsApp común por QR) — firma en x-dinex-firma ──
+app.post("/api/webhooks/evolution", express.json({ limit: "1mb" }), recibirWebhookEvolution);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // soporte de bodies form-urlencoded

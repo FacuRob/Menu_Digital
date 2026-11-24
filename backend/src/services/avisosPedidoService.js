@@ -183,8 +183,8 @@ const renderizar = (texto, params) =>
   texto.replace(/\{\{(\d+)\}\}/g, (m, n) => (params[n - 1] !== undefined ? String(params[n - 1]) : m));
 
 async function enviarYRegistrar({ negocioId, pedidoId, telefono, aviso, etiqueta, params, nombre }) {
-  const res = await enviarPlantilla(telefono, { nombre: aviso.plantilla, parametros: params }, negocioId);
   const texto = renderizar(aviso.texto, params);
+  const res = await enviarPlantilla(telefono, { nombre: aviso.plantilla, parametros: params, texto }, negocioId);
   try {
     // El aviso también queda en el chat de ese cliente (Fase 2).
     let chat = null;

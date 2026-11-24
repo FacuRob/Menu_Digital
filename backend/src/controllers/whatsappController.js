@@ -15,6 +15,7 @@ const {
 const chats = require("../services/chatsService");
 const cuentas = require("../services/whatsappCuentas");
 const ia = require("../services/iaService");
+const qr = require("../services/whatsappQR");
 
 // ── Panel: configuración de avisos ─────────────────────────────
 // GET /api/whatsapp/avisos
@@ -22,10 +23,13 @@ const getAvisos = async (req, res) => {
   try {
     const negocioId = getNegocioId(req);
     const cfg = await obtenerConfig(negocioId);
-    const propia = await cuentas.cuentaDeNegocio(negocioId);
+    const [propia, cqr] = await Promise.all([cuentas.cuentaDeNegocio(negocioId), qr.cuentaQR(negocioId)]);
     res.json({
       conectado: await estaConfigurado(negocioId),
       numero_propio: !!propia,
+      // WhatsApp común por QR: null (no lo usa) | vinculando | conectado | desconectado
+      qr: cqr?.estado || null,
+      qr_disponible: qr.disponible(),
       activo: cfg.activo,
       estados: cfg.estados,
       // Sólo los que corresponden a sus módulos (pedidos siempre).
@@ -125,6 +129,9 @@ const getCuenta = async (req, res) => {
 const postCuenta = async (req, res) => {
   try {
     const negocioId = getNegocioId(req);
+    if (await qr.cuentaQR(negocioId)) {
+      return res.status(409).json({ message: "Ya tenés tu WhatsApp conectado con código QR. Para usar este otro modo, primero desconectalo." });
+    }
     const r = await cuentas.conectar(negocioId, req.body || {}, avisosDelNegocio(await modulosNegocio(negocioId)));
     res.json(r);
   } catch (error) {
@@ -153,6 +160,88 @@ const deleteCuenta = async (req, res) => {
     res.json({ ok: true });
   } catch (error) {
     return respondError(res, error, "whatsapp");
+  }
+};
+
+// ── Panel: WhatsApp común con código QR (Evolution API) ──────
+// GET /api/whatsapp/qr → { disponible, cuenta, qr?, codigo? }
+const getQR = async (req, res) => {
+  try {
+    const r = await qr.estado(getNegocioId(req));
+    res.json({ disponible: qr.disponible(), ...r });
+  } catch (error) {
+    return respondError(res, error, "whatsapp");
+  }
+};
+
+// POST /api/whatsapp/qr  { telefono? } → empieza a vincular (QR o código de 8 letras)
+const postQR = async (req, res) => {
+  try {
+    const negocioId = getNegocioId(req);
+    if (!qr.disponible()) return res.status(503).json({ message: "Esta opción todavía no está habilitada. Escribinos por Soporte y la activamos." });
+    if (await cuentas.cuentaDeNegocio(negocioId)) {
+      return res.status(409).json({ message: "Ya tenés un número de WhatsApp conectado. Para usar el código QR, primero desconectalo." });
+    }
+    const telefono = req.body?.telefono ? String(req.body.telefono) : undefined;
+    const r = await qr.iniciar(negocioId, { telefono });
+    res.json({ disponible: true, cuenta: qr.publica(await qr.cuentaQR(negocioId)), ...r });
+  } catch (error) {
+    if (error.propio) return res.status(400).json({ message: error.message });
+    console.error("[WhatsApp QR] No se pudo iniciar:", error.message);
+    return res.status(502).json({ message: "No pudimos preparar el código. Probá de nuevo en un ratito." });
+  }
+};
+
+// DELETE /api/whatsapp/qr → deja de usar el WhatsApp común
+const deleteQR = async (req, res) => {
+  try {
+    await qr.desconectar(getNegocioId(req));
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("[WhatsApp QR] No se pudo desconectar:", error.message);
+    return res.status(502).json({ message: "No pudimos hacerlo ahora. Probá de nuevo en un momento." });
+  }
+};
+
+// POST /api/webhooks/evolution → avisos de Evolution (mensajes y conexión).
+// Cada instancia manda su firma en x-dinex-firma (la pusimos al crearla).
+const ESPERA_ECO_MS = 4000;
+const recibirWebhookEvolution = async (req, res) => {
+  const body = req.body || {};
+  const instancia = String(body.instance || "");
+  const m = /^dinex-(\d+)$/.exec(instancia);
+  if (!m || !qr.firmaValida(instancia, req.headers["x-dinex-firma"])) return res.sendStatus(401);
+  res.sendStatus(200);
+  try {
+    const negocioId = Number(m[1]);
+    const c = await qr.cuentaQR(negocioId);
+    if (!c || c.instancia !== instancia) return; // el local ya lo desconectó
+    const t = qr.traducir(body, { desde: c.conectado_at });
+    if (!t) return;
+
+    if (t.tipo === "conexion") {
+      if (t.state === "open" && c.estado !== "conectado") {
+        await qr.marcarConectado(negocioId, instancia, { wuid: t.wuid, profileName: t.profileName });
+      }
+      else if (t.state === "close" && c.estado === "conectado") await qr.guardar(negocioId, { estado: "desconectado" });
+      return;
+    }
+    if (c.estado !== "conectado") return;
+    if (t.tipo === "eco") {
+      if (qr.lomandamosNosotros(t.value.message_echoes[0].id)) return;
+      // Puede ser un mensaje que mandamos nosotros (aviso o IA): se espera a
+      // que quede guardado, y registrarEcos lo saltea por su id. Si lo
+      // escribió el dueño desde el celular, se guarda y la IA se corre a un lado.
+      setTimeout(() => {
+        chats.registrarEcos(t.value, negocioId).catch((e) => console.error("[WhatsApp QR] ecos:", e.message));
+      }, ESPERA_ECO_MS);
+      return;
+    }
+    const guardados = await chats.registrarEntrantes(t.value, { negocioId });
+    // A una reacción (👍) no se le contesta.
+    if (t.value.messages[0]?.type !== "reaction") guardados.forEach((g) => ia.programarRespuesta(g.chat.id));
+  } catch (e) {
+    console.error("[WhatsApp QR] webhook:", e.message);
   }
 };
 
@@ -349,4 +438,8 @@ module.exports = {
   postCuenta,
   postPlantillas,
   deleteCuenta,
+  getQR,
+  postQR,
+  deleteQR,
+  recibirWebhookEvolution,
 };

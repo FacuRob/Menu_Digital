@@ -2,6 +2,7 @@ import { numeroPedido } from "../../lib/numeroPedido";
 import { useEffect, useState, type FormEvent } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import NumeroWhatsapp from "../../components/NumeroWhatsapp";
+import WhatsappQR from "../../components/WhatsappQR";
 import { useTheme } from "../../context/ThemeContext";
 import { useNegocio } from "../../context/NegocioContext";
 import { useLang, LOCALE } from "../../lib/i18n";
@@ -229,20 +230,33 @@ export default function WhatsApp() {
               </span>
               <div>
                 <div className={`font-semibold ${P.title}`}>
-                  {data.conectado ? t("waConnected") : t("waNotConnected")}
+                  {data.conectado ? t("waConnected") : data.qr === "desconectado" ? t("waStatusQrLost") : t("waNotConnected")}
                 </div>
                 <div className={`text-sm ${P.text}`}>
                   {data.conectado
-                    ? data.numero_propio
+                    ? data.numero_propio || data.qr === "conectado"
                       ? t("waConnectedOwnDesc")
                       : t("waConnectedDesc")
-                    : t("waNotConnectedDesc")}
+                    : data.qr === "desconectado"
+                      ? t("waStatusQrLostDesc")
+                      : t("waNotConnectedDesc")}
                 </div>
               </div>
             </div>
 
-            {/* Número propio del local (Embedded Signup de Meta) */}
-            <NumeroWhatsapp onCambio={() => whatsappService.getAvisos().then(setData).catch(() => {})} />
+            {/* Número propio del local (Embedded Signup de Meta). Si conectó su
+                WhatsApp común por QR, no se ofrece (es uno u otro). */}
+            {!data.qr && (
+              <NumeroWhatsapp
+                soloSiDisponible={!!data.qr_disponible}
+                onCambio={() => whatsappService.getAvisos().then(setData).catch(() => {})}
+              />
+            )}
+
+            {/* Alternativa: WhatsApp común vinculado con código QR (Evolution API). */}
+            {!data.numero_propio && (
+              <WhatsappQR onCambio={() => whatsappService.getAvisos().then(setData).catch(() => {})} />
+            )}
 
             {/* Interruptor general */}
             <div className={`dash-in flex items-center gap-4 rounded-2xl p-5 ${P.card}`} style={{ animationDelay: "60ms" }}>

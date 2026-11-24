@@ -15,6 +15,9 @@ const {
   postCuenta,
   postPlantillas,
   deleteCuenta,
+  getQR,
+  postQR,
+  deleteQR,
 } = require("../controllers/whatsappController");
 
 // Configuración de avisos. Montado en server.js con authMiddleware +
@@ -31,6 +34,10 @@ router.get("/cuenta", getCuenta);
 router.post("/cuenta", postCuenta);
 router.post("/cuenta/plantillas", postPlantillas);
 router.delete("/cuenta", deleteCuenta);
+// WhatsApp común con código QR (Evolution API).
+router.get("/qr", getQR);
+router.post("/qr", postQR);
+router.delete("/qr", deleteQR);
 
 // Chats con clientes. Se monta aparte con checkPermiso("pedidos"): lo usa
 // quien atiende los pedidos, no solo quien configura.

@@ -14,6 +14,7 @@
 //   WHATSAPP_CUENTAS_KEY      opcional, clave para cifrar los tokens (default: deriva de JWT_SECRET)
 const crypto = require("crypto");
 const supabase = require("../config/database");
+const qr = require("./whatsappQR");
 
 const API = () => `https://graph.facebook.com/${process.env.WHATSAPP_API_VERSION || "v21.0"}`;
 
@@ -79,8 +80,8 @@ const cuentaDePhoneId = (phoneNumberId) =>
       )
     : Promise.resolve(null);
 
-// Token y número con que se envía para un local: el suyo o, si no conectó
-// uno, el de la plataforma.
+// Token y número con que se envía para un local: el suyo (Meta o WhatsApp
+// común por QR) o, si no conectó ninguno, el de la plataforma.
 // Si el local tiene número propio y algo falla (BD, descifrado), NO se usa
 // el de la plataforma: el aviso saldría desde otro número y sin sus plantillas.
 async function credencialesDe(negocioId) {
@@ -94,6 +95,14 @@ async function credencialesDe(negocioId) {
       return null;
     }
   }
+  // WhatsApp común por QR. Si se desconectó, no se manda desde otro número:
+  // el panel le pide que lo vuelva a conectar.
+  const q = await qr.cuentaQR(negocioId);
+  if (q === undefined) return null;
+  if (q?.estado === "conectado") return { via: "qr", instancia: q.instancia, propia: true };
+  if (q?.estado === "desconectado") return null;
+  // Volviendo a vincular un WhatsApp que ya usaba: tampoco desde otro número.
+  if (q?.estado === "vinculando" && q.conectado_at) return null;
   const token = process.env.WHATSAPP_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   return token && phoneNumberId ? { token, phoneNumberId, propia: false } : null;

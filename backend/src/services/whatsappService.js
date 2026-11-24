@@ -12,6 +12,7 @@
 const API_VERSION = () => process.env.WHATSAPP_API_VERSION || "v21.0";
 
 const { credencialesDe } = require("./whatsappCuentas");
+const qr = require("./whatsappQR");
 
 // ¿Este local puede enviar WhatsApp (con su número o el de la plataforma)?
 const estaConfigurado = async (negocioId) => !!(await credencialesDe(negocioId));
@@ -46,9 +47,16 @@ function normalizarTelefono(raw) {
   return `${cc}${num.replace(/^0/, "")}`;
 }
 
-async function enviarPayload(payload, negocioId) {
+// `textoPlano`: lo que se manda si el local usa WhatsApp común (QR), que no
+// tiene plantillas: el mismo texto ya armado.
+async function enviarPayload(payload, negocioId, textoPlano) {
   const cred = await credencialesDe(negocioId);
   if (!cred) return { ok: false, error: "WhatsApp no está configurado" };
+  if (cred.via === "qr") {
+    const texto = textoPlano ?? payload.text?.body;
+    if (!texto) return { ok: false, error: "Mensaje vacío" };
+    return qr.enviarTexto(cred.instancia, payload.to, texto);
+  }
   const url = `https://graph.facebook.com/${API_VERSION()}/${cred.phoneNumberId}/messages`;
   try {
     const resp = await fetch(url, {
@@ -71,7 +79,8 @@ async function enviarPayload(payload, negocioId) {
 
 // Plantilla aprobada por Meta: única vía para escribirle a alguien que no
 // nos escribió en las últimas 24 h (caso de los avisos de pedido).
-async function enviarPlantilla(telefono, { nombre, idioma, parametros = [] }, negocioId) {
+// `texto`: la plantilla ya armada (para WhatsApp común, que no usa plantillas).
+async function enviarPlantilla(telefono, { nombre, idioma, parametros = [], texto }, negocioId) {
   const to = normalizarTelefono(telefono);
   if (!to) return { ok: false, error: "Teléfono inválido" };
   return enviarPayload({
@@ -88,7 +97,7 @@ async function enviarPlantilla(telefono, { nombre, idioma, parametros = [] }, ne
         },
       ],
     },
-  }, negocioId);
+  }, negocioId, texto);
 }
 
 // Texto libre: solo se permite dentro de las 24 h desde el último mensaje
@@ -104,4 +113,8 @@ async function enviarTexto(telefono, texto, negocioId) {
   }, negocioId);
 }
 
-module.exports = { enviarPlantilla, enviarTexto, normalizarTelefono, estaConfigurado };
+// ¿El local manda desde WhatsApp común (QR)? Ahí no corre la regla de las
+// 24 h de Meta: se le puede escribir a un cliente cuando sea.
+const usaQR = async (negocioId) => (await credencialesDe(negocioId))?.via === "qr";
+
+module.exports = { enviarPlantilla, enviarTexto, normalizarTelefono, estaConfigurado, usaQR };

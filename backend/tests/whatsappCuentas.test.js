@@ -15,12 +15,14 @@ let filas; // whatsapp_cuentas
 let mensajes;
 let llamadas;
 let enApp; // lo que Meta dice de is_on_biz_app
+let chatsGuardados;
 const fetchOriginal = global.fetch;
 
 beforeEach(() => {
   cuentas.olvidar();
   filas = [];
   mensajes = [];
+  chatsGuardados = [];
   llamadas = [];
   enApp = true;
   Object.assign(process.env, {
@@ -35,8 +37,8 @@ beforeEach(() => {
       const f = filas.find((x) => Object.entries(q.filters).every(([k, v]) => String(x[k]) === String(v)));
       return { data: f || null, error: null };
     }
-    if (q.table === "whatsapp_chats" && q.op === "select") return { data: null, error: null };
-    if (q.table === "whatsapp_chats" && q.op === "insert") return { data: { id: 7, negocio_id: q.payload[0].negocio_id, telefono: q.payload[0].telefono }, error: null };
+    if (q.table === "whatsapp_chats" && q.op === "select") return { data: chatsGuardados.find((c) => String(c.telefono) === String(q.filters.telefono)) || null, error: null };
+    if (q.table === "whatsapp_chats" && q.op === "insert") { const c = { id: 7, negocio_id: q.payload[0].negocio_id, telefono: q.payload[0].telefono }; chatsGuardados.push(c); return { data: c, error: null }; }
     if (q.table === "whatsapp_mensajes" && q.op === "insert") { mensajes.push(q.payload[0]); return { data: q.payload[0], error: null }; }
     return { data: null, error: null };
   });
@@ -109,6 +111,10 @@ test("entrantes al número propio van a ese local; ecos del celular quedan como 
   await chats.registrarEcos({ message_echoes: [{ id: "wamid.eco", to: "5493815052050", type: "text", text: { body: "ya sale" } }] }, 5);
   const eco = mensajes.at(-1);
   assert.deepEqual([eco.direccion, eco.autor, eco.texto], ["saliente", "negocio", "ya sale"]);
+  // Lo que el dueño le escribe a alguien que no es cliente (sin chat) no se guarda.
+  const antes = mensajes.length;
+  await chats.registrarEcos({ message_echoes: [{ id: "wamid.eco2", to: "5493819998877", type: "text", text: { body: "hola ma" } }] }, 5);
+  assert.equal(mensajes.length, antes);
 });
 
 test("conectar: un número que no es de esa cuenta de Meta se rechaza y no se guarda", async () => {

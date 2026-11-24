@@ -8,9 +8,10 @@
 //
 // Regla de Meta: el texto libre solo se puede mandar dentro de las 24 h desde
 // el último mensaje del cliente. Pasado ese plazo, solo plantillas.
+// Con WhatsApp común (QR) esa regla no existe: se puede responder siempre.
 const supabase = require("../config/database");
 const { conNumeroPedido } = require("../utils/numeroPedido");
-const { enviarTexto, normalizarTelefono, estaConfigurado } = require("./whatsappService");
+const { enviarTexto, normalizarTelefono, estaConfigurado, usaQR } = require("./whatsappService");
 
 const VENTANA_MS = 24 * 60 * 60 * 1000;
 const MAX_TEXTO = 4096; // límite de WhatsApp para un mensaje de texto
@@ -189,7 +190,14 @@ async function registrarEcos(value, negocioId) {
         .eq("meta_id", m.id)
         .maybeSingle();
       if (repetido) continue;
-      const chat = await asegurarChat(negocioId, tel);
+      // Sólo chats que ya existen (con un cliente): lo que el dueño le escribe
+      // a su familia o amigos desde el celular no se guarda.
+      const { data: chat } = await supabase
+        .from("whatsapp_chats")
+        .select("*")
+        .eq("negocio_id", negocioId)
+        .eq("telefono", tel)
+        .maybeSingle();
       if (!chat) continue;
       const texto = textoDeMensaje(m);
       const fecha = m.timestamp ? new Date(Number(m.timestamp) * 1000).toISOString() : new Date().toISOString();
@@ -227,7 +235,8 @@ async function listarChats(negocioId) {
     .order("ultimo_at", { ascending: false, nullsFirst: false })
     .limit(100);
   if (error) return []; // migración sin correr → lista vacía
-  return (data || []).map((c) => ({ ...c, puede_responder: ventanaAbierta(c), ia_pausada: iaPausada(c) }));
+  const libre = await usaQR(negocioId);
+  return (data || []).map((c) => ({ ...c, puede_responder: libre || ventanaAbierta(c), ia_pausada: iaPausada(c) }));
 }
 
 // Para el aviso del menú lateral: mensajes sin leer y chats que la IA
@@ -270,7 +279,12 @@ async function mensajesDelChat(negocioId, chatId, { marcarLeido = true } = {}) {
     await supabase.from("whatsapp_chats").update({ no_leidos: 0 }).eq("id", chat.id);
   }
   return {
-    chat: { ...chat, no_leidos: marcarLeido ? 0 : chat.no_leidos, puede_responder: ventanaAbierta(chat), ia_pausada: iaPausada(chat) },
+    chat: {
+      ...chat,
+      no_leidos: marcarLeido ? 0 : chat.no_leidos,
+      puede_responder: (await usaQR(negocioId)) || ventanaAbierta(chat),
+      ia_pausada: iaPausada(chat),
+    },
     mensajes: await conNumeroPedido((data || []).reverse()),
   };
 }
@@ -284,7 +298,7 @@ async function responder(negocioId, chatId, textoRaw) {
 
   const chat = await chatDelNegocio(negocioId, chatId);
   if (!chat) return { ok: false, status: 404, error: "Chat no encontrado." };
-  if (!ventanaAbierta(chat)) {
+  if (!ventanaAbierta(chat) && !(await usaQR(negocioId))) {
     return {
       ok: false,
       status: 409,
@@ -344,7 +358,7 @@ async function cambiarIAChat(negocioId, chatId, activa) {
     : { ia_pausada_hasta: SIN_FECHA };
   await supabase.from("whatsapp_chats").update(cambios).eq("id", chat.id);
   const nuevo = { ...chat, ...cambios };
-  return { ...nuevo, puede_responder: ventanaAbierta(nuevo), ia_pausada: iaPausada(nuevo) };
+  return { ...nuevo, puede_responder: (await usaQR(negocioId)) || ventanaAbierta(nuevo), ia_pausada: iaPausada(nuevo) };
 }
 
 // La IA derivó la conversación a una persona del local.

@@ -57,7 +57,9 @@ const ESTADO_TPL: Record<string, { key: string; cls: string }> = {
   FALTA: { key: "waTplMissing", cls: "bg-err-bg text-err" },
 };
 
-export default function NumeroWhatsapp({ onCambio }: { onCambio?: () => void }) {
+// soloSiDisponible: si la conexión con Meta no está habilitada (y no hay
+// número conectado), no se muestra nada (hay otra forma de conectar abajo).
+export default function NumeroWhatsapp({ onCambio, soloSiDisponible = false }: { onCambio?: () => void; soloSiDisponible?: boolean }) {
   const { t } = useLang();
   const { confirmar } = useDialogos();
   const [info, setInfo] = useState<CuentaWhatsapp | null>(null);
@@ -182,6 +184,7 @@ export default function NumeroWhatsapp({ onCambio }: { onCambio?: () => void }) 
 
   if (!info) return null;
   const { cuenta, plantillas, alta } = info;
+  if (soloSiDisponible && !alta && !cuenta) return null;
   const faltan = (plantillas || []).some((p) => p.estado === "FALTA" || p.estado === "REJECTED");
   const btn =
     "cursor-pointer rounded-xl px-4 py-2.5 text-sm font-bold transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0";
