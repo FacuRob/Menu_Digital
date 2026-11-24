@@ -18,6 +18,7 @@ const planRoutes = require("./routes/plan");
 const plataformaRoutes = require("./routes/plataforma");
 const suscripcionRoutes = require("./routes/suscripcion");
 const soporteRoutes = require("./routes/soporte");
+const asistenteRoutes = require("./routes/asistente");
 const authMiddleware = require("./middleware/authMiddleware");
 const checkPermiso = require("./middleware/checkPermiso");
 const scopeNegocio = require("./middleware/scopeNegocio");
@@ -356,6 +357,9 @@ app.use(
 // Soporte: todos los usuarios pueden reportar (sin permiso ni suscripción:
 // alguien con el plan vencido tiene que poder avisar de un problema de pago).
 app.use("/api/soporte", authMiddleware, soporteRoutes);
+
+// DinexAI: asistente con IA del panel (dudas del admin sobre su cuenta).
+app.use("/api/asistente", authMiddleware, scopeNegocio, checkSuscripcion, asistenteRoutes);
 
 // Errores que no atrapó ninguna ruta (p. ej. JSON mal formado en el pedido
 // público): respuesta corta, sin stack ni rutas de archivos.

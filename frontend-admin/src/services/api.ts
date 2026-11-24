@@ -1198,3 +1198,14 @@ export const iaService = {
 };
 
 export default api;
+
+// ── DinexAI: asistente del panel ──
+export interface MensajeAsistente {
+  role: "user" | "assistant";
+  content: string;
+}
+export const asistenteService = {
+  disponible: async () => (await api.get<{ disponible: boolean }>("/asistente")).data.disponible,
+  preguntar: async (mensajes: MensajeAsistente[], nombre?: string) =>
+    (await api.post<{ respuesta: string }>("/asistente", { mensajes, nombre }, { timeout: 45000 })).data.respuesta,
+};

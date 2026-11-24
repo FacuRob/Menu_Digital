@@ -464,7 +464,8 @@ function detalleError(json, status) {
     .join(" ");
 }
 
-async function llamarOpenRouter(body) {
+// `apiKey`: otra clave (DinexAI usa la suya para separar el gasto).
+async function llamarOpenRouter(body, { apiKey } = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 30000);
   try {
@@ -472,7 +473,7 @@ async function llamarOpenRouter(body) {
       method: "POST",
       signal: ctrl.signal,
       headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${apiKey || process.env.OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
         "HTTP-Referer": MENU_URL(),
         "X-Title": "DinexFlow",
@@ -647,4 +648,9 @@ module.exports = {
   responderConIA,
   programarRespuesta,
   MODELO,
+  // DinexAI (asistente del panel) usa la misma conexión a OpenRouter.
+  llamarOpenRouter,
+  textoDe,
+  precio,
+  textoHorarios,
 };

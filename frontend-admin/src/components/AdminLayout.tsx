@@ -7,6 +7,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useNegocio } from "../context/NegocioContext";
 import { apiPendientes, chatsService, pedidosService, presupuestosService, productosService, reservasService, soporteService } from "../services/api";
 import LoadingScreen from "./LoadingScreen";
+import DinexAI from "./DinexAI";
 import Modal from "./Modal";
 import ConfiguracionEditor from "./ConfiguracionEditor";
 import CuentaModal, { type CuentaTab } from "./CuentaModal";
@@ -1033,6 +1034,7 @@ export function AdminShell() {
               <Outlet />
             </Suspense>
           </main>
+          <DinexAI />
         </div>
 
         {/* ── Barra inferior (celular) ── */}

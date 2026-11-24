@@ -1,0 +1,230 @@
+/* ── DinexAI: botón flotante + panel de chat ──
+   Colores y formas salen de tokens.css (funciona en claro y oscuro). */
+
+.dx-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--shadow-pop), 0 0 0 4px var(--accent-soft);
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.dx-fab:hover { background: var(--accent-hover); transform: translateY(-2px) scale(1.03); }
+.dx-fab:active { transform: scale(0.96); }
+.dx-fab:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.dx-fab.is-open { background: var(--surface-inv); color: var(--fg-inv); box-shadow: var(--shadow-pop); }
+
+.dx-panel {
+  position: fixed;
+  right: 24px;
+  bottom: 96px;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  width: min(400px, calc(100vw - 32px));
+  height: min(600px, calc(100dvh - 140px));
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+  transform-origin: bottom right;
+  animation: dx-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes dx-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+.dx-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 12px 14px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.dx-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.dx-head-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.dx-head-txt strong { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; }
+.dx-head-txt span { font-size: 12.5px; color: var(--fg-3); }
+.dx-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--fg-2);
+  cursor: pointer;
+}
+.dx-icon-btn:hover { background: var(--surface-3); color: var(--fg); }
+.dx-icon-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+.dx-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  overscroll-behavior: contain;
+}
+
+.dx-hola p { margin: 0 0 14px; font-size: 14.5px; line-height: 1.5; color: var(--fg-2); }
+.dx-hola strong { color: var(--fg); }
+.dx-sugs { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.dx-sug {
+  padding: 9px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.dx-sug:hover { border-color: var(--accent); background: var(--accent-soft); }
+.dx-sug:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.dx-msg {
+  max-width: 88%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 14.5px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.dx-msg.is-user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: var(--on-accent);
+  border-bottom-right-radius: 6px;
+}
+.dx-msg.is-ai {
+  align-self: flex-start;
+  background: var(--surface-3);
+  color: var(--fg);
+  border-bottom-left-radius: 6px;
+}
+
+.dx-typing { display: flex; gap: 5px; padding: 14px 16px; }
+.dx-typing span:not(.sr-only) {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--fg-3);
+  animation: dx-dot 1s ease-in-out infinite;
+}
+.dx-typing span:nth-child(2) { animation-delay: 0.15s; }
+.dx-typing span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes dx-dot {
+  0%, 60%, 100% { opacity: 0.35; transform: none; }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+
+.dx-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--err-bg);
+  color: var(--err);
+  font-size: 13.5px;
+}
+.dx-error button {
+  flex: none;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.dx-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px 12px 6px;
+  border-top: 1px solid var(--line);
+}
+.dx-form textarea {
+  flex: 1;
+  min-height: 44px;
+  max-height: 120px;
+  padding: 11px 14px;
+  border: 1px solid var(--field-border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-size: 14.5px;
+  line-height: 1.4;
+  resize: none;
+  field-sizing: content;
+}
+.dx-form textarea::placeholder { color: var(--fg-3); }
+.dx-form textarea:focus { outline: 2px solid var(--focus); outline-offset: 0; border-color: transparent; }
+.dx-send {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: pointer;
+}
+.dx-send:disabled { background: var(--surface-3); color: var(--fg-3); cursor: default; }
+.dx-send:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.dx-legal { margin: 0; padding: 0 16px 10px; font-size: 11.5px; color: var(--fg-3); text-align: center; }
+
+/* Celular: arriba de la barra inferior; el panel ocupa casi toda la pantalla. */
+@media (max-width: 768px) {
+  .dx-fab {
+    right: 16px;
+    bottom: calc(64px + env(safe-area-inset-bottom) + 16px);
+    width: 52px;
+    height: 52px;
+  }
+  .dx-panel {
+    left: 8px;
+    right: 8px;
+    width: auto;
+    bottom: calc(64px + env(safe-area-inset-bottom) + 80px);
+    height: auto;
+    top: 72px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dx-fab, .dx-panel, .dx-typing span { animation: none !important; transition: none !important; }
+}

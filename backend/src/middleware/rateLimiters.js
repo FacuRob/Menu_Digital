@@ -71,4 +71,15 @@ const solicitudesLimiter = rateLimit({
   message: { message: "Mandaste muchas solicitudes seguidas. Esperá unos minutos." },
 });
 
-module.exports = { authLimiter, pedidosLimiter, repartoLimiter, soporteLimiter, soporteCrearLimiter, adjuntosLimiter, solicitudesLimiter };
+// DinexAI (asistente del panel): por usuario. Cada pregunta cuesta una
+// llamada a OpenRouter.
+const asistenteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `u${req.user?.id}`,
+  message: { message: "Hiciste muchas preguntas seguidas. Esperá unos minutos y seguimos." },
+});
+
+module.exports = { asistenteLimiter, authLimiter, pedidosLimiter, repartoLimiter, soporteLimiter, soporteCrearLimiter, adjuntosLimiter, solicitudesLimiter };
