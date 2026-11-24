@@ -153,16 +153,20 @@ const PASO_MS = 1700;
 const SALIDA_MS = 750; // un poco más que dx-desenfoca (700 ms) en landing.css
 
 function Eslogan() {
-  const [quieto] = useState(
-    () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true,
-  );
+  // Arranca igual que el HTML generado al compilar (sin movimiento reducido)
+  // y se corrige al montar: si no, React no coincide con ese HTML.
+  const [quieto, setQuieto] = useState(false);
   // paso va de 0 a PALABRAS.length: el último vuelve a "negocio".
   const [paso, setPaso] = useState(0);
   const [saliendo, setSaliendo] = useState<number | null>(null);
-  const [listo, setListo] = useState(quieto);
+  const [listo, setListo] = useState(false);
 
   useEffect(() => {
-    if (quieto) return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setQuieto(true);
+      setListo(true);
+      return;
+    }
     let n = 0;
     let fuera = 0;
     const id = window.setInterval(() => {
@@ -180,7 +184,7 @@ function Eslogan() {
       window.clearInterval(id);
       window.clearTimeout(fuera);
     };
-  }, [quieto]);
+  }, []);
 
   const palabra = (p: number) => PALABRAS[p % PALABRAS.length];
 
@@ -664,8 +668,10 @@ function Footer() {
 
 // ── Página ───────────────────────────────────────────────────
 // URL del QR del inicio: la pública si está configurada (en localhost un
-// celular no podría abrirla), si no el origen actual.
-const QR_URL = `${((import.meta.env.VITE_PUBLIC_URL as string | undefined) || window.location.origin).replace(/\/+$/, "")}/menu`;
+// celular no podría abrirla), si no el origen actual. Al generar el HTML en
+// el build no hay window: se usa la dirección oficial.
+const ORIGEN = typeof window === "undefined" ? "https://dinexflow.com.ar" : window.location.origin;
+const QR_URL = `${((import.meta.env.VITE_PUBLIC_URL as string | undefined) || ORIGEN).replace(/\/+$/, "")}/menu`;
 
 // Posición de un elemento dentro de otro sin contar transforms (la ficha QR
 // se escala durante la escena y getBoundingClientRect lo incluiría).

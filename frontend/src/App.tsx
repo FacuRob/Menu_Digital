@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect } from "react";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { lazy, Suspense, useEffect, type ReactNode } from "react";
+import { BrowserRouter, StaticRouter, Routes, Route, useLocation } from "react-router-dom";
 import { LanguageProvider, useLang } from "./lib/i18n";
 
 // Cada página se descarga sólo cuando se visita: la landing no carga el
@@ -67,10 +67,16 @@ function NotFound() {
   );
 }
 
-function App() {
+// En el navegador, BrowserRouter. Al compilar (entry-server.tsx) se genera el
+// HTML de la landing con StaticRouter: mismo árbol, así React lo reutiliza.
+function Router({ url, children }: { url?: string; children: ReactNode }) {
+  return url === undefined ? <BrowserRouter>{children}</BrowserRouter> : <StaticRouter location={url}>{children}</StaticRouter>;
+}
+
+function App({ url }: { url?: string }) {
   return (
     <LanguageProvider>
-      <BrowserRouter>
+      <Router url={url}>
       <Canonica />
       <Suspense fallback={<Cargando />}>
       <Routes>
@@ -99,7 +105,7 @@ function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
       </Suspense>
-      </BrowserRouter>
+      </Router>
     </LanguageProvider>
   );
 }
