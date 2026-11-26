@@ -194,7 +194,7 @@ export default function Suscripcion() {
   const catalogoMods = data?.modulos ?? [];
   const precioDe = (code: string) => (data?.planes ?? FALLBACK_PLANES).find((p) => p.code === code);
   // Elegir el Básico con módulos al pagar (si ya paga el Básico, se suman en "Lo que pagás por mes").
-  const basicoSumable = catalogoMods.length > 0 && !(data?.tipo_plan === "basic" && pagaConMP) && !data?.es_plataforma;
+  const basicoSumable = catalogoMods.length > 0 && !(data?.tipo_plan === "basic" && pagaConMP);
   const basico = precioDe("basic");
   const totalBasico =
     (basico ? (basico.precio_con_descuento ?? basico.precio_mensual) : 0) +
@@ -665,21 +665,36 @@ export default function Suscripcion() {
                       {catalogoMods.map((m) => {
                         const incluido = m.incluido_en.includes(p.code);
                         const elegido = conMods && modsCheckout.includes(m.codigo);
-                        return (
-                          <li
-                            key={m.codigo}
-                            style={{
-                              fontSize: 12,
-                              fontWeight: 600,
-                              padding: "4px 10px",
-                              borderRadius: 999,
-                              border: `1px solid ${elegido ? "var(--accent)" : border}`,
-                              background: elegido ? "color-mix(in srgb, var(--accent) 14%, transparent)" : "var(--surface-2)",
-                              color: incluido ? "var(--ok)" : textPrimary,
-                            }}
-                          >
+                        const chip: React.CSSProperties = {
+                          fontSize: 12,
+                          fontWeight: 600,
+                          padding: "4px 10px",
+                          borderRadius: 999,
+                          border: `1px solid ${elegido ? "var(--accent)" : border}`,
+                          background: elegido ? "color-mix(in srgb, var(--accent) 14%, transparent)" : "var(--surface-2)",
+                          color: incluido ? "var(--ok)" : textPrimary,
+                        };
+                        const texto = (
+                          <>
                             {incluido || elegido ? "✓ " : `+${money(m.precio_mensual)} `}
                             {m.nombre}
+                          </>
+                        );
+                        return (
+                          <li key={m.codigo}>
+                            {conMods ? (
+                              <button
+                                type="button"
+                                className="tap"
+                                aria-pressed={elegido}
+                                onClick={() => toggleMod(m.codigo)}
+                                style={{ ...chip, cursor: "pointer", fontFamily: "inherit", lineHeight: "inherit" }}
+                              >
+                                {texto}
+                              </button>
+                            ) : (
+                              <span style={{ ...chip, display: "inline-block" }}>{texto}</span>
+                            )}
                           </li>
                         );
                       })}
