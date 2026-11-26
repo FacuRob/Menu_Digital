@@ -303,6 +303,10 @@ export default function WhatsApp() {
                       <div
                         className={`mt-3 rounded-xl p-3 ${P.isDark ? "bg-[#0b141a]" : "bg-[#efeae2]"} ${on ? "" : "grayscale"}`}
                       >
+                        {/* Que "Juan, pedido #128" no se confunda con un pedido real. */}
+                        <div className={`mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] ${P.isDark ? "text-[#8696a0]" : "text-[#54656f]"}`}>
+                          {t("waEjemplo")}
+                        </div>
                         <div
                           className={`relative ml-auto max-w-[92%] rounded-lg rounded-tr-none px-3 py-2 text-[13px] leading-snug shadow-sm ${
                             P.isDark ? "bg-[#005c4b] text-[#e9edef]" : "bg-[#d9fdd3] text-[#111b21]"

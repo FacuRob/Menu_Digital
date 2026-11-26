@@ -295,13 +295,19 @@ export default function Dashboard() {
 
   // Onboarding sin terminar → aviso para seguir donde quedó.
   const [obPaso, setObPaso] = useState<number | null>(null);
+  // Con la página ya online el aviso lo dice (QA: "paso 2 de 8" confundía).
+  const [obOnline, setObOnline] = useState(false);
   const puedeConfigurar = hasPermiso("configuracion");
   useEffect(() => {
     if (!puedeConfigurar) return;
     let vivo = true;
     onboardingService
       .get()
-      .then((e) => vivo && setObPaso(e.onboarding && !e.onboarding.completado ? e.onboarding.paso || 2 : null))
+      .then((e) => {
+        if (!vivo) return;
+        setObPaso(e.onboarding && !e.onboarding.completado ? e.onboarding.paso || 2 : null);
+        setObOnline(e.activo !== false);
+      })
       .catch(() => {});
     return () => {
       vivo = false;
@@ -322,7 +328,7 @@ export default function Dashboard() {
           >
             <div>
               <h2 id="ob-pendiente" className="font-bold text-fg">{t("obPendienteTitle")}</h2>
-              <p className="mt-0.5 text-sm text-fg-2">{t("obPendienteSub", { n: obPaso, total: 8 })}</p>
+              <p className="mt-0.5 text-sm text-fg-2">{t(obOnline ? "obPendienteSubOnline" : "obPendienteSub", { n: Math.max(1, 8 - obPaso + 1) })}</p>
             </div>
             <Link
               to="/admin/onboarding"

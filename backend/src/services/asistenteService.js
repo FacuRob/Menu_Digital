@@ -233,9 +233,7 @@ async function responder({ negocioId, cuentaId, nombreUsuario, mensajes }) {
   const system = armarPrompt(datos, nombreUsuario);
   const ultimo = historial[historial.length - 1];
   const conAviso = historial.some((m) => m.role === "assistant")
-    ? [...historial.slice(0, -1), { role: "user", content: `[${AVISO_DATOS_ACTUALES}]
-
-${ultimo.content}` }]
+    ? [...historial.slice(0, -1), { role: "user", content: `[${AVISO_DATOS_ACTUALES}]\n\n${ultimo.content}` }]
     : historial;
   const pedir = (messages) =>
     llamarOpenRouter(

@@ -69,6 +69,8 @@ export default function Onboarding() {
   const [subiendo, setSubiendo] = useState<"" | "logo_url" | "portada_url">("");
   const [slug, setSlug] = useState<string | null>(null);
   const [cantProductos, setCantProductos] = useState(0);
+  // Los servicios se cuentan aparte (Productos no los muestra).
+  const [cantServicios, setCantServicios] = useState(0);
   const [nuevo, setNuevo] = useState({ nombre: "", precio: "" });
   const [agregados, setAgregados] = useState<string[]>([]);
   // Módulos que salen de lo elegido (el paso 7 depende de si hay productos).
@@ -80,7 +82,8 @@ export default function Onboarding() {
       onboardingService.get().catch(() => null),
       configuracionService.get().catch(() => null),
       productosService.getAll().catch(() => []),
-    ]).then(([ob, cfg, prods]) => {
+      serviciosService.getAll().catch(() => []),
+    ]).then(([ob, cfg, prods, servs]) => {
       // Sin la configuración no se sigue: los pasos guardarían valores vacíos
       // encima de los que el negocio ya tiene.
       if (!cfg) {
@@ -118,6 +121,7 @@ export default function Onboarding() {
         });
       }
       setCantProductos(prods.length);
+      setCantServicios(servs.length);
       setCargando(false);
     });
   useEffect(() => {
@@ -244,7 +248,7 @@ export default function Onboarding() {
           requiere_turno: false,
           requiere_presupuesto: false,
           activo: true,
-          orden: cantProductos,
+          orden: cantServicios,
         });
       } else {
         const cats = await categoriasService.getAll();
@@ -260,7 +264,8 @@ export default function Onboarding() {
         });
       }
       setAgregados((a) => [...a, nuevo.nombre.trim()]);
-      setCantProductos((n) => n + 1);
+      if (conProductos) setCantProductos((n) => n + 1);
+      else setCantServicios((n) => n + 1);
       setNuevo({ nombre: "", precio: "" });
       document.getElementById("ob-pnombre")?.focus();
     } catch (e) {
@@ -479,7 +484,15 @@ export default function Onboarding() {
       {paso === 7 && (conProductos || conServicios) && (
         <>
           <p className="mb-4 text-[0.9375rem]">
-            {cantProductos === 0 ? t("obCatalogoVacio") : cantProductos === 1 ? t("obCatalogoUno") : t("obCatalogoHay", { n: cantProductos })}
+            {cantProductos + cantServicios === 0
+              ? t("obCatalogoVacio")
+              : t("obCatalogoHay", {
+                  n: cantProductos + cantServicios,
+                  lista: [
+                    cantProductos ? t("obNProductos", { n: cantProductos }) : "",
+                    cantServicios ? t("obNServicios", { n: cantServicios }) : "",
+                  ].filter(Boolean).join(" y "),
+                })}
           </p>
           <form
             className="grid gap-3 sm:grid-cols-[1fr_9rem_auto] sm:items-end"

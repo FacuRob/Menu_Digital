@@ -67,6 +67,7 @@ const es: Dict = {
   accessDeniedDesc: "No tenés permisos para acceder a esta sección.",
   dshPeriod: "Período",
   dshDays: "{n} días",
+  dshDays_1: "1 día",
   dshSales: "Ventas",
   dshProfit: "Ganancia",
   dshOrders: "Pedidos entregados",
@@ -82,6 +83,7 @@ const es: Dict = {
   dshByType: "Cómo te piden",
   dshByTypeDesc: "Pedidos del período, sin cancelados.",
   dshNOrders: "{n} pedidos",
+  dshNOrders_1: "1 pedido",
   dshPeak: "Horas pico",
   dshPeakDesc: "Pedidos por día y hora (hora de Argentina).",
   dshPeakBest: "Tu momento más fuerte: {dia} de {h} a {h2} h.",
@@ -101,6 +103,7 @@ const es: Dict = {
   dshRetry: "Reintentar",
   dshSalesToday: "ventas hoy",
   dshCancelled: "{n} cancelados",
+  dshCancelled_1: "1 cancelado",
   themeLight: "Modo claro",
   themeDark: "Modo oscuro",
   appearance: "Apariencia",
@@ -258,6 +261,7 @@ const es: Dict = {
   totalLabel: "Total",
   // ── Categorías ──
   catCount: "{n} categorías",
+  catCount_1: "1 categoría",
   catNew: "Nueva categoría",
   catEmpty: "No hay categorías todavía",
   catEditTitle: "Editar categoría",
@@ -325,6 +329,7 @@ const es: Dict = {
   prodUnavailable: "No disponibles",
   prodAllCategories: "Todas las categorías",
   prodCount: "{n} productos",
+  prodCount_1: "1 producto",
   prodPlanUsage: "{used} / {limit} productos de este negocio",
   prodPlanUsageReparto: "{used} / {limit} productos de este negocio · {total} en total",
   prodPlanTitle: "{plan}: hasta {limit} productos",
@@ -532,6 +537,7 @@ const es: Dict = {
   "waWhen_reserva.reprogramada": "Al cambiar el horario desde el panel",
   "waWhen_reserva.cancelada": "Al cancelar el turno desde el panel",
   waPreviewNote: "Vista previa con datos de ejemplo",
+  waEjemplo: "Ejemplo",
   waOptinNote: "Solo se avisa a clientes que dejaron su teléfono y marcaron que aceptan recibir mensajes.",
   waTestTitle: "Mensaje de prueba",
   waTestDesc: "Mandá el aviso de “pedido recibido” a tu propio WhatsApp para ver cómo llega.",
@@ -589,6 +595,7 @@ const es: Dict = {
   chToastAttend: "Un cliente necesita que lo atiendas",
   chToastTap: "Tocá para abrir Chats",
   chUnreadN: "{n} mensajes sin leer",
+  chUnreadN_1: "1 mensaje sin leer",
   pedReopen: "Reabrir",
   // ── Facturación / Ticket ──
   ticketAsk: "¿Generar ticket?",
@@ -914,6 +921,7 @@ const es: Dict = {
   bizFallback: "Negocio {n}",
   // ── Usuarios ──
   usrCount: "{n} usuarios",
+  usrCount_1: "1 usuario",
   usrNew: "Nuevo usuario",
   usrColUser: "Usuario",
   usrColCreated: "Creado",
@@ -980,6 +988,7 @@ const es: Dict = {
   obOfreceServicios: "Servicios",
   obOfreceNota: "Si ofrecés productos y servicios, marcá las dos. Te sugerimos lo más común para tu rubro.",
   obOfreceConProductos: "Ya tenés {n} productos cargados: los vamos a seguir mostrando. Si no los querés, apagá Productos en Configuración → Módulos.",
+  obOfreceConProductos_1: "Ya tenés 1 producto cargado: lo vamos a seguir mostrando. Si no lo querés, apagá Productos en Configuración → Módulos.",
   obFuncTitle: "¿Cómo trabaja tu negocio?",
   obFuncSub: "Marcá todo lo que hacés. Te sugerimos lo más común para tu rubro, pero podés elegir cualquier combinación.",
   obFnVentaDirecta: "Venta directa",
@@ -1005,8 +1014,12 @@ const es: Dict = {
   obCatalogoTitle: "Cargá tus primeros productos",
   obCatalogoSub: "Con nombre y precio alcanza para empezar. Fotos, opciones y stock los sumás después en Productos.",
   obCatalogoVacio: "Todavía no cargaste productos.",
-  obCatalogoHay: "Ya tenés {n} productos cargados.",
-  obCatalogoUno: "Ya tenés 1 producto cargado.",
+  obCatalogoHay: "Ya tenés {lista} cargados.",
+  obCatalogoHay_1: "Ya tenés {lista} cargado.",
+  obNProductos: "{n} productos",
+  obNProductos_1: "1 producto",
+  obNServicios: "{n} servicios",
+  obNServicios_1: "1 servicio",
   obProdNombre: "Producto",
   obProdPrecio: "Precio",
   obProdFalta: "Poné el nombre y un precio válido.",
@@ -1366,7 +1379,10 @@ const es: Dict = {
   moduloInactivo: "Módulo apagado",
   moduloInactivoDesc: "Este negocio no usa esta función. Podés activarla en Configuración → Módulos.",
   obPendienteTitle: "Terminá de configurar tu negocio",
-  obPendienteSub: "Vas por el paso {n} de {total}. Seguís donde lo dejaste.",
+  obPendienteSub: "Te faltan {n} pasos. Seguís donde lo dejaste.",
+  obPendienteSub_1: "Te falta 1 paso. Seguís donde lo dejaste.",
+  obPendienteSubOnline: "Tu página ya está online. Te faltan {n} pasos para dejarla completa.",
+  obPendienteSubOnline_1: "Tu página ya está online. Te falta 1 paso para dejarla completa.",
   obPendienteCta: "Seguir",
   rubroCategoria: "Categoría del negocio",
   rubroEspecialidad: "Especialidad (opcional)",
@@ -1442,6 +1458,7 @@ const es: Dict = {
   pfColUsage: "Uso",
   pfUsageBiz: "{n}/{max} negocios",
   pfUsageProd: "{n} productos",
+  pfUsageProd_1: "1 producto",
   pfPageOf: "{a}–{b} de {n}",
   pfPrev: "Anterior",
   pfNext: "Siguiente",
@@ -1455,8 +1472,10 @@ const es: Dict = {
   pfRiskVencida: "Pago vencido",
   pfRiskCancelada: "Canceló la suscripción",
   pfRiskCanceladaDias: "Canceló · le quedan {n} días",
+  pfRiskCanceladaDias_1: "Canceló · le queda 1 día",
   pfRiskPruebaVencida: "Terminó la prueba sin pagar",
   pfRiskPruebaPorVencer: "La prueba vence en {n} días",
+  pfRiskPruebaPorVencer_1: "La prueba vence en 1 día",
   pfRiskPruebaHoy: "La prueba vence hoy",
   pfRiskSinConfigurar: "No cargó productos",
   pfRiskSinPedidos: "Sin pedidos en {n} días",
@@ -3403,7 +3422,9 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
 
   const t = useCallback(
     (key: string, vars?: Record<string, string | number>) => {
-      let s = DICTS[lang][key] ?? DICTS.es[key] ?? key;
+      // Con n = 1 se usa la versión en singular si existe (clave "_1").
+      const uno = vars?.n === 1 ? DICTS[lang][`${key}_1`] ?? DICTS.es[`${key}_1`] : undefined;
+      let s = uno ?? DICTS[lang][key] ?? DICTS.es[key] ?? key;
       if (vars) for (const k in vars) s = s.replace(`{${k}}`, String(vars[k]));
       return s;
     },
