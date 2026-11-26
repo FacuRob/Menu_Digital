@@ -76,7 +76,8 @@ services:
         name: Content-Security-Policy
         # frame-src: la vista previa (/menu/:slug) carga el menú público en un iframe.
         # facebook: "Conectar mi WhatsApp" (SDK de Meta + ventana de alta).
-        value: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-src 'self' https://dinexflow.com.ar https://www.dinexflow.com.ar https://menu-digital-frontend-qxjm.onrender.com https://*.facebook.com; frame-ancestors 'none'; form-action 'self' https://*.facebook.com; script-src 'self' https://connect.facebook.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://backend-menu-digital.onrender.com https://*.facebook.com https://graph.facebook.com; upgrade-insecure-requests"
+        # accounts.google.com/gsi/: botón "Continuar con Google" (script, iframe y estilos).
+        value: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-src 'self' https://dinexflow.com.ar https://www.dinexflow.com.ar https://menu-digital-frontend-qxjm.onrender.com https://*.facebook.com https://accounts.google.com/gsi/; frame-ancestors 'none'; form-action 'self' https://*.facebook.com; script-src 'self' https://connect.facebook.net https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://backend-menu-digital.onrender.com https://*.facebook.com https://graph.facebook.com https://accounts.google.com/gsi/; upgrade-insecure-requests"
       - path: /*
         name: X-Frame-Options
         value: DENY
@@ -85,7 +86,9 @@ services:
         value: nosniff
       - path: /*
         name: Referrer-Policy
-        value: no-referrer
+        # El botón de Google necesita saber el origen (no-referrer lo rompe).
+        # A otros sitios sólo se manda el dominio, nunca la ruta.
+        value: strict-origin-when-cross-origin
       - path: /*
         name: Strict-Transport-Security
         value: "max-age=31536000; includeSubDomains"
