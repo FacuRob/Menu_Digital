@@ -89,6 +89,19 @@ const mercadoPagoWebhook = async (req, res) => {
         datos.modulos_version = (Number(cuenta.modulos_version) || 0) + 1;
         datos.precio_plan_fijo = null;
       }
+      // Cupón: el primer pago (al autorizar) ya salió con descuento, así que
+      // ese mes se consume acá, sin esperar el aviso del cobro (que puede no
+      // llegar). Si era el último, los próximos cobros vuelven al precio
+      // normal: se corrige en MP antes de guardar (si falla, 500 y MP reintenta).
+      const conCupon = tieneDescuento(cuenta) ? montoSuscripcionNueva(ref.plan, ref.modulos, cuenta.descuento_pct) : null;
+      if (esNueva && conCupon != null && monto === conCupon && conCupon !== montoSuscripcionNueva(ref.plan, ref.modulos)) {
+        const restantes = Number(cuenta.descuento_meses_restantes) - 1;
+        datos.descuento_meses_restantes = Math.max(0, restantes);
+        if (restantes <= 0) {
+          datos.descuento_pct = 0;
+          await mp.cambiarMonto(sub.id, montoSuscripcionNueva(ref.plan, ref.modulos));
+        }
+      }
     }
     // Cancelado: conserva periodo_fin (el próximo cobro que ya no ocurre), así
     // sigue usando el panel hasta el final del mes que pagó.
@@ -121,6 +134,15 @@ const mercadoPagoWebhook = async (req, res) => {
 // Solo cuenta si es de la suscripción vigente de la cuenta.
 // Con cupón: cada cobro aprobado consume un mes de descuento; al llegar a 0,
 // los próximos cobros vuelven al precio normal del plan.
+// ¿Es el cobro que se hace al autorizar la suscripción? (hasta 3 días después
+// de crearla; los siguientes llegan cada mes).
+const TRES_DIAS = 3 * 24 * 60 * 60 * 1000;
+const esPrimerCobro = (cobro, sub) => {
+  const creada = new Date(sub?.date_created || NaN).getTime();
+  const cobrado = new Date(cobro?.debit_date || cobro?.date_created || NaN).getTime();
+  return Number.isFinite(creada) && Number.isFinite(cobrado) && cobrado - creada < TRES_DIAS;
+};
+
 const procesarCobro = async (cobroId, res) => {
   const cobro = await mp.obtenerCobro(cobroId);
   const preapprovalId = cobro?.preapproval_id;
@@ -153,7 +175,8 @@ const procesarCobro = async (cobroId, res) => {
     cobroNuevo = String(cobro.id) !== String(cuenta.mp_ultimo_cobro_id || "");
     if (cobroNuevo) {
       datos.mp_ultimo_cobro_id = String(cobro.id);
-      if (tieneDescuento(cuenta)) {
+      // El mes del primer pago ya se consumió al activar la suscripción.
+      if (tieneDescuento(cuenta) && !esPrimerCobro(cobro, sub)) {
         const restantes = Number(cuenta.descuento_meses_restantes) - 1;
         datos.descuento_meses_restantes = restantes;
         if (restantes <= 0) {
