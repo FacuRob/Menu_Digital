@@ -15,6 +15,7 @@ import {
   type PlanInfo,
   type RubroElegido,
 } from "../../services/api";
+import { planNombre } from "../../lib/planNombre";
 import RubroSelector from "../../components/RubroSelector";
 
 export default function Negocios() {
@@ -148,7 +149,7 @@ export default function Negocios() {
                 color: alLimite ? "var(--err)" : "var(--info)",
               }}
               title={t("bizPlanTitleAttr", {
-                plan: plan?.tipo_plan || "",
+                plan: planNombre(t, plan?.tipo_plan, plan?.plan_efectivo),
                 limit: limite,
               })}
             >

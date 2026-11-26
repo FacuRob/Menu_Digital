@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { planNombre as nombreDelPlan } from "../../lib/planNombre";
 import { useSearchParams } from "react-router-dom";
 import AdminLayout from "../../components/AdminLayout";
 import ModulosSuscripcion from "../../components/ModulosSuscripcion";
@@ -133,13 +134,7 @@ export default function Suscripcion() {
         })
       : "—";
 
-  const planNombre = (code: string) =>
-    ({
-      free: t("subPlanFree"),
-      basic: t("subPlanBasic"),
-      standard: t("subPlanStandard"),
-      premium: t("subPlanPremium"),
-    })[code] ?? code;
+  const planNombre = (code: string) => nombreDelPlan(t, code);
 
   const irACheckout = async (plan: PlanCatalogo["code"]) => {
     const email = mpEmail.trim();

@@ -100,7 +100,7 @@ const Menu = ({ general = false, canonica = false }: { general?: boolean; canoni
     opciones: SelectedOption[];
     personalizacion: ValorCampo[];
   } | null>(null);
-  const [servicios, setServicios] = useState<Servicio[]>([]);
+  const [servicios, setServicios] = useState<(Servicio & { negocio_id?: number })[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [search, setSearch] = useState("");
@@ -157,16 +157,18 @@ const Menu = ({ general = false, canonica = false }: { general?: boolean; canoni
             await Promise.all(
               grupo.negocios.map(async (n) => {
                 try {
-                  const [p, c, cfg] = await Promise.all([
+                  const [p, c, cfg, sv] = await Promise.all([
                     productosService.getDisponibles(n.id),
                     categoriasService.getActivas(n.id),
                     configuracionService.get(n.id).catch(() => null),
+                    serviciosService.getDisponibles(n.id).catch(() => []),
                   ]);
                   return {
                     neg: { ...n, config: cfg },
                     // Cada producto queda marcado con su negocio (para el carrito).
                     prods: (Array.isArray(p) ? p : []).map((x) => ({ ...x, negocio_id: n.id })),
                     cats: Array.isArray(c) ? c : [],
+                    servs: (Array.isArray(sv) ? sv : []).map((x) => ({ ...x, negocio_id: n.id })),
                   };
                 } catch {
                   return null;
@@ -177,6 +179,7 @@ const Menu = ({ general = false, canonica = false }: { general?: boolean; canoni
           setNegocios(datos.map((d) => d.neg));
           setProductos(datos.flatMap((d) => d.prods));
           setCategorias(datos.flatMap((d) => d.cats));
+          setServicios(datos.flatMap((d) => d.servs));
           // Cabecera: el nombre de la cuenta con el color del primer negocio.
           const primero = datos[0]?.neg.config;
           setConfig({ nombre: grupo.nombre, color_primario: primero?.color_primario } as Configuracion);
@@ -262,8 +265,14 @@ const Menu = ({ general = false, canonica = false }: { general?: boolean; canoni
     [categorias, filtered],
   );
 
-  // Menú general: cada negocio con sus categorías (sólo los que tienen
-  // productos a la vista). Las secciones de la barra son los negocios.
+  // Servicios filtrados por la búsqueda (en el menú general, cada uno lleva
+  // su negocio_id y se muestra en la sección de su negocio).
+  const serviciosVisibles = useMemo(
+    () => servicios.filter((s) => !q || s.nombre.toLowerCase().includes(q) || (s.descripcion || "").toLowerCase().includes(q)),
+    [servicios, q],
+  );
+  // Menú general: cada negocio con sus categorías y servicios (sólo los que
+  // tienen algo a la vista). Las secciones de la barra son los negocios.
   const porNegocio = useMemo(
     () =>
       negocios
@@ -272,9 +281,10 @@ const Menu = ({ general = false, canonica = false }: { general?: boolean; canoni
           cats: porCategoria
             .map(({ cat, prods }) => ({ cat, prods: prods.filter((p) => p.negocio_id === neg.id) }))
             .filter((pc) => pc.prods.length > 0),
+          servs: serviciosVisibles.filter((s) => s.negocio_id === neg.id),
         }))
-        .filter((g) => g.cats.length > 0),
-    [negocios, porCategoria],
+        .filter((g) => g.cats.length > 0 || g.servs.length > 0),
+    [negocios, porCategoria, serviciosVisibles],
   );
   // Secciones navegables: negocios (menú general) o categorías.
   const secciones = useMemo(
@@ -311,10 +321,6 @@ const Menu = ({ general = false, canonica = false }: { general?: boolean; canoni
     const n = negocios.find((x) => x.id === id);
     return n?.config?.nombre || n?.nombre || "";
   };
-  // Servicios (sólo en el menú de un negocio), filtrados por la búsqueda.
-  const serviciosVisibles = general
-    ? []
-    : servicios.filter((s) => !q || s.nombre.toLowerCase().includes(q) || (s.descripcion || "").toLowerCase().includes(q));
 
   // ¿Toma pedidos online? (módulo "pedidos"). En el menú general, cada
   // negocio decide por sí mismo.
@@ -581,7 +587,7 @@ const Menu = ({ general = false, canonica = false }: { general?: boolean; canoni
           )
         ) : general ? (
           <div className="flex flex-col gap-16">
-            {porNegocio.map(({ neg, cats }) => (
+            {porNegocio.map(({ neg, cats, servs }) => (
               <section
                 key={neg.id}
                 aria-labelledby={`neg-${neg.id}`}
@@ -617,6 +623,7 @@ const Menu = ({ general = false, canonica = false }: { general?: boolean; canoni
                       </div>
                     </div>
                   ))}
+                  {servs.length > 0 && <ServiciosSeccion servicios={servs} config={neg.config} nivel="h3" idSufijo={neg.id} />}
                 </div>
               </section>
             ))}
@@ -657,59 +664,8 @@ const Menu = ({ general = false, canonica = false }: { general?: boolean; canoni
             ))}
           </div>
         )}
-        {serviciosVisibles.length > 0 && (
-          <section aria-labelledby="servicios" className={secciones.length ? "mt-12" : ""}>
-            <h2 id="servicios" className="mb-4 flex items-baseline gap-3">
-              <span className="mn-display text-[clamp(1.75rem,6vw,2.5rem)]">{t("services")}</span>
-              <span className="mn-num text-sm font-semibold text-[var(--fg-2)]" aria-hidden>{serviciosVisibles.length}</span>
-            </h2>
-            <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {serviciosVisibles.map((s) => (
-                <li key={s.id} className="mn-card relative flex-col !items-stretch gap-2 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <h3 className="text-[16px] font-semibold leading-snug">{s.nombre}</h3>
-                    <span className="mn-num shrink-0 text-[16px] font-extrabold">
-                      {s.tipo_precio === "variable"
-                        ? t("priceAsk")
-                        : s.tipo_precio === "desde"
-                          ? t("priceFrom", { p: fmt(Number(s.precio)) })
-                          : fmt(Number(s.precio))}
-                    </span>
-                  </div>
-                  {s.descripcion && <p className="text-[13px] leading-snug text-[var(--fg-2)]">{s.descripcion}</p>}
-                  <p className="text-[13px] text-[var(--fg-2)]">
-                    {[s.duracion_min ? t("minutes", { n: s.duracion_min }) : null, ...s.modalidades.map((m: string) => t(`mod_${m}`))]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                  {(config?.whatsapp || config?.telefono) && (
-                    <a
-                      href={`${waLink(config)}?text=${encodeURIComponent(t("askServiceMsg", { s: s.nombre }))}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mn-btn mn-btn-borde mt-1 w-full"
-                      aria-label={`${t("askService")}: ${s.nombre}`}
-                    >
-                      {t("askService")}
-                    </a>
-                  )}
-                  {!(config?.whatsapp || config?.telefono) && !s.requiere_turno && !s.requiere_presupuesto && (
-                    <p className="text-[13px] font-semibold text-[var(--fg-2)]">{t("askInPlace")}</p>
-                  )}
-                  {s.requiere_turno && config?.modulos?.reservas && config.slug && (
-                    <a href={`/negocio/${config.slug}/reservar?servicio=${s.id}`} className="mn-btn mt-1 w-full" aria-label={`${t("bookService")}: ${s.nombre}`}>
-                      {t("bookService")}
-                    </a>
-                  )}
-                  {s.requiere_presupuesto && config?.modulos?.presupuestos && config.slug && (
-                    <a href={`/negocio/${config.slug}/presupuesto?servicio=${s.id}`} className="mn-btn mn-btn-borde mt-1 w-full" aria-label={`${t("quoteService")}: ${s.nombre}`}>
-                      {t("quoteService")}
-                    </a>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </section>
+        {!general && serviciosVisibles.length > 0 && (
+          <ServiciosSeccion servicios={serviciosVisibles} config={config} className={secciones.length ? "mt-12" : ""} />
         )}
         {/* Turnos (si el negocio los toma y tiene servicios con turno). */}
         {!general && config?.modulos?.reservas && config.slug && servicios.some((s) => s.requiere_turno) && (
@@ -1137,6 +1093,81 @@ const CategoryBar = ({
 };
 
 // ── Helpers de contacto ──
+// Servicios de un negocio: al final de su menú (h2) o dentro de su sección
+// en el menú general (h3, con los ítems en h4).
+function ServiciosSeccion({
+  servicios,
+  config,
+  className = "",
+  nivel = "h2",
+  idSufijo = "",
+}: {
+  servicios: Servicio[];
+  config: Configuracion | null;
+  className?: string;
+  nivel?: "h2" | "h3";
+  idSufijo?: number | string;
+}) {
+  const { t } = useLang();
+  const Titulo = nivel;
+  const Item = nivel === "h2" ? "h3" : "h4";
+  const id = idSufijo === "" ? "servicios" : `servicios-${idSufijo}`;
+  return (
+    <section aria-labelledby={id} className={className}>
+      <Titulo id={id} className="mb-4 flex items-baseline gap-3">
+        <span className={`mn-display ${nivel === "h2" ? "text-[clamp(1.75rem,6vw,2.5rem)]" : "text-[clamp(1.375rem,5vw,1.875rem)]"}`}>{t("services")}</span>
+        <span className="mn-num text-sm font-semibold text-[var(--fg-2)]" aria-hidden>{servicios.length}</span>
+      </Titulo>
+      <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {servicios.map((s) => (
+          <li key={s.id} className="mn-card relative flex-col !items-stretch gap-2 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <Item className="text-[16px] font-semibold leading-snug">{s.nombre}</Item>
+              <span className="mn-num shrink-0 text-[16px] font-extrabold">
+                {s.tipo_precio === "variable"
+                  ? t("priceAsk")
+                  : s.tipo_precio === "desde"
+                    ? t("priceFrom", { p: fmt(Number(s.precio)) })
+                    : fmt(Number(s.precio))}
+              </span>
+            </div>
+            {s.descripcion && <p className="text-[13px] leading-snug text-[var(--fg-2)]">{s.descripcion}</p>}
+            <p className="text-[13px] text-[var(--fg-2)]">
+              {[s.duracion_min ? t("minutes", { n: s.duracion_min }) : null, ...s.modalidades.map((m: string) => t(`mod_${m}`))]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+            {(config?.whatsapp || config?.telefono) && (
+              <a
+                href={`${waLink(config)}?text=${encodeURIComponent(t("askServiceMsg", { s: s.nombre }))}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mn-btn mn-btn-borde mt-1 w-full"
+                aria-label={`${t("askService")}: ${s.nombre}`}
+              >
+                {t("askService")}
+              </a>
+            )}
+            {!(config?.whatsapp || config?.telefono) && !s.requiere_turno && !s.requiere_presupuesto && (
+              <p className="text-[13px] font-semibold text-[var(--fg-2)]">{t("askInPlace")}</p>
+            )}
+            {s.requiere_turno && config?.modulos?.reservas && config.slug && (
+              <a href={`/negocio/${config.slug}/reservar?servicio=${s.id}`} className="mn-btn mt-1 w-full" aria-label={`${t("bookService")}: ${s.nombre}`}>
+                {t("bookService")}
+              </a>
+            )}
+            {s.requiere_presupuesto && config?.modulos?.presupuestos && config.slug && (
+              <a href={`/negocio/${config.slug}/presupuesto?servicio=${s.id}`} className="mn-btn mn-btn-borde mt-1 w-full" aria-label={`${t("quoteService")}: ${s.nombre}`}>
+                {t("quoteService")}
+              </a>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function waLink(config: Configuracion | null) {
   let num = (config?.whatsapp || config?.telefono || "").replace(/\D/g, "");
   if (num && !num.startsWith("54")) num = "549" + num;

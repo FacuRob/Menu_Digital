@@ -25,6 +25,7 @@ import { SideNav, SectionCard, SeccionPanel } from "../../components/SeccionesUi
 import { abrirSeccionInvalida } from "../../lib/secciones";
 import { Switch, Segmented } from "../../components/ui";
 import { Campo, InfoTip } from "../../components/InfoTip";
+import { planNombre } from "../../lib/planNombre";
 import FotosProducto, { fotosDeProducto, firmaFotos, type Foto } from "../../components/FotosProducto";
 import {
   IconPlus,
@@ -196,6 +197,8 @@ export default function Productos() {
   const suscripcionCancelada = plan?.estado_suscripcion === "cancelado" && plan?.vigente === false;
   const usados = plan ? plan.productos_usados : productos.length;
   const limite = plan?.limite_productos ?? null;
+  // Con varios negocios el total se reparte: se dice cuánto es en total.
+  const reparto = limite !== null && limite !== 9999 && (plan?.limite_productos_total ?? limite) > limite;
   const alLimite = limite !== null && usados >= limite;
   const bloqueadoNuevo = suscripcionCancelada || alLimite;
 
@@ -661,11 +664,16 @@ export default function Productos() {
                 : "var(--info-bg)",
               color: alLimite ? "var(--err)" : "var(--info)",
             }}
-            title={t("prodPlanTitle", { plan: plan?.tipo_plan || "", limit: limite })}
+            title={t(reparto ? "prodPlanTitleReparto" : "prodPlanTitle", {
+              plan: planNombre(t, plan?.tipo_plan, plan?.plan_efectivo),
+              limit: limite,
+              total: plan?.limite_productos_total ?? limite,
+            })}
           >
-            {t("prodPlanUsage", {
+            {t(reparto ? "prodPlanUsageReparto" : "prodPlanUsage", {
               used: usados,
               limit: limite === 9999 ? "∞" : limite,
+              total: plan?.limite_productos_total ?? limite,
             })}
           </span>
         )}

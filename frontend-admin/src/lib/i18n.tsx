@@ -326,7 +326,9 @@ const es: Dict = {
   prodAllCategories: "Todas las categorías",
   prodCount: "{n} productos",
   prodPlanUsage: "{used} / {limit} productos de este negocio",
-  prodPlanTitle: "Plan {plan}: el total de productos se reparte entre tus negocios; a este le tocan {limit}",
+  prodPlanUsageReparto: "{used} / {limit} productos de este negocio · {total} en total",
+  prodPlanTitle: "{plan}: hasta {limit} productos",
+  prodPlanTitleReparto: "{plan}: {total} productos en total, repartidos entre tus negocios. A este le tocan {limit}.",
   prodSubCancelled: "Suscripción cancelada",
   prodLimitReached: "Alcanzaste el límite de {limit} productos de tu plan",
   prodNew: "Nuevo producto",
@@ -1390,7 +1392,7 @@ const es: Dict = {
   bizSubtitle:
     "Administrá varios locales desde un solo panel. El negocio activo es el que ves en el resto de las secciones.",
   bizPlanUsage: "{used} / {limit} negocios del plan",
-  bizPlanTitleAttr: "Plan {plan}: hasta {limit} negocios",
+  bizPlanTitleAttr: "{plan}: hasta {limit} negocios",
   bizFreeOne:
     "Tu plan Free permite un solo negocio. Mejorá tu plan para multi-negocio.",
   bizLimitReached: "Alcanzaste el límite de {limit} negocios de tu plan",

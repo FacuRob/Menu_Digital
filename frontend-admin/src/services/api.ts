@@ -857,6 +857,8 @@ export interface PlanInfo {
   negocios_usados: number;
   limite_productos: number;
   productos_usados: number;
+  // Total de la cuenta (el cupo de arriba es la parte de este negocio).
+  limite_productos_total?: number;
   // Plan que rige hoy (en prueba gratis, el de prueba).
   plan_efectivo?: TipoPlan | null;
   // Funciones pagas que puede usar (por el plan o por un módulo sumado):

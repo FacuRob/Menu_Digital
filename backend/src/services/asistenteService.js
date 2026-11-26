@@ -180,6 +180,7 @@ CÓMO RESPONDER
 5. No podés hacer cambios en la cuenta: explicás qué tocar y dónde.
 6. Podés usar **negrita** para nombres de secciones o botones. Nada de tablas ni títulos.
 7. Si te piden algo que no tiene que ver con DinexFlow o con su negocio, respondé amablemente que sólo podés ayudar con el panel.
+8. ${AVISO_DATOS_ACTUALES}
 
 SECCIONES DEL PANEL
 ${GUIA_PANEL}
@@ -194,6 +195,14 @@ REGLAS PARA QUE UN PRODUCTO SE VEA EN LA PÁGINA PÚBLICA
 DATOS DEL NEGOCIO (actualizados a este momento)
 ${datos}`;
 }
+
+// Los datos se releen en cada mensaje, pero el modelo tiende a repetir lo que
+// ya dijo en la conversación (QA: seguía diciendo "Productos está apagado"
+// después de prenderlo). Va en las reglas y, si ya hubo respuestas, otra vez
+// pegado al último mensaje del usuario (un segundo "system" a mitad de la
+// conversación lo rechazan algunos modelos).
+const AVISO_DATOS_ACTUALES =
+  "Los DATOS DEL NEGOCIO se leen de nuevo en cada mensaje. Si contradicen algo que respondiste antes en esta conversación (el usuario pudo haberlo arreglado), mandan los datos: decí que ya está resuelto y no repitas lo anterior.";
 
 // Deja sólo mensajes válidos del chat: roles user/assistant, texto recortado.
 function limpiarMensajes(mensajes) {
@@ -222,6 +231,12 @@ async function responder({ negocioId, cuentaId, nombreUsuario, mensajes }) {
     console.warn(`[DinexAI] La clave no empieza con "sk-or-" (largo ${clave.length}). Copiá la clave secreta de OpenRouter en DINEXAI_API_KEY.`);
   }
   const system = armarPrompt(datos, nombreUsuario);
+  const ultimo = historial[historial.length - 1];
+  const conAviso = historial.some((m) => m.role === "assistant")
+    ? [...historial.slice(0, -1), { role: "user", content: `[${AVISO_DATOS_ACTUALES}]
+
+${ultimo.content}` }]
+    : historial;
   const pedir = (messages) =>
     llamarOpenRouter(
       // Margen para los modelos que "piensan" antes de responder.
@@ -230,14 +245,14 @@ async function responder({ negocioId, cuentaId, nombreUsuario, mensajes }) {
     );
   let msg;
   try {
-    msg = await pedir([{ role: "system", content: system }, ...historial]);
+    msg = await pedir([{ role: "system", content: system }, ...conAviso]);
   } catch (err) {
     // Clave inválida, sin crédito o saturado: reintentar no sirve.
     if ([401, 402, 429].includes(Number(err.status))) throw err;
     // Algunos modelos gratis (p. ej. Gemma) no aceptan instrucciones de
     // sistema: van pegadas al primer mensaje del usuario.
     console.warn(`[DinexAI] Falló con instrucciones de sistema (${err.message}); reintento sin ellas.`);
-    const [primero, ...resto] = historial;
+    const [primero, ...resto] = conAviso;
     msg = await pedir([{ role: "user", content: `${system}
 
 --- PREGUNTA DEL ADMIN ---
