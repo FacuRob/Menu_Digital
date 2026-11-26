@@ -63,7 +63,16 @@ const updateOnboarding = async (req, res) => {
     // cambian sólo desde Configuración.
     const yaTerminado = !neg.onboarding || neg.onboarding.completado === true;
     if (!yaTerminado && (req.body.ofrece || req.body.funciones)) {
-      patch.modulos = desdeOnboarding(onboarding, neg.tipo_rubro);
+      // Si ya cargó productos, el onboarding no los esconde (QA: marcar sólo
+      // "servicios" apagaba Productos y Pedidos con productos en el menú).
+      // Lo que eligió se guarda tal cual; sólo el cálculo suma "productos".
+      let ofrece = onboarding.ofrece || [];
+      if (!ofrece.includes("productos") && !ofrece.includes("personalizados")) {
+        const { data: hay, error: errProd } = await supabase.from("productos").select("id").eq("negocio_id", negocioId).limit(1);
+        if (errProd) throw errProd;
+        if (hay?.length) ofrece = [...ofrece, "productos"];
+      }
+      patch.modulos = desdeOnboarding({ ...onboarding, ofrece }, neg.tipo_rubro);
     }
 
     const { data, error } = await supabase

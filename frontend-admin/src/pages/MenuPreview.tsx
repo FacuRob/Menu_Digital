@@ -51,12 +51,12 @@ export default function MenuPreview() {
 
   // Ruta del menú + parámetros extra (p. ej. ?mesa=3) que vengan en la URL.
   const path = useMemo(() => {
-    const base = menuPath(slug, params.get("negocio"), esPagina ? "otro" : null);
+    const base = menuPath(slug, params.get("negocio"));
     const extra = new URLSearchParams(params);
     if (base.includes("?negocio=")) extra.delete("negocio");
     const qs = extra.toString();
     return qs ? `${base}${base.includes("?") ? "&" : "?"}${qs}` : base;
-  }, [slug, params, esPagina]);
+  }, [slug, params]);
 
   const previewUrl = `${MENU_PREVIEW_BASE}${path}`;
   const publicUrl = `${MENU_PUBLIC_BASE}${path}`;

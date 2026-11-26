@@ -384,7 +384,10 @@ export default function ConfiguracionEditor({
 
   const save = async () => {
     // El envío va por su propia ruta (sólo el dueño).
-    const { rubro_categoria, rubro_especialidad, envio, pagos, ...resto } = form;
+    const { rubro_categoria, rubro_especialidad, envio, pagos, modulos, ...resto } = form;
+    // Los módulos van sólo si se tocaron: así guardar otra sección no pisa
+    // un cambio hecho mientras esta pantalla estaba abierta.
+    const modulosCambiados = JSON.stringify(modulos) !== JSON.stringify(initial?.form.modulos);
     const envioCambiado = esDueno && JSON.stringify(envio) !== JSON.stringify(initial?.form.envio);
     const pagosCambiado = esDueno && JSON.stringify(pagos) !== JSON.stringify(initial?.form.pagos);
     if (envioCambiado && envio?.cobrar && !(Number(envio.monto) > 0)) {
@@ -402,6 +405,7 @@ export default function ConfiguracionEditor({
       // Sin categoría elegida no se manda el rubro (el backend lo rechazaría).
       await configuracionService.update({
         ...resto,
+        ...(modulosCambiados ? { modulos } : {}),
         ...(rubro_categoria ? { rubro_categoria, rubro_especialidad } : {}),
         horarios_config: usarPorDia ? form.horarios_config : null,
       });
@@ -410,7 +414,7 @@ export default function ConfiguracionEditor({
       setInitial({ form, usarPorDia });
       setToast({ type: "ok", text: t("cfgSaved") });
       // El menú del panel depende de los módulos.
-      if (JSON.stringify(form.modulos) !== JSON.stringify(initial?.form.modulos)) recargarConfig();
+      if (modulosCambiados) recargarConfig();
       onSaved?.();
     } catch (e) {
       console.error(e);

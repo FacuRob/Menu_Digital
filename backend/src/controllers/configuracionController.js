@@ -129,6 +129,7 @@ const updateConfiguracion = async (req, res) => {
     const rubro = await resolverRubro({ tipo_rubro, rubro_categoria, rubro_especialidad });
     if (rubro.error) return res.status(400).json({ message: rubro.error });
     const negPatch = { ...rubro.patch };
+    let modulosCambiaron = false;
     if (config_campos !== undefined && config_campos !== null) {
       negPatch.config_campos = config_campos;
     }
@@ -139,6 +140,9 @@ const updateConfiguracion = async (req, res) => {
       // Lo que no viene se conserva como estaba (no vuelve al perfil de siempre).
       const { data: actual } = await supabase.from("negocios").select("*").eq("id", negocioId).maybeSingle();
       negPatch.modulos = normalizar(modulos, modulosDe(actual));
+      // Al registro sólo va un cambio real (antes cada guardado decía
+      // "cambió los módulos" aunque nadie los tocara).
+      modulosCambiaron = JSON.stringify(negPatch.modulos) !== JSON.stringify(modulosDe(actual));
     }
     if (Object.keys(negPatch).length > 0) {
       const { error: negErr } = await supabase
@@ -146,10 +150,8 @@ const updateConfiguracion = async (req, res) => {
         .update(negPatch)
         .eq("id", negocioId);
       if (negErr) throw negErr;
-      if (negPatch.modulos) {
-        olvidarModulos(negocioId);
-        registrar(req, "modulos", "negocio", negocioId, negPatch.modulos);
-      }
+      if (negPatch.modulos) olvidarModulos(negocioId);
+      if (modulosCambiaron) registrar(req, "modulos", "negocio", negocioId, negPatch.modulos);
     }
 
     const payload = {

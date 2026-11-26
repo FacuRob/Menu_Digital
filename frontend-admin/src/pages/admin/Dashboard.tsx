@@ -259,7 +259,7 @@ export default function Dashboard() {
   }, [negocioId]);
 
   const bizName = cfg?.nombre || negocios.find((n) => n.id === negocioId)?.nombre || "";
-  const publicUrl = `${MENU_PUBLIC_BASE}${menuPath(slug, negocioId, rubro)}`;
+  const publicUrl = `${MENU_PUBLIC_BASE}${menuPath(slug, negocioId)}`;
   const paginaLabel = rubro && rubro !== "gastronomia" ? "navVerPagina" : "navVerMenu";
   const hora = new Date().getHours();
   const nombre = (user?.nombre || user?.username || "").split(" ")[0];
@@ -343,7 +343,7 @@ export default function Dashboard() {
           </div>
           <div className="flex flex-wrap gap-2">
             <a
-              href={menuPath(slug, negocioId, rubro)}
+              href={menuPath(slug, negocioId)}
               target="_blank"
               rel="noopener"
               className="inline-flex min-h-11 items-center gap-2 rounded-[var(--r-sm)] border border-line-strong bg-surface px-4 text-sm font-semibold text-fg transition-colors hover:bg-surface-2"

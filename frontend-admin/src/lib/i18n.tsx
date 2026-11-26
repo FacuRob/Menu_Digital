@@ -977,6 +977,7 @@ const es: Dict = {
   obOfrecePersonalizados: "Productos personalizados",
   obOfreceServicios: "Servicios",
   obOfreceNota: "Si ofrecés productos y servicios, marcá las dos. Te sugerimos lo más común para tu rubro.",
+  obOfreceConProductos: "Ya tenés {n} productos cargados: los vamos a seguir mostrando. Si no los querés, apagá Productos en Configuración → Módulos.",
   obFuncTitle: "¿Cómo trabaja tu negocio?",
   obFuncSub: "Marcá todo lo que hacés. Te sugerimos lo más común para tu rubro, pero podés elegir cualquier combinación.",
   obFnVentaDirecta: "Venta directa",

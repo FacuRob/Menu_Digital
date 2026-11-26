@@ -360,7 +360,7 @@ export function AdminShell() {
   const { isDark, setTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
-  const menuHref = menuPath(slug, negocioId, rubro);
+  const menuHref = menuPath(slug, negocioId);
   // "Ver menú" en gastronomía; "Ver mi página" en el resto.
   const verLabel = rubro && rubro !== "gastronomia" ? "navVerPagina" : "navVerMenu";
 

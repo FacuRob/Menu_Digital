@@ -16,10 +16,11 @@ const { getProductosDisponibles } = require("../src/controllers/productosControl
 const { updateOnboarding } = require("../src/controllers/onboardingController");
 
 const NEG = 4;
-let negocio, cfg, ops;
+let negocio, cfg, ops, productosDb;
 beforeEach(() => {
   olvidarModulos(NEG);
   ops = [];
+  productosDb = [{ id: 1, nombre: "Café", precio: 1000, costo: 0, disponible: true }];
   negocio = { id: NEG, tipo_rubro: "servicios", modulos: null, onboarding: null };
   cfg = { negocio_id: NEG, nombre: "Peluquería Ana", mesas_activo: true, mesas_cantidad: 5, retiro_activo: true, delivery_activo: true };
   db.setHandler((q) => {
@@ -27,7 +28,7 @@ beforeEach(() => {
     if (q.table === "negocios" && q.op === "select") return { data: negocio, error: null };
     if (q.table === "negocios" && q.op === "update") return { data: { ...negocio, ...q.payload }, error: null };
     if (q.table === "configuracion") return { data: cfg, error: null };
-    if (q.table === "productos" && q.op === "select") return { data: [{ id: 1, nombre: "Café", precio: 1000, costo: 0, disponible: true }], error: null };
+    if (q.table === "productos" && q.op === "select") return { data: productosDb, error: null };
     if (q.table === "pedidos" && q.op === "insert") return { data: { id: 9, ...q.payload[0] }, error: null };
     if (q.table === "pedido_items" && q.op === "insert") return { data: q.payload, error: null };
     return { data: [], error: null };
@@ -150,6 +151,31 @@ test("onboarding: lo elegido define los módulos mientras no terminó", async ()
   const upd = ops.find((o) => o.table === "negocios" && o.op === "update");
   assert.equal(upd.payload.modulos.servicios, true);
   assert.equal(upd.payload.modulos.pedidos, false);
+});
+
+test("onboarding: marcar sólo servicios no esconde productos ya cargados (QA 2.1)", async () => {
+  negocio.onboarding = { paso: 4, completado: false };
+  await updateOnboarding({ negocioId: NEG, body: { ofrece: ["servicios"], funciones: ["venta_directa"] } }, respuesta());
+  const upd = ops.find((o) => o.table === "negocios" && o.op === "update");
+  assert.deepEqual([upd.payload.modulos.productos, upd.payload.modulos.pedidos, upd.payload.modulos.servicios], [true, true, true]);
+});
+
+test("onboarding: sin productos cargados, sólo servicios apaga productos", async () => {
+  negocio.onboarding = { paso: 4, completado: false };
+  productosDb = [];
+  await updateOnboarding({ negocioId: NEG, body: { ofrece: ["servicios"] } }, respuesta());
+  const upd = ops.find((o) => o.table === "negocios" && o.op === "update");
+  assert.equal(upd.payload.modulos.productos, false);
+});
+
+test("guardar configuración sin cambiar módulos no deja 'cambió los módulos' en el registro", async () => {
+  negocio.modulos = { ...LEGADO };
+  await updateConfiguracion({ negocioId: NEG, user: { id: 1, cuenta_id: 1 }, body: { nombre: "X", modulos: { ...LEGADO } } }, respuesta());
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(ops.some((o) => o.table === "registro_cambios"), false);
+  await updateConfiguracion({ negocioId: NEG, user: { id: 1, cuenta_id: 1 }, body: { nombre: "X", modulos: { estadisticas: false } } }, respuesta());
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(ops.some((o) => o.table === "registro_cambios"), true);
 });
 
 test("onboarding: ya terminado, no toca los módulos", async () => {

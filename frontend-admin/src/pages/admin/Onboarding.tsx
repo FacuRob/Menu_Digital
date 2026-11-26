@@ -390,6 +390,9 @@ export default function Onboarding() {
             ))}
           </div>
           <Nota>{t("obOfreceNota")}</Nota>
+          {cantProductos > 0 && !ofreceSel.includes("productos") && !ofreceSel.includes("personalizados") && (
+            <Nota>{t("obOfreceConProductos", { n: cantProductos })}</Nota>
+          )}
         </>
       )}
 
