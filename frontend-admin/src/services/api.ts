@@ -859,8 +859,13 @@ export interface PlanInfo {
   productos_usados: number;
   // Plan que rige hoy (en prueba gratis, el de prueba).
   plan_efectivo?: TipoPlan | null;
-  // WhatsApp, chats, bot con IA y mapa del repartidor (Estándar y Premium).
+  // Funciones pagas que puede usar (por el plan o por un módulo sumado):
+  // whatsapp (avisos y chats), ia (asistente) y mapa (repartidor).
   whatsapp?: boolean;
+  ia?: boolean;
+  mapa?: boolean;
+  // Módulos sumados vigentes.
+  modulos?: CodigoModulo[];
 }
 
 // Firmas de los QR por mesa: la URL lleva ?mesa=N&t=<firma> y el backend
@@ -891,6 +896,10 @@ export interface Cuenta {
   created_at?: string;
   suscripcion_actualizada_at?: string;
   negocios_count: number;
+  // Módulos sumados (Básico) y lo que paga por mes; null si no está activa.
+  modulos?: CodigoModulo[];
+  monto_mensual?: number | null;
+  precio_fundador?: boolean;
   usuarios_count: number;
   productos_count: number;
 }
@@ -991,13 +1000,54 @@ export interface SuscripcionEstado {
   descuento?: { porcentaje: number; meses_restantes: number } | null;
   // Email de Mercado Pago para precargar (último usado o el del usuario).
   mp_email?: string | null;
+  // Módulos que se suman al plan (catálogo) y los que sumó la cuenta.
+  modulos?: ModuloCatalogo[];
+  modulos_cuenta?: Partial<Record<CodigoModulo, ModuloCuenta>>;
+  funciones?: Record<CodigoModulo, boolean>;
+  // Precio del plan que paga (el de fundador si lo tiene).
+  precio_plan?: number;
+  precio_fundador?: boolean;
+  // Próximo cobro (plan + módulos, con cupón). null si no paga por Mercado Pago.
+  monto_proximo_cobro?: number | null;
+}
+
+export type CodigoModulo = "whatsapp" | "ia" | "mapa";
+
+export interface ModuloCatalogo {
+  codigo: CodigoModulo;
+  nombre: string;
+  precio_mensual: number;
+  requiere: CodigoModulo | null;
+  // Planes que ya lo traen.
+  incluido_en: TipoPlan[];
+}
+
+export interface ModuloCuenta {
+  desde: string;
+  cobrado: boolean;
+  // Pidió quitarlo: lo usa hasta esta fecha.
+  baja_en: string | null;
+}
+
+export interface CambioModulo {
+  modulos_cuenta: Partial<Record<CodigoModulo, ModuloCuenta>>;
+  funciones: Record<CodigoModulo, boolean>;
+  monto_proximo_cobro: number;
+  periodo_fin: string | null;
+  baja_en: string | null;
 }
 
 export const suscripcionService = {
   get: async () => (await api.get<SuscripcionEstado>("/suscripcion")).data,
   // `email`: el de la cuenta de Mercado Pago con la que se paga.
-  checkout: async (plan: PlanCatalogo["code"], email?: string) =>
-    (await api.post<{ url: string }>(`/suscripcion/checkout/${plan}`, { email })).data,
+  checkout: async (plan: PlanCatalogo["code"], email?: string, modulos: CodigoModulo[] = []) =>
+    (await api.post<{ url: string }>(`/suscripcion/checkout/${plan}`, { email, modulos })).data,
+  // Módulos: se suman ya y se cobran desde el próximo cobro; al quitar, se
+  // usan hasta el próximo cobro.
+  sumarModulo: async (codigo: CodigoModulo) =>
+    (await api.post<CambioModulo>(`/suscripcion/modulos/${codigo}`)).data,
+  quitarModulo: async (codigo: CodigoModulo) =>
+    (await api.delete<CambioModulo>(`/suscripcion/modulos/${codigo}`)).data,
   // Baja de la suscripción: DinexFlow se la pide a Mercado Pago.
   cancelar: async () =>
     (await api.post<{ estado_suscripcion: EstadoSuscripcion; periodo_fin: string | null }>("/suscripcion/cancelar")).data,

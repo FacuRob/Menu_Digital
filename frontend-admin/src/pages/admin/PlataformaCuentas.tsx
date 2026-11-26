@@ -14,6 +14,8 @@ import {
   type TipoPlan,
 } from "../../services/api";
 
+const MODULO_NOMBRE: Record<string, string> = { whatsapp: "WhatsApp", ia: "IA", mapa: "Mapa" };
+
 // Plataforma · Cuentas: la lista completa, pensada para muchas cuentas.
 // Se busca, se filtra por estado y plan, y se pagina de a POR_PAGINA.
 
@@ -300,6 +302,17 @@ export default function PlataformaCuentas() {
                         <span aria-hidden style={{ width: 8, height: 8, borderRadius: 2, background: planColor[c.tipo_plan] }} />
                         {c.tipo_plan}
                       </span>
+                      {(c.modulos?.length || c.precio_fundador || c.monto_mensual != null) && (
+                        <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 3, lineHeight: 1.4 }}>
+                          {c.modulos?.length ? `+ ${c.modulos.map((m) => MODULO_NOMBRE[m]).join(", ")}` : null}
+                          {c.modulos?.length && (c.precio_fundador || c.monto_mensual != null) ? " · " : null}
+                          {c.precio_fundador ? t("modFounder") : null}
+                          {c.precio_fundador && c.monto_mensual != null ? " · " : null}
+                          {c.monto_mensual != null
+                            ? new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(c.monto_mensual) + "/mes"
+                            : null}
+                        </div>
+                      )}
                     </td>
                     <td style={S.td}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: est.color, whiteSpace: "nowrap" }}>

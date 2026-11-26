@@ -17,6 +17,7 @@ import {
   type EstadoAviso,
   type MensajeWhatsapp,
 } from "../../services/api";
+import { OfertaModulo } from "../../components/PlanBloqueado";
 
 const EMOJI: Record<EstadoAviso, string> = {
   pendiente: "📥",
@@ -90,7 +91,7 @@ function Toggle({
 export default function WhatsApp() {
   const P = usePalette();
   const { t, lang } = useLang();
-  const { negocioId } = useNegocio();
+  const { negocioId, conIA } = useNegocio();
   const [data, setData] = useState<AvisosWhatsapp | null>(null);
   const [mensajes, setMensajes] = useState<MensajeWhatsapp[]>([]);
   const [local, setLocal] = useState("Tu local");
@@ -322,8 +323,9 @@ export default function WhatsApp() {
               </p>
             </section>
 
-            {/* Asistente con IA (Fase 3) */}
-            {ia && (
+            {/* Asistente con IA: por el plan o el módulo; si no, la oferta. */}
+            {conIA === false && <OfertaModulo modulo="ia" compacta />}
+            {ia && conIA !== false && (
               <section className={`rounded-2xl p-5 ${P.card}`}>
                 <div className="flex items-center gap-4">
                   <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[color-mix(in_srgb,var(--violet)_15%,transparent)] text-2xl">🤖</span>

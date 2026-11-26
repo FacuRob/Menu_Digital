@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import AdminLayout from "../../components/AdminLayout";
+import ModulosSuscripcion from "../../components/ModulosSuscripcion";
 import { useStyles } from "../../components/sharedStyles";
 import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
@@ -11,7 +13,17 @@ import {
   getApiErrorMessage,
   type SuscripcionEstado,
   type PlanCatalogo,
+  type CodigoModulo,
 } from "../../services/api";
+
+const CODIGOS: CodigoModulo[] = ["whatsapp", "ia", "mapa"];
+
+// ?modulo=ia → ["ia", "whatsapp"] (la IA pide WhatsApp).
+const modulosDeUrl = (v: string | null): CodigoModulo[] => {
+  const c = CODIGOS.find((x) => x === v);
+  if (!c) return [];
+  return c === "ia" ? ["ia", "whatsapp"] : [c];
+};
 
 // Estados → color + clave de traducción de la etiqueta.
 const ESTADO_INFO: Record<
@@ -58,6 +70,11 @@ export default function Suscripcion() {
   const [cancelando, setCancelando] = useState(false);
   const { hasPermiso } = useAuth();
   const [cuponMsg, setCuponMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // ?modulo=whatsapp: viene de la pantalla de WhatsApp (o Chats, Pedidos).
+  const [params] = useSearchParams();
+  const moduloPedido = CODIGOS.find((c) => c === params.get("modulo")) ?? null;
+  // Módulos elegidos para sumar al Básico al pagarlo.
+  const [modsCheckout, setModsCheckout] = useState<CodigoModulo[]>(() => modulosDeUrl(params.get("modulo")));
 
   const canjear = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,7 +151,7 @@ export default function Suscripcion() {
     try {
       setError("");
       setRedirecting(plan);
-      const { url } = await suscripcionService.checkout(plan, email || undefined);
+      const { url } = await suscripcionService.checkout(plan, email || undefined, plan === "basic" ? modsCheckout : []);
       window.location.assign(url);
     } catch (e) {
       setError(getApiErrorMessage(e, t("subCheckoutError")));
@@ -172,6 +189,27 @@ export default function Suscripcion() {
   const info = data && !data.vigente ? ESTADO_INFO.vencido : ESTADO_INFO[estado] || ESTADO_INFO.trial;
   const dias = data?.dias_restantes ?? null;
   const esFree = data?.tipo_plan === "free" || estado === "trial";
+  // Paga hoy por Mercado Pago: los módulos se suman o quitan desde acá.
+  const pagaConMP = !!data && !data.es_plataforma && estado === "activo" && data.monto_proximo_cobro != null;
+  const catalogoMods = data?.modulos ?? [];
+  const precioDe = (code: string) => (data?.planes ?? FALLBACK_PLANES).find((p) => p.code === code);
+  // Elegir el Básico con módulos al pagar (si ya paga el Básico, se suman en "Lo que pagás por mes").
+  const basicoSumable = catalogoMods.length > 0 && !(data?.tipo_plan === "basic" && pagaConMP) && !data?.es_plataforma;
+  const basico = precioDe("basic");
+  const totalBasico =
+    (basico ? (basico.precio_con_descuento ?? basico.precio_mensual) : 0) +
+    catalogoMods.filter((m) => modsCheckout.includes(m.codigo)).reduce((t_, m) => t_ + m.precio_mensual, 0);
+  // Estándar en la misma base que lo que paga (con el cupón, si lo hay).
+  const std = precioDe("standard");
+  const precioStd = std ? (std.precio_con_descuento ?? std.precio_mensual) : null;
+  const toggleMod = (c: CodigoModulo) =>
+    setModsCheckout((prev) => {
+      if (prev.includes(c)) {
+        // Sin WhatsApp no hay IA.
+        return prev.filter((x) => x !== c && !(c === "whatsapp" && x === "ia"));
+      }
+      return c === "ia" && !prev.includes("whatsapp") ? [...prev, "ia", "whatsapp"] : [...prev, c];
+    });
 
   return (
     <AdminLayout title={t("navSuscripcion")}>
@@ -408,6 +446,20 @@ export default function Suscripcion() {
           </div>
         )}
 
+        {/* ── Lo que pagás por mes: plan + módulos ── */}
+        {data && pagaConMP && catalogoMods.length > 0 && (
+          <ModulosSuscripcion
+            data={data}
+            onCambio={(d) => setData((prev) => (prev ? { ...prev, ...d } : prev))}
+            money={money}
+            fmtFecha={fmtFecha}
+            planNombre={planNombre}
+            precioEstandar={precioStd}
+            onElegirEstandar={() => irACheckout("standard")}
+            abrir={moduloPedido}
+          />
+        )}
+
         {data?.es_plataforma && (
           <div style={{ ...S.card, padding: 22, marginBottom: 18 }}>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: textPrimary }}>
@@ -523,6 +575,13 @@ export default function Suscripcion() {
           {(data?.planes ?? FALLBACK_PLANES).map((p) => {
             const esActual = data?.tipo_plan === p.code;
             const destacado = p.code === "standard";
+            // Básico: se le pueden sumar módulos al pagarlo (si ya lo paga, se
+            // suman desde "Lo que pagás por mes").
+            const conMods = p.code === "basic" && !(esActual && pagaConMP) && catalogoMods.length > 0;
+            const sumaMods = conMods
+              ? catalogoMods.filter((m) => modsCheckout.includes(m.codigo)).reduce((t_, m) => t_ + m.precio_mensual, 0)
+              : 0;
+            const totalCard = (p.precio_con_descuento ?? p.precio_mensual) + sumaMods;
             const bizFeature =
               p.limites.negocios >= 9999
                 ? t("subUnlimBiz")
@@ -596,6 +655,38 @@ export default function Suscripcion() {
                   ))}
                 </ul>
 
+                {/* Módulos: en el Básico se suman (abajo); en los otros vienen incluidos. */}
+                {catalogoMods.length > 0 && (
+                  <div style={{ borderTop: `1px solid ${border}`, padding: "12px 0 0", margin: "0 0 16px" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: textMuted }}>
+                      {t(p.code === "basic" ? "modAddToBasic" : "modIncludedTitle")}
+                    </div>
+                    <ul style={{ listStyle: "none", padding: 0, margin: "8px 0 0", display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {catalogoMods.map((m) => {
+                        const incluido = m.incluido_en.includes(p.code);
+                        const elegido = conMods && modsCheckout.includes(m.codigo);
+                        return (
+                          <li
+                            key={m.codigo}
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 600,
+                              padding: "4px 10px",
+                              borderRadius: 999,
+                              border: `1px solid ${elegido ? "var(--accent)" : border}`,
+                              background: elegido ? "color-mix(in srgb, var(--accent) 14%, transparent)" : "var(--surface-2)",
+                              color: incluido ? "var(--ok)" : textPrimary,
+                            }}
+                          >
+                            {incluido || elegido ? "✓ " : `+${money(m.precio_mensual)} `}
+                            {m.nombre}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+
                 <button
                   onClick={() => irACheckout(p.code)}
                   disabled={esActual || redirecting === p.code}
@@ -611,12 +702,98 @@ export default function Suscripcion() {
                     ? t("subCurrentPlan")
                     : redirecting === p.code
                       ? t("subOpening")
-                      : t("subChoose")}
+                      : sumaMods > 0
+                        ? t("modChooseWithTotal", { total: money(totalCard) })
+                        : t("subChoose")}
                 </button>
               </div>
             );
           })}
         </div>
+
+        {/* ── Módulos para sumar al Básico (tarjetas, como en Fudo) ── */}
+        {basicoSumable && (
+          <section aria-labelledby="mods-titulo" style={{ marginTop: 28 }}>
+            <div style={{ margin: "0 2px 14px" }}>
+              <h3 id="mods-titulo" style={{ margin: 0, fontSize: 16, fontWeight: 700, color: textPrimary }}>
+                {t("modSectionTitle")}
+              </h3>
+              <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--fg-2)" }}>{t("modSectionHint")}</p>
+            </div>
+            <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))" }}>
+              {catalogoMods.map((m) => {
+                const elegido = modsCheckout.includes(m.codigo);
+                const req = m.requiere ? catalogoMods.find((x) => x.codigo === m.requiere) : null;
+                return (
+                  <div
+                    key={m.codigo}
+                    style={{
+                      ...S.card,
+                      padding: 20,
+                      display: "flex",
+                      flexDirection: "column",
+                      border: `1.5px solid ${elegido ? "var(--accent)" : border}`,
+                    }}
+                  >
+                    <div style={{ fontSize: 15, fontWeight: 700, color: textPrimary }}>{m.nombre}</div>
+                    <div style={{ margin: "8px 0 2px", display: "flex", alignItems: "baseline", gap: 5 }}>
+                      <span style={{ fontSize: 22, fontWeight: 800, color: textPrimary }}>+{money(m.precio_mensual)}</span>
+                      <span style={{ fontSize: 12.5, color: textMuted }}>/{t("subPerMonth")}</span>
+                    </div>
+                    <p style={{ margin: "8px 0 12px", fontSize: 13, lineHeight: 1.55, color: "var(--fg-2)", flex: 1 }}>
+                      {t(`modDesc_${m.codigo}`)}
+                    </p>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+                      <span style={{ fontSize: 11.5, fontWeight: 600, padding: "3px 10px", borderRadius: 999, background: "var(--ok-bg)", color: "var(--ok)" }}>
+                        {t("modIncludedStdPrem")}
+                      </span>
+                      {req && (
+                        <span style={{ fontSize: 11.5, fontWeight: 600, padding: "3px 10px", borderRadius: 999, background: "var(--info-bg)", color: "var(--info)" }}>
+                          {t("modNeeds", { modulo: req.nombre })}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      aria-pressed={elegido}
+                      onClick={() => toggleMod(m.codigo)}
+                      style={{ ...(elegido ? S.btnPrimary : S.btnGhost), width: "100%", justifyContent: "center", minHeight: 44 }}
+                    >
+                      {elegido ? t("modPicked") : t("modPick")}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Resumen: Básico + lo elegido */}
+            <div
+              role="status"
+              aria-live="polite"
+              style={{ ...S.card, marginTop: 14, padding: "16px 20px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px 18px" }}
+            >
+              <div style={{ flex: "1 1 280px" }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: textPrimary }}>
+                  {t("modSummary", { total: money(totalBasico) })}
+                </div>
+                <p style={{ margin: "4px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--fg-2)" }}>{t("modCardWhen")}</p>
+                {precioStd != null && totalBasico > precioStd && (
+                  <p style={{ margin: "6px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--info)", fontWeight: 600 }}>
+                    {t("modBetterStandardShort", { std: money(precioStd) })}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => irACheckout("basic")}
+                disabled={redirecting === "basic"}
+                style={{ ...S.btnGhost, minHeight: 44 }}
+              >
+                {redirecting === "basic" ? t("subOpening") : t("modChooseWithTotal", { total: money(totalBasico) })}
+              </button>
+            </div>
+          </section>
+        )}
       </div>
     </AdminLayout>
   );

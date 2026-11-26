@@ -4,6 +4,7 @@ const { registrar } = require("../utils/registroCambios");
 const { respondError } = require("../utils/respondError");
 const { preciosPorPlan } = require("../utils/planPrecios");
 const { montoProximoCobro } = require("../utils/modulosPagos");
+const { modulosVigentes } = require("../utils/suscripcion");
 
 // ══════════════════════════════════════════════════════════════
 // Panel de PLATAFORMA — sólo para el dueño del SaaS (es_plataforma).
@@ -55,6 +56,10 @@ const getCuentas = async (req, res) => {
       negocios_count: negociosPorCuenta.get(c.id) || 0,
       usuarios_count: usuariosPorCuenta.get(c.id) || 0,
       productos_count: productosPorCuenta.get(c.id) || 0,
+      // Módulos sumados vigentes y lo que paga por mes (plan + módulos, con cupón).
+      modulos: modulosVigentes(c),
+      monto_mensual: c.estado_suscripcion === "activo" ? montoProximoCobro(c) : null,
+      precio_fundador: Number(c.precio_plan_fijo) > 0,
     }));
 
     res.json(cuentas);

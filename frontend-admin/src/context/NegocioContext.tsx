@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   negociosService,
@@ -16,8 +16,14 @@ interface NegocioContextType {
   slug: string | null;
   // tipo_rubro del negocio activo (gastronomia, retail…); null si no se sabe.
   rubro: string | null;
-  // ¿El plan incluye WhatsApp, chats, IA y mapa? null mientras no se sabe.
+  // ¿Puede usar WhatsApp (avisos y chats), el asistente con IA y el mapa del
+  // repartidor? Por el plan o por un módulo sumado. null mientras no se sabe
+  // (o si el plan los trae pero la cuenta está vencida: el panel ya pide renovar).
   conWhatsapp: boolean | null;
+  conIA: boolean | null;
+  conMapa: boolean | null;
+  // Vuelve a leer el plan (después de sumar o quitar un módulo).
+  recargarPlan: () => void;
   // ¿El negocio activo usa este módulo? Mientras no se sabe, sí (así no
   // desaparece el menú de un restaurante mientras carga).
   tieneModulo: (codigo: string) => boolean;
@@ -50,7 +56,14 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
   const [moneda, setMoneda] = useState<string>("ARS");
   const [slug, setSlug] = useState<string | null>(null);
   const [rubro, setRubro] = useState<string | null>(null);
-  const [conWhatsapp, setConWhatsapp] = useState<boolean | null>(null);
+  const [funciones, setFunciones] = useState<{ whatsapp: boolean | null; ia: boolean | null; mapa: boolean | null }>({
+    whatsapp: null,
+    ia: null,
+    mapa: null,
+  });
+  const [versionPlan, setVersionPlan] = useState(0);
+  const clavePlan = useRef("");
+  const recargarPlan = () => setVersionPlan((v) => v + 1);
   const [modulos, setModulos] = useState<Modulos | null>(null);
   const [versionCfg, setVersionCfg] = useState(0);
 
@@ -81,7 +94,11 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
   // Sólo se marca "sin WhatsApp" si el plan no lo trae: una cuenta Estándar
   // vencida no ve "mejorá tu plan" (el panel ya le pide renovar).
   useEffect(() => {
-    setConWhatsapp(null); // descartar el dato de la sesión o negocio anterior
+    // Descartar el dato de la sesión o negocio anterior (no al recargar el
+    // plan: así no parpadea la oferta mientras llega el dato nuevo).
+    const clave = `${isAuthenticated}-${negocioId}-${userId}`;
+    if (clavePlan.current !== clave) setFunciones({ whatsapp: null, ia: null, mapa: null });
+    clavePlan.current = clave;
     if (!isAuthenticated) return;
     let vigente = true;
     planService
@@ -89,13 +106,14 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
       .then((p) => {
         if (!vigente) return;
         const trae = p.plan_efectivo === "standard" || p.plan_efectivo === "premium";
-        setConWhatsapp(p.whatsapp === true ? true : p.whatsapp === false && !trae ? false : null);
+        const de = (v?: boolean) => (v === true ? true : v === false && !trae ? false : null);
+        setFunciones({ whatsapp: de(p.whatsapp), ia: de(p.ia), mapa: de(p.mapa) });
       })
-      .catch(() => vigente && setConWhatsapp(null));
+      .catch(() => vigente && setFunciones({ whatsapp: null, ia: null, mapa: null }));
     return () => {
       vigente = false;
     };
-  }, [isAuthenticated, negocioId, userId]);
+  }, [isAuthenticated, negocioId, userId, versionPlan]);
 
   const refresh = async () => {
     if (!puedeNegocios) return;
@@ -134,7 +152,22 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <NegocioContext.Provider
-      value={{ negocioId, negocios, moneda, slug, rubro, conWhatsapp, tieneModulo, usaModulo, recargarConfig, setNegocioId, refresh }}
+      value={{
+        negocioId,
+        negocios,
+        moneda,
+        slug,
+        rubro,
+        conWhatsapp: funciones.whatsapp,
+        conIA: funciones.ia,
+        conMapa: funciones.mapa,
+        recargarPlan,
+        tieneModulo,
+        usaModulo,
+        recargarConfig,
+        setNegocioId,
+        refresh,
+      }}
     >
       {children}
     </NegocioContext.Provider>

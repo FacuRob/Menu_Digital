@@ -128,7 +128,7 @@ const estadoColor: Record<Pedido["estado"], string> = {
 };
 
 export default function Pedidos() {
-  const { moneda, conWhatsapp } = useNegocio();
+  const { moneda, conMapa } = useNegocio();
   const { t } = useLang();
   const fmt = (n: number) => fmtMoney(n, moneda);
   const estadoLabel = (e: Pedido["estado"]) =>
@@ -706,9 +706,9 @@ export default function Pedidos() {
                     <span aria-hidden>{p.tipo_entrega === "envio" ? "📦" : "🛵"}</span> {p.tipo_entrega === "envio" ? t("pedDespachar") : t("pedSend")}
                   </EstadoBtn>
                 )}
-                {/* Mapa del repartidor: plan Estándar o Premium. */}
+                {/* Mapa del repartidor: por el plan (Estándar, Premium) o el módulo. */}
                 {p.tipo_entrega === "delivery" &&
-                  conWhatsapp !== false &&
+                  conMapa !== false &&
                   ["pendiente", "preparando", "en_camino"].includes(p.estado) && (
                   <EstadoBtn color="var(--teal)" ghost onClick={() => compartirReparto(p)}>
                     📍 {t("pedCourier")}
