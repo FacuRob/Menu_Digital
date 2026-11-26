@@ -119,6 +119,49 @@
         "set VITE_API_URL=http://localhost:5066&& npm --prefix frontend-admin run dev -- --mode mock --port 3031 --strictPort"
       ],
       "port": 3031
+    },
+    {
+      "name": "mock-qa",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/facun/AppData/Local/Temp/claude/10e19af33f0944f7/aaa685db-bcbb-4659-90d8-ab161e310736/scratchpad/mockqa/server.js"
+      ],
+      "port": 5099
+    },
+    {
+      "name": "admin-qa",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "set VITE_API_URL=http://localhost:5099&& npm --prefix frontend-admin run dev -- --mode mock --port 3051 --strictPort"
+      ],
+      "port": 3051
+    },
+    {
+      "name": "menu-qa",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "set VITE_API_URL=http://localhost:5099&& npm --prefix frontend run dev -- --mode mock --port 3061 --strictPort"
+      ],
+      "port": 3061
+    },
+    {
+      "name": "mock-mod",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/facun/AppData/Local/Temp/claude/7e68ddb701a96cc3/f1a25e21-7c12-4fa5-be3d-6c47998f2c6b/scratchpad/mockmod/server.js"
+      ],
+      "port": 5088
+    },
+    {
+      "name": "admin-mod",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "set VITE_API_URL=http://localhost:5088&& npm --prefix frontend-admin run dev -- --mode mock --port 3041 --strictPort"
+      ],
+      "port": 3041
     }
   ]
 }
