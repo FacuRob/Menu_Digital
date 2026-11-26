@@ -11,11 +11,12 @@ import OrderDemo from "../components/landing/OrderDemo";
 import Telefono from "../components/landing/Telefono";
 import QrCodigo from "../components/landing/QrCodigo";
 import { IconArrow, IconCheck, IconClose, IconMenu, IconUsuario, LogoMark } from "../components/landing/icons";
+import { TRIAL_DIAS } from "../lib/planes";
+import { TarjetasModulos, TarjetasPlanes } from "../components/landing/Planes";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 const BRAND = "DinexFlow";
-const TRIAL_DIAS = 15;
 const CONTENEDOR = "mx-auto w-full max-w-[1600px] px-5 sm:px-8 lg:px-12";
 
 function Flecha() {
@@ -459,65 +460,9 @@ function Probalo() {
 }
 
 // ── 7. Precios ───────────────────────────────────────────────
-// Precio mensual en pesos. Deben coincidir con backend/src/utils/planPrecios.js
-// (el panel y Mercado Pago cobran desde ahí).
-type Plan = {
-  code: string;
-  name: string;
-  desc: string;
-  mensual: number;
-  perks: string[];
-  estilo: "claro" | "aji" | "tinta";
-};
-const PLANES: Plan[] = [
-  {
-    code: "basic",
-    name: "Básico",
-    desc: "Para arrancar con tu primer negocio.",
-    mensual: 22000,
-    perks: [
-      "Un solo negocio",
-      "Hasta 50 productos",
-      "Tu página con QR y link",
-      "Talles, colores y productos a medida",
-      "Servicios, presupuestos y turnos",
-      "Analíticas de ventas",
-    ],
-    estilo: "claro",
-  },
-  {
-    code: "standard",
-    name: "Estándar",
-    desc: "Para negocios que crecen.",
-    mensual: 44000,
-    perks: [
-      "Todo lo del Básico",
-      "Hasta 3 negocios",
-      "180 productos repartidos entre tus negocios (60 c/u con 3)",
-      "Control de stock",
-      "Avisos automáticos y chats por WhatsApp",
-      "Asistente con IA que responde en WhatsApp",
-      "Seguimiento del repartidor en el mapa",
-    ],
-    estilo: "aji",
-  },
-  {
-    code: "premium",
-    name: "Premium",
-    desc: "Para varios negocios o sucursales.",
-    mensual: 72000,
-    perks: ["Todo lo del Estándar", "Hasta 5 negocios", "1.000 productos repartidos entre tus negocios (200 c/u con 5)"],
-    estilo: "tinta",
-  },
-];
+// Planes y módulos: src/lib/planes.ts (los precios coinciden con el backend).
 
-const ESTILO_PLAN = {
-  claro: { card: "bg-white text-[var(--tinta)]", sub: "text-[var(--gris)]", btn: "bg-[var(--tinta)] text-white hover:bg-[var(--cobalto)]" },
-  aji: { card: "bg-[var(--aji)] text-[var(--tinta)] dx-sobre-aji", sub: "text-[var(--tinta)]/80", btn: "bg-[var(--tinta)] text-white hover:bg-[var(--cobalto)]" },
-  tinta: { card: "bg-[var(--tinta)] text-[var(--hueso)] dx-sobre-oscuro", sub: "text-[var(--gris-claro)]", btn: "bg-[var(--aji)] text-[var(--tinta)] hover:bg-[var(--aji-deep)]" },
-} as const;
 
-const pesos = (v: number) => v.toLocaleString("es-AR", { maximumFractionDigits: 0 });
 
 function Precios() {
   return (
@@ -530,47 +475,25 @@ function Precios() {
             </h2>
             <p className="mt-5 max-w-[42rem] text-lg leading-relaxed text-[var(--gris)]">
               Empezás con {TRIAL_DIAS} días gratis, sin tarjeta y con todo lo del plan Estándar. Después elegís tu plan
-              desde el panel y lo pagás mes a mes con Mercado Pago, en pesos. Subís, bajás o cancelás cuando quieras.
+              y lo pagás mes a mes con Mercado Pago, en pesos. Al Básico le podés sumar WhatsApp, el asistente con IA o
+              el mapa del repartidor.
             </p>
           </div>
+          <a href="/precios" className="dx-btn-borde shrink-0 self-start hover:bg-[var(--tinta)] hover:text-white lg:self-auto">
+            Ver precios y módulos
+          </a>
         </div>
 
-        <ul className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {PLANES.map((p) => {
-            const e = ESTILO_PLAN[p.estilo];
-            return (
-              <li key={p.code}>
-                <article className={`flex h-full flex-col rounded-[var(--radio)] p-7 lg:p-7 xl:p-8 ${e.card}`}>
-                  <div className="flex min-h-[2.75rem] flex-wrap items-center gap-x-3 gap-y-2">
-                    <h3 className="dx-display text-[2.25rem]">{p.name}</h3>
-                    {p.estilo === "aji" && (
-                      <span className="dx-label rounded-full bg-[var(--tinta)] px-3 py-1 text-white">Recomendado</span>
-                    )}
-                  </div>
-                  <p className={`mt-1.5 ${e.sub}`}>{p.desc}</p>
-                  <div className="mt-8 flex flex-wrap items-baseline gap-x-1.5">
-                    <span className={`dx-label ${e.sub}`}>$</span>
-                    <span className="dx-display dx-tabular text-[clamp(2.5rem,4.2vw,3.5rem)]">{pesos(p.mensual)}</span>
-                    <span className={e.sub}>/mes</span>
-                  </div>
-                  <ul className="mt-6 flex-1 space-y-2.5">
-                    {p.perks.map((perk) => (
-                      <li key={perk} className="flex items-start gap-2.5">
-                        <IconCheck className="mt-0.5 h-5 w-5 shrink-0" />
-                        {perk}
-                      </li>
-                    ))}
-                  </ul>
-                  <a href={ADMIN_SIGNUP_URL} className={`mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-5 font-semibold transition-colors ${e.btn}`}>
-                    Probar gratis
-                    <span className="sr-only"> con el plan {p.name}</span>
-                    <IconArrow className="h-4 w-4" />
-                  </a>
-                </article>
-              </li>
-            );
-          })}
-        </ul>
+        <TarjetasPlanes className="mt-14" />
+
+        {/* Módulos que se suman al Básico: tarjetas propias, debajo de los planes. */}
+        <div className="mt-16">
+          <h3 className="dx-display text-[clamp(2rem,4vw,3.25rem)]">Sumale módulos al Básico</h3>
+          <p className="mt-4 max-w-[40rem] text-lg leading-relaxed text-[var(--gris)]">
+            Los sumás desde tu panel y se cobran con tu próximo pago. En el Estándar y el Premium ya vienen incluidos.
+          </p>
+          <TarjetasModulos nivel="h4" className="mt-8" />
+        </div>
       </div>
     </section>
   );
@@ -649,6 +572,11 @@ function Footer() {
                 </a>
               </li>
             ))}
+            <li>
+              <a href="/precios" className="inline-flex min-h-11 items-center px-2 text-[var(--gris-claro)] hover:text-white">
+                Precios y módulos
+              </a>
+            </li>
             <li>
               <a href="/privacidad" className="inline-flex min-h-11 items-center px-2 text-[var(--gris-claro)] hover:text-white">
                 Privacidad

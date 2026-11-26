@@ -7,6 +7,7 @@ import { LanguageProvider, useLang } from "./lib/i18n";
 const Landing = lazy(() => import("./pages/Landing"));
 const Menu = lazy(() => import("./pages/Menu"));
 const Privacidad = lazy(() => import("./pages/Privacidad"));
+const Precios = lazy(() => import("./pages/Precios"));
 const Ticket = lazy(() => import("./pages/Ticket"));
 const PedirPresupuesto = lazy(() => import("./pages/PedirPresupuesto"));
 const Reservar = lazy(() => import("./pages/Reservar"));
@@ -83,6 +84,7 @@ function App({ url }: { url?: string }) {
         {/* Página informativa del producto (landing). */}
         <Route path="/" element={<Landing />} />
         <Route path="/privacidad" element={<Privacidad />} />
+        <Route path="/precios" element={<Precios />} />
         <Route path="/menu" element={<Menu />} />
         {/* Menú por negocio (multi-tenant): /menu/:slug */}
         <Route path="/menu/:slug" element={<Menu key="uno" />} />

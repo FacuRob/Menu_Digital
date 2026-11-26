@@ -161,7 +161,10 @@ Ficha tinta con un QR real (`QrCodigo`, un solo `<path>` SVG con zona de silenci
 Lista de filas en tinta; la fila activa (clase `is-activa`, por ScrollTrigger) pasa a hueso pleno, las demás quedan mezcladas al 48%.
 
 ### Precios
-Tres planes (Básico, Estándar recomendado en ají, Premium en tinta). Solo precio mensual, en pesos argentinos ("$ 20.000 /mes"), pagado con Mercado Pago. El número usa `clamp()` para no desbordar la tarjeta con montos de cinco o seis cifras.
+Tres planes (Básico, Estándar recomendado en ají, Premium en tinta). Solo precio mensual, en pesos argentinos ("$ 22.000 /mes"), pagado con Mercado Pago. El número usa `clamp()` para no desbordar la tarjeta con montos de cinco o seis cifras. Datos en `src/lib/planes.ts` (una sola fuente para la landing y /precios). El Básico muestra los módulos que se le suman; el Asistente con IA siempre dice "(con WhatsApp)" junto al precio.
+
+### Página /precios
+`pages/Precios.tsx`, mismo mundo sin escenas: barra fija en hueso; inicio + tres planes con "Sumale módulos" (chips con `/mes`) o "Módulos incluidos"; recuadro "¿Tenés más de un negocio?"; módulos sobre tinta; "En todos los planes" en hueso-2; tabla comparativa (Estándar resaltado en ají, dos grupos visibles y "Ver la comparativa completa"; región con foco para deslizarla con el teclado); preguntas; cierre en ají. El build genera `dist/precios/index.html` con título y vista previa propios (WhatsApp no corre JavaScript).
 
 ### Demo "Probalo"
 `OrderDemo.tsx` sobre cobalto: el visitante elige un local de ejemplo, suma productos, envía y ve el mensaje de WhatsApp; al enviar, el mensaje recibe foco y aparece "Armá la tuya gratis".

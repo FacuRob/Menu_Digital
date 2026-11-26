@@ -2,7 +2,7 @@
 // dist/index.html, así Google (y cualquiera sin JavaScript) ve el texto.
 // Ese index.html se sirve en todas las rutas (rewrite de Render): en las que
 // no son "/" el HTML de la landing se oculta al instante y main.tsx lo borra.
-import { readFile, writeFile, rm } from "node:fs/promises";
+import { readFile, writeFile, rm, mkdir } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -57,6 +57,28 @@ let html = await readFile(indexPath, "utf8");
 if (!html.includes('<div id="root"></div>') || !html.includes("</head>")) falla("index.html no tiene el formato esperado");
 html = html.replace("</head>", cabeza).replace('<div id="root"></div>', `<div id="root" data-pre>${cuerpo}</div>`);
 await writeFile(indexPath, html);
+
+// /precios: el mismo HTML pero con título, descripción y vista previa propios.
+// WhatsApp y Facebook no corren JavaScript: sin esto, al compartir el link se
+// vería la vista previa de la landing. Render sirve este archivo antes del
+// rewrite a /index.html; si no, queda el comportamiento de siempre.
+const PRECIOS = {
+  title: "Precios y planes · DinexFlow",
+  desc: "Planes desde $22.000 por mes en pesos, con Mercado Pago. Sumá WhatsApp, IA o el mapa al Básico, o elegí el Estándar con todo.",
+};
+let precios = html;
+const cambiar = (re, nuevo) => {
+  if (!re.test(precios)) falla(`/precios: no encontré ${re}`);
+  precios = precios.replace(re, nuevo);
+};
+cambiar(/<title>[^<]*<\/title>/, `<title>${PRECIOS.title}</title>`);
+cambiar(/(<meta\s+name="description"\s+content=")[^"]*(")/, `$1${PRECIOS.desc}$2`);
+cambiar(/(<meta property="og:url" content=")[^"]*(")/, "$1https://dinexflow.com.ar/precios$2");
+cambiar(/(<meta property="og:title" content=")[^"]*(")/, `$1${PRECIOS.title}$2`);
+cambiar(/(<meta\s+property="og:description"\s+content=")[^"]*(")/, `$1${PRECIOS.desc}$2`);
+precios = precios.replace("</head>", '<link rel="canonical" href="https://dinexflow.com.ar/precios">\n  </head>');
+await mkdir(path.join(dist, "precios"), { recursive: true });
+await writeFile(path.join(dist, "precios", "index.html"), precios);
 
 // El manifest sólo hacía falta acá: que no quede publicado.
 await rm(path.join(dist, ".vite"), { recursive: true, force: true });
