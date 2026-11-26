@@ -544,15 +544,17 @@ Cadena en cada ruta del panel: `authMiddleware` (JWT 24 h) → `scopeNegocio` (`
 | Plan | Precio mensual | Negocios | Productos (cuenta) | WhatsApp, chats, IA y mapa |
 |---|---|---|---|---|
 | Free (interno) | $0 | 1 | 10 | No |
-| **Básico** | $20.000 | 1 | 50 | No |
-| **Estándar** | $41.000 | 3 | 180 | Sí |
-| **Premium** | $65.000 | 5 | 1.000 | Sí |
+| **Básico** | $22.000 | 1 | 50 | Como módulos |
+| **Estándar** | $44.000 | 3 | 180 | Sí |
+| **Premium** | $72.000 | 5 | 1.000 | Sí |
 
-- **Prueba gratis de 15 días** sin tarjeta, con todo lo del Estándar. Sin plan anual.
+- **Prueba gratis de 15 días** sin tarjeta, con todo lo del Estándar. Solo cobro mensual (sin semestral ni anual).
+- **Módulos que se suman al Básico** (en Estándar y Premium vienen incluidos): WhatsApp $12.000, Asistente con IA $11.000 (pide WhatsApp), Mapa del repartidor $6.000. Se usan al sumarlos y se cobran desde el próximo cobro; al quitarlos se usan hasta el próximo cobro (si nunca se cobraron, se cobran una vez). El cupón descuenta solo el plan. `cuentas.modulos_pagos` + `backend/src/utils/modulosPagos.js` (`db/modulos_pagos.sql`). Rutas `POST/DELETE /api/suscripcion/modulos/:codigo`; el checkout acepta `modulos`.
+- **Precio de fundador**: quien pagaba antes del 26/11/2026 sigue con 20.000 / 41.000 / 65.000 (`cuentas.precio_plan_fijo`) mientras no cambie de plan.
 - Productos repartidos en partes iguales entre negocios (Estándar: 180 / 90 / 60). Los **servicios no cuentan** para el límite (decisión pendiente).
 - **Todos los módulos nuevos están en todos los planes**; los avisos de WhatsApp de presupuestos y turnos, solo Estándar y Premium.
 - Estados: `trial`, `activo`, `cancelado` (hasta fin del mes pagado), `vencido` (402 `SUSCRIPCION_VENCIDA`).
-- **Mercado Pago**: preapproval mensual, `external_reference = cuenta:<id>:plan:<code>`, webhook con firma `x-signature`, nunca confía en el cuerpo, verifica el monto, cancela la suscripción anterior al cambiar de plan.
+- **Mercado Pago**: preapproval mensual, `external_reference = cuenta:<id>:plan:<code>[:mod:ia.whatsapp]`, webhook con firma `x-signature`, nunca confía en el cuerpo, verifica el monto, cancela la suscripción anterior al cambiar de plan.
 - Fuentes únicas: precios en `backend/src/utils/planPrecios.js`, límites en `LIMITES_POR_PLAN` (`backend/src/utils/suscripcion.js`).
 
 ---

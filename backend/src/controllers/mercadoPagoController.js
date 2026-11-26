@@ -1,7 +1,14 @@
 const supabase = require("../config/database");
-const { PRECIOS_MENSUALES } = require("../utils/planPrecios");
 const mp = require("../utils/mercadoPago");
-const { precioConDescuento, tieneDescuento } = require("../utils/cupones");
+const { tieneDescuento } = require("../utils/cupones");
+const {
+  montoSuscripcionNueva,
+  montoProximoCobro,
+  modulosDeAlta,
+  modulosAlCobrar,
+  modulosACobrar,
+} = require("../utils/modulosPagos");
+const { olvidarPlanDeCuenta } = require("../utils/planNegocio");
 const { emitirComprobante } = require("../utils/comprobantes");
 
 // POST /api/webhooks/mercadopago   (público; la seguridad es la firma x-signature)
@@ -39,21 +46,23 @@ const mercadoPagoWebhook = async (req, res) => {
       return res.status(200).json({ message: "Suscripción ajena a DinexFlow" });
     }
 
-    const { data: cuenta } = await supabase
-      .from("cuentas")
-      .select("id, mp_preapproval_id, descuento_pct, descuento_meses_restantes")
-      .eq("id", ref.cuentaId)
-      .maybeSingle();
+    // "*": anda aunque falte alguna columna nueva (modulos_pagos).
+    const { data: cuenta } = await supabase.from("cuentas").select("*").eq("id", ref.cuentaId).maybeSingle();
     if (!cuenta) return res.status(200).json({ message: "Cuenta no encontrada" });
 
-    // El monto cobrado tiene que ser el del plan (o el del plan con el cupón
-    // vigente de la cuenta): si no, no se activa.
+    // Suscripción nueva: el monto tiene que ser el del plan más los módulos
+    // elegidos (con el cupón vigente de la cuenta, si lo hay); si no, no se
+    // activa. La vigente no se controla: su monto lo cambia sólo DinexFlow
+    // (módulos, cupón) y el aviso de ese cambio puede llegar antes de guardarlo.
+    const esNueva = cuenta.mp_preapproval_id !== sub.id;
     const monto = Number(sub.auto_recurring?.transaction_amount);
-    const permitidos = [PRECIOS_MENSUALES[ref.plan]];
-    if (tieneDescuento(cuenta)) permitidos.push(precioConDescuento(ref.plan, cuenta.descuento_pct));
-    if (!permitidos.includes(monto)) {
-      console.warn("[MercadoPago] monto no coincide con el plan:", sub.id, ref.plan, monto);
-      return res.status(200).json({ message: "Monto no coincide con el plan" });
+    if (esNueva) {
+      const permitidos = [montoSuscripcionNueva(ref.plan, ref.modulos)];
+      if (tieneDescuento(cuenta)) permitidos.push(montoSuscripcionNueva(ref.plan, ref.modulos, cuenta.descuento_pct));
+      if (!permitidos.includes(monto)) {
+        console.warn("[MercadoPago] monto no coincide con el plan:", sub.id, ref.plan, ref.modulos, monto);
+        return res.status(200).json({ message: "Monto no coincide con el plan" });
+      }
     }
 
     const estado = mp.estadoDeMP(sub.status);
@@ -72,12 +81,21 @@ const mercadoPagoWebhook = async (req, res) => {
       datos.tipo_plan = ref.plan;
       datos.ciclo_facturacion = "mensual";
       datos.periodo_fin = sub.next_payment_date || null;
+      // Suscripción nueva (primer pago o cambio de plan): precio de lista y
+      // sólo los módulos que se pagaron con ella (los incluidos en el plan
+      // nuevo dejan de cobrarse).
+      if (esNueva && "modulos_pagos" in cuenta) {
+        datos.modulos_pagos = modulosDeAlta(ref.modulos);
+        datos.modulos_version = (Number(cuenta.modulos_version) || 0) + 1;
+        datos.precio_plan_fijo = null;
+      }
     }
     // Cancelado: conserva periodo_fin (el próximo cobro que ya no ocurre), así
     // sigue usando el panel hasta el final del mes que pagó.
 
     const { error } = await supabase.from("cuentas").update(datos).eq("id", cuenta.id);
     if (error) throw error;
+    await olvidarPlanDeCuenta(cuenta.id);
 
     // Cambio de plan: dar de baja la suscripción anterior para no cobrar dos veces.
     if (estado === "activo" && anterior && anterior !== sub.id) {
@@ -150,14 +168,40 @@ const procesarCobro = async (cobroId, res) => {
 
   if (!datos) return res.status(200).json({ message: "Cobro en reintento" });
 
-  // Se vuelve al precio normal ANTES de guardar: si MP falla, el webhook
-  // responde 500, MP reintenta y el mes no se pierde.
-  if (terminaDescuento) {
-    await mp.cambiarMonto(preapprovalId, PRECIOS_MENSUALES[cuenta.tipo_plan]);
+  // Módulos: los sumados antes de este cobro quedan cobrados y los que
+  // llegaron a su fecha de baja se van. (Sin db/modulos_pagos.sql, nada.)
+  const migrada = "modulos_pagos" in cuenta;
+  if (aprobado && cobroNuevo && migrada) {
+    datos.modulos_pagos = modulosAlCobrar(cuenta.modulos_pagos, cobro.debit_date || cobro.date_created);
   }
 
-  const { error } = await supabase.from("cuentas").update(datos).eq("id", cuenta.id);
+  // Si con este cobro cambió lo que se cobra (terminó el cupón, un módulo
+  // quitado ya se cobró por última vez), el próximo monto se corrige en MP
+  // ANTES de guardar: si MP falla, el webhook responde 500, MP reintenta y no
+  // se pierde. Si no cambió nada, no se toca (respeta montos puestos a mano).
+  if (aprobado && cobroNuevo) {
+    const despues = { ...cuenta, ...datos };
+    const cambiaron = String(modulosACobrar(cuenta)) !== String(modulosACobrar(despues));
+    if (terminaDescuento || (migrada && cambiaron)) {
+      const esperado = montoProximoCobro(despues);
+      if (esperado !== Number(sub.auto_recurring?.transaction_amount)) {
+        await mp.cambiarMonto(preapprovalId, esperado);
+      }
+    }
+  }
+
+  // Con módulos, se guarda sólo si nadie los cambió mientras tanto ("Sumar"
+  // o "Quitar" al mismo tiempo): si no, 500 y MP reintenta con datos frescos.
+  let q = supabase.from("cuentas").update(datos).eq("id", cuenta.id);
+  if (datos.modulos_pagos) {
+    const version = Number(cuenta.modulos_version) || 0;
+    datos.modulos_version = version + 1;
+    q = q.eq("modulos_version", version).select("id");
+  }
+  const { data: guardada, error } = await q;
   if (error) throw error;
+  if (datos.modulos_pagos && !guardada?.length) throw new Error("Los módulos cambiaron durante el cobro");
+  if (datos.modulos_pagos) await olvidarPlanDeCuenta(cuenta.id);
 
   // Comprobante de pago al cliente (con copia al dueño de DinexFlow).
   if (aprobado && cobroNuevo) {

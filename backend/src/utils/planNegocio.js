@@ -1,31 +1,46 @@
 const supabase = require("../config/database");
-const { incluyeWhatsapp, limitesEfectivos, cupoPorNegocio } = require("./suscripcion");
+const { funcionesDe, limitesEfectivos, cupoPorNegocio } = require("./suscripcion");
 
 // Se consulta en cada carga del menú, pedido y mensaje: se guarda un minuto
-// por negocio. Un cambio de plan tarda como mucho eso en notarse.
+// por negocio. Un cambio de plan o de módulos tarda como mucho eso en notarse.
 const TTL_MS = 60 * 1000;
-const cache = new Map(); // negocioId → { valor, expira }
+const cache = new Map(); // negocioId → { valor: { whatsapp, ia, mapa }, expira }
 
-// ¿El plan de la cuenta dueña del negocio incluye WhatsApp (avisos, chats,
-// bot con IA y mapa del repartidor)? Ante un error de la BD responde que no
-// (sin guardarlo, así un fallo puntual no corta los avisos por un minuto).
-async function negocioConWhatsapp(negocioId) {
+// ¿La cuenta dueña del negocio puede usar `codigo` ("whatsapp", "ia" o
+// "mapa")? Por su plan o por un módulo sumado. Ante un error de la BD responde
+// que no (sin guardarlo, así un fallo puntual no corta los avisos por un minuto).
+async function negocioIncluye(negocioId, codigo) {
   if (!negocioId) return false;
   const hit = cache.get(negocioId);
-  if (hit && hit.expira > Date.now()) return hit.valor;
+  if (hit && hit.expira > Date.now()) return !!hit.valor[codigo];
   try {
-    const { data, error } = await supabase
-      .from("negocios")
-      .select("cuentas ( tipo_plan, estado_suscripcion, periodo_fin )")
-      .eq("id", negocioId)
-      .maybeSingle();
+    // "*": anda aunque falte alguna columna nueva (modulos_pagos).
+    const { data, error } = await supabase.from("negocios").select("cuentas ( * )").eq("id", negocioId).maybeSingle();
     if (error) throw error;
-    const valor = incluyeWhatsapp(data?.cuentas);
+    const valor = funcionesDe(data?.cuentas);
     cache.set(negocioId, { valor, expira: Date.now() + TTL_MS });
-    return valor;
+    return !!valor[codigo];
   } catch (e) {
     console.error("[Plan] No se pudo leer el plan del negocio", negocioId, e.message);
     return false;
+  }
+}
+
+// WhatsApp: avisos y chats.
+const negocioConWhatsapp = (negocioId) => negocioIncluye(negocioId, "whatsapp");
+
+// Después de sumar o quitar un módulo: que se note en el momento en los
+// negocios de la cuenta (en este proceso).
+const olvidarPlan = (negocioIds = []) => negocioIds.forEach((id) => cache.delete(Number(id)));
+
+// Lo mismo para todos los negocios de una cuenta. Nunca tira (lo peor es
+// esperar el minuto de la caché).
+async function olvidarPlanDeCuenta(cuentaId) {
+  try {
+    const { data } = await supabase.from("negocios").select("id").eq("cuenta_id", cuentaId);
+    olvidarPlan((data || []).map((n) => n.id));
+  } catch (e) {
+    console.warn("[Plan] No se pudo limpiar la caché de la cuenta", cuentaId, e.message);
   }
 }
 
@@ -38,7 +53,7 @@ async function negocioConWhatsapp(negocioId) {
 async function cupoProductos(negocioId) {
   const { data: negocio, error } = await supabase
     .from("negocios")
-    .select("cuenta_id, cuentas ( tipo_plan, estado_suscripcion, periodo_fin, limite_negocios, limite_productos )")
+    .select("cuenta_id, cuentas ( * )")
     .eq("id", negocioId)
     .maybeSingle();
   if (error) throw error;
@@ -72,4 +87,4 @@ async function cupoProductos(negocioId) {
   };
 }
 
-module.exports = { negocioConWhatsapp, cupoProductos };
+module.exports = { negocioConWhatsapp, negocioIncluye, olvidarPlan, olvidarPlanDeCuenta, cupoProductos };

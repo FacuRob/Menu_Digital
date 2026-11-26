@@ -2,7 +2,13 @@ const express = require("express");
 const router = express.Router();
 const checkPermiso = require("../middleware/checkPermiso");
 const noSoloLectura = require("../middleware/noSoloLectura");
-const { getEstado, getCheckout, cancelar } = require("../controllers/suscripcionController");
+const {
+  getEstado,
+  getCheckout,
+  cancelar,
+  sumarModuloPago,
+  quitarModuloPago,
+} = require("../controllers/suscripcionController");
 const { canjearCupon } = require("../controllers/cuponesController");
 
 // Todas requieren estar logueado (se monta authMiddleware en server.js).
@@ -17,5 +23,7 @@ router.get("/", getEstado);
 router.post("/checkout/:plan", noSoloLectura, checkPermiso("suscripcion"), getCheckout);
 router.post("/cancelar", noSoloLectura, checkPermiso("suscripcion"), cancelar);
 router.post("/cupon", noSoloLectura, checkPermiso("suscripcion"), canjearCupon);
+router.post("/modulos/:codigo", noSoloLectura, checkPermiso("suscripcion"), sumarModuloPago);
+router.delete("/modulos/:codigo", noSoloLectura, checkPermiso("suscripcion"), quitarModuloPago);
 
 module.exports = router;

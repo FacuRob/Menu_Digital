@@ -8,7 +8,7 @@
 // Cada cuenta paga con una suscripción mensual en ARS. Se vincula a la cuenta
 // por external_reference ("cuenta:<id>:plan:<code>"), no por email.
 const crypto = require("crypto");
-const { PRECIOS_MENSUALES } = require("./planPrecios");
+const { PRECIOS_MENSUALES, MODULOS_PAGOS } = require("./planPrecios");
 
 const API = "https://api.mercadopago.com";
 const NOMBRES = { basic: "Básico", standard: "Estándar", premium: "Premium" };
@@ -32,21 +32,27 @@ const mpFetch = async (path, { method = "GET", body } = {}) => {
   return json;
 };
 
-const referencia = (cuentaId, plan) => `cuenta:${cuentaId}:plan:${plan}`;
+// Módulos sumados al pagar: "cuenta:7:plan:basic:mod:ia.whatsapp".
+const referencia = (cuentaId, plan, modulos = []) =>
+  `cuenta:${cuentaId}:plan:${plan}` + (modulos.length ? `:mod:${[...modulos].sort().join(".")}` : "");
 
 const leerReferencia = (ref) => {
-  const m = /^cuenta:(\d+):plan:(basic|standard|premium)$/.exec(String(ref || ""));
-  return m ? { cuentaId: Number(m[1]), plan: m[2] } : null;
+  const m = /^cuenta:(\d+):plan:(basic|standard|premium)(?::mod:([a-z]+(?:\.[a-z]+)*))?$/.exec(String(ref || ""));
+  if (!m) return null;
+  const modulos = m[3] ? m[3].split(".").filter((c) => MODULOS_PAGOS[c]) : [];
+  return { cuentaId: Number(m[1]), plan: m[2], modulos };
 };
 
 // Crea la suscripción pendiente de pago y devuelve su link de checkout (init_point).
-// `monto` permite cobrar con descuento (cupón); por defecto, el precio del plan.
-const crearSuscripcion = ({ cuentaId, plan, email, backUrl, monto = PRECIOS_MENSUALES[plan] }) =>
+// `monto` permite cobrar con descuento (cupón) y módulos; por defecto, el precio del plan.
+const crearSuscripcion = ({ cuentaId, plan, email, backUrl, modulos = [], monto = PRECIOS_MENSUALES[plan] }) =>
   mpFetch("/preapproval", {
     method: "POST",
     body: {
-      reason: `DinexFlow · Plan ${NOMBRES[plan]}`,
-      external_reference: referencia(cuentaId, plan),
+      reason:
+        `DinexFlow · Plan ${NOMBRES[plan]}` +
+        (modulos.length ? ` + ${modulos.map((c) => MODULOS_PAGOS[c]?.nombre || c).join(" + ")}` : ""),
+      external_reference: referencia(cuentaId, plan, modulos),
       payer_email: email,
       back_url: backUrl,
       status: "pending",

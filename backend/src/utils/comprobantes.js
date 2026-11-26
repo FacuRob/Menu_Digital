@@ -1,5 +1,6 @@
 const supabase = require("../config/database");
-const { PRECIOS_MENSUALES, MONEDA } = require("./planPrecios");
+const { MONEDA } = require("./planPrecios");
+const { montoLista } = require("./modulosPagos");
 
 // Copia oculta de cada comprobante (el dueño de DinexFlow). Si no está
 // definida, se usa el email de soporte.
@@ -20,7 +21,8 @@ const urlSuscripcion = () => {
 const emitirComprobante = async ({ cuenta, cobro, sub, enviar }) => {
   try {
     const plan = cuenta.tipo_plan;
-    const precioLista = PRECIOS_MENSUALES[plan] || 0;
+    // Plan (precio de fundador si lo tiene) + módulos que entraron en este cobro.
+    const precioLista = montoLista(cuenta);
     const total = Math.round(Number(cobro.transaction_amount)) || precioLista;
     const descuentoPct =
       total < precioLista && precioLista > 0 ? Math.round(((precioLista - total) / precioLista) * 100) : 0;

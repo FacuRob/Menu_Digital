@@ -8,9 +8,9 @@ const {
   CANTIDAD_MAX,
   generarCodigo,
   normalizarCodigo,
-  precioConDescuento,
   tieneDescuento,
 } = require("../utils/cupones");
+const { montoProximoCobro } = require("../utils/modulosPagos");
 
 const entero = (v) => (Number.isInteger(Number(v)) ? Number(v) : NaN);
 
@@ -99,7 +99,7 @@ const canjearCupon = async (req, res) => {
 
     const { data: cuenta } = await supabase
       .from("cuentas")
-      .select("id, tipo_plan, estado_suscripcion, mp_preapproval_id, descuento_pct, descuento_meses_restantes")
+      .select("*")
       .eq("id", cuentaId)
       .maybeSingle();
     if (!cuenta) return res.status(404).json({ message: "Cuenta no encontrada" });
@@ -127,7 +127,8 @@ const canjearCupon = async (req, res) => {
     const pagaHoy = cuenta.estado_suscripcion === "activo" && cuenta.mp_preapproval_id;
     if (pagaHoy) {
       try {
-        await mp.cambiarMonto(cuenta.mp_preapproval_id, precioConDescuento(cuenta.tipo_plan, cupon.porcentaje));
+        // El cupón descuenta el plan (precio de fundador si lo tiene), no los módulos.
+        await mp.cambiarMonto(cuenta.mp_preapproval_id, montoProximoCobro({ ...cuenta, ...descuento }));
       } catch (e) {
         // Sin el cambio en MP cobraría precio lleno: se deshace el canje.
         console.error("[Cupones] No se pudo aplicar el descuento en MP:", e.message);

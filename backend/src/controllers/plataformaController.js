@@ -2,8 +2,8 @@ const jwt = require("jsonwebtoken");
 const supabase = require("../config/database");
 const { registrar } = require("../utils/registroCambios");
 const { respondError } = require("../utils/respondError");
-const { preciosPorPlan, mrrDeCuenta } = require("../utils/planPrecios");
-const { precioConDescuento, tieneDescuento } = require("../utils/cupones");
+const { preciosPorPlan } = require("../utils/planPrecios");
+const { montoProximoCobro } = require("../utils/modulosPagos");
 
 // ══════════════════════════════════════════════════════════════
 // Panel de PLATAFORMA — sólo para el dueño del SaaS (es_plataforma).
@@ -89,9 +89,8 @@ const calcularResumen = (cuentas, negocios, cuentasTech) => {
     if (c.estado_suscripcion === "activo") {
       activas += 1;
       if (mrrPorPlan[c.tipo_plan] !== undefined) {
-        mrrPorPlan[c.tipo_plan] += tieneDescuento(c)
-          ? precioConDescuento(c.tipo_plan, c.descuento_pct)
-          : mrrDeCuenta(c.tipo_plan);
+        // Lo que paga por mes: plan (o precio de fundador) con cupón + módulos.
+        mrrPorPlan[c.tipo_plan] += montoProximoCobro(c);
       }
     } else if (c.estado_suscripcion === "cancelado") {
       canceladas += 1;

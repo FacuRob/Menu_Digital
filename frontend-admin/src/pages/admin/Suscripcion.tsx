@@ -37,9 +37,9 @@ const PERKS: Record<string, { incluye?: string; extras: string[] }> = {
 
 // Catálogo de respaldo (mismos precios que backend/src/utils/planPrecios.js).
 const FALLBACK_PLANES: PlanCatalogo[] = [
-  { code: "basic", precio_mensual: 20000, limites: { negocios: 1, productos: 50 } },
-  { code: "standard", precio_mensual: 41000, limites: { negocios: 3, productos: 180 } },
-  { code: "premium", precio_mensual: 65000, limites: { negocios: 5, productos: 1000 } },
+  { code: "basic", precio_mensual: 22000, limites: { negocios: 1, productos: 50 } },
+  { code: "standard", precio_mensual: 44000, limites: { negocios: 3, productos: 180 } },
+  { code: "premium", precio_mensual: 72000, limites: { negocios: 5, productos: 1000 } },
 ];
 
 export default function Suscripcion() {

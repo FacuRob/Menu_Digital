@@ -474,7 +474,7 @@ const PLANES: Plan[] = [
     code: "basic",
     name: "Básico",
     desc: "Para arrancar con tu primer negocio.",
-    mensual: 20000,
+    mensual: 22000,
     perks: [
       "Un solo negocio",
       "Hasta 50 productos",
@@ -489,7 +489,7 @@ const PLANES: Plan[] = [
     code: "standard",
     name: "Estándar",
     desc: "Para negocios que crecen.",
-    mensual: 41000,
+    mensual: 44000,
     perks: [
       "Todo lo del Básico",
       "Hasta 3 negocios",
@@ -505,7 +505,7 @@ const PLANES: Plan[] = [
     code: "premium",
     name: "Premium",
     desc: "Para varios negocios o sucursales.",
-    mensual: 65000,
+    mensual: 72000,
     perks: ["Todo lo del Estándar", "Hasta 5 negocios", "1.000 productos repartidos entre tus negocios (200 c/u con 5)"],
     estilo: "tinta",
   },

@@ -5,6 +5,7 @@ const { injectModule } = require("./helpers/supabaseMock");
 let conWhatsapp = true;
 injectModule(require.resolve("../src/utils/planNegocio"), {
   negocioConWhatsapp: async () => conWhatsapp,
+  negocioIncluye: async () => conWhatsapp,
 });
 const requiereWhatsapp = require("../src/middleware/requiereWhatsapp");
 

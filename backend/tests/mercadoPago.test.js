@@ -39,7 +39,10 @@ let cobros;
 // Comprobantes ya emitidos (mp_cobro_id) para simular el UNIQUE de la BD.
 let emitidos;
 
+let conflicto;
+
 beforeEach(() => {
+  conflicto = false;
   mpCalls = [];
   ops = [];
   emails = [];
@@ -53,7 +56,7 @@ beforeEach(() => {
       id: "sub1",
       status: "authorized",
       external_reference: "cuenta:7:plan:standard",
-      auto_recurring: { transaction_amount: 41000 },
+      auto_recurring: { transaction_amount: 44000 },
       next_payment_date: "2030-01-01T00:00:00Z",
     },
   };
@@ -65,6 +68,7 @@ beforeEach(() => {
         (q.filters.mp_preapproval_id != null && q.filters.mp_preapproval_id === cuenta.mp_preapproval_id);
       return { data: coincide ? cuenta : null, error: null };
     }
+    if (q.table === "cuentas" && q.op === "update") return { data: conflicto ? [] : [{ id: cuenta.id }], error: null };
     if (q.table === "comprobantes" && q.op === "insert") {
       if (emitidos.has(q.payload.mp_cobro_id)) return { data: null, error: { code: "23505", message: "duplicado" } };
       emitidos.add(q.payload.mp_cobro_id);
@@ -195,13 +199,13 @@ test("cobro de otra suscripción: no toca la cuenta", async () => {
 test("suscripción con el monto del cupón vigente: se activa", async () => {
   cuenta.descuento_pct = 20;
   cuenta.descuento_meses_restantes = 2;
-  subs.sub1.auto_recurring.transaction_amount = 32800;
+  subs.sub1.auto_recurring.transaction_amount = 35200;
   await llamar("sub1");
   assert.equal(updates()[0].payload.estado_suscripcion, "activo");
 });
 
 test("monto con descuento sin cupón en la cuenta: no activa", async () => {
-  subs.sub1.auto_recurring.transaction_amount = 32800;
+  subs.sub1.auto_recurring.transaction_amount = 35200;
   await llamar("sub1");
   assert.equal(updates().length, 0);
 });
@@ -217,13 +221,14 @@ test("cobro con cupón: consume un mes y no toca el monto en MP", async () => {
 
 test("último mes del cupón: vuelve al precio normal en MP", async () => {
   Object.assign(cuenta, { mp_preapproval_id: "sub1", tipo_plan: "standard", descuento_pct: 20, descuento_meses_restantes: 1 });
+  subs.sub1.auto_recurring.transaction_amount = 35200;
   await cobrar("pay1");
   const [u] = updates();
   assert.equal(u.payload.descuento_meses_restantes, 0);
   assert.equal(u.payload.descuento_pct, 0);
   const put = mpCalls.find((c) => c.method === "PUT");
   assert.ok(put.url.endsWith("/preapproval/sub1"));
-  assert.equal(put.body.auto_recurring.transaction_amount, 41000);
+  assert.equal(put.body.auto_recurring.transaction_amount, 44000);
 });
 
 test("aviso repetido del mismo cobro: no descuenta otro mes", async () => {
@@ -258,13 +263,13 @@ test("cobro aprobado: emite el comprobante y lo manda al cliente con copia al du
     descuento_pct: 25,
     descuento_meses_restantes: 2,
   });
-  cobros.pay1 = { ...cobros.pay1, transaction_amount: 30750, payment: { id: 999, status: "approved" } };
+  cobros.pay1 = { ...cobros.pay1, transaction_amount: 33000, payment: { id: 999, status: "approved" } };
   await cobrar("pay1");
 
   const ins = ops.find((o) => o.table === "comprobantes" && o.op === "insert").payload;
   assert.equal(ins.mp_cobro_id, "pay1");
-  assert.equal(ins.precio_lista, 41000);
-  assert.equal(ins.total, 30750);
+  assert.equal(ins.precio_lista, 44000);
+  assert.equal(ins.total, 33000);
   assert.equal(ins.descuento_pct, 25);
   assert.equal(ins.periodo_hasta, "2030-01-01T00:00:00Z");
 
@@ -292,4 +297,85 @@ test("cobro rechazado: no hay comprobante", async () => {
 test("cobro con firma inválida: 401", async () => {
   const res = await llamar("pay1", { "x-signature": "ts=1,v1=abcd", "x-request-id": "r" }, "subscription_authorized_payment");
   assert.equal(res.code, 401);
+});
+
+// ── Módulos pagos ──
+
+test("alta con módulos: guarda los módulos pagados y quita el precio de fundador", async () => {
+  Object.assign(cuenta, { modulos_pagos: {}, precio_plan_fijo: 20000 });
+  Object.assign(subs.sub1, { external_reference: "cuenta:7:plan:basic:mod:whatsapp", auto_recurring: { transaction_amount: 34000 } });
+  await llamar("sub1");
+  const [u] = updates();
+  assert.equal(u.payload.tipo_plan, "basic");
+  assert.equal(u.payload.estado_suscripcion, "activo");
+  assert.equal(u.payload.precio_plan_fijo, null);
+  assert.deepEqual(Object.keys(u.payload.modulos_pagos), ["whatsapp"]);
+  assert.equal(u.payload.modulos_pagos.whatsapp.cobrado, true);
+});
+
+test("alta con módulos pero monto sin ellos: no activa", async () => {
+  Object.assign(subs.sub1, { external_reference: "cuenta:7:plan:basic:mod:whatsapp", auto_recurring: { transaction_amount: 22000 } });
+  await llamar("sub1");
+  assert.equal(updates().length, 0);
+});
+
+test("aviso de la suscripción vigente con otro monto (fundador, módulos): se procesa sin tocar módulos", async () => {
+  Object.assign(cuenta, { mp_preapproval_id: "sub1", modulos_pagos: { mapa: { cobrado: true } } });
+  Object.assign(subs.sub1, { external_reference: "cuenta:7:plan:basic", auto_recurring: { transaction_amount: 26000 } });
+  await llamar("sub1");
+  const [u] = updates();
+  assert.equal(u.payload.estado_suscripcion, "activo");
+  assert.equal(u.payload.modulos_pagos, undefined);
+});
+
+test("cobro: borra el módulo que llegó a su baja; si el monto ya es el correcto no toca MP", async () => {
+  Object.assign(cuenta, {
+    mp_preapproval_id: "sub1",
+    tipo_plan: "basic",
+    periodo_fin: "2026-01-01T00:00:00Z",
+    modulos_pagos: {
+      whatsapp: { desde: "2025-10-01T00:00:00Z", cobrado: true, baja_en: null },
+      mapa: { desde: "2025-10-01T00:00:00Z", cobrado: true, baja_en: "2026-01-01T00:00:00Z" },
+    },
+  });
+  subs.sub1.auto_recurring.transaction_amount = 34000;
+  await cobrar("pay1");
+  const [u] = updates();
+  assert.deepEqual(Object.keys(u.payload.modulos_pagos), ["whatsapp"]);
+  assert.equal(mpCalls.some((c) => c.method === "PUT"), false);
+});
+
+test("cobro: un módulo quitado antes de cobrarse se cobra una vez y después baja el monto", async () => {
+  Object.assign(cuenta, {
+    mp_preapproval_id: "sub1",
+    tipo_plan: "basic",
+    periodo_fin: "2030-01-01T00:00:00Z",
+    modulos_pagos: {
+      whatsapp: { desde: "2029-10-01T00:00:00Z", cobrado: true, baja_en: null },
+      ia: { desde: "2029-12-15T00:00:00Z", cobrado: false, baja_en: "2030-02-01T00:00:00Z" },
+    },
+  });
+  cobros.pay1.debit_date = "2030-01-01T00:00:00Z";
+  subs.sub1.next_payment_date = "2030-02-01T00:00:00Z";
+  subs.sub1.auto_recurring.transaction_amount = 45000; // este cobro incluyó la IA
+  await cobrar("pay1");
+  const [u] = updates();
+  assert.equal(u.payload.modulos_pagos.ia.cobrado, true);
+  const put = mpCalls.find((c) => c.method === "PUT");
+  assert.equal(put.body.auto_recurring.transaction_amount, 34000); // próximo: plan + WhatsApp
+});
+
+test("cobro: si los módulos cambiaron durante el cobro, 500 para que MP reintente", async () => {
+  conflicto = true;
+  Object.assign(cuenta, { mp_preapproval_id: "sub1", tipo_plan: "basic", modulos_pagos: {}, modulos_version: 2 });
+  subs.sub1.auto_recurring.transaction_amount = 22000;
+  const res = await cobrar("pay1");
+  assert.equal(res.code, 500);
+});
+
+test("cobro sin cambios: no pisa un monto distinto puesto a mano en MP", async () => {
+  Object.assign(cuenta, { mp_preapproval_id: "sub1", tipo_plan: "basic", modulos_pagos: {}, periodo_fin: "2030-01-01T00:00:00Z" });
+  subs.sub1.auto_recurring.transaction_amount = 15000;
+  await cobrar("pay1");
+  assert.equal(mpCalls.some((c) => c.method === "PUT"), false);
 });

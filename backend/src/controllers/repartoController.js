@@ -9,7 +9,7 @@
 //   GET  /api/seguimiento/:id        estado + última ubicación del repartidor
 // El token va en ?t= (GET) o en el body { t } (POST).
 const supabase = require("../config/database");
-const { negocioConWhatsapp } = require("../utils/planNegocio");
+const { negocioIncluye } = require("../utils/planNegocio");
 const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
 const { firmaValida, linkPedido } = require("../utils/linksPedido");
@@ -44,9 +44,9 @@ async function pedidoFirmado(tipo, req, campos) {
     .maybeSingle();
   if (error) throw error;
   if (!p || p.tipo_entrega !== "delivery" || !firmaValida(tipo, p.id, p.negocio_id, token)) return null;
-  // Mapa del repartidor: plan Estándar o Premium (un link viejo deja de andar
-  // si la cuenta bajó de plan).
-  if (!(await negocioConWhatsapp(p.negocio_id))) return null;
+  // Mapa del repartidor: por el plan o el módulo (un link viejo deja de andar
+  // si la cuenta bajó de plan o quitó el módulo).
+  if (!(await negocioIncluye(p.negocio_id, "mapa"))) return null;
   return p;
 }
 

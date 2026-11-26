@@ -20,7 +20,22 @@ test("resumen: la cuenta de Tech no suma y el MRR usa el precio con descuento", 
   assert.equal(r.por_plan.premium, 0);
   assert.equal(r.total_negocios, 2);
   assert.equal(r.mrr_por_plan.premium, 0);
-  assert.equal(r.mrr_por_plan.standard, 4100); // 41.000 con 90 %
-  assert.equal(r.mrr_por_plan.basic, 20000); // descuento ya terminado → precio lleno
-  assert.equal(r.mrr, 24100);
+  assert.equal(r.mrr_por_plan.standard, 4400); // 44.000 con 90 %
+  assert.equal(r.mrr_por_plan.basic, 22000); // descuento ya terminado → precio lleno
+  assert.equal(r.mrr, 26400);
+});
+
+test("resumen: el MRR suma el precio de fundador y los módulos", () => {
+  const cuentas = [
+    {
+      id: 40,
+      tipo_plan: "basic",
+      estado_suscripcion: "activo",
+      precio_plan_fijo: 20000,
+      periodo_fin: "2030-01-01T00:00:00Z",
+      modulos_pagos: { whatsapp: { cobrado: true }, mapa: { cobrado: true, baja_en: "2030-01-01T00:00:00Z" } },
+    },
+  ];
+  const r = calcularResumen(cuentas, [], new Set());
+  assert.equal(r.mrr_por_plan.basic, 32000); // el mapa se va en el próximo cobro
 });

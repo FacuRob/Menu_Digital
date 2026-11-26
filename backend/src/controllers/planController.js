@@ -1,6 +1,6 @@
 const { respondError } = require("../utils/respondError");
 const { getNegocioId } = require("../utils/negocio");
-const { limitesEfectivos, incluyeWhatsapp, planEfectivo, estaVigente } = require("../utils/suscripcion");
+const { limitesEfectivos, funcionesDe, planEfectivo, estaVigente, modulosVigentes } = require("../utils/suscripcion");
 const { cupoProductos } = require("../utils/planNegocio");
 
 /**
@@ -31,10 +31,12 @@ const getPlan = async (req, res) => {
       productos_usados: c.usados,
       limite_productos_total: c.total,
       productos_usados_cuenta: c.usadosCuenta,
-      // Plan que rige hoy (en prueba gratis, el de prueba) y si incluye
-      // WhatsApp, chats, bot con IA y mapa del repartidor.
+      // Plan que rige hoy (en prueba gratis, el de prueba) y qué funciones
+      // pagas puede usar (por el plan o por un módulo sumado):
+      // whatsapp (avisos y chats), ia (asistente) y mapa (repartidor).
       plan_efectivo: planEfectivo(c.cuenta),
-      whatsapp: incluyeWhatsapp(c.cuenta),
+      ...funcionesDe(c.cuenta),
+      modulos: modulosVigentes(c.cuenta),
     });
   } catch (error) {
     return respondError(res, error, "plan");

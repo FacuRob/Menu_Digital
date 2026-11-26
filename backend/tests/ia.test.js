@@ -8,6 +8,7 @@ injectModule(require.resolve("../src/config/database"), db);
 let planConWhatsapp = true;
 injectModule(require.resolve("../src/utils/planNegocio"), {
   negocioConWhatsapp: async () => planConWhatsapp,
+  negocioIncluye: async () => planConWhatsapp,
 });
 
 const ia = require("../src/services/iaService");

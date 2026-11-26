@@ -7,8 +7,19 @@ const {
   LIMITES_POR_PLAN: LIMITES,
 } = require("../utils/suscripcion");
 const { preciosPorPlan } = require("../utils/planPrecios");
-const { crearSuscripcion, cancelarSuscripcion, motivoRechazo, PORTAL_URL } = require("../utils/mercadoPago");
+const { crearSuscripcion, cancelarSuscripcion, cambiarMonto, motivoRechazo, PORTAL_URL } = require("../utils/mercadoPago");
 const { precioConDescuento, tieneDescuento } = require("../utils/cupones");
+const {
+  catalogoModulos,
+  validarModulosNuevos,
+  montoSuscripcionNueva,
+  montoProximoCobro,
+  precioPlan,
+  sumarModulo,
+  quitarModulo,
+} = require("../utils/modulosPagos");
+const { funcionesDe } = require("../utils/suscripcion");
+const { olvidarPlanDeCuenta } = require("../utils/planNegocio");
 
 // Catálogo de planes para las tarjetas del frontend (precio mensual en ARS).
 const catalogoPlanes = () => {
@@ -23,8 +34,14 @@ const catalogoPlanes = () => {
       precio_mensual: p.mensual[code],
       limites: LIMITES[code],
     })),
+    // Módulos que se suman al plan (con su precio y en qué planes vienen).
+    modulos: catalogoModulos(),
   };
 };
+
+// ¿La cuenta paga hoy una suscripción de Mercado Pago a la que se le puede
+// cambiar el monto?
+const pagaConMP = (cuenta) => cuenta?.estado_suscripcion === "activo" && !!cuenta?.mp_preapproval_id;
 
 // GET /api/suscripcion  → estado de la cuenta + catálogo de planes.
 const getEstado = async (req, res) => {
@@ -89,6 +106,15 @@ const getEstado = async (req, res) => {
       periodo_fin: cuenta.periodo_fin,
       dias_restantes: diasRestantes(cuenta.periodo_fin),
       creado_at: cuenta.created_at,
+      // Módulos sumados: { codigo: { desde, cobrado, baja_en } }.
+      modulos_cuenta: cuenta.modulos_pagos || {},
+      // Lo que puede usar hoy (por el plan o por módulos).
+      funciones: funcionesDe(cuenta),
+      // Precio del plan que paga (el de fundador si lo tiene).
+      precio_plan: precioPlan(cuenta),
+      precio_fundador: Number(cuenta.precio_plan_fijo) > 0,
+      // Lo que se va a cobrar en el próximo cobro (plan + módulos, con cupón).
+      monto_proximo_cobro: pagaConMP(cuenta) ? montoProximoCobro(cuenta) : null,
       ...catalogo,
     });
   } catch (error) {
@@ -108,7 +134,8 @@ const urlDeVuelta = () => {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// POST /api/suscripcion/checkout/:plan  { email? }  → { url }  (checkout de Mercado Pago)
+// POST /api/suscripcion/checkout/:plan  { email?, modulos? }  → { url }  (checkout de Mercado Pago)
+// `modulos`: los que se suman al plan desde el primer cobro (["whatsapp", ...]).
 // `email` es el de la cuenta de Mercado Pago con la que se paga; puede no ser
 // el del usuario de DinexFlow. MP solo deja pagar a quien inicia sesión con él.
 const getCheckout = async (req, res) => {
@@ -117,6 +144,8 @@ const getCheckout = async (req, res) => {
     if (!["basic", "standard", "premium"].includes(plan)) {
       return res.status(400).json({ message: "Plan inválido" });
     }
+    const mods = validarModulosNuevos(plan, req.body?.modulos);
+    if (mods.error) return res.status(400).json({ message: mods.error });
     if (!process.env.MP_ACCESS_TOKEN) {
       return res.status(503).json({
         message: "Pagos no configurados. Definí MP_ACCESS_TOKEN en el backend.",
@@ -155,6 +184,11 @@ const getCheckout = async (req, res) => {
       });
     }
 
+    // Sin db/modulos_pagos.sql no se podrían guardar los módulos: no se cobran.
+    if (mods.valor.length && !(cuenta && "modulos_pagos" in cuenta)) {
+      return res.status(503).json({ message: "Los módulos todavía no están habilitados. Probá más tarde." });
+    }
+
     // Con cupón vigente, la suscripción nace con el precio rebajado.
     const pct = tieneDescuento(cuenta) ? cuenta.descuento_pct : 0;
 
@@ -163,7 +197,8 @@ const getCheckout = async (req, res) => {
       plan,
       email,
       backUrl: urlDeVuelta(),
-      monto: precioConDescuento(plan, pct),
+      modulos: mods.valor,
+      monto: montoSuscripcionNueva(plan, mods.valor, pct),
     });
     if (!sub?.init_point) {
       return res.status(502).json({ message: "Mercado Pago no devolvió el link de pago" });
@@ -219,4 +254,84 @@ const cancelar = async (req, res) => {
   }
 };
 
-module.exports = { getEstado, getCheckout, cancelar };
+// POST   /api/suscripcion/modulos/:codigo → sumar un módulo al plan.
+// DELETE /api/suscripcion/modulos/:codigo → quitarlo (se usa hasta el próximo cobro).
+// Sólo con una suscripción activa de Mercado Pago: se cambia el monto de los
+// próximos cobros. En la prueba gratis los módulos se eligen al pagar.
+const cambiarModulo = (accion) => async (req, res) => {
+  try {
+    const cuentaId = req.user?.cuenta_id;
+    if (!cuentaId) return res.status(403).json({ message: "Usuario sin cuenta asociada" });
+
+    const { data: cuenta } = await supabase.from("cuentas").select("*").eq("id", cuentaId).maybeSingle();
+    if (!cuenta) return res.status(404).json({ message: "Cuenta no encontrada" });
+    if (!("modulos_pagos" in cuenta)) {
+      return res.status(503).json({ message: "Los módulos todavía no están habilitados. Probá más tarde." });
+    }
+    if (!pagaConMP(cuenta)) {
+      return res.status(409).json({
+        code: "SIN_SUSCRIPCION",
+        message: "Para sumar o quitar módulos necesitás un plan pago activo. Si estás en la prueba, elegilos al pagar tu plan.",
+      });
+    }
+
+    const codigo = String(req.params.codigo || "").toLowerCase();
+    const r = accion === "sumar" ? sumarModulo(cuenta, codigo) : quitarModulo(cuenta, codigo);
+    if (r.error) return res.status(r.code === "MODULO_INVALIDO" ? 400 : 409).json({ code: r.code, message: r.error });
+
+    const nueva = { ...cuenta, modulos_pagos: r.modulos };
+    const montoAntes = montoProximoCobro(cuenta);
+    const montoNuevo = montoProximoCobro(nueva);
+
+    // Primero Mercado Pago: si falla, no se guarda nada (no hay módulo sin cobrar).
+    if (montoNuevo !== montoAntes) {
+      try {
+        await cambiarMonto(cuenta.mp_preapproval_id, montoNuevo);
+      } catch (e) {
+        console.error("[MercadoPago] No se pudo cambiar el monto:", cuenta.mp_preapproval_id, e.message, e.mp);
+        return res.status(502).json({ message: "Mercado Pago no pudo actualizar tu suscripción. Probá de nuevo en un rato." });
+      }
+    }
+
+    // Se guarda sólo si nadie cambió los módulos desde que se leyeron (otra
+    // pestaña o el webhook de un cobro).
+    const version = Number(cuenta.modulos_version) || 0;
+    const { data: guardada, error } = await supabase
+      .from("cuentas")
+      .update({ modulos_pagos: r.modulos, modulos_version: version + 1 })
+      .eq("id", cuenta.id)
+      .eq("modulos_version", version)
+      .select("id");
+    if (error || !guardada?.length) {
+      // Se vuelve al monto de antes para no cobrar algo que no quedó guardado.
+      if (montoNuevo !== montoAntes) {
+        await cambiarMonto(cuenta.mp_preapproval_id, montoAntes).catch((e) =>
+          console.error("[MercadoPago] No se pudo volver al monto anterior:", cuenta.mp_preapproval_id, e.message),
+        );
+      }
+      if (error) throw error;
+      return res.status(409).json({
+        code: "CAMBIO_SIMULTANEO",
+        message: "Tu suscripción cambió mientras tanto. Recargá la página y probá de nuevo.",
+      });
+    }
+
+    // Que el cambio se note ya en los negocios de la cuenta.
+    await olvidarPlanDeCuenta(cuenta.id);
+
+    return res.json({
+      modulos_cuenta: r.modulos,
+      funciones: funcionesDe(nueva),
+      monto_proximo_cobro: montoNuevo,
+      periodo_fin: cuenta.periodo_fin,
+      baja_en: r.baja_en || null,
+    });
+  } catch (error) {
+    return respondError(res, error, `suscripcion.modulo.${accion}`);
+  }
+};
+
+const sumarModuloPago = cambiarModulo("sumar");
+const quitarModuloPago = cambiarModulo("quitar");
+
+module.exports = { getEstado, getCheckout, cancelar, sumarModuloPago, quitarModuloPago };

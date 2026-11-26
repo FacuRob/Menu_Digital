@@ -63,8 +63,8 @@ const canjear = async (codigo) => {
 const update = (table) => ops.find((o) => o.table === table && o.op === "update");
 
 test("precio con descuento: redondea y sin cupón queda el precio del plan", () => {
-  assert.equal(precioConDescuento("standard", 20), 32800);
-  assert.equal(precioConDescuento("basic", 0), 20000);
+  assert.equal(precioConDescuento("standard", 20), 35200);
+  assert.equal(precioConDescuento("basic", 0), 22000);
   assert.equal(normalizarCodigo(" dinex-abc "), "DINEX-ABC");
 });
 
@@ -115,7 +115,21 @@ test("canjear con suscripción activa: baja el monto en Mercado Pago", async () 
   await canjear("DINEX-ABC");
   const put = mpCalls.find((c) => c.method === "PUT");
   assert.ok(put.url.endsWith("/preapproval/sub1"));
-  assert.equal(put.body.auto_recurring.transaction_amount, 32800);
+  assert.equal(put.body.auto_recurring.transaction_amount, 35200);
+});
+
+test("canjear con precio de fundador y módulos: descuenta sólo el plan", async () => {
+  Object.assign(cuenta, {
+    tipo_plan: "basic",
+    estado_suscripcion: "activo",
+    mp_preapproval_id: "sub1",
+    precio_plan_fijo: 20000,
+    periodo_fin: "2030-01-01T00:00:00Z",
+    modulos_pagos: { whatsapp: { desde: "2029-12-01T00:00:00Z", cobrado: true, baja_en: null } },
+  });
+  await canjear("DINEX-ABC");
+  const put = mpCalls.find((c) => c.method === "PUT");
+  assert.equal(put.body.auto_recurring.transaction_amount, 16000 + 12000);
 });
 
 test("canjear: si Mercado Pago falla, se deshace el canje", async () => {
