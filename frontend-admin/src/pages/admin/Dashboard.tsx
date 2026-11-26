@@ -333,7 +333,7 @@ export default function Dashboard() {
           </section>
         )}
         {/* ── Encabezado: saludo, acciones y el negocio de hoy ── */}
-        <section className="grid gap-5 xl:grid-cols-[1fr_auto] xl:items-end">
+        <section className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <p className="text-sm font-medium capitalize text-fg-3">
               {new Date().toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" })}
@@ -370,7 +370,7 @@ export default function Dashboard() {
         </section>
 
         {/* Tarjeta del local: link del menú y lo de hoy */}
-        <section className="grid gap-4 rounded-[var(--r-lg)] bg-spot p-5 text-on-spot sm:p-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-center">
+        <section className="grid gap-4 rounded-[var(--r-lg)] bg-spot p-5 text-on-spot sm:p-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] xl:items-center">
           <div className="flex min-w-0 items-center gap-4">
             {cfg?.logo ? (
               <img src={cfg.logo} alt="" className="h-14 w-14 shrink-0 rounded-[var(--r-sm)] bg-white object-cover" />
@@ -400,13 +400,13 @@ export default function Dashboard() {
             </div>
           </div>
           {verAnaliticas && (
-            <dl className="grid grid-cols-3 gap-2">
+            <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {[
                 { v: act ? String(act.hoy.pedidos) : "—", l: t("dashOrdersToday") },
                 { v: act ? String(act.hoy.pendientes) : "—", l: t("dashPendingNow"), destacado: !!act?.hoy.pendientes },
-                { v: act ? fmt(act.hoy.ventas) : "—", l: t("dshSalesToday") },
+                { v: act ? fmt(act.hoy.ventas) : "—", l: t("dshSalesToday"), ancho: true },
               ].map((x) => (
-                <div key={x.l} className="flex flex-col-reverse rounded-[var(--r-sm)] bg-white/[0.07] px-3 py-3">
+                <div key={x.l} className={`flex flex-col-reverse rounded-[var(--r-sm)] bg-white/[0.07] px-3 py-3 ${x.ancho ? "col-span-2 sm:col-span-1" : ""}`}>
                   <dt className="mt-0.5 text-xs opacity-75">{x.l}</dt>
                   <dd className={`pn-title pn-num truncate text-xl ${x.destacado ? "text-accent" : ""}`}>{x.v}</dd>
                 </div>
@@ -446,7 +446,7 @@ export default function Dashboard() {
             <h2 id="dsh-agenda-stats" className="pn-title text-lg text-fg">
               {t("dshAgendaStats")} <span className="ml-1 text-sm font-medium text-fg-2" style={{ fontStretch: "100%" }}>{t("dshDays", { n: statsAgenda.dias })}</span>
             </h2>
-            <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {[
                 ...(statsAgenda.presupuestos
                   ? [
@@ -521,7 +521,7 @@ export default function Dashboard() {
                   options={[7, 30, 90].map((n) => ({ value: n as Dias, label: t("dshDays", { n }) }))}
                 />
               </div>
-              <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+              <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <Kpi label={t("dshSales")} valor={act ? fmt(act.totales.ventas) : null} delta={act && pct(act.totales.ventas, act.anterior.ventas)} vs={vsPrev} sinPrev={t("dshNoPrevData")} acento />
                 <Kpi label={t("dshProfit")} valor={act ? fmt(act.totales.ganancia) : null} delta={act && pct(act.totales.ganancia, act.anterior.ganancia)} vs={vsPrev} sinPrev={t("dshNoPrevData")} />
                 <Kpi label={t("dshOrders")} valor={act ? String(act.totales.pedidos) : null} delta={act && pct(act.totales.pedidos, act.anterior.pedidos)} vs={vsPrev} sinPrev={t("dshNoPrevData")} />
@@ -536,9 +536,9 @@ export default function Dashboard() {
             </section>
 
             {/* ── Ventas por día + cómo te piden ── */}
-            <section className="grid gap-5 xl:grid-cols-3">
+            <section className="grid gap-5 lg:grid-cols-3">
               <Card
-                className="xl:col-span-2"
+                className="lg:col-span-2"
                 title={t("dshDaily")}
                 desc={t("dshDailyDesc")}
                 action={
@@ -593,8 +593,8 @@ export default function Dashboard() {
             </section>
 
             {/* ── Horas pico + productos ── */}
-            <section className="grid gap-5 xl:grid-cols-3">
-              <Card className="xl:col-span-2" title={t("dshPeak")} desc={t("dshPeakDesc")}>
+            <section className="grid gap-5 lg:grid-cols-3">
+              <Card className="lg:col-span-2" title={t("dshPeak")} desc={t("dshPeakDesc")}>
                 {!act ? (
                   <div className="h-48 animate-pulse rounded-[var(--r-sm)] bg-surface-2" />
                 ) : (
@@ -642,10 +642,10 @@ export default function Dashboard() {
 
         {/* ── Últimos pedidos + stock ── */}
         {(verPedidos || resumen) && (
-          <section className="grid gap-5 xl:grid-cols-3">
+          <section className="grid gap-5 lg:grid-cols-3">
             {verPedidos && (
               <Card
-                className={resumen ? "xl:col-span-2" : "xl:col-span-3"}
+                className={resumen ? "lg:col-span-2" : "lg:col-span-3"}
                 title={t("dashRecentOrders")}
                 action={
                   <Link to="/admin/pedidos" className="inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-fg underline-offset-4 hover:underline">
@@ -695,7 +695,7 @@ export default function Dashboard() {
 
             {resumen && (
               <Card
-                className={verPedidos ? "" : "xl:col-span-3"}
+                className={verPedidos ? "" : "lg:col-span-3"}
                 title={resumen.stock_bajo.length ? t("lowStock") : undefined}
                 action={
                   resumen.stock_bajo.length ? (
@@ -789,7 +789,7 @@ function Kpi({
     <div className="relative overflow-hidden rounded-[var(--r-md)] border border-line bg-surface p-4 sm:p-5">
       {acento && <span className="absolute inset-x-0 top-0 h-1 bg-accent" aria-hidden />}
       <dt className="text-sm font-medium text-fg-3">{label}</dt>
-      <dd className="pn-title pn-num mt-1.5 truncate text-[clamp(1.25rem,2.4vw,1.75rem)] text-fg">
+      <dd className="pn-title pn-num mt-1.5 truncate text-[clamp(1rem,1.9vw,1.75rem)] text-fg">
         {valor ?? <span className="inline-block h-7 w-24 animate-pulse rounded bg-surface-2 align-middle" />}
       </dd>
       <dd className="mt-2">{valor !== null && <Delta value={delta ?? null} label={delta === null || delta === undefined ? sinPrev : vs} />}</dd>

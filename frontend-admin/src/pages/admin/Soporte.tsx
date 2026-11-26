@@ -248,7 +248,7 @@ export default function Soporte() {
   };
 
   const lista = (
-    <div className={`${abierto ? "hidden md:flex" : "flex"} min-h-0 w-full flex-col md:w-[340px] md:shrink-0 md:border-r md:border-line`}>
+    <div className={`${abierto ? "hidden md:flex" : "flex"} min-h-0 w-full flex-col md:w-[280px] md:shrink-0 min-[1180px]:w-[340px] md:border-r md:border-line`}>
       <div className="flex flex-col gap-3 p-3">
         {!tech && (
           <button

@@ -223,7 +223,7 @@ export default function Chats() {
 
   // ── Lista de chats ──
   const lista = (
-    <div className={`flex min-h-0 flex-col ${abiertoId ? "hidden md:flex" : "flex"} w-full md:w-[340px] md:shrink-0 md:border-r ${P.border}`}>
+    <div className={`flex min-h-0 flex-col ${abiertoId ? "hidden md:flex" : "flex"} w-full md:w-[280px] md:shrink-0 min-[1180px]:w-[340px] md:border-r ${P.border}`}>
       <div className="p-3">
         <input
           type="search"

@@ -175,7 +175,7 @@ export function SideNav<T extends string>({
       role="tablist"
       aria-orientation="vertical"
       onKeyDown={onKeyDown}
-      style={{ ...contenedor, width: 232, flexShrink: 0, position: "sticky", top: 0 }}
+      style={{ ...contenedor, width: 232, flexShrink: 0, position: "sticky", top: 0, maxHeight: "calc(100dvh - 120px)", overflowY: "auto" }}
     >
       {groups.map((g, i) => (
         <div key={g.label} style={{ marginTop: i === 0 ? 0 : 8 }}>

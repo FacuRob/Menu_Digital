@@ -891,7 +891,7 @@ export default function Productos() {
         /* ── Vista Lista (tabla) ── */
         <div style={S.card}>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <table style={{ width: "100%", minWidth: 860, borderCollapse: "collapse" }}>
               <thead style={S.thead}>
                 <tr>
                   {[

@@ -60,11 +60,11 @@ function Navbar({ textoRef }: { textoRef: RefObject<HTMLDivElement | null> }) {
           <span aria-hidden className="dx-display ml-[2.75rem] hidden text-[1.375rem] sm:inline">
             {BRAND.toLowerCase()}
           </span>
-          <nav aria-label="Principal" className="pointer-events-auto mx-auto hidden lg:block">
+          <nav aria-label="Principal" className="pointer-events-auto ml-4 hidden lg:block xl:ml-10">
             <ul className="flex items-center gap-1">
               {NAV.map((l) => (
                 <li key={l.href}>
-                  <a href={l.href} className="inline-flex min-h-11 items-center px-3 text-[0.9375rem] font-medium hover:underline">
+                  <a href={l.href} className="inline-flex min-h-11 items-center px-2 text-[0.9375rem] font-medium hover:underline xl:px-3">
                     {l.label}
                   </a>
                 </li>
@@ -145,9 +145,9 @@ function Navbar({ textoRef }: { textoRef: RefObject<HTMLDivElement | null> }) {
 }
 
 // ── 1. Inicio: el eslogan y el QR que se abre hasta llenar la pantalla ──
-// "Tu ___ es Dinex.": la palabra rota una sola vuelta y vuelve a "negocio";
+// "Tu ___ es Dinex.": la palabra rota una sola vuelta y termina en "empresa";
 // al terminar, "Dinex" se subraya. La que sale se desenfoca y la nueva
-// aparece letra por letra. Con reducción de movimiento queda quieta.
+// aparece letra por letra. Con reducción de movimiento queda quieta en "empresa".
 const PALABRAS = ["negocio", "local", "tienda", "taller", "estudio", "empresa"];
 const PASO_MS = 1700;
 const SALIDA_MS = 750; // un poco más que dx-desenfoca (700 ms) en landing.css
@@ -156,7 +156,7 @@ function Eslogan() {
   // Arranca igual que el HTML generado al compilar (sin movimiento reducido)
   // y se corrige al montar: si no, React no coincide con ese HTML.
   const [quieto, setQuieto] = useState(false);
-  // paso va de 0 a PALABRAS.length: el último vuelve a "negocio".
+  // paso va de 0 a la última palabra ("empresa") y ahí se queda.
   const [paso, setPaso] = useState(0);
   const [saliendo, setSaliendo] = useState<number | null>(null);
   const [listo, setListo] = useState(false);
@@ -164,6 +164,7 @@ function Eslogan() {
   useEffect(() => {
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
       setQuieto(true);
+      setPaso(PALABRAS.length - 1);
       setListo(true);
       return;
     }
@@ -175,7 +176,7 @@ function Eslogan() {
       setPaso(n);
       window.clearTimeout(fuera);
       fuera = window.setTimeout(() => setSaliendo(null), SALIDA_MS);
-      if (n >= PALABRAS.length) {
+      if (n >= PALABRAS.length - 1) {
         window.clearInterval(id);
         setListo(true);
       }
@@ -192,7 +193,7 @@ function Eslogan() {
     // El tamaño mira el ancho y también el alto: en notebooks (pantalla baja)
     // el título se achica para que el botón entre sin hacer scroll.
     <h1 id="hero-titulo" data-hero-titulo className="dx-display text-[clamp(2.75rem,min(10.5vw,19svh),11rem)]">
-      <span className="sr-only">Tu negocio es Dinex.</span>
+      <span className="sr-only">Tu empresa es Dinex.</span>
       <span aria-hidden className="block">
         Tu{" "}
         <span className="dx-rotador">
@@ -226,7 +227,7 @@ function Eslogan() {
 function Hero({ qrUrl }: { qrUrl: string }) {
   return (
     <section id="top" data-hero data-nav="claro" data-fondo="hueso" aria-labelledby="hero-titulo" className="relative min-h-[100svh] overflow-hidden bg-[var(--hueso)]">
-      <div data-hero-contenido className={`${CONTENEDOR} flex min-h-[100svh] flex-col justify-center gap-10 pb-8 pt-28 lg:gap-[clamp(1.5rem,4svh,4rem)] lg:pb-[clamp(1.5rem,5svh,3rem)] lg:pt-24`}>
+      <div data-hero-contenido className={`${CONTENEDOR} flex min-h-[100svh] flex-col justify-center gap-10 pb-8 pt-28 lg:gap-[clamp(1.5rem,4svh,4rem)] lg:pb-[clamp(1.5rem,5svh,3rem)] lg:pt-[clamp(5rem,12svh,6rem)]`}>
         <Eslogan />
 
         <div className="grid items-end gap-10 lg:grid-cols-[minmax(0,1fr)_auto]">
@@ -244,7 +245,7 @@ function Hero({ qrUrl }: { qrUrl: string }) {
                 Ver cómo funciona
               </a>
             </div>
-            <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-[0.9375rem] text-[var(--gris)]">
+            <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-[0.9375rem] text-[var(--gris)] lg:[@media(max-height:700px)]:hidden">
               {["Sin tarjeta de crédito", "Sin app para tus clientes", "Cancelás cuando quieras"].map((t) => (
                 <li key={t} className="flex items-center gap-2">
                   <IconCheck className="h-4 w-4 text-[var(--tinta)]" />
@@ -321,33 +322,33 @@ const PASOS = [
 function EscenaTelefono() {
   return (
     <section id="como-funciona" data-escena data-nav="claro" data-fondo="aji" aria-labelledby="como-titulo" className="dx-sobre-aji bg-[var(--aji)] text-[var(--tinta)]">
-      <div className={`${CONTENEDOR} grid min-h-[100svh] items-center gap-5 pb-6 pt-20 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,0.7fr)] lg:gap-12 lg:py-24`}>
+      <div className={`${CONTENEDOR} grid min-h-[100svh] items-center gap-5 pb-6 pt-20 md:grid-cols-[minmax(0,1fr)_auto] md:gap-[clamp(2rem,3.5vw,3rem)] md:py-[clamp(5rem,12svh,6rem)] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,0.7fr)]`}>
         <div>
-          <h2 id="como-titulo" className="dx-display text-balance text-[clamp(2.4rem,5.6vw,5.75rem)]">
+          <h2 id="como-titulo" className="dx-display text-balance text-[clamp(2.4rem,min(5.6vw,9svh),5.75rem)]">
             Del celu de tu cliente a tu panel
           </h2>
-          <ol className="dx-pasos mt-5 lg:mt-14 lg:space-y-8">
+          <ol className="dx-pasos mt-5 md:mt-[clamp(1rem,4svh,3.5rem)] md:space-y-[clamp(0.75rem,3svh,2rem)]">
             {PASOS.map((p, i) => (
-              <li key={p.titulo} data-paso={i} className="mb-6 lg:mb-0">
+              <li key={p.titulo} data-paso={i} className="mb-6 md:mb-0">
                 <div className="flex items-baseline gap-4">
                   <span className="dx-paso-num dx-display dx-tabular text-[clamp(1.5rem,2.4vw,2.25rem)]" aria-hidden>
                     {String(i + 1).padStart(2, "0")}
                   </span>
-                  <h3 className="dx-display text-[clamp(1.9rem,3.6vw,3.5rem)]">{p.titulo}</h3>
+                  <h3 className="dx-display text-[clamp(1.9rem,min(3.6vw,6svh),3.5rem)]">{p.titulo}</h3>
                 </div>
-                <p className="dx-paso-texto mt-2 max-w-[34rem] text-lg leading-relaxed sm:pl-14">{p.texto}</p>
+                <p className="dx-paso-texto mt-2 max-w-[34rem] text-lg leading-relaxed sm:pl-14 md:[@media(max-height:820px)]:text-base">{p.texto}</p>
               </li>
             ))}
           </ol>
         </div>
-        <div className="mx-auto w-[max(10rem,min(15.5rem,62vw,calc((100svh-24rem)*0.47)))] lg:w-[min(23rem,26vw,calc((100svh-12rem)*0.47))]">
+        <div className="mx-auto w-[max(9rem,min(15.5rem,62vw,calc((100svh-27rem)*0.47)))] md:w-[min(15.5rem,30vw,calc((100svh-10rem)*0.47))] lg:w-[min(23rem,26vw,calc((100svh-12rem)*0.47))]">
           <Telefono />
         </div>
         {/* Contador gigante del paso (sólo con movimiento, en pantallas grandes). */}
         <div aria-hidden className="dx-contador dx-display dx-display-xl items-end justify-self-end leading-none">
           <span className="grid overflow-hidden">
             {PASOS.map((p, i) => (
-              <span key={p.titulo} data-contador={i} className="text-[clamp(7rem,13vw,14rem)] [grid-area:1/1]">
+              <span key={p.titulo} data-contador={i} className="text-[clamp(5rem,min(11vw,16svh),14rem)] [grid-area:1/1]">
                 {String(i + 1).padStart(2, "0")}
               </span>
             ))}
@@ -390,9 +391,9 @@ function Funciones() {
               <li
                 key={f.titulo}
                 data-funcion={i}
-                className="grid gap-x-10 gap-y-2 border-b border-white/15 py-5 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-center lg:py-6"
+                className="grid gap-x-10 gap-y-2 border-b border-white/15 py-5 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] lg:items-center xl:grid-cols-[minmax(0,1fr)_24rem] lg:py-6"
               >
-                <h3 className="dx-funcion-titulo dx-display text-[clamp(2rem,5.4vw,5.25rem)] transition-colors duration-300">
+                <h3 className="dx-funcion-titulo dx-display text-[clamp(2rem,4.6vw,5.25rem)] xl:text-[clamp(2rem,5.4vw,5.25rem)] transition-colors duration-300">
                   {f.titulo}
                 </h3>
                 <div className="dx-funcion-texto transition-opacity duration-300">
@@ -534,12 +535,12 @@ function Precios() {
           </div>
         </div>
 
-        <ul className="mt-14 grid gap-5 md:grid-cols-3">
+        <ul className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {PLANES.map((p) => {
             const e = ESTILO_PLAN[p.estilo];
             return (
               <li key={p.code}>
-                <article className={`flex h-full flex-col rounded-[var(--radio)] p-7 sm:p-8 ${e.card}`}>
+                <article className={`flex h-full flex-col rounded-[var(--radio)] p-7 lg:p-7 xl:p-8 ${e.card}`}>
                   <div className="flex min-h-[2.75rem] flex-wrap items-center gap-x-3 gap-y-2">
                     <h3 className="dx-display text-[2.25rem]">{p.name}</h3>
                     {p.estilo === "aji" && (
@@ -710,7 +711,7 @@ export default function Landing() {
       const root = rootRef.current!;
       const q = gsap.utils.selector(root);
       const mm = gsap.matchMedia();
-      const condiciones = { movimiento: "(prefers-reduced-motion: no-preference)", escritorio: "(min-width: 1024px) and (min-height: 560px)" };
+      const condiciones = { movimiento: "(prefers-reduced-motion: no-preference)", escritorio: "(min-width: 1024px) and (min-height: 560px)", lista: "(min-width: 768px) and (min-height: 560px)" };
       // Color de la barra: atributo y variable en el DOM, sin estado de React
       // (no re-renderiza la página). El fondo copia el de la sección de abajo.
       const ponerTema = (t: TemaNav, fondo: string) => {
@@ -723,7 +724,7 @@ export default function Landing() {
       let avanceHero = () => 0;
 
       mm.add(condiciones, (ctx) => {
-        const { movimiento, escritorio } = ctx.conditions as { movimiento: boolean; escritorio: boolean };
+        const { movimiento, escritorio, lista } = ctx.conditions as { movimiento: boolean; escritorio: boolean; lista: boolean };
         if (!movimiento) return;
         root.classList.add("dx-motion");
 
@@ -786,7 +787,8 @@ export default function Landing() {
         // 3. Escena del teléfono: queda fija y avanza tres pasos.
         const escena = q("[data-escena]")[0];
         const pasos = q("[data-paso]");
-        const apagado = escritorio ? 0.45 : 0;
+        // Desde tablet los 3 pasos se ven en lista (el activo resaltado); en el celular se superponen.
+        const apagado = lista ? 0.45 : 0;
         gsap.set(pasos.slice(1), { opacity: apagado });
         gsap.set(q('[data-pantalla="2"], [data-pantalla="3"]'), { yPercent: 100 });
         const contador = q("[data-contador]");
@@ -810,13 +812,13 @@ export default function Landing() {
           })
           .to({}, { duration: 0.6 })
           .to(pasos[0], { opacity: apagado, duration: 0.3 }, 1)
-          .to(pasos[1], { opacity: 1, duration: 0.3 }, 1)
+          .to(pasos[1], { opacity: 1, duration: 0.3 }, lista ? 1 : 1.3)
           .to(q('[data-pantalla="2"]'), { yPercent: 0, duration: 0.8, ease: "power2.inOut" }, 0.9)
           .to(contador[0], { yPercent: -100, duration: 0.6, ease: "power3.inOut" }, 0.95)
           .to(contador[1], { yPercent: 0, duration: 0.6, ease: "power3.inOut" }, 0.95)
           .from(q("[data-sumar]"), { scale: 0.6, backgroundColor: "#ff5b24", stagger: 0.15, duration: 0.3 }, 1.5)
           .to(pasos[1], { opacity: apagado, duration: 0.3 }, 2.4)
-          .to(pasos[2], { opacity: 1, duration: 0.3 }, 2.4)
+          .to(pasos[2], { opacity: 1, duration: 0.3 }, lista ? 2.4 : 2.7)
           .to(q('[data-pantalla="3"]'), { yPercent: 0, duration: 0.8, ease: "power2.inOut" }, 2.3)
           .to(contador[1], { yPercent: -100, duration: 0.6, ease: "power3.inOut" }, 2.35)
           .to(contador[2], { yPercent: 0, duration: 0.6, ease: "power3.inOut" }, 2.35)

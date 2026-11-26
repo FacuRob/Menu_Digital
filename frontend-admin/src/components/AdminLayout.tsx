@@ -307,7 +307,7 @@ export function AdminShell() {
     } catch {
       /* sin almacenamiento */
     }
-    return window.innerWidth < 1100;
+    return window.innerWidth < 1280;
   });
   const [drawerOpen, setDrawerOpen] = useState(false);
   const collapsed = !isMobile && collapsedPref;

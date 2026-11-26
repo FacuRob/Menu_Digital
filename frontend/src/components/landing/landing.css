@@ -119,7 +119,7 @@
 /* Inicio: el portal de tinta crece desde la ficha QR. */
 .dx-portal { display: none; }
 /* Sólo en pantallas grandes: en el celular el inicio no se fija ni se cubre. */
-@media (min-width: 1024px) {
+@media (min-width: 1024px) and (min-height: 560px) {
   .dx-motion .dx-portal { display: block; }
 }
 
@@ -128,7 +128,7 @@
 .dx-pantalla:last-child { display: flex; }
 .dx-motion .dx-pantalla { display: flex; position: absolute; inset: 0; }
 
-@media (max-width: 1023px) {
+@media (max-width: 767px), (max-height: 559px) {
   /* En el celular el paso activo se superpone sobre los demás. */
   .dx-motion .dx-pasos { display: grid; }
   .dx-motion .dx-pasos > li { grid-area: 1 / 1; }
@@ -143,7 +143,7 @@
 
 /* Contador gigante de la escena del teléfono. */
 .dx-contador { display: none; }
-@media (min-width: 1024px) {
+@media (min-width: 1024px) and (min-height: 560px) {
   .dx-motion .dx-contador { display: flex; }
 }
 
@@ -163,7 +163,7 @@ html.lenis, html.lenis body { height: auto; }
 html:has(.dx) { scrollbar-color: var(--tinta, #111216) #e4e1d8; }
 
 /* Con el contador gigante a la vista, los pasos no repiten su número. */
-@media (min-width: 1024px) {
+@media (min-width: 1024px) and (min-height: 560px) {
   .dx-motion .dx-paso-num { display: none; }
   .dx-motion .dx-paso-texto { padding-left: 0; }
 }

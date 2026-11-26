@@ -4,20 +4,121 @@
     {
       "name": "backend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "backend", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "backend",
+        "run",
+        "dev"
+      ],
       "port": 5000
     },
     {
       "name": "menu",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "frontend", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "run",
+        "dev"
+      ],
       "port": 3000
     },
     {
       "name": "admin",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "frontend-admin", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "frontend-admin",
+        "run",
+        "dev"
+      ],
       "port": 3001
+    },
+    {
+      "name": "mock-api",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/facun/AppData/Local/Temp/claude/b2ef7efc4fd12278/24221ec1-3ee8-4282-844c-082e7a546e46/scratchpad/mock/server.js"
+      ],
+      "port": 5055
+    },
+    {
+      "name": "admin-mock",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "frontend-admin",
+        "run",
+        "dev",
+        "--",
+        "--mode",
+        "mock",
+        "--port",
+        "3021",
+        "--strictPort"
+      ],
+      "port": 3021
+    },
+    {
+      "name": "email-preview",
+      "runtimeExecutable": "py",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5077",
+        "--directory",
+        "C:\\Users\\facun\\AppData\\Local\\Temp\\claude\\dcd281b6f1914275\\c8ab2b21-3eb8-418a-ae4d-9011d814ae5a\\scratchpad\\emails"
+      ],
+      "port": 5077
+    },
+    {
+      "name": "menu-mock",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "run",
+        "dev",
+        "--",
+        "--mode",
+        "mock",
+        "--port",
+        "3013",
+        "--strictPort"
+      ],
+      "port": 3013
+    },
+    {
+      "name": "menu-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "run",
+        "preview",
+        "--",
+        "--port",
+        "4173",
+        "--strictPort"
+      ],
+      "port": 4173
+    },
+    {
+      "name": "mock-qr",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/facun/AppData/Local/Temp/claude/1dfd7e4291430e87/266270fe-999d-4991-87c7-69faa9e380a3/scratchpad/mockqr/server.js"
+      ],
+      "port": 5066
+    },
+    {
+      "name": "admin-qr",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "set VITE_API_URL=http://localhost:5066&& npm --prefix frontend-admin run dev -- --mode mock --port 3031 --strictPort"
+      ],
+      "port": 3031
     }
   ]
 }
