@@ -737,6 +737,7 @@ const es: Dict = {
   subProdsPer: "{n} productos por negocio",
   subUnlimProds: "Productos ilimitados",
   subCurrentPlan: "Plan actual",
+  subEnPrueba: "Es el que estás usando en la prueba gratis",
   subChoose: "Elegir plan",
   subDueLabel: "Vencimiento",
   subTodayLabel: "Hoy",
@@ -1410,7 +1411,7 @@ const es: Dict = {
   bizPlanUsage: "{used} / {limit} negocios del plan",
   bizPlanTitleAttr: "{plan}: hasta {limit} negocios",
   bizFreeOne:
-    "Tu plan Free permite un solo negocio. Mejorá tu plan para multi-negocio.",
+    "Tu plan permite un solo negocio. Mejoralo para sumar más.",
   bizLimitReached: "Alcanzaste el límite de {limit} negocios de tu plan",
   bizNew: "Nuevo negocio",
   bizNoSlug: "sin-slug",

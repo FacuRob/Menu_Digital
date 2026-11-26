@@ -130,7 +130,7 @@ test("responderConIA: contesta con los datos del local y lo registra como IA", a
   assert.doesNotMatch(system, /#18|N° 18/); // el id interno no se muestra
   assert.doesNotMatch(system, /N° 4/); // pedido de otro cliente
   assert.match(system, /2x1 en pizzas/); // indicaciones del dueño
-  assert.match(system, /menu\/bar-la-esquina/);
+  assert.match(system, /negocio\/bar-la-esquina/);
   assert.deepStrictEqual(llamadas[0].messages[1], { role: "user", content: "¿A qué hora abren?" });
   // Se envió por WhatsApp y quedó registrado.
   assert.strictEqual(enviados[0].text.body, "¡Hola! Abrimos a las 20 hs. 🍔");

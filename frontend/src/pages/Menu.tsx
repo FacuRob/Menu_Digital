@@ -82,7 +82,7 @@ const suave = (): ScrollBehavior =>
 // Negocio del menú general, con su configuración (horarios, entregas…).
 type NegocioMenu = NegocioPublico & { config: Configuracion | null };
 
-// general: /menu/:slug/todos → todos los negocios de la cuenta, separados.
+// general: /negocio/:slug/todos → todos los negocios de la cuenta, separados.
 // El carrito es de un negocio a la vez (cada pedido va a un solo negocio).
 const Menu = ({ general = false, canonica = false }: { general?: boolean; canonica?: boolean }) => {
   const { t, setRubro } = useLang();
@@ -187,7 +187,7 @@ const Menu = ({ general = false, canonica = false }: { general?: boolean; canoni
           return;
         }
 
-        // Multi-tenant: si la URL es /menu/:slug, resolver el slug al negocio
+        // Multi-tenant: si la URL es /negocio/:slug, resolver el slug al negocio
         // antes de pedir los datos. Si no existe, mostrar "no encontrado".
         if (slug) {
           try {

@@ -990,6 +990,8 @@ export interface PlanCatalogo {
 export interface SuscripcionEstado {
   es_plataforma: boolean;
   tipo_plan: TipoPlan;
+  // En prueba gratis, el plan que rige (funciones y límites).
+  plan_efectivo?: TipoPlan | null;
   estado_suscripcion: EstadoSuscripcion;
   vigente: boolean;
   periodo_fin: string | null;

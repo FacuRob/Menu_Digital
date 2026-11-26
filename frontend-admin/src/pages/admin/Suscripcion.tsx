@@ -274,7 +274,7 @@ export default function Suscripcion() {
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700, color: textPrimary }}>
-                  {t("subPlanHeading", { plan: planNombre(data.tipo_plan) })}
+                  {t("subPlanHeading", { plan: nombreDelPlan(t, data.tipo_plan, data.plan_efectivo) })}
                 </h2>
                 <span
                   style={{
@@ -624,6 +624,12 @@ export default function Suscripcion() {
                 <div style={{ fontSize: 15, fontWeight: 700, color: textPrimary }}>
                   {planNombre(p.code)}
                 </div>
+                {/* En la prueba gratis: cuál de estos planes está usando. */}
+                {data?.tipo_plan === "free" && data.vigente && data.plan_efectivo === p.code && (
+                  <div style={{ marginTop: 2, fontSize: 12.5, fontWeight: 600, color: "var(--info)" }}>
+                    {t("subEnPrueba")}
+                  </div>
+                )}
                 {p.precio_con_descuento != null && (
                   <s style={{ display: "block", marginTop: 8, fontSize: 13, color: textMuted }}>
                     {money(p.precio_mensual)}

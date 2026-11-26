@@ -324,9 +324,8 @@ function armarPrompt(
   const voc = vocabularioDe(rubro);
   const nombre = cfg.nombre || "el local";
   const moneda = cfg.moneda || "ARS";
-  // Fuera de gastronomía la página canónica es /negocio/:slug (misma página).
-  const base = rubro && rubro !== "gastronomia" ? "negocio" : "menu";
-  const linkMenu = slug ? `${MENU_URL()}/${base}/${slug}` : null;
+  // Link oficial para todos los rubros (/menu/:slug redirige acá).
+  const linkMenu = slug ? `${MENU_URL()}/negocio/${slug}` : null;
   const linkTurno = slug && modulos?.reservas && servicios.some((s) => s.requiere_turno) ? `${MENU_URL()}/negocio/${slug}/reservar` : null;
   const linkPresupuesto = slug && modulos?.presupuestos ? `${MENU_URL()}/negocio/${slug}/presupuesto` : null;
   const abierto = abiertoAhora(cfg.horarios_config, fecha);

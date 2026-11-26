@@ -5,6 +5,7 @@ const {
   diasRestantes,
   TRIAL_DIAS,
   LIMITES_POR_PLAN: LIMITES,
+  planEfectivo,
 } = require("../utils/suscripcion");
 const { preciosPorPlan } = require("../utils/planPrecios");
 const { crearSuscripcion, cancelarSuscripcion, cambiarMonto, motivoRechazo, PORTAL_URL } = require("../utils/mercadoPago");
@@ -101,6 +102,8 @@ const getEstado = async (req, res) => {
       mp_email: mpEmail,
       es_plataforma: false,
       tipo_plan: cuenta.tipo_plan,
+      // En prueba gratis, el plan cuyas funciones y límites usa.
+      plan_efectivo: planEfectivo(cuenta),
       estado_suscripcion: cuenta.estado_suscripcion,
       vigente: estaVigente(cuenta),
       periodo_fin: cuenta.periodo_fin,

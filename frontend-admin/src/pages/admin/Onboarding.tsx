@@ -92,6 +92,11 @@ export default function Onboarding() {
         return;
       }
       setErrorCarga(false);
+      // Ya publicado (o negocio anterior al onboarding): no se vuelve a mostrar.
+      if (ob && (!ob.onboarding || ob.onboarding.completado)) {
+        navigate("/admin/dashboard", { replace: true });
+        return;
+      }
       const p = ob?.onboarding?.paso;
       if (p && p >= 2 && p <= TOTAL) setPaso(p as Paso);
       if (ob?.modulos) {

@@ -147,11 +147,11 @@ app.get("/api/configuracion", getConfiguracion);
 // Lectura del panel: misma data, pero con el negocio validado contra la cuenta
 // (la ruta pública confía en X-Negocio-Id, que puede quedar viejo en el navegador).
 app.get("/api/panel/configuracion", authMiddleware, scopeNegocio, getConfiguracion);
-// Resolver el negocio del menú público por su slug (/menu/:slug).
+// Resolver el negocio del menú público por su slug (/negocio/:slug).
 // Sitemap de las páginas de los locales (dinexflow.com.ar/robots.txt apunta acá).
 app.get("/sitemap-negocios.xml", require("./controllers/sitemapController").sitemapNegocios);
 app.get("/api/negocios/publico/:slug", getNegocioPublicoBySlug);
-// Menú general: todos los negocios activos de la cuenta (/menu/:slug/todos).
+// Menú general: todos los negocios activos de la cuenta (/negocio/:slug/todos).
 app.get("/api/negocios/publico/:slug/grupo", getGrupoPublico);
 // Catálogo central de rubros (categorías y especialidades).
 app.get("/api/rubros", onboarding.getRubros);

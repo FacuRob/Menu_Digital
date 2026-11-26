@@ -89,13 +89,13 @@ test("registro: sólo la cuenta del usuario; Soporte se muestra como tal; sin ta
 
 // ── IA ──
 const FECHA = new Date("2026-11-15T20:00:00Z");
-test("IA: un restaurante no ve servicios ni turnos y su link sigue en /menu", () => {
+test("IA: un restaurante no ve servicios ni turnos y su link va a /negocio", () => {
   const p = armarPrompt(
     { cfg: { nombre: "La Esquina" }, slug: "la-esquina", categorias: [{ id: 1, nombre: "Pizzas" }], productos: [{ nombre: "Muzza", precio: 9000, categoria_id: 1 }], pedidos: [] },
     "",
     FECHA,
   );
-  assert.ok(p.includes("/menu/la-esquina"));
+  assert.ok(p.includes("/negocio/la-esquina"));
   assert.ok(p.includes("MENÚ (solo productos disponibles hoy"));
   assert.ok(p.includes("el cliente usa el menú online"));
   assert.ok(!p.includes("SERVICIOS") && !p.includes("TURNOS Y PRESUPUESTOS"));
@@ -112,7 +112,7 @@ test("IA: una tienda habla de catálogo y tienda online, no de menú", () => {
   assert.ok(p.includes("CATÁLOGO DE PRODUCTOS (solo productos disponibles hoy"));
   assert.ok(p.includes("el cliente usa la tienda online"));
   assert.ok(p.includes("/negocio/clicklab"));
-  assert.ok(!/men[uú]/i.test(p.replace("/menu/", "")));
+  assert.ok(!/men[uú]/i.test(p));
 });
 
 test("IA: ve variantes con precio extra, atributos, venta por kg y personalización", () => {

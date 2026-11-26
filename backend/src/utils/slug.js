@@ -1,4 +1,4 @@
-// Slugs de negocio: la parte de la URL pública del menú (/menu/:slug).
+// Slugs de negocio: la parte de la URL pública del menú (/negocio/:slug).
 // La columna negocios.slug es UNIQUE en la BD, así que antes de guardar uno
 // hay que asegurarse de que no lo use otro negocio (de cualquier cuenta).
 

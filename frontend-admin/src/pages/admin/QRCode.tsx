@@ -84,7 +84,7 @@ export default function QRCode() {
         setQrUrl("");
         return;
       }
-      url = `${MENU_BASE}/menu/${principal.slug}/todos`;
+      url = `${MENU_BASE}/negocio/${principal.slug}/todos`;
     }
     // QR de mesa: lleva la firma; sin ella el menú no deja pedir "en mesa".
     const firma = mesas.find((m) => m.mesa === mesa)?.t;

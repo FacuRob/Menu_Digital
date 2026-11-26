@@ -12,6 +12,24 @@ const supabase = require("../config/database");
 const { modulosDe } = require("../utils/modulos");
 const { planEfectivo, diasRestantes, estaVigente } = require("../utils/suscripcion");
 const { llamarOpenRouter, textoDe, precio, textoHorarios } = require("./iaService");
+const { catalogoRubros } = require("../utils/rubros");
+
+// Rubro con el nombre que ve el usuario ("Comercios y tiendas · Ropa"), no el
+// código interno (QA: DinexAI decía "retail").
+const FAMILIA_ES = { gastronomia: "Gastronomía", retail: "Comercio", servicios: "Servicios", generico: "Otro" };
+async function nombreRubro(neg) {
+  try {
+    const { categorias } = await catalogoRubros();
+    const cat = categorias.find((c) => c.codigo === neg.rubro_categoria);
+    if (cat) {
+      const esp = cat.especialidades.find((e) => e.codigo === neg.rubro_especialidad);
+      return esp ? `${cat.nombre} · ${esp.nombre}` : cat.nombre;
+    }
+  } catch {
+    // Sin catálogo (falta la migración o falló la consulta): el de la familia.
+  }
+  return FAMILIA_ES[neg.tipo_rubro] || FAMILIA_ES.gastronomia;
+}
 
 const MAX_MENSAJES = 12;
 
@@ -147,7 +165,7 @@ async function diagnostico(negocioId, cuentaId) {
       }`
     : "Plan: no informado.";
 
-  return `NEGOCIO: ${cfg.nombre || neg.nombre || "sin nombre"} (rubro: ${neg.tipo_rubro || "gastronomia"})
+  return `NEGOCIO: ${cfg.nombre || neg.nombre || "sin nombre"} (rubro: ${await nombreRubro(neg)})
 Página pública: ${neg.slug ? `/negocio/${neg.slug}` : "sin dirección"} · ${neg.activo === false ? "DESACTIVADA" : "online"}
 ${plan}
 Módulos prendidos: ${Object.entries(modulos).filter(([, v]) => v).map(([k]) => k).join(", ") || "ninguno"}

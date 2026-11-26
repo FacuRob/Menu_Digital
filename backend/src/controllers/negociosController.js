@@ -8,7 +8,7 @@ const { resolverRubro } = require("../utils/rubros");
 const SLUG_EN_USO = "23505";
 
 // Resolver un negocio por su slug (RUTA PÚBLICA, sin auth). La usa el menú
-// público para saber qué negocio mostrar desde la URL /menu/:slug.
+// público para saber qué negocio mostrar desde la URL /negocio/:slug.
 // Devuelve sólo datos no sensibles (id, nombre, slug).
 const getNegocioPublicoBySlug = async (req, res) => {
   try {
@@ -33,7 +33,7 @@ const getNegocioPublicoBySlug = async (req, res) => {
 };
 
 // Menú general (RUTA PÚBLICA): a partir del slug de un negocio, devuelve el
-// nombre de la cuenta y todos sus negocios activos. Lo usa /menu/:slug/todos
+// nombre de la cuenta y todos sus negocios activos. Lo usa /negocio/:slug/todos
 // (el QR "general" de las cuentas con varios negocios). El negocio del slug
 // puede estar inactivo: igual sirve para encontrar la cuenta.
 const getGrupoPublico = async (req, res) => {

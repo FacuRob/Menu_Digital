@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, type ReactNode } from "react";
-import { BrowserRouter, StaticRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, StaticRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { LanguageProvider, useLang } from "./lib/i18n";
 
 // Cada página se descarga sólo cuando se visita: la landing no carga el
@@ -21,8 +21,16 @@ const Seguimiento = lazy(() => import("./pages/Seguimiento"));
 const Cargando = () => <div role="status" aria-busy="true" aria-label="Cargando" style={{ minHeight: "100dvh" }} />;
 
 // Dirección oficial de cada página para Google (sin ?mesa=, ?negocio=, etc.).
-// /menu/:slug y /negocio/:slug muestran lo mismo: cuenta como una sola.
+// /menu/:slug ya redirige a /negocio/:slug (ver AlNegocio).
 const SITIO = "https://dinexflow.com.ar";
+// /menu/:slug y /menu/:slug/todos → /negocio/... (el link oficial). Conserva
+// ?mesa=&t= de los QR de mesa ya impresos.
+function AlNegocio({ todos = false }: { todos?: boolean }) {
+  const { slug = "" } = useParams();
+  const { search, hash } = useLocation();
+  return <Navigate replace to={`/negocio/${encodeURIComponent(slug)}${todos ? "/todos" : ""}${search}${hash}`} />;
+}
+
 function Canonica() {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -33,7 +41,7 @@ function Canonica() {
       document.head.appendChild(link);
     }
     const ruta = pathname.replace(/\/+$/, "") || "/";
-    link.href = SITIO + ruta.replace(/^\/menu\/([^/]+)$/, "/negocio/$1");
+    link.href = SITIO + ruta;
   }, [pathname]);
   return null;
 }
@@ -86,18 +94,18 @@ function App({ url }: { url?: string }) {
         <Route path="/privacidad" element={<Privacidad />} />
         <Route path="/precios" element={<Precios />} />
         <Route path="/menu" element={<Menu />} />
-        {/* Menú por negocio (multi-tenant): /menu/:slug */}
-        <Route path="/menu/:slug" element={<Menu key="uno" />} />
-        {/* Menú general: todos los negocios de la cuenta (QR general). */}
-        <Route path="/menu/:slug/todos" element={<Menu key="todos" general />} />
+        {/* Links viejos (QR impresos): llevan a /negocio/... */}
+        <Route path="/menu/:slug" element={<AlNegocio />} />
+        <Route path="/menu/:slug/todos" element={<AlNegocio todos />} />
         {/* Ticket de un pedido (link firmado que llega por WhatsApp). */}
         <Route path="/ticket/:id" element={<Ticket />} />
         {/* Seguimiento del delivery: repartidor y cliente (links firmados). */}
         <Route path="/reparto/:id" element={<Reparto />} />
         <Route path="/seguimiento/:id" element={<Seguimiento />} />
-        {/* Página pública canónica de cualquier rubro: la misma que /menu/:slug
-            (los QR impresos siguen en /menu y no se tocan). */}
+        {/* Página pública de cualquier rubro (link oficial). */}
         <Route path="/negocio/:slug" element={<Menu key="uno" canonica />} />
+        {/* Menú general: todos los negocios de la cuenta (QR general). */}
+        <Route path="/negocio/:slug/todos" element={<Menu key="todos" general />} />
         {/* Presupuestos y turnos: pedir y seguir con el link firmado. */}
         <Route path="/negocio/:slug/presupuesto" element={<PedirPresupuesto />} />
         <Route path="/negocio/:slug/reservar" element={<Reservar />} />
