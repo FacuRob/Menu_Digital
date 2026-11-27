@@ -11,9 +11,10 @@
 // Con WhatsApp común (QR) esa regla no existe: se puede responder siempre.
 const supabase = require("../config/database");
 const { conNumeroPedido } = require("../utils/numeroPedido");
-const { enviarTexto, enviarImagen, enviarBotones, normalizarTelefono, estaConfigurado, usaQR } = require("./whatsappService");
+const { enviarTexto, enviarImagen, enviarBotones, enviarEnlace, normalizarTelefono, estaConfigurado, usaQR } = require("./whatsappService");
 const { transcribirAudio } = require("./transcripcionService");
 const { describirFoto, textoFoto } = require("./fotoService");
+const { destinoDelBoton } = require("./otrosNegociosService");
 
 const VENTANA_MS = 24 * 60 * 60 * 1000;
 const MAX_TEXTO = 4096; // límite de WhatsApp para un mensaje de texto
@@ -138,11 +139,16 @@ async function registrarEntrantes(value, { negocioId } = {}) {
         .maybeSingle();
       if (repetido) continue;
 
-      const destino = negocioId ? { negocioId } : await negocioDelTelefono(tel);
+      let destino = negocioId ? { negocioId } : await negocioDelTelefono(tel);
       if (!destino) {
         console.warn(`[Chats] Mensaje de ${tel} sin negocio asociado (sin pedidos ni WHATSAPP_NEGOCIO_DEFECTO): se descarta.`);
         continue;
       }
+      // Tocó "Hablar con …" (otro negocio de la misma cuenta que también usa
+      // el número de DinexFlow): el chat sigue en el otro negocio. Los
+      // próximos mensajes van ahí solos (es el chat más reciente).
+      const salto = negocioId ? null : await destinoDelBoton(m, destino.negocioId);
+      if (salto) destino = { negocioId: salto };
       const chat = await asegurarChat(destino.negocioId, tel, {
         nombre: nombres[m.from] || destino.nombre,
       });
@@ -151,7 +157,9 @@ async function registrarEntrantes(value, { negocioId } = {}) {
       // Audios y fotos se pasan a texto (si se puede): lo lee la IA y el local.
       const dicho = await transcribirAudio(m, destino.negocioId);
       const foto = dicho ? null : await describirFoto(m, destino.negocioId);
-      const texto = dicho
+      const texto = salto
+        ? "Hola 👋 (me pasaron desde otro local de la casa)"
+        : dicho
         ? `🎤 Audio: ${dicho.slice(0, 2000)}`
         : foto
           ? textoFoto(foto, m.image?.caption)
@@ -328,14 +336,18 @@ async function responder(negocioId, chatId, textoRaw) {
 // Envía un texto libre a un chat y lo registra. autor: negocio | ia.
 // `imagen`: URL de una foto; el texto va abajo de la foto.
 // `botones`: hasta 3 botones de respuesta abajo del texto.
-async function enviarSaliente(chat, texto, autor, { imagen, botones } = {}) {
+// `enlace`: { texto, url }, un botón que abre un link.
+async function enviarSaliente(chat, texto, autor, { imagen, botones, enlace } = {}) {
   const res = imagen
     ? await enviarImagen(chat.telefono, imagen, texto, chat.negocio_id)
-    : botones?.length
-      ? await enviarBotones(chat.telefono, texto, botones, chat.negocio_id)
-      : await enviarTexto(chat.telefono, texto, chat.negocio_id);
+    : enlace
+      ? await enviarEnlace(chat.telefono, texto, enlace, chat.negocio_id)
+      : botones?.length
+        ? await enviarBotones(chat.telefono, texto, botones, chat.negocio_id)
+        : await enviarTexto(chat.telefono, texto, chat.negocio_id);
   if (imagen) texto = `📷 ${texto}`;
-  if (!imagen && botones?.length) texto = `${texto}\n\n🔘 ${botones.join(" · ")}`;
+  else if (enlace) texto = `${texto}\n\n🔘 ${enlace.texto}`;
+  else if (botones?.length) texto = `${texto}\n\n🔘 ${botones.map((b) => (typeof b === "string" ? b : b.title)).join(" · ")}`;
   const { data: mensaje } = await supabase
     .from("whatsapp_mensajes")
     .insert([

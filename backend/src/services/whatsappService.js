@@ -133,7 +133,10 @@ async function enviarImagen(telefono, url, caption, negocioId) {
 async function enviarBotones(telefono, texto, botones, negocioId) {
   const to = normalizarTelefono(telefono);
   if (!to) return { ok: false, error: "Teléfono inválido" };
-  const lista = botones.slice(0, 3).map((b) => String(b).slice(0, 20));
+  // Cada botón: "Texto" o { id, title } (el id vuelve en la respuesta).
+  const lista = botones.slice(0, 3).map((b, i) =>
+    typeof b === "string" ? { id: `b${i + 1}`, title: b.slice(0, 20) } : { id: String(b.id), title: String(b.title).slice(0, 20) },
+  );
   return enviarPayload({
     messaging_product: "whatsapp",
     to,
@@ -141,14 +144,31 @@ async function enviarBotones(telefono, texto, botones, negocioId) {
     interactive: {
       type: "button",
       body: { text: String(texto).slice(0, 1024) },
-      action: { buttons: lista.map((title, i) => ({ type: "reply", reply: { id: `b${i + 1}`, title } })) },
+      action: { buttons: lista.map(({ id, title }) => ({ type: "reply", reply: { id, title } })) },
     },
-  }, negocioId, `${texto}\n\n${sugerencia(lista)}`);
+  }, negocioId, `${texto}\n\n${sugerencia(lista.map((b) => b.title))}`);
 }
 const sugerencia = (botones) => `_Podés escribirme: ${botones.join(" · ")}_`;
+
+// Texto con un botón que abre un link (p. ej. wa.me de otro local).
+// `boton`: { texto (máx. 20), url }. Por QR va el link escrito.
+async function enviarEnlace(telefono, texto, boton, negocioId) {
+  const to = normalizarTelefono(telefono);
+  if (!to) return { ok: false, error: "Teléfono inválido" };
+  return enviarPayload({
+    messaging_product: "whatsapp",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "cta_url",
+      body: { text: String(texto).slice(0, 1024) },
+      action: { name: "cta_url", parameters: { display_text: String(boton.texto).slice(0, 20), url: String(boton.url) } },
+    },
+  }, negocioId, `${texto}\n\n👉 ${boton.texto}: ${boton.url}`);
+}
 
 // ¿El local manda desde WhatsApp común (QR)? Ahí no corre la regla de las
 // 24 h de Meta: se le puede escribir a un cliente cuando sea.
 const usaQR = async (negocioId) => (await credencialesDe(negocioId))?.via === "qr";
 
-module.exports = { enviarPlantilla, enviarTexto, enviarImagen, enviarBotones, normalizarTelefono, estaConfigurado, usaQR };
+module.exports = { enviarPlantilla, enviarTexto, enviarImagen, enviarBotones, enviarEnlace, normalizarTelefono, estaConfigurado, usaQR };
