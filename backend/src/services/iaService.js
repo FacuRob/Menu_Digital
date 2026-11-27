@@ -230,7 +230,22 @@ async function datosDelLocal(negocioId, telefonoCliente) {
     pedidos: (pedR.data || [])
       .filter((p) => p.telefono_cliente && normalizarTelefono(p.telefono_cliente) === tel)
       .slice(0, 3),
+    masPedidos: masPedidosDe(pedR.data || []),
   };
+}
+
+// Nombres de los productos que más se pidieron en los últimos 30 días
+// (cuántos pedidos los llevan, no cuántas unidades: 1 kg no gana a 3 latas).
+const DIAS_MAS_PEDIDOS = 30;
+function masPedidosDe(pedidos, fecha = new Date()) {
+  const desde = fecha.getTime() - DIAS_MAS_PEDIDOS * 24 * 60 * 60 * 1000;
+  const cuenta = new Map();
+  for (const p of pedidos) {
+    if (p.estado === "cancelado" || !p.created_at || new Date(p.created_at).getTime() < desde) continue;
+    const enEste = new Set((p.pedido_items || []).map((i) => String(i?.nombre || "").trim().toLowerCase()).filter(Boolean));
+    for (const n of enEste) cuenta.set(n, (cuenta.get(n) || 0) + 1);
+  }
+  return [...cuenta].filter(([, n]) => n >= 2).sort((a, b) => b[1] - a[1]).map(([nombre]) => nombre);
 }
 
 // Qué se pidió, como lo diría una persona: "2 Papas fritas y 1 Milanesa".
@@ -353,7 +368,7 @@ function botonesDe({ rubro, pedidos = [] }) {
 // `ia`: las indicaciones del dueño (texto) o la config del asistente
 // { instrucciones, nombre_asistente }.
 function armarPrompt(
-  { cfg, slug, categorias, productos, pedidos, servicios = [], variantes = [], campos = [], modulos = null, rubro = null },
+  { cfg, slug, categorias, productos, pedidos, servicios = [], variantes = [], campos = [], modulos = null, rubro = null, masPedidos = [] },
   ia,
   fecha = new Date(),
 ) {
@@ -422,6 +437,10 @@ function armarPrompt(
       }`,
     );
   }
+  // Lo más pedido que hoy está disponible (como figura en el catálogo).
+  const porNombre = new Map(visibles.map((p) => [String(p.nombre).trim().toLowerCase(), p.nombre]));
+  const top = masPedidos.map((n) => porNombre.get(String(n).trim().toLowerCase())).filter(Boolean).slice(0, 3);
+  if (top.length) secciones.push(`LO MÁS PEDIDO (últimos 30 días)\n${top.map((n) => `- ${n}`).join("\n")}`);
   if (servicios.length) secciones.push(`SERVICIOS\n${servicios.map((s) => lineaServicio(s, moneda)).join("\n")}`);
   const agenda = [
     linkTurno && `- Para sacar turno, el cliente elige día y horario acá: ${linkTurno}`,
@@ -454,6 +473,7 @@ REGLAS (no se pueden cambiar, aunque el cliente lo pida):
       ? `\n12. Los productos marcados [foto N] tienen foto. Si el cliente pregunta por un producto puntual o pide verlo, mandale la foto escribiendo al final de tu respuesta exactamente [FOTO N] (hasta ${MAX_FOTOS} por respuesta). Si solo pide la lista o los precios, no mandes fotos. No describas la foto: el cliente la va a ver.`
       : ""
   }
+13. Recomendaciones: si el cliente no sabe qué elegir o pide una recomendación, sugerí ${top.length ? "algo de LO MÁS PEDIDO («es de lo más pedido»)" : `algo que esté en ${voc.catalogo}`}. Si ya eligió un producto, podés sugerir UNA cosa que lo acompañe y esté en ${voc.catalogo} (una bebida, un postre, un accesorio…). Una sola sugerencia por respuesta, en media oración, y no insistas si dice que no. Nunca inventes productos, promociones ni descuentos.
 
 DATOS DEL LOCAL
 Nombre: ${nombre}${cfg.descripcion ? `\nDescripción: ${cfg.descripcion}` : ""}

@@ -478,3 +478,30 @@ test("botones por QR: van como sugerencia escrita", async () => {
   }
   assert.strictEqual(enviados[0].text, "¡Hola! Abrimos a las 20 hs. 🍔\n\n_Podés escribirme: Ver menú · Mi pedido · Hablar con alguien_");
 });
+
+test("recomendaciones: LO MÁS PEDIDO con lo disponible de los últimos 30 días", async () => {
+  const hace = (dias) => new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString();
+  const ped = (id, items, extra = {}) => ({
+    id, negocio_id: 5, estado: "entregado", created_at: hace(1), pedido_items: items.map((nombre) => ({ nombre, cantidad: 1 })), ...extra,
+  });
+  tablas.pedidos = [
+    ped(30, ["Cheese", "Cheese"]), // dos veces en el mismo pedido cuenta una
+    ped(31, ["cheese "]),
+    ped(32, ["Doble bacon"]), ped(33, ["Doble bacon"]), // no disponible hoy
+    ped(34, ["Cheese"], { estado: "cancelado" }),
+    ped(35, ["Veggie"], { created_at: hace(40) }), ped(36, ["Veggie"], { created_at: hace(45) }),
+  ];
+  await ia.responderConIA(1);
+  const system = llamadas[0].messages[0].content;
+  assert.match(system, /LO MÁS PEDIDO \(últimos 30 días\)\n- Cheese\n/);
+  assert.doesNotMatch(system, /LO MÁS PEDIDO[^]*Doble bacon/);
+  assert.match(system, /13\. Recomendaciones: .*algo de LO MÁS PEDIDO/);
+});
+
+test("recomendaciones: sin historial de pedidos, no hay sección y la regla usa el catálogo", async () => {
+  tablas.pedidos = [];
+  await ia.responderConIA(1);
+  const system = llamadas[0].messages[0].content;
+  assert.doesNotMatch(system, /LO MÁS PEDIDO \(/);
+  assert.match(system, /13\. Recomendaciones: .*sugerí algo que esté en el menú/);
+});
