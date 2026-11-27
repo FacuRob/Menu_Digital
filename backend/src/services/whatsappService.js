@@ -127,8 +127,28 @@ async function enviarImagen(telefono, url, caption, negocioId) {
   }, negocioId);
 }
 
+// Texto con hasta 3 botones de respuesta (`botones`: ["Ver menú", …], máx.
+// 20 letras c/u). Al tocarlo, el cliente "escribe" ese texto. WhatsApp común
+// (QR) no muestra botones: van como sugerencia escrita abajo del texto.
+async function enviarBotones(telefono, texto, botones, negocioId) {
+  const to = normalizarTelefono(telefono);
+  if (!to) return { ok: false, error: "Teléfono inválido" };
+  const lista = botones.slice(0, 3).map((b) => String(b).slice(0, 20));
+  return enviarPayload({
+    messaging_product: "whatsapp",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "button",
+      body: { text: String(texto).slice(0, 1024) },
+      action: { buttons: lista.map((title, i) => ({ type: "reply", reply: { id: `b${i + 1}`, title } })) },
+    },
+  }, negocioId, `${texto}\n\n${sugerencia(lista)}`);
+}
+const sugerencia = (botones) => `_Podés escribirme: ${botones.join(" · ")}_`;
+
 // ¿El local manda desde WhatsApp común (QR)? Ahí no corre la regla de las
 // 24 h de Meta: se le puede escribir a un cliente cuando sea.
 const usaQR = async (negocioId) => (await credencialesDe(negocioId))?.via === "qr";
 
-module.exports = { enviarPlantilla, enviarTexto, enviarImagen, normalizarTelefono, estaConfigurado, usaQR };
+module.exports = { enviarPlantilla, enviarTexto, enviarImagen, enviarBotones, normalizarTelefono, estaConfigurado, usaQR };

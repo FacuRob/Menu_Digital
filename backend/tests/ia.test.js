@@ -14,6 +14,8 @@ injectModule(require.resolve("../src/utils/planNegocio"), {
 const ia = require("../src/services/iaService");
 const chats = require("../src/services/chatsService");
 const separarFotosDe = ia.separarFotos;
+// Texto de un mensaje enviado (común o con botones).
+const cuerpo = (env) => env.text?.body ?? env.interactive?.body?.text;
 
 let tablas;
 let llamadas; // requests a OpenRouter
@@ -134,7 +136,7 @@ test("responderConIA: contesta con los datos del local y lo registra como IA", a
   assert.match(system, /negocio\/bar-la-esquina/);
   assert.deepStrictEqual(llamadas[0].messages[1], { role: "user", content: "¿A qué hora abren?" });
   // Se envió por WhatsApp y quedó registrado.
-  assert.strictEqual(enviados[0].text.body, "¡Hola! Abrimos a las 20 hs. 🍔");
+  assert.strictEqual(cuerpo(enviados[0]), "¡Hola! Abrimos a las 20 hs. 🍔");
   const msg = tablas.whatsapp_mensajes.at(-1);
   assert.strictEqual(msg.autor, "ia");
   assert.strictEqual(msg.direccion, "saliente");
@@ -158,7 +160,7 @@ test("responderConIA: deriva a una persona y pausa la IA en ese chat", async () 
   console.log = log;
   assert.strictEqual(r.derivado, true);
   assert.strictEqual(tablas.whatsapp_chats[0].necesita_humano, true);
-  assert.strictEqual(enviados[0].text.body, "Ya le aviso al local 🙌");
+  assert.strictEqual(cuerpo(enviados[0]), "Ya le aviso al local 🙌");
   // El siguiente mensaje ya no lo responde la IA.
   tablas.whatsapp_mensajes.push({ id: 2, chat_id: 1, direccion: "entrante", texto: "?", created_at: new Date().toISOString() });
   const r2 = await ia.responderConIA(1);
@@ -232,7 +234,7 @@ test("respuesta cortada por falta de tokens: se manda hasta la última oración 
   };
   const r = await ia.responderConIA(1);
   assert.strictEqual(r.ok, true);
-  assert.strictEqual(enviados[0].text.body, "Hola! El de papas por $8.500 está entregado.");
+  assert.strictEqual(cuerpo(enviados[0]), "Hola! El de papas por $8.500 está entregado.");
 });
 
 test("modo simple: si el modelo rechaza sistema/herramientas, reintenta sin ellos", async () => {
@@ -259,7 +261,7 @@ test("modo simple: si el modelo rechaza sistema/herramientas, reintenta sin ello
   assert.strictEqual(llamadas[1].tools, undefined);
   assert.ok(llamadas[1].messages.every((m) => m.role !== "system"));
   assert.match(llamadas[1].messages[0].content, /Bar la Esquina[\s\S]*¿A qué hora abren\?/);
-  assert.strictEqual(enviados[0].text.body, "Abrimos a las 20 hs.");
+  assert.strictEqual(cuerpo(enviados[0]), "Abrimos a las 20 hs.");
 });
 
 test("modo simple: la marca [DERIVAR] pasa el chat a una persona", async () => {
@@ -282,7 +284,7 @@ test("modo simple: la marca [DERIVAR] pasa el chat a una persona", async () => {
   console.warn = warn;
   console.log = log;
   assert.strictEqual(r.derivado, true);
-  assert.strictEqual(enviados[0].text.body, "Ya le aviso al local.");
+  assert.strictEqual(cuerpo(enviados[0]), "Ya le aviso al local.");
   assert.strictEqual(tablas.whatsapp_chats[0].necesita_humano, true);
 });
 
@@ -318,7 +320,7 @@ test("fotos de productos: la IA marca [FOTO n] y se manda la foto con nombre y p
   assert.match(system, /- Cheese: \$\s9\.800,00 \[foto 1\]/);
   assert.match(system, /12\. Los productos marcados \[foto N\]/);
   // Primero el texto (sin la marca), después la foto.
-  assert.strictEqual(enviados[0].text.body, "¡Sí! La Cheese sale $9.800 🍔");
+  assert.strictEqual(cuerpo(enviados[0]), "¡Sí! La Cheese sale $9.800 🍔");
   assert.strictEqual(enviados[1].type, "image");
   assert.strictEqual(enviados[1].image.link, "https://res.cloudinary.com/demo/cheese.jpg");
   assert.match(enviados[1].image.caption, /^Cheese · \$\s9\.800,00$/);
@@ -378,7 +380,7 @@ test("si fallan los modelos gratis, usa el modelo de respaldo con herramientas",
   assert.strictEqual(llamadas[1].model, "pago/barato");
   assert.strictEqual(llamadas[1].models, undefined);
   assert.ok(llamadas[1].tools);
-  assert.strictEqual(enviados[0].text.body, "Abrimos a las 20 hs.");
+  assert.strictEqual(cuerpo(enviados[0]), "Abrimos a las 20 hs.");
 });
 
 test("si la IA no puede responder, avisa al cliente y marca el chat para una persona", async () => {
@@ -395,7 +397,7 @@ test("si la IA no puede responder, avisa al cliente y marca el chat para una per
   assert.strictEqual(r.ok, false);
   assert.strictEqual(r.avisado, true);
   assert.strictEqual(enviados.length, 1);
-  assert.match(enviados[0].text.body, /alguien del local/);
+  assert.match(cuerpo(enviados[0]), /alguien del local/);
   assert.strictEqual(tablas.whatsapp_chats[0].necesita_humano, true);
   // No vuelve a intentar (ni a mandar el aviso) en el próximo mensaje.
   tablas.whatsapp_mensajes.push({ id: 2, chat_id: 1, direccion: "entrante", texto: "?", created_at: new Date().toISOString() });
@@ -407,7 +409,7 @@ test("respuesta vacía del modelo: también avisa al cliente", async () => {
   respuestaModelo = { content: "" };
   const r = await callado(() => ia.responderConIA(1));
   assert.strictEqual(r.avisado, true);
-  assert.match(enviados[0].text.body, /alguien del local/);
+  assert.match(cuerpo(enviados[0]), /alguien del local/);
 });
 
 test("historial: une mensajes seguidos del mismo lado (turnos alternados)", async () => {
@@ -431,4 +433,48 @@ test("OPENROUTER_MODEL con varios modelos: los manda como respaldo", async () =>
   delete process.env.OPENROUTER_MODEL;
   assert.strictEqual(llamadas[0].model, "a/uno:free");
   assert.deepStrictEqual(llamadas[0].models, ["a/uno:free", "b/dos:free", "c/tres:free"]);
+});
+
+test("botones: la primera respuesta lleva Ver menú / Mi pedido / Hablar con alguien", async () => {
+  await ia.responderConIA(1);
+  const env = enviados[0];
+  assert.strictEqual(env.type, "interactive");
+  assert.strictEqual(env.interactive.body.text, "¡Hola! Abrimos a las 20 hs. 🍔");
+  assert.deepStrictEqual(
+    env.interactive.action.buttons.map((b) => b.reply.title),
+    ["Ver menú", "Mi pedido", "Hablar con alguien"],
+  );
+  // En el panel se ven los botones; al modelo no se le muestran.
+  assert.match(tablas.whatsapp_mensajes.at(-1).texto, /\n\n🔘 Ver menú · Mi pedido · Hablar con alguien$/);
+  tablas.whatsapp_mensajes.push({ id: 3, chat_id: 1, direccion: "entrante", texto: "Mi pedido", created_at: new Date(Date.now() + 1000).toISOString() });
+  await ia.responderConIA(1);
+  assert.strictEqual(llamadas[1].messages[2].content, "¡Hola! Abrimos a las 20 hs. 🍔");
+  // La segunda respuesta ya no lleva botones.
+  assert.strictEqual(enviados[1].type, "text");
+});
+
+test("botones: sin pedidos no aparece «Mi pedido»", async () => {
+  tablas.pedidos = [];
+  await ia.responderConIA(1);
+  assert.deepStrictEqual(enviados[0].interactive.action.buttons.map((b) => b.reply.title), ["Ver menú", "Hablar con alguien"]);
+});
+
+test("botones por QR: van como sugerencia escrita", async () => {
+  const qr = require("../src/services/whatsappQR");
+  const cuentas = require("../src/services/whatsappCuentas");
+  process.env.EVOLUTION_API_URL = "https://evo.test";
+  process.env.EVOLUTION_API_KEY = "k";
+  tablas.whatsapp_qr = [{ negocio_id: 5, estado: "conectado", instancia: "dinex-5" }];
+  qr.olvidar();
+  cuentas.olvidar?.();
+  try {
+    await ia.responderConIA(1);
+  } finally {
+    delete process.env.EVOLUTION_API_URL;
+    delete process.env.EVOLUTION_API_KEY;
+    delete tablas.whatsapp_qr;
+    qr.olvidar();
+    cuentas.olvidar?.();
+  }
+  assert.strictEqual(enviados[0].text, "¡Hola! Abrimos a las 20 hs. 🍔\n\n_Podés escribirme: Ver menú · Mi pedido · Hablar con alguien_");
 });
