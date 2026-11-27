@@ -540,6 +540,36 @@ export const clientesService = {
   listar: async () => (await api.get<{ clientes: Cliente[]; truncado: boolean }>("/clientes")).data,
 };
 
+// ── Mesas (gastronomía): plano del local y mesas ocupadas ──
+// Medidas del plano en metros.
+export type FormaMesa = "redonda" | "cuadrada" | "rectangular";
+export interface MesaPlano { mesa: string; forma: FormaMesa; x: number; y: number; w: number; h: number }
+export interface ZonaPlano { id: string; tipo: "interior" | "exterior"; forma: "rect" | "circulo"; nombre: string; x: number; y: number; w: number; h: number }
+export interface PisoPlano { id: string; nombre: string; ancho: number; alto: number; zonas: ZonaPlano[]; mesas: MesaPlano[] }
+export interface PlanoMesas { pisos: PisoPlano[] }
+export interface MesaOcupada {
+  mesa: string;
+  ocupada_desde: string;
+  pedidos: Pedido[];
+  en_curso: number;
+  total: number;
+}
+export interface EstadoMesas {
+  activo: boolean;
+  cantidad: number;
+  plano: PlanoMesas | null;
+  // false: falta db/mesas_plano.sql (sólo cuentan los pedidos en curso).
+  migracion: boolean;
+  ocupadas: MesaOcupada[];
+}
+export const mesasService = {
+  get: async () => (await api.get<EstadoMesas>("/mesas")).data,
+  guardarPlano: async (plano: PlanoMesas | null) =>
+    (await api.put<{ plano: PlanoMesas | null; activo: boolean; cantidad: number }>("/mesas/plano", { plano })).data,
+  liberar: async (mesa: string) =>
+    (await api.post<{ ok: true; pedidos_cerrados: number }>(`/mesas/${encodeURIComponent(mesa)}/liberar`)).data,
+};
+
 export const serviciosService = {
   getAll: async () => (await api.get<Servicio[]>("/servicios")).data,
   create: async (s: Omit<Servicio, "id">) => (await api.post<Servicio>("/servicios", s)).data,

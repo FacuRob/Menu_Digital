@@ -3,6 +3,7 @@ const { getNegocioId } = require("../utils/negocio");
 const { respondError } = require("../utils/respondError");
 const { notificarPedido } = require("../services/avisosPedidoService");
 const { mesaValida, normalizarMesa } = require("../utils/mesaQr");
+const { marcarOcupada } = require("./mesasController");
 const { firmaValida, linkPedido } = require("../utils/linksPedido");
 const { registrar } = require("../utils/registroCambios");
 const { modulosNegocio } = require("../middleware/requiereModulo");
@@ -382,6 +383,9 @@ const createPedido = async (req, res) => {
         avisarEnSegundoPlano(pedido, "pendiente"); // "Recibimos tu pedido"
       }
     }
+
+    // Pedido en mesa: la mesa queda ocupada en "Mesas" (por si el aviso del QR no llegó).
+    if (mesaFinal) await marcarOcupada(negocioId, mesaFinal, pedido.created_at);
 
     res.status(201).json({ ...pedido, items: sinCosto(itemsData) });
   } catch (error) {

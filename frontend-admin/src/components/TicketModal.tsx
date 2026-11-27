@@ -15,9 +15,11 @@ interface Props {
   pedido: Pedido | null;
   config: Configuracion | null;
   onClose: () => void;
+  // Después de imprimir (p. ej. Mesas: cerrar la mesa).
+  onImpreso?: () => void;
 }
 
-export default function TicketModal({ pedido, config, onClose }: Props) {
+export default function TicketModal({ pedido, config, onClose, onImpreso }: Props) {
   const { moneda } = useNegocio();
   const { t } = useLang();
   const { avisar } = useDialogos();
@@ -43,6 +45,7 @@ export default function TicketModal({ pedido, config, onClose }: Props) {
       return;
     }
     onClose();
+    onImpreso?.();
   };
 
   return (

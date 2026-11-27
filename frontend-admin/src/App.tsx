@@ -26,6 +26,7 @@ const QRCode = lazy(() => import("./pages/admin/QRCode"));
 const Usuarios = lazy(() => import("./pages/admin/Usuarios"));
 const Configuracion = lazy(() => import("./pages/admin/Configuracion"));
 const Pedidos = lazy(() => import("./pages/admin/Pedidos"));
+const Mesas = lazy(() => import("./pages/admin/Mesas"));
 const Negocios = lazy(() => import("./pages/admin/Negocios"));
 const Plataforma = lazy(() => import("./pages/admin/Plataforma"));
 const PlataformaCuentas = lazy(() => import("./pages/admin/PlataformaCuentas"));
@@ -103,6 +104,14 @@ function App() {
               element={
                 <ProtectedRoute permiso="pedidos" modulo="pedidos">
                   <Pedidos />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/mesas"
+              element={
+                <ProtectedRoute permiso="pedidos" modulo="pedidos">
+                  <Mesas />
                 </ProtectedRoute>
               }
             />

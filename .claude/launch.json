@@ -162,6 +162,23 @@
         "set VITE_API_URL=http://localhost:5088&& npm --prefix frontend-admin run dev -- --mode mock --port 3041 --strictPort"
       ],
       "port": 3041
+    },
+    {
+      "name": "mock-mesas",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/facun/AppData/Local/Temp/claude/04d54b3217545731/447506a8-3986-4045-9634-67179cf3ef94/scratchpad/mockmesas/server.js"
+      ],
+      "port": 5110
+    },
+    {
+      "name": "admin-mesas",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "set VITE_API_URL=http://localhost:5110&& npm --prefix frontend-admin run dev -- --mode mock --port 3071 --strictPort"
+      ],
+      "port": 3071
     }
   ]
 }

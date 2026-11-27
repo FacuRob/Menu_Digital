@@ -450,4 +450,11 @@ export const pedidosService = {
     (await api.put<Pedido>(`/pedidos/${id}/estado`, { estado })).data,
 };
 
+// Escanear el QR de una mesa la marca ocupada en el panel del local.
+export const mesasPublico = {
+  ocupar: async (mesa: string, t: string) => {
+    await api.post("/mesas/ocupar", { mesa, t });
+  },
+};
+
 export default api;

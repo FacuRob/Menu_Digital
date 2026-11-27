@@ -6,6 +6,7 @@ import {
   categoriasService,
   configuracionService,
   negociosPublicoService,
+  mesasPublico,
   setNegocioActivo,
 } from "../services/api";
 import type {
@@ -210,13 +211,16 @@ const Menu = ({ general = false, canonica = false }: { general?: boolean; canoni
         setCategorias(Array.isArray(c) ? c : []);
         setConfig(cfg);
         setMonedaMenu(cfg?.moneda); // moneda del negocio para el formato de precios
+        // QR de una mesa: avisa al local que la mesa quedó ocupada (pantalla Mesas).
+        if (mesa && mesaToken && cfg?.mesas_activo) mesasPublico.ocupar(mesa, mesaToken).catch(() => {});
       } catch (e) {
         console.error("Error al cargar el menú:", e);
       } finally {
         setLoading(false);
       }
     })();
-  }, [slug, demo, general]);
+    // mesa y mesaToken no cambian (salen de la URL al abrir).
+  }, [slug, demo, general, mesa, mesaToken]);
 
   // Vocabulario según el rubro ("catálogo", "servicios"…). Con config: su
   // rubro. Sin config (cargando o error): en /negocio textos neutros

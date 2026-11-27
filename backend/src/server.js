@@ -61,6 +61,7 @@ const { adjuntosLimiter, solicitudesLimiter } = require("./middleware/rateLimite
 const presupuestos = require("./controllers/presupuestosController");
 const reservas = require("./controllers/reservasController");
 const clientes = require("./controllers/clientesController");
+const mesas = require("./controllers/mesasController");
 const sch = require("./schemas");
 const { servicioSchema } = require("./schemas");
 const { REGISTRO } = require("./utils/modulos");
@@ -187,6 +188,8 @@ app.post("/api/reservas/:id/reprogramar", repartoLimiter, validate(sch.reprogram
 
 // Servicios activos del negocio (menú público).
 app.get("/api/servicios/disponibles", servicios.getServiciosDisponibles);
+// El menú avisa que se escaneó el QR de una mesa (queda ocupada en el panel).
+app.post("/api/mesas/ocupar", repartoLimiter, mesas.ocuparMesa);
 app.post("/api/pedidos", pedidosLimiter, validate(createPedidoSchema), createPedido);
 // Ticket de un pedido (link firmado que llega por WhatsApp).
 app.get("/api/tickets/:id", getTicketPublico);
@@ -297,6 +300,12 @@ app.put(
   onboarding.updateOnboarding,
 );
 app.use("/api/qr", authMiddleware, scopeNegocio, checkSuscripcion, checkPermiso("qr"), qrRoutes);
+// Mesas (gastronomía): plano del local y mesas ocupadas. Dibujar el plano
+// es sólo del dueño (se valida en el controller).
+const mesasMw = [authMiddleware, scopeNegocio, checkSuscripcion, requiereModulo("pedidos"), checkPermiso("pedidos")];
+app.get("/api/mesas", ...mesasMw, mesas.getMesas);
+app.put("/api/mesas/plano", ...mesasMw, mesas.guardarPlano);
+app.post("/api/mesas/:mesa/liberar", ...mesasMw, mesas.liberarMesa);
 app.use(
   "/api/pedidos",
   authMiddleware,

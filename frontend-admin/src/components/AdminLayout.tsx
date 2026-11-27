@@ -71,6 +71,13 @@ const I = {
       <path d="M9 11h6M9 15h4" />
     </Ico>
   ),
+  // Mesa vista desde arriba con sillas: gestión de mesas.
+  mesas: (
+    <Ico>
+      <rect x="6" y="7" width="12" height="10" rx="2" />
+      <path d="M10 3.5h4M10 20.5h4M2.5 10v4M21.5 10v4" />
+    </Ico>
+  ),
   chats: (
     <Ico>
       <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.6A8 8 0 1 1 21 12z" />
@@ -170,11 +177,13 @@ const I = {
 };
 
 // modulo: el ítem se muestra sólo si el negocio usa ese módulo.
-type ItemNav = { permiso: string; ruta: string; labelKey: string; icon: ReactNode; external?: boolean; modulo?: string };
+// rubro: el ítem se muestra sólo en negocios de esa familia (o sin rubro cargado).
+type ItemNav = { permiso: string; ruta: string; labelKey: string; icon: ReactNode; external?: boolean; modulo?: string; rubro?: string };
 
 const NAV: ItemNav[] = [
   { permiso: "any", ruta: "/admin/dashboard", labelKey: "navDashboard", icon: I.dashboard },
   { permiso: "pedidos", ruta: "/admin/pedidos", labelKey: "navPedidos", icon: I.pedidos, modulo: "pedidos" },
+  { permiso: "pedidos", ruta: "/admin/mesas", labelKey: "navMesas", icon: I.mesas, modulo: "pedidos", rubro: "gastronomia" },
   { permiso: "presupuestos", ruta: "/admin/presupuestos", labelKey: "navPresupuestos", icon: I.presupuestos, modulo: "presupuestos" },
   { permiso: "reservas", ruta: "/admin/turnos", labelKey: "navTurnos", icon: I.turnos, modulo: "reservas" },
   { permiso: "pedidos", ruta: "/admin/chats", labelKey: "navChats", icon: I.chats },
@@ -615,7 +624,8 @@ export function AdminShell() {
   const visible = NAV.filter(
     (n) =>
       (n.permiso === "any" ? true : n.permiso === "plataforma" ? isPlataforma : hasPermiso(n.permiso)) &&
-      (!n.modulo || tieneModulo(n.modulo)),
+      (!n.modulo || tieneModulo(n.modulo)) &&
+      (!n.rubro || !rubro || rubro === n.rubro),
   );
   const abajo = visible.filter((n) => RUTAS_ABAJO.includes(n.ruta));
   const negocioActual = negocios.find((n) => n.id === negocioId);
