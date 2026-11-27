@@ -39,7 +39,8 @@ export function usePreciosPlanes(activo = true): Precios {
         for (const m of d.modulos ?? []) out[m.codigo] = m.precio_mensual;
         if (d.tipo_plan === "basic" || d.tipo_plan === "standard" || d.tipo_plan === "premium") out.plan = d.tipo_plan;
         // Lo que paga hoy por su plan (el precio de fundador, si lo tiene).
-        if (out.plan && d.precio_plan) out[out.plan] = d.precio_plan;
+        // Sin suscripción activa, al volver a pagar rige el precio de lista.
+        if (out.plan && d.precio_plan && d.monto_proximo_cobro != null) out[out.plan] = d.precio_plan;
         out.pagaConMP = d.monto_proximo_cobro != null;
         return out;
       })

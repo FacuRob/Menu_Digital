@@ -116,6 +116,20 @@ export default function Suscripcion() {
         const d = await suscripcionService.get();
         setData(d);
         setMpEmail(d.mp_email || "");
+        // Viene de "Sumar el asistente" (?modulo=ia): se elige en el plan de la
+        // cuenta. Un Estándar ve el Estándar con la IA, no el Básico.
+        if (moduloPedido) {
+          if (d.tipo_plan === "standard") {
+            setPlanMods("standard");
+            setModsPorPlan((m) => ({ ...m, basic: [] }));
+          }
+          const pagaMP = d.estado_suscripcion === "activo" && d.monto_proximo_cobro != null;
+          if (!pagaMP) {
+            // Después de pintar: llevar la vista a la sección de módulos.
+            // Salto directo: se llega desde otra pantalla, no hace falta animar.
+            setTimeout(() => document.getElementById("mods-titulo")?.scrollIntoView({ block: "start" }), 150);
+          }
+        }
       } catch (e) {
         setError(getApiErrorMessage(e, t("subLoadError")));
       } finally {
@@ -214,7 +228,9 @@ export default function Suscripcion() {
   const planesConMods = (["basic", "standard"] as const).filter(
     (c) => sumablesDe(c).length > 0 && !(data?.tipo_plan === c && pagaConMP),
   );
-  const planSec = planesConMods.includes(planMods as "basic" | "standard") ? planMods : planesConMods[0];
+  // Por defecto, el plan de la cuenta (si se le pueden sumar módulos).
+  const planDefecto = planesConMods.find((c) => c === data?.tipo_plan) ?? planesConMods[0];
+  const planSec = planesConMods.includes(planMods as "basic" | "standard") ? planMods! : planDefecto;
   const totalSec = planSec ? totalDe(planSec) : 0;
   // Estándar en la misma base que lo que paga (con el cupón, si lo hay) y con
   // los mismos módulos que no trae (la IA).
@@ -608,6 +624,8 @@ export default function Suscripcion() {
         >
           {(data?.planes ?? FALLBACK_PLANES).map((p) => {
             const esActual = data?.tipo_plan === p.code;
+            // Su plan, pero cancelado o vencido: lo puede volver a pagar.
+            const actualVigente = esActual && estado === "activo";
             const destacado = p.code === "standard";
             // Se le pueden sumar al pagarlo los módulos que no trae (si ya lo
             // paga, se suman desde "Lo que pagás por mes").
@@ -750,22 +768,24 @@ export default function Suscripcion() {
 
                 <button
                   onClick={() => irACheckout(p.code)}
-                  disabled={esActual || redirecting === p.code}
+                  disabled={actualVigente || redirecting === p.code}
                   style={{
                     ...(destacado ? S.btnPrimary : S.btnGhost),
                     width: "100%",
                     justifyContent: "center",
-                    opacity: esActual ? 0.5 : redirecting === p.code ? 0.7 : 1,
-                    cursor: esActual ? "default" : "pointer",
+                    opacity: actualVigente ? 0.5 : redirecting === p.code ? 0.7 : 1,
+                    cursor: actualVigente ? "default" : "pointer",
                   }}
                 >
-                  {esActual
+                  {actualVigente
                     ? t("subCurrentPlan")
                     : redirecting === p.code
                       ? t("subOpening")
                       : sumaMods > 0
                         ? t("modChooseWithTotal", { plan: planNombre(p.code), total: money(totalCard) })
-                        : t("subChoose")}
+                        : esActual
+                          ? t("subRenew")
+                          : t("subChoose")}
                 </button>
               </div>
             );
