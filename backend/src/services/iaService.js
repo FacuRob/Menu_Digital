@@ -10,7 +10,10 @@
 //   OPENROUTER_MODEL     modelo (default anthropic/claude-haiku-5.5). Acepta
 //                        varios separados por coma: si uno falla o está
 //                        saturado, OpenRouter usa el siguiente.
-//   IA_ESPERA_MS         espera antes de responder, para juntar varios
+//   OPENROUTER_MODEL_RESPALDO  modelo (pago, barato) que se usa sólo si
+//                        fallan todos los de OPENROUTER_MODEL (p. ej. los
+//                        gratis saturados). Vacío = sin respaldo.
+//   IA_ESPERA_MS        espera antes de responder, para juntar varios
 //                        mensajes seguidos del cliente (default 4000)
 //   NEGOCIO_TZ           zona horaria de los locales (default Argentina)
 //   VITE_MENU_URL        URL pública del menú (para pasarle el link al cliente)
@@ -28,6 +31,7 @@ const MODELOS = () => {
   return lista.length ? lista : ["anthropic/claude-haiku-5.5"];
 };
 const MODELO = () => MODELOS()[0];
+const RESPALDO = () => String(process.env.OPENROUTER_MODEL_RESPALDO || "").trim();
 // Parámetros de modelo para OpenRouter (con respaldo si hay más de uno).
 const modeloParams = () => {
   const lista = MODELOS();
@@ -511,8 +515,52 @@ function textoDe(msg) {
   return fines.length ? texto.slice(0, fines[fines.length - 1].index + 1) : texto;
 }
 
-// Llama al modelo. Devuelve { texto, derivar?: { motivo, mensaje } }.
+// Respuesta del modelo en modo completo → { texto, derivar? }.
+function interpretar(msg) {
+  const llamada = (msg.tool_calls || []).find((t) => t?.function?.name === "derivar_a_humano");
+  if (llamada) {
+    let args = {};
+    try {
+      args = JSON.parse(llamada.function.arguments || "{}");
+    } catch {
+      /* argumentos inválidos: se usan los textos por defecto */
+    }
+    return {
+      texto: textoDe(msg),
+      derivar: { motivo: args.motivo || "", mensaje: args.mensaje_al_cliente || "" },
+    };
+  }
+  return { texto: textoDe(msg) };
+}
+
+// Llama a los modelos principales y, si fallan o no dicen nada, al de
+// respaldo. Devuelve { texto, derivar?: { motivo, mensaje } }.
 async function consultarModelo(system, historial) {
+  let r = null;
+  let fallo = null;
+  try {
+    r = await consultarPrincipales(system, historial);
+  } catch (err) {
+    fallo = err;
+  }
+  if (r && (r.texto || r.derivar)) return r;
+  const respaldo = RESPALDO();
+  // Clave inválida o sin crédito: el respaldo (pago) tampoco anda.
+  if (!respaldo || [401, 402].includes(Number(fallo?.status))) {
+    if (fallo) throw fallo;
+    return r;
+  }
+  console.warn(`[IA] Fallaron los modelos principales (${fallo?.message || "respuesta vacía"}); uso el respaldo ${respaldo}.`);
+  const msg = await llamarOpenRouter({
+    model: respaldo,
+    models: undefined, // sólo el respaldo
+    messages: [{ role: "system", content: system }, ...historial],
+    tools: HERRAMIENTAS,
+  });
+  return interpretar(msg);
+}
+
+async function consultarPrincipales(system, historial) {
   let msg;
   try {
     msg = await llamarOpenRouter({
@@ -539,21 +587,7 @@ ${primero.content}` },
     }
     return { texto };
   }
-
-  const llamada = (msg.tool_calls || []).find((t) => t?.function?.name === "derivar_a_humano");
-  if (llamada) {
-    let args = {};
-    try {
-      args = JSON.parse(llamada.function.arguments || "{}");
-    } catch {
-      /* argumentos inválidos: se usan los textos por defecto */
-    }
-    return {
-      texto: textoDe(msg),
-      derivar: { motivo: args.motivo || "", mensaje: args.mensaje_al_cliente || "" },
-    };
-  }
-  return { texto: textoDe(msg) };
+  return interpretar(msg);
 }
 
 // Últimos mensajes del chat, en el formato del modelo.
@@ -583,12 +617,25 @@ ${m.content}`;
 
 const DERIVAR_POR_DEFECTO = "Le paso tu consulta a alguien del local, en un ratito te responden por acá. 🙌";
 
+// La IA no pudo contestar: el cliente no se queda sin respuesta y el chat
+// queda marcado para que lo atienda una persona (aviso en el panel).
+async function avisarFalla(chat) {
+  try {
+    await chats.marcarNecesitaHumano(chat);
+    await chats.enviarSaliente(chat, DERIVAR_POR_DEFECTO, "ia");
+  } catch (e) {
+    console.error("[IA] Tampoco se pudo mandar el aviso al cliente:", e.message);
+  }
+}
+
 // Responde el chat con IA si corresponde. Nunca lanza.
 async function responderConIA(chatId) {
+  let chat = null;
+  let consultando = false; // ya se pasaron todos los controles
   try {
     if (!iaConfigurada()) return { ok: false, motivo: "sin_clave" };
     // Datos frescos del chat (pudo pausarse mientras esperábamos).
-    const { data: chat } = await supabase.from("whatsapp_chats").select("*").eq("id", chatId).maybeSingle();
+    ({ data: chat } = await supabase.from("whatsapp_chats").select("*").eq("id", chatId).maybeSingle());
     if (!chat) return { ok: false, motivo: "sin_chat" };
     if (chats.iaPausada(chat)) return { ok: false, motivo: "pausada" };
     if (!chats.ventanaAbierta(chat)) return { ok: false, motivo: "ventana_cerrada" };
@@ -604,6 +651,7 @@ async function responderConIA(chatId) {
       return { ok: false, motivo: "nada_que_responder" };
     }
 
+    consultando = true;
     const datos = await datosDelLocal(chat.negocio_id, chat.telefono);
     const r = await consultarModelo(armarPrompt(datos, cfgIA), historial);
 
@@ -614,11 +662,19 @@ async function responderConIA(chatId) {
       console.log(`[IA] Chat ${chat.id} derivado a una persona: ${r.derivar.motivo || "-"}`);
       return { ok: true, derivado: true };
     }
-    if (!r.texto) return { ok: false, motivo: "respuesta_vacia" };
+    if (!r.texto) {
+      console.error(`[IA] Chat ${chat.id}: el modelo no dio respuesta; aviso al cliente.`);
+      await avisarFalla(chat);
+      return { ok: false, motivo: "respuesta_vacia", avisado: true };
+    }
     const env = await chats.enviarSaliente(chat, r.texto.slice(0, 4000), "ia");
     return { ok: env.ok };
   } catch (err) {
     console.error("[IA] No se pudo responder:", err.message);
+    if (consultando && chat) {
+      await avisarFalla(chat);
+      return { ok: false, error: err.message, avisado: true };
+    }
     return { ok: false, error: err.message };
   }
 }

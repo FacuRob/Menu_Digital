@@ -286,8 +286,14 @@ test("modo simple: la marca [DERIVAR] pasa el chat a una persona", async () => {
 });
 
 test("sin crédito o clave inválida no reintenta", async () => {
+  process.env.OPENROUTER_MODEL_RESPALDO = "pago/barato"; // tampoco usa el respaldo
   global.fetch = async (url, init) => {
-    llamadas.push(JSON.parse(init.body));
+    const body = JSON.parse(init.body);
+    if (!String(url).includes("openrouter")) {
+      enviados.push(body);
+      return { ok: true, json: async () => ({ messages: [{ id: "wamid.1" }] }) };
+    }
+    llamadas.push(body);
     return { ok: false, status: 402, json: async () => ({ error: { message: "Insufficient credits", code: 402 } }) };
   };
   const err = console.error;
@@ -295,8 +301,76 @@ test("sin crédito o clave inválida no reintenta", async () => {
   const r = await ia.responderConIA(1);
   console.error = err;
   assert.strictEqual(r.ok, false);
+  delete process.env.OPENROUTER_MODEL_RESPALDO;
   assert.match(r.error, /Insufficient credits/);
   assert.strictEqual(llamadas.length, 1);
+  assert.strictEqual(r.avisado, true); // el cliente igual recibe el aviso
+});
+
+// Silencia los logs de la IA durante una prueba.
+async function callado(fn) {
+  const { warn, error, log } = console;
+  console.warn = console.error = console.log = () => {};
+  try {
+    return await fn();
+  } finally {
+    Object.assign(console, { warn, error, log });
+  }
+}
+
+test("si fallan los modelos gratis, usa el modelo de respaldo con herramientas", async () => {
+  process.env.OPENROUTER_MODEL = "a/uno:free,b/dos:free";
+  process.env.OPENROUTER_MODEL_RESPALDO = "pago/barato";
+  global.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    if (String(url).includes("openrouter")) {
+      llamadas.push(body);
+      if (body.model !== "pago/barato") {
+        return { ok: false, status: 429, json: async () => ({ error: { message: "Rate limit", code: 429 } }) };
+      }
+      return { ok: true, json: async () => ({ choices: [{ message: { content: "Abrimos a las 20 hs." } }] }) };
+    }
+    enviados.push(body);
+    return { ok: true, json: async () => ({ messages: [{ id: "wamid.1" }] }) };
+  };
+  const r = await callado(() => ia.responderConIA(1));
+  delete process.env.OPENROUTER_MODEL;
+  delete process.env.OPENROUTER_MODEL_RESPALDO;
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(llamadas.length, 2);
+  assert.strictEqual(llamadas[1].model, "pago/barato");
+  assert.strictEqual(llamadas[1].models, undefined);
+  assert.ok(llamadas[1].tools);
+  assert.strictEqual(enviados[0].text.body, "Abrimos a las 20 hs.");
+});
+
+test("si la IA no puede responder, avisa al cliente y marca el chat para una persona", async () => {
+  global.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    if (String(url).includes("openrouter")) {
+      llamadas.push(body);
+      return { ok: false, status: 429, json: async () => ({ error: { message: "Rate limit", code: 429 } }) };
+    }
+    enviados.push(body);
+    return { ok: true, json: async () => ({ messages: [{ id: "wamid.1" }] }) };
+  };
+  const r = await callado(() => ia.responderConIA(1));
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.avisado, true);
+  assert.strictEqual(enviados.length, 1);
+  assert.match(enviados[0].text.body, /alguien del local/);
+  assert.strictEqual(tablas.whatsapp_chats[0].necesita_humano, true);
+  // No vuelve a intentar (ni a mandar el aviso) en el próximo mensaje.
+  tablas.whatsapp_mensajes.push({ id: 2, chat_id: 1, direccion: "entrante", texto: "?", created_at: new Date().toISOString() });
+  assert.strictEqual((await ia.responderConIA(1)).motivo, "pausada");
+  assert.strictEqual(enviados.length, 1);
+});
+
+test("respuesta vacía del modelo: también avisa al cliente", async () => {
+  respuestaModelo = { content: "" };
+  const r = await callado(() => ia.responderConIA(1));
+  assert.strictEqual(r.avisado, true);
+  assert.match(enviados[0].text.body, /alguien del local/);
 });
 
 test("historial: une mensajes seguidos del mismo lado (turnos alternados)", async () => {
