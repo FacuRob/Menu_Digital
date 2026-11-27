@@ -68,17 +68,23 @@ async function transcribirArchivo({ buffer, mime }) {
   return String(json.text || "").replace(/\s+/g, " ").trim();
 }
 
+// Archivo de un mensaje entrante (audio, foto…) en formato Meta: si trae el
+// id del archivo vino por Meta; si no, por QR. → { buffer, mime }
+const bajarArchivo = (m, negocioId) => {
+  const mediaId = m?.[m?.type]?.id;
+  return mediaId ? bajarDeMeta(mediaId, negocioId) : bajarDeQR(m.id, negocioId);
+};
+
 // Texto de un audio entrante (formato Meta), o null si no se pudo.
 // Nunca lanza.
 async function transcribirAudio(m, negocioId) {
   if (!configurada() || m?.type !== "audio") return null;
   try {
-    const archivo = m.audio?.id ? await bajarDeMeta(m.audio.id, negocioId) : await bajarDeQR(m.id, negocioId);
-    return (await transcribirArchivo(archivo)) || null;
+    return (await transcribirArchivo(await bajarArchivo(m, negocioId))) || null;
   } catch (e) {
     console.warn(`[Audio] No se pudo pasar a texto el audio ${m?.id}: ${e.message}`);
     return null;
   }
 }
 
-module.exports = { configurada, transcribirAudio, transcribirArchivo, extension };
+module.exports = { configurada, transcribirAudio, transcribirArchivo, extension, bajarArchivo, MAX_BYTES };

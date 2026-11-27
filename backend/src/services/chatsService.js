@@ -13,6 +13,7 @@ const supabase = require("../config/database");
 const { conNumeroPedido } = require("../utils/numeroPedido");
 const { enviarTexto, normalizarTelefono, estaConfigurado, usaQR } = require("./whatsappService");
 const { transcribirAudio } = require("./transcripcionService");
+const { describirFoto, textoFoto } = require("./fotoService");
 
 const VENTANA_MS = 24 * 60 * 60 * 1000;
 const MAX_TEXTO = 4096; // límite de WhatsApp para un mensaje de texto
@@ -147,9 +148,14 @@ async function registrarEntrantes(value, { negocioId } = {}) {
       });
       if (!chat) continue;
 
-      // Un audio se pasa a texto (si hay clave): lo lee la IA y el local.
+      // Audios y fotos se pasan a texto (si se puede): lo lee la IA y el local.
       const dicho = await transcribirAudio(m, destino.negocioId);
-      const texto = dicho ? `🎤 Audio: ${dicho.slice(0, 2000)}` : textoDeMensaje(m);
+      const foto = dicho ? null : await describirFoto(m, destino.negocioId);
+      const texto = dicho
+        ? `🎤 Audio: ${dicho.slice(0, 2000)}`
+        : foto
+          ? textoFoto(foto, m.image?.caption)
+          : textoDeMensaje(m);
       const fecha = m.timestamp
         ? new Date(Number(m.timestamp) * 1000).toISOString()
         : new Date().toISOString();
