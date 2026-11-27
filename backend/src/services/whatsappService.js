@@ -53,6 +53,7 @@ async function enviarPayload(payload, negocioId, textoPlano) {
   const cred = await credencialesDe(negocioId);
   if (!cred) return { ok: false, error: "WhatsApp no está configurado" };
   if (cred.via === "qr") {
+    if (payload.type === "image") return qr.enviarImagen(cred.instancia, payload.to, payload.image.link, payload.image.caption);
     const texto = textoPlano ?? payload.text?.body;
     if (!texto) return { ok: false, error: "Mensaje vacío" };
     return qr.enviarTexto(cred.instancia, payload.to, texto);
@@ -113,8 +114,21 @@ async function enviarTexto(telefono, texto, negocioId) {
   }, negocioId);
 }
 
+// Foto (URL pública, p. ej. Cloudinary) con un texto abajo. Misma regla de
+// las 24 h que el texto libre.
+async function enviarImagen(telefono, url, caption, negocioId) {
+  const to = normalizarTelefono(telefono);
+  if (!to) return { ok: false, error: "Teléfono inválido" };
+  return enviarPayload({
+    messaging_product: "whatsapp",
+    to,
+    type: "image",
+    image: { link: String(url), ...(caption ? { caption: String(caption).slice(0, 1024) } : {}) },
+  }, negocioId);
+}
+
 // ¿El local manda desde WhatsApp común (QR)? Ahí no corre la regla de las
 // 24 h de Meta: se le puede escribir a un cliente cuando sea.
 const usaQR = async (negocioId) => (await credencialesDe(negocioId))?.via === "qr";
 
-module.exports = { enviarPlantilla, enviarTexto, normalizarTelefono, estaConfigurado, usaQR };
+module.exports = { enviarPlantilla, enviarTexto, enviarImagen, normalizarTelefono, estaConfigurado, usaQR };

@@ -11,7 +11,7 @@
 // Con WhatsApp común (QR) esa regla no existe: se puede responder siempre.
 const supabase = require("../config/database");
 const { conNumeroPedido } = require("../utils/numeroPedido");
-const { enviarTexto, normalizarTelefono, estaConfigurado, usaQR } = require("./whatsappService");
+const { enviarTexto, enviarImagen, normalizarTelefono, estaConfigurado, usaQR } = require("./whatsappService");
 const { transcribirAudio } = require("./transcripcionService");
 const { describirFoto, textoFoto } = require("./fotoService");
 
@@ -326,8 +326,12 @@ async function responder(negocioId, chatId, textoRaw) {
 }
 
 // Envía un texto libre a un chat y lo registra. autor: negocio | ia.
-async function enviarSaliente(chat, texto, autor) {
-  const res = await enviarTexto(chat.telefono, texto, chat.negocio_id);
+// `imagen`: URL de una foto; el texto va abajo de la foto.
+async function enviarSaliente(chat, texto, autor, { imagen } = {}) {
+  const res = imagen
+    ? await enviarImagen(chat.telefono, imagen, texto, chat.negocio_id)
+    : await enviarTexto(chat.telefono, texto, chat.negocio_id);
+  if (imagen) texto = `📷 ${texto}`;
   const { data: mensaje } = await supabase
     .from("whatsapp_mensajes")
     .insert([

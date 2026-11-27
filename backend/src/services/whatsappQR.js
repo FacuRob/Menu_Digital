@@ -261,6 +261,20 @@ async function enviarTexto(instancia, to, texto) {
   }
 }
 
+// Envía una foto (URL pública) con un texto abajo.
+async function enviarImagen(instancia, to, url, caption) {
+  try {
+    const r = await evo(`/message/sendMedia/${instancia}`, {
+      method: "POST",
+      body: { number: String(to), mediatype: "image", media: String(url), caption: String(caption || "") },
+    });
+    if (r?.key?.id) enviadosRecien.set(r.key.id, Date.now());
+    return { ok: true, id: r?.key?.id || null };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── Webhook: Evolution → formato de Meta (así se reutilizan chats e IA) ──
 
 // Teléfono del cliente de un mensaje (null = grupo, estado, o sin número).
@@ -356,6 +370,7 @@ module.exports = {
   guardar,
   desconectar,
   enviarTexto,
+  enviarImagen,
   lomandamosNosotros,
   traducir,
   olvidar,

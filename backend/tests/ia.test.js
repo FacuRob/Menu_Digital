@@ -13,6 +13,7 @@ injectModule(require.resolve("../src/utils/planNegocio"), {
 
 const ia = require("../src/services/iaService");
 const chats = require("../src/services/chatsService");
+const separarFotosDe = ia.separarFotos;
 
 let tablas;
 let llamadas; // requests a OpenRouter
@@ -305,6 +306,42 @@ test("sin crédito o clave inválida no reintenta", async () => {
   assert.match(r.error, /Insufficient credits/);
   assert.strictEqual(llamadas.length, 1);
   assert.strictEqual(r.avisado, true); // el cliente igual recibe el aviso
+});
+
+test("fotos de productos: la IA marca [FOTO n] y se manda la foto con nombre y precio", async () => {
+  tablas.productos[0].imagen_url = "https://res.cloudinary.com/demo/cheese.jpg";
+  respuestaModelo = { content: "¡Sí! La Cheese sale $9.800 🍔 [FOTO 1] [FOTO 1] [FOTO 9]" };
+  const r = await ia.responderConIA(1);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.fotos, 1); // repetida e inexistente no se mandan
+  const system = llamadas[0].messages[0].content;
+  assert.match(system, /- Cheese: \$\s9\.800,00 \[foto 1\]/);
+  assert.match(system, /12\. Los productos marcados \[foto N\]/);
+  // Primero el texto (sin la marca), después la foto.
+  assert.strictEqual(enviados[0].text.body, "¡Sí! La Cheese sale $9.800 🍔");
+  assert.strictEqual(enviados[1].type, "image");
+  assert.strictEqual(enviados[1].image.link, "https://res.cloudinary.com/demo/cheese.jpg");
+  assert.match(enviados[1].image.caption, /^Cheese · \$\s9\.800,00$/);
+  assert.match(tablas.whatsapp_mensajes.at(-1).texto, /^📷 Cheese/);
+});
+
+test("fotos de productos: sin fotos cargadas no hay regla 12 ni marcas", async () => {
+  await ia.responderConIA(1);
+  assert.doesNotMatch(llamadas[0].messages[0].content, /\[foto|12\. Los productos/);
+});
+
+test("separarFotos: productos sin stock o sin https no cuentan", () => {
+  const datos = {
+    categorias: [{ id: 1 }],
+    productos: [
+      { id: 1, categoria_id: 1, nombre: "A", imagen_url: "http://inseguro/a.jpg" },
+      { id: 2, categoria_id: 1, nombre: "B", imagenes: ["https://x/b.jpg"] },
+      { id: 3, categoria_id: 1, nombre: "C", imagen_url: "https://x/c.jpg", controlar_stock: true, stock: 0 },
+    ],
+  };
+  const r = separarFotosDe("Mirá [foto 1]\n[FOTO #2]", datos);
+  assert.strictEqual(r.texto, "Mirá");
+  assert.deepStrictEqual(r.fotos.map((p) => p.nombre), ["B"]);
 });
 
 // Silencia los logs de la IA durante una prueba.
