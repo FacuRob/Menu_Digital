@@ -45,7 +45,10 @@ const leerReferencia = (ref) => {
 
 // Crea la suscripción pendiente de pago y devuelve su link de checkout (init_point).
 // `monto` permite cobrar con descuento (cupón) y módulos; por defecto, el precio del plan.
-const crearSuscripcion = ({ cuentaId, plan, email, backUrl, modulos = [], monto = PRECIOS_MENSUALES[plan] }) =>
+// `inicio`: fecha del primer cobro (volver a pagar un plan cancelado que no
+// venció). MP sólo respeta start_date si también va end_date.
+const DIEZ_ANIOS_MS = 10 * 365 * 24 * 60 * 60 * 1000;
+const crearSuscripcion = ({ cuentaId, plan, email, backUrl, modulos = [], monto = PRECIOS_MENSUALES[plan], inicio = null }) =>
   mpFetch("/preapproval", {
     method: "POST",
     body: {
@@ -61,9 +64,40 @@ const crearSuscripcion = ({ cuentaId, plan, email, backUrl, modulos = [], monto 
         frequency_type: "months",
         transaction_amount: monto,
         currency_id: "ARS",
+        ...(inicio
+          ? {
+              start_date: new Date(inicio).toISOString(),
+              end_date: new Date(new Date(inicio).getTime() + DIEZ_ANIOS_MS).toISOString(),
+            }
+          : {}),
       },
     },
   });
+
+// Pago único (Checkout Pro) de módulos hasta el vencimiento del plan.
+// Devuelve la preferencia con su link (init_point).
+const crearPagoModulos = ({ referencia: ref, modulos, email, backUrl, monto }) =>
+  mpFetch("/checkout/preferences", {
+    method: "POST",
+    body: {
+      items: [
+        {
+          id: "modulos",
+          title: `DinexFlow · ${modulos.map((c) => MODULOS_PAGOS[c]?.nombre || c).join(" + ")}`,
+          quantity: 1,
+          unit_price: monto,
+          currency_id: "ARS",
+        },
+      ],
+      payer: { email },
+      external_reference: ref,
+      back_urls: { success: backUrl, pending: backUrl, failure: backUrl },
+      auto_return: "approved",
+    },
+  });
+
+// Pago (de un pago único; topic "payment").
+const obtenerPago = (id) => mpFetch(`/v1/payments/${encodeURIComponent(id)}`);
 
 // Cambia el monto de los próximos cobros (aplicar o terminar un descuento).
 const cambiarMonto = (id, monto) =>
@@ -137,6 +171,8 @@ const PORTAL_URL = "https://www.mercadopago.com.ar/subscriptions";
 
 module.exports = {
   crearSuscripcion,
+  crearPagoModulos,
+  obtenerPago,
   obtenerSuscripcion,
   obtenerCobro,
   cambiarMonto,

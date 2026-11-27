@@ -75,6 +75,11 @@ export default function Suscripcion() {
   // ?modulo=whatsapp: viene de la pantalla de WhatsApp (o Chats, Pedidos).
   const [params] = useSearchParams();
   const moduloPedido = CODIGOS.find((c) => c === params.get("modulo")) ?? null;
+  // Vuelta del pago único de módulos (?paso=debito&mods=ia&status=approved).
+  const pasoDebito = params.get("paso") === "debito";
+  const modsDeVuelta = (params.get("mods") || "").split(".").filter((c): c is CodigoModulo => CODIGOS.includes(c as CodigoModulo));
+  const estadoPago = params.get("collection_status") || params.get("status");
+  const pagoId = params.get("payment_id") || params.get("collection_id");
   // Plan al que se le eligen módulos en la sección de abajo.
   const [planMods, setPlanMods] = useState<"basic" | "standard" | null>(null);
   // Módulos elegidos para sumar a cada plan al pagarlo (Básico: los tres;
@@ -113,9 +118,18 @@ export default function Suscripcion() {
   useEffect(() => {
     (async () => {
       try {
+        // Volvió de pagar los módulos: se aplica el pago sin esperar el aviso.
+        if (pasoDebito && pagoId && estadoPago === "approved") {
+          await suscripcionService.confirmarPagoModulos(pagoId).catch(() => null);
+        }
         const d = await suscripcionService.get();
         setData(d);
         setMpEmail(d.mp_email || "");
+        if (pasoDebito && (d.tipo_plan === "basic" || d.tipo_plan === "standard")) {
+          const plan = d.tipo_plan;
+          setPlanMods(plan);
+          setModsPorPlan((m) => ({ ...m, [plan]: modsDeVuelta }));
+        }
         // Viene de "Sumar el asistente" (?modulo=ia): se elige en el plan de la
         // cuenta. Un Estándar ve el Estándar con la IA, no el Básico.
         if (moduloPedido) {
@@ -168,7 +182,13 @@ export default function Suscripcion() {
     try {
       setError("");
       setRedirecting(plan);
-      const { url } = await suscripcionService.checkout(plan, email || undefined, mods ?? elegidosDe(plan));
+      const elegidos = mods ?? elegidosDe(plan);
+      // Su plan cancelado con días por usar: paga hoy sólo los módulos nuevos
+      // y el débito arranca al vencimiento.
+      const { url } =
+        data?.puede_reactivar && plan === data.tipo_plan
+          ? await suscripcionService.reactivar(elegidos, email || undefined)
+          : await suscripcionService.checkout(plan, email || undefined, elegidos);
       window.location.assign(url);
     } catch (e) {
       setError(getApiErrorMessage(e, t("subCheckoutError")));
@@ -252,6 +272,33 @@ export default function Suscripcion() {
       else next = c === "ia" && waSumable && !prev.includes("whatsapp") ? [...prev, "ia", "whatsapp"] : [...prev, c];
       return { ...todos, [plan]: next };
     });
+  // Volver a pagar el plan cancelado: lo que se paga hoy (módulos que todavía
+  // no usa) y lo que se debita desde el vencimiento.
+  const reactivable = !!data?.puede_reactivar;
+  const modsQueUsa = CODIGOS.filter((c) => {
+    const f = data?.modulos_cuenta?.[c];
+    return !!f && (!f.baja_en || new Date(f.baja_en).getTime() > Date.now());
+  });
+  const reactivacion = (plan: PlanCatalogo["code"]) => {
+    if (!reactivable || plan !== data?.tipo_plan) return null;
+    const elegidos = elegidosDe(plan);
+    const ahora = catalogoMods.filter((m) => elegidos.includes(m.codigo) && !modsQueUsa.includes(m.codigo));
+    const p = precioDe(plan);
+    const mensual = (p ? (p.precio_con_descuento ?? p.precio_mensual) : 0) +
+      catalogoMods.filter((m) => elegidos.includes(m.codigo)).reduce((t_, m) => t_ + m.precio_mensual, 0);
+    return {
+      hoy: ahora.reduce((t_, m) => t_ + m.precio_mensual, 0),
+      nombres: ahora.map((m) => m.nombre).join(t("modAnd")),
+      mensual,
+      fecha: fmtFecha(data?.periodo_fin ?? null),
+    };
+  };
+  const textoReac = (r: NonNullable<ReturnType<typeof reactivacion>>) =>
+    r.hoy > 0 ? t("reacPayNow", { total: money(r.hoy) }) : t("reacStartDebit", { date: r.fecha });
+  const notaReac = (r: NonNullable<ReturnType<typeof reactivacion>>) =>
+    r.hoy > 0
+      ? t("reacNotePay", { ahora: money(r.hoy), mods: r.nombres, date: r.fecha, total: money(r.mensual) })
+      : t("reacNoteDebit", { date: r.fecha, total: money(r.mensual) });
   // Módulos activos de quien ya paga, para comparar con el Estándar.
   const modsActivos = CODIGOS.filter((c) => data?.modulos_cuenta?.[c] && !data.modulos_cuenta[c]!.baja_en);
 
@@ -274,6 +321,59 @@ export default function Suscripcion() {
             }}
           >
             <IconAlert size={15} style={{ flexShrink: 0 }} /> {error}
+          </div>
+        )}
+
+        {/* ── Volvió de pagar los módulos: falta activar el débito ── */}
+        {pasoDebito && data && (
+          <div
+            role="status"
+            style={{
+              ...S.card,
+              marginBottom: 18,
+              padding: "18px 20px",
+              border: `1.5px solid ${estadoPago === "approved" ? "var(--ok)" : "var(--warn)"}`,
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: "12px 18px",
+            }}
+          >
+            <div style={{ flex: "1 1 320px" }}>
+              {estadoPago === "approved" ? (
+                <>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: textPrimary }}>
+                    {t("reacPaidTitle", {
+                      mods: catalogoMods.filter((m) => modsDeVuelta.includes(m.codigo)).map((m) => m.nombre).join(t("modAnd")),
+                    })}
+                  </div>
+                  {reactivacion(data.tipo_plan as PlanCatalogo["code"]) && (
+                    <p style={{ margin: "4px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--fg-2)" }}>
+                      {t("reacPaidBody", {
+                        total: money(reactivacion(data.tipo_plan as PlanCatalogo["code"])!.mensual),
+                        date: fmtFecha(data.periodo_fin),
+                      })}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, color: textPrimary }}>
+                  {t(estadoPago === "pending" || estadoPago === "in_process" ? "reacPaidPending" : "reacPaidFailed")}
+                </p>
+              )}
+            </div>
+            {data.puede_reactivar && (data.tipo_plan === "basic" || data.tipo_plan === "standard" || data.tipo_plan === "premium") && (
+              <button
+                type="button"
+                onClick={() => irACheckout(data.tipo_plan as PlanCatalogo["code"])}
+                disabled={redirecting === data.tipo_plan}
+                style={{ ...S.btnPrimary, minHeight: 44 }}
+              >
+                {redirecting === data.tipo_plan
+                  ? t("subOpening")
+                  : textoReac(reactivacion(data.tipo_plan as PlanCatalogo["code"])!)}
+              </button>
+            )}
           </div>
         )}
 
@@ -781,12 +881,17 @@ export default function Suscripcion() {
                     ? t("subCurrentPlan")
                     : redirecting === p.code
                       ? t("subOpening")
-                      : sumaMods > 0
+                      : reactivacion(p.code)
+                        ? textoReac(reactivacion(p.code)!)
+                        : sumaMods > 0
                         ? t("modChooseWithTotal", { plan: planNombre(p.code), total: money(totalCard) })
                         : esActual
                           ? t("subRenew")
                           : t("subChoose")}
                 </button>
+                {reactivacion(p.code) && (
+                  <p style={{ margin: "8px 0 0", fontSize: 12, lineHeight: 1.5, color: textMuted }}>{notaReac(reactivacion(p.code)!)}</p>
+                )}
               </div>
             );
           })}
@@ -906,7 +1011,9 @@ export default function Suscripcion() {
                 <div style={{ fontSize: 15, fontWeight: 700, color: textPrimary }}>
                   {t("modSummary", { plan: planNombre(planSec), total: money(totalSec) })}
                 </div>
-                <p style={{ margin: "4px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--fg-2)" }}>{t("modCardWhen")}</p>
+                <p style={{ margin: "4px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--fg-2)" }}>
+                  {reactivacion(planSec) ? notaReac(reactivacion(planSec)!) : t("modCardWhen")}
+                </p>
                 {planSec === "basic" && precioStdBasico != null && totalBasico > precioStdBasico && (
                   <p style={{ margin: "6px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--info)", fontWeight: 600 }}>
                     {t("modBetterStandardShort", { std: money(precioStdBasico) })}
@@ -919,7 +1026,11 @@ export default function Suscripcion() {
                 disabled={redirecting === planSec}
                 style={{ ...S.btnGhost, minHeight: 44 }}
               >
-                {redirecting === planSec ? t("subOpening") : t("modChooseWithTotal", { plan: planNombre(planSec), total: money(totalSec) })}
+                {redirecting === planSec
+                  ? t("subOpening")
+                  : reactivacion(planSec)
+                    ? textoReac(reactivacion(planSec)!)
+                    : t("modChooseWithTotal", { plan: planNombre(planSec), total: money(totalSec) })}
               </button>
             </div>
           </section>

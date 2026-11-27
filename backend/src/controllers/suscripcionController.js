@@ -8,7 +8,15 @@ const {
   planEfectivo,
 } = require("../utils/suscripcion");
 const { preciosPorPlan } = require("../utils/planPrecios");
-const { crearSuscripcion, cancelarSuscripcion, cambiarMonto, motivoRechazo, PORTAL_URL } = require("../utils/mercadoPago");
+const {
+  crearSuscripcion,
+  crearPagoModulos,
+  cancelarSuscripcion,
+  cambiarMonto,
+  motivoRechazo,
+  PORTAL_URL,
+} = require("../utils/mercadoPago");
+const { aplicarPagoModulos } = require("./mercadoPagoController");
 const { precioConDescuento, tieneDescuento } = require("../utils/cupones");
 const {
   catalogoModulos,
@@ -18,6 +26,10 @@ const {
   precioPlan,
   sumarModulo,
   quitarModulo,
+  precioModulos,
+  puedeReactivar,
+  modulosAPagarAhora,
+  referenciaPagoModulos,
 } = require("../utils/modulosPagos");
 const { funcionesDe } = require("../utils/suscripcion");
 const { olvidarPlanDeCuenta } = require("../utils/planNegocio");
@@ -118,6 +130,9 @@ const getEstado = async (req, res) => {
       precio_fundador: Number(cuenta.precio_plan_fijo) > 0,
       // Lo que se va a cobrar en el próximo cobro (plan + módulos, con cupón).
       monto_proximo_cobro: pagaConMP(cuenta) ? montoProximoCobro(cuenta) : null,
+      // Plan cancelado con días por usar: se vuelve a pagar sin perderlos
+      // (POST /reactivar).
+      puede_reactivar: puedeReactivar(cuenta),
       ...catalogo,
     });
   } catch (error) {
@@ -219,6 +234,109 @@ const getCheckout = async (req, res) => {
       return res.status(502).json({ message: motivoRechazo(error) });
     }
     return respondError(res, error, "suscripcion");
+  }
+};
+
+// Email para Mercado Pago: el escrito, el último usado o el del usuario.
+const emailDePago = async (req, cuenta) => {
+  let email = String(req.body?.email || "").trim().toLowerCase();
+  if (email && !EMAIL_RE.test(email)) return { error: "El email de Mercado Pago no es válido." };
+  if (!email) email = cuenta?.mp_email || "";
+  if (!email) {
+    const { data: u } = await supabase.from("usuarios").select("email").eq("id", req.user?.id).maybeSingle();
+    email = u?.email || "";
+  }
+  if (!email) return { error: "Escribí el email de tu cuenta de Mercado Pago para poder pagar." };
+  return { email };
+};
+
+// POST /api/suscripcion/reactivar  { email?, modulos? }  → { paso, url, monto }
+// Volver a pagar el MISMO plan cancelado que todavía no venció, sin perder los
+// días pagados. En dos pasos:
+//  1. "pago": si eligió módulos que hoy no tiene, los paga ahora por única vez
+//     (los usa hasta el vencimiento). Al volver, el panel llama otra vez.
+//  2. "debito": autoriza el débito mensual (plan + módulos) que arranca el día
+//     que vence lo ya pagado.
+const reactivar = async (req, res) => {
+  try {
+    const cuentaId = req.user?.cuenta_id;
+    if (!cuentaId) return res.status(403).json({ message: "Usuario sin cuenta asociada" });
+    if (!process.env.MP_ACCESS_TOKEN) {
+      return res.status(503).json({ message: "Pagos no configurados. Definí MP_ACCESS_TOKEN en el backend." });
+    }
+
+    const { data: cuenta } = await supabase.from("cuentas").select("*").eq("id", cuentaId).maybeSingle();
+    if (!puedeReactivar(cuenta)) {
+      return res.status(409).json({ message: "Tu plan no está cancelado con días por usar. Elegí un plan para pagarlo." });
+    }
+    const plan = cuenta.tipo_plan;
+    const mods = validarModulosNuevos(plan, req.body?.modulos);
+    if (mods.error) return res.status(400).json({ message: mods.error });
+    if (mods.valor.length && !("modulos_pagos" in cuenta)) {
+      return res.status(503).json({ message: "Los módulos todavía no están habilitados. Probá más tarde." });
+    }
+
+    const e = await emailDePago(req, cuenta);
+    if (e.error) return res.status(400).json({ message: e.error });
+    if (e.email !== cuenta.mp_email) {
+      const { error: errEmail } = await supabase.from("cuentas").update({ mp_email: e.email }).eq("id", cuentaId);
+      if (errEmail) console.warn("[MercadoPago] No se pudo guardar mp_email:", errEmail.message);
+    }
+
+    // 1. Módulos que hoy no tiene: pago único ahora.
+    const ahora = modulosAPagarAhora(cuenta, mods.valor);
+    if (ahora.length) {
+      const monto = precioModulos(ahora);
+      const vuelta = new URL(urlDeVuelta());
+      vuelta.searchParams.set("paso", "debito");
+      vuelta.searchParams.set("mods", mods.valor.join("."));
+      const pref = await crearPagoModulos({
+        referencia: referenciaPagoModulos(cuentaId, ahora),
+        modulos: ahora,
+        email: e.email,
+        backUrl: vuelta.toString(),
+        monto,
+      });
+      if (!pref?.init_point) return res.status(502).json({ message: "Mercado Pago no devolvió el link de pago" });
+      return res.json({ paso: "pago", url: pref.init_point, monto });
+    }
+
+    // 2. Débito mensual desde el vencimiento (con el cupón vigente, si lo hay).
+    const pct = tieneDescuento(cuenta) ? cuenta.descuento_pct : 0;
+    const monto = montoSuscripcionNueva(plan, mods.valor, pct);
+    const sub = await crearSuscripcion({
+      cuentaId,
+      plan,
+      email: e.email,
+      backUrl: urlDeVuelta(),
+      modulos: mods.valor,
+      monto,
+      inicio: cuenta.periodo_fin,
+    });
+    if (!sub?.init_point) return res.status(502).json({ message: "Mercado Pago no devolvió el link de pago" });
+    return res.json({ paso: "debito", url: sub.init_point, monto });
+  } catch (error) {
+    if (error.status) {
+      console.error("[MercadoPago] reactivar:", error.message, JSON.stringify(error.mp || {}));
+      return res.status(502).json({ message: motivoRechazo(error) });
+    }
+    return respondError(res, error, "suscripcion.reactivar");
+  }
+};
+
+// POST /api/suscripcion/pago-modulos/:id → al volver de Mercado Pago, aplica
+// el pago único sin esperar el aviso (que puede tardar). Sólo de la cuenta.
+const confirmarPagoModulos = async (req, res) => {
+  try {
+    const cuentaId = req.user?.cuenta_id;
+    if (!cuentaId) return res.status(403).json({ message: "Usuario sin cuenta asociada" });
+    const id = String(req.params.id || "");
+    if (!/^\d+$/.test(id)) return res.status(400).json({ message: "Pago inválido" });
+    const r = await aplicarPagoModulos(id, cuentaId);
+    return res.status(r.ok ? 200 : 409).json({ ok: r.ok, message: r.motivo });
+  } catch (error) {
+    if (error.status) return res.status(502).json({ message: "No se pudo consultar el pago en Mercado Pago." });
+    return respondError(res, error, "suscripcion.pagoModulos");
   }
 };
 
@@ -337,4 +455,4 @@ const cambiarModulo = (accion) => async (req, res) => {
 const sumarModuloPago = cambiarModulo("sumar");
 const quitarModuloPago = cambiarModulo("quitar");
 
-module.exports = { getEstado, getCheckout, cancelar, sumarModuloPago, quitarModuloPago };
+module.exports = { getEstado, getCheckout, reactivar, confirmarPagoModulos, cancelar, sumarModuloPago, quitarModuloPago };

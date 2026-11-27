@@ -14,7 +14,7 @@
 // Todo es puro (sin base ni Mercado Pago): los controladores guardan el
 // resultado y actualizan el monto de la suscripción.
 const { MODULOS_PAGOS, PRECIOS_MENSUALES } = require("./planPrecios");
-const { LIMITES_POR_PLAN } = require("./suscripcion");
+const { LIMITES_POR_PLAN, modulosVigentes, estaVigente } = require("./suscripcion");
 const { tieneDescuento } = require("./cupones");
 
 const CODIGOS_MODULOS = Object.keys(MODULOS_PAGOS);
@@ -165,6 +165,43 @@ const modulosAlCobrar = (modulos, fechaCobro, ahora = Date.now()) => {
   return out;
 };
 
+// ── Volver a pagar un plan cancelado que todavía no venció ──
+// Ej.: Estándar cancelado pagado hasta el 20/12 que suma la IA. Paga HOY sólo
+// los módulos nuevos (pago único, hasta el 20/12) y autoriza un débito que
+// arranca el 20/12 con plan + módulos. Así no pierde los días que ya pagó.
+
+// ¿La cuenta puede volver a pagar su plan sin perder días?
+const puedeReactivar = (cuenta, ahora = Date.now()) =>
+  cuenta?.estado_suscripcion === "cancelado" &&
+  ["basic", "standard", "premium"].includes(cuenta?.tipo_plan) &&
+  estaVigente(cuenta) &&
+  ms(cuenta.periodo_fin) > ahora;
+
+// De los módulos elegidos, los que todavía no puede usar (se pagan ahora).
+const modulosAPagarAhora = (cuenta, codigos, ahora = Date.now()) => {
+  const vigentes = modulosVigentes(cuenta, ahora);
+  return codigos.filter((c) => !vigentes.includes(c));
+};
+
+// Pago único de módulos: "cuenta:29:pagomod:ia.whatsapp".
+const referenciaPagoModulos = (cuentaId, codigos) => `cuenta:${cuentaId}:pagomod:${[...codigos].sort().join(".")}`;
+const leerReferenciaPagoModulos = (ref) => {
+  const m = /^cuenta:(\d+):pagomod:([a-z]+(?:\.[a-z]+)*)$/.exec(String(ref || ""));
+  if (!m) return null;
+  const modulos = m[2].split(".");
+  if (!modulos.every((c) => MODULOS_PAGOS[c])) return null;
+  return { cuentaId: Number(m[1]), modulos };
+};
+
+// Módulos pagados por única vez: se usan desde ya hasta `hasta` (cuando
+// arranca el débito, que los vuelve a incluir).
+const modulosPagadosHasta = (modulos, codigos, hasta, ahora = Date.now()) => {
+  const desde = new Date(ahora).toISOString();
+  const out = { ...(modulos || {}) };
+  for (const c of codigos) out[c] = { desde, cobrado: true, baja_en: new Date(hasta).toISOString() };
+  return out;
+};
+
 // Catálogo para el panel.
 const catalogoModulos = () =>
   CODIGOS_MODULOS.map((codigo) => ({
@@ -189,4 +226,10 @@ module.exports = {
   quitarModulo,
   modulosAlCobrar,
   catalogoModulos,
+  precioModulos,
+  puedeReactivar,
+  modulosAPagarAhora,
+  referenciaPagoModulos,
+  leerReferenciaPagoModulos,
+  modulosPagadosHasta,
 };

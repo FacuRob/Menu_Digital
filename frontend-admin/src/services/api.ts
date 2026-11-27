@@ -1044,6 +1044,8 @@ export interface SuscripcionEstado {
   precio_fundador?: boolean;
   // Próximo cobro (plan + módulos, con cupón). null si no paga por Mercado Pago.
   monto_proximo_cobro?: number | null;
+  // Plan cancelado con días por usar: se vuelve a pagar sin perderlos.
+  puede_reactivar?: boolean;
 }
 
 export type CodigoModulo = "whatsapp" | "ia" | "mapa";
@@ -1086,6 +1088,12 @@ export const suscripcionService = {
   // Baja de la suscripción: DinexFlow se la pide a Mercado Pago.
   cancelar: async () =>
     (await api.post<{ estado_suscripcion: EstadoSuscripcion; periodo_fin: string | null }>("/suscripcion/cancelar")).data,
+  // Volver a pagar el plan cancelado: "pago" (módulos ahora, por única vez)
+  // o "debito" (mensual desde el vencimiento).
+  reactivar: async (modulos: CodigoModulo[], email?: string) =>
+    (await api.post<{ paso: "pago" | "debito"; url: string; monto: number }>("/suscripcion/reactivar", { modulos, email })).data,
+  confirmarPagoModulos: async (pagoId: string) =>
+    (await api.post<{ ok: boolean; message: string }>(`/suscripcion/pago-modulos/${encodeURIComponent(pagoId)}`)).data,
   canjearCupon: async (codigo: string) =>
     (await api.post<{ porcentaje: number; meses: number }>("/suscripcion/cupon", { codigo })).data,
 };

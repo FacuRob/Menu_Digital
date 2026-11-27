@@ -5,6 +5,8 @@ const noSoloLectura = require("../middleware/noSoloLectura");
 const {
   getEstado,
   getCheckout,
+  reactivar,
+  confirmarPagoModulos,
   cancelar,
   sumarModuloPago,
   quitarModuloPago,
@@ -21,6 +23,8 @@ const { canjearCupon } = require("../controllers/cuponesController");
 // El "Admin" (manager) y el staff quedan fuera.
 router.get("/", getEstado);
 router.post("/checkout/:plan", noSoloLectura, checkPermiso("suscripcion"), getCheckout);
+router.post("/reactivar", noSoloLectura, checkPermiso("suscripcion"), reactivar);
+router.post("/pago-modulos/:id", noSoloLectura, checkPermiso("suscripcion"), confirmarPagoModulos);
 router.post("/cancelar", noSoloLectura, checkPermiso("suscripcion"), cancelar);
 router.post("/cupon", noSoloLectura, checkPermiso("suscripcion"), canjearCupon);
 router.post("/modulos/:codigo", noSoloLectura, checkPermiso("suscripcion"), sumarModuloPago);

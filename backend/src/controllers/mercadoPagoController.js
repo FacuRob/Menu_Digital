@@ -7,6 +7,9 @@ const {
   modulosDeAlta,
   modulosAlCobrar,
   modulosACobrar,
+  precioModulos,
+  leerReferenciaPagoModulos,
+  modulosPagadosHasta,
 } = require("../utils/modulosPagos");
 const { olvidarPlanDeCuenta } = require("../utils/planNegocio");
 const { emitirComprobante } = require("../utils/comprobantes");
@@ -34,6 +37,12 @@ const mercadoPagoWebhook = async (req, res) => {
 
     if (tipo === "subscription_authorized_payment" && dataId) {
       return await procesarCobro(dataId, res);
+    }
+
+    // Pago único de módulos (al volver a pagar un plan cancelado).
+    if (tipo === "payment" && dataId) {
+      const r = await aplicarPagoModulos(dataId);
+      return res.status(200).json({ message: r.motivo });
     }
 
     if (!["subscription_preapproval", "preapproval"].includes(tipo) || !dataId) {
@@ -80,7 +89,11 @@ const mercadoPagoWebhook = async (req, res) => {
       // El trigger de la BD recalcula los límites del plan.
       datos.tipo_plan = ref.plan;
       datos.ciclo_facturacion = "mensual";
-      datos.periodo_fin = sub.next_payment_date || null;
+      // Nunca antes de lo que ya pagó: al volver a pagar un plan cancelado el
+      // débito arranca cuando vence (start_date) y no se pierden días.
+      const proximo = sub.next_payment_date || null;
+      datos.periodo_fin =
+        proximo && cuenta.periodo_fin && new Date(cuenta.periodo_fin) > new Date(proximo) ? cuenta.periodo_fin : proximo;
       // Suscripción nueva (primer pago o cambio de plan): precio de lista y
       // sólo los módulos que se pagaron con ella (los incluidos en el plan
       // nuevo dejan de cobrarse).
@@ -138,7 +151,11 @@ const mercadoPagoWebhook = async (req, res) => {
 // de crearla; los siguientes llegan cada mes).
 const TRES_DIAS = 3 * 24 * 60 * 60 * 1000;
 const esPrimerCobro = (cobro, sub) => {
-  const creada = new Date(sub?.date_created || NaN).getTime();
+  // Con fecha de inicio (volver a pagar), el primer cobro es en esa fecha.
+  const creada = Math.max(
+    new Date(sub?.date_created || NaN).getTime() || 0,
+    new Date(sub?.auto_recurring?.start_date || NaN).getTime() || 0,
+  ) || NaN;
   const cobrado = new Date(cobro?.debit_date || cobro?.date_created || NaN).getTime();
   return Number.isFinite(creada) && Number.isFinite(cobrado) && cobrado - creada < TRES_DIAS;
 };
@@ -234,7 +251,48 @@ const procesarCobro = async (cobroId, res) => {
   return res.status(200).json({ message: "Cobro procesado", estado: datos.estado_suscripcion });
 };
 
+// Pago único de módulos aprobado → la cuenta los usa hasta su vencimiento.
+// Se consulta el pago a MP (nunca el aviso). Lo usan el webhook y la vuelta
+// del checkout (por si el aviso tarda). Repetirlo no cambia nada.
+// → { ok, motivo, cuentaId? }
+const aplicarPagoModulos = async (pagoId, cuentaEsperada = null) => {
+  const pago = await mp.obtenerPago(pagoId);
+  const ref = leerReferenciaPagoModulos(pago?.external_reference);
+  if (!ref) return { ok: false, motivo: "Pago ajeno a módulos" };
+  if (cuentaEsperada != null && ref.cuentaId !== Number(cuentaEsperada)) return { ok: false, motivo: "Pago de otra cuenta" };
+  if (pago.status !== "approved") return { ok: false, motivo: "Pago no aprobado" };
+  if (Number(pago.transaction_amount) !== precioModulos(ref.modulos)) {
+    console.warn("[MercadoPago] pago de módulos con otro monto:", pagoId, ref.modulos, pago.transaction_amount);
+    return { ok: false, motivo: "Monto no coincide" };
+  }
+
+  const { data: cuenta } = await supabase.from("cuentas").select("*").eq("id", ref.cuentaId).maybeSingle();
+  if (!cuenta || !("modulos_pagos" in cuenta)) return { ok: false, motivo: "Cuenta no encontrada" };
+  if (!cuenta.periodo_fin) return { ok: false, motivo: "Cuenta sin vencimiento" };
+
+  // Ya aplicado (aviso repetido o la vuelta del checkout): no se toca.
+  const actuales = cuenta.modulos_pagos || {};
+  if (ref.modulos.every((c) => actuales[c] && (!actuales[c].baja_en || new Date(actuales[c].baja_en) >= new Date(cuenta.periodo_fin)))) {
+    return { ok: true, motivo: "Ya aplicado", cuentaId: cuenta.id };
+  }
+
+  const version = Number(cuenta.modulos_version) || 0;
+  const { data: guardada, error } = await supabase
+    .from("cuentas")
+    .update({
+      modulos_pagos: modulosPagadosHasta(actuales, ref.modulos, cuenta.periodo_fin),
+      modulos_version: version + 1,
+    })
+    .eq("id", cuenta.id)
+    .eq("modulos_version", version)
+    .select("id");
+  if (error) throw error;
+  if (!guardada?.length) throw new Error("Los módulos cambiaron durante el pago");
+  await olvidarPlanDeCuenta(cuenta.id);
+  return { ok: true, motivo: "Módulos pagados", cuentaId: cuenta.id };
+};
+
 // Se carga al usarlo: el cliente de email exige RESEND_API_KEY al iniciar.
 const enviarComprobante = (args) => require("../services/emailService").sendComprobantePago(args);
 
-module.exports = { mercadoPagoWebhook };
+module.exports = { mercadoPagoWebhook, aplicarPagoModulos };
