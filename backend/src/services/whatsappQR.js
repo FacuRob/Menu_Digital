@@ -359,4 +359,5 @@ module.exports = {
   lomandamosNosotros,
   traducir,
   olvidar,
+  evo,
 };
