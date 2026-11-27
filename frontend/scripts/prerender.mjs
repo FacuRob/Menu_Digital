@@ -64,7 +64,7 @@ await writeFile(indexPath, html);
 // rewrite a /index.html; si no, queda el comportamiento de siempre.
 const PRECIOS = {
   title: "Precios y planes · DinexFlow",
-  desc: "Planes desde $22.000 por mes en pesos, con Mercado Pago. Sumá WhatsApp, IA o el mapa al Básico, o elegí el Estándar con todo.",
+  desc: "Planes desde $22.000 por mes en pesos, con Mercado Pago. Sumá WhatsApp, IA o el mapa a tu plan, o elegí el Pro con todo incluido.",
 };
 let precios = html;
 const cambiar = (re, nuevo) => {

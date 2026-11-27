@@ -2,7 +2,8 @@
 // repartidor) y el monto mensual que se cobra por Mercado Pago.
 //
 // Reglas:
-// - Se suman a los planes que no los incluyen (hoy, el Básico). Free no.
+// - Se suman a los planes que no los incluyen (Básico: los tres; Estándar:
+//   la IA). Free no.
 // - Al sumar, se usa en el momento y se cobra desde el próximo cobro.
 // - Al quitar, se sigue usando hasta el próximo cobro y desde ahí no se cobra.
 //   Si todavía no entró en ningún cobro, se cobra una vez antes de irse (así
@@ -90,7 +91,8 @@ const validarModulosNuevos = (plan, lista) => {
     if (!MODULOS_PAGOS[c]) return { error: "Módulo inválido." };
     if (!sumable(plan, c)) return { error: `${MODULOS_PAGOS[c].nombre} ya viene en ese plan o no se puede sumar.` };
     const req = MODULOS_PAGOS[c].requiere;
-    if (req && !valor.includes(req)) {
+    // Si el plan ya trae el requisito (WhatsApp en el Estándar), alcanza.
+    if (req && !valor.includes(req) && !LIMITES_POR_PLAN[plan]?.[req]) {
       return { error: `${MODULOS_PAGOS[c].nombre} necesita ${MODULOS_PAGOS[req].nombre}.` };
     }
   }

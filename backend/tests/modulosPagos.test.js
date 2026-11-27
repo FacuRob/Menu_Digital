@@ -37,12 +37,28 @@ test("monto: plan + módulos; el cupón descuenta sólo el plan; fundador manda"
   assert.equal(montoProximoCobro(conWa), 34000);
   assert.equal(montoProximoCobro({ ...conWa, descuento_pct: 50, descuento_meses_restantes: 1 }), 11000 + 12000);
   assert.equal(montoProximoCobro({ ...conWa, precio_plan_fijo: 20000 }), 32000);
-  assert.equal(montoProximoCobro(activo({ tipo_plan: "standard", modulos_pagos: { whatsapp: {} } })), 44000); // incluido: no se cobra
+  assert.equal(montoProximoCobro(activo({ tipo_plan: "standard", modulos_pagos: { whatsapp: {} } })), 46000); // incluido: no se cobra
 });
 
-test("Básico con los 3 módulos sale más que el Estándar", () => {
-  assert.equal(montoSuscripcionNueva("basic", ["ia", "mapa", "whatsapp"]), 51000);
-  assert.ok(montoSuscripcionNueva("basic", ["ia", "whatsapp"]) > montoSuscripcionNueva("standard"));
+test("precios 2026-11-27: Básico con todo 64.000; Estándar + IA 68.000; Pro 72.000", () => {
+  assert.equal(montoSuscripcionNueva("basic", ["ia", "mapa", "whatsapp"]), 64000);
+  assert.equal(montoSuscripcionNueva("standard", ["ia"]), 68000);
+  assert.equal(montoSuscripcionNueva("premium"), 72000);
+  // El cupón descuenta sólo el plan, nunca los módulos.
+  assert.equal(montoSuscripcionNueva("standard", ["ia"], 50), 23000 + 22000);
+});
+
+test("Estándar: trae WhatsApp y mapa; la IA se suma como módulo", () => {
+  assert.deepEqual(funcionesDe(activo({ tipo_plan: "standard" })), { whatsapp: true, ia: false, mapa: true });
+  assert.deepEqual(validarModulosNuevos("standard", ["ia"]).valor, ["ia"]); // WhatsApp ya viene en el plan
+  assert.ok(validarModulosNuevos("standard", ["whatsapp"]).error);
+  assert.ok(validarModulosNuevos("premium", ["ia"]).error);
+  const r = sumarModulo(activo({ tipo_plan: "standard" }), "ia");
+  assert.ok(r.modulos.ia);
+  const conIa = activo({ tipo_plan: "standard", modulos_pagos: r.modulos });
+  assert.equal(incluye(conIa, "ia"), true);
+  assert.equal(montoProximoCobro(conIa), 68000);
+  assert.equal(montoProximoCobro({ ...conIa, descuento_pct: 20, descuento_meses_restantes: 1 }), 36800 + 22000);
 });
 
 test("validarModulosNuevos: IA pide WhatsApp; no se suma lo incluido ni en Free", () => {
@@ -60,7 +76,7 @@ test("incluye: Básico con módulo sí, sin módulo no; IA sin WhatsApp no; baja
   assert.equal(incluye(activo({ modulos_pagos: { ia: {} } }), "ia"), false);
   assert.equal(incluye(activo({ modulos_pagos: { whatsapp: { baja_en: "2020-01-01" } } }), "whatsapp"), false);
   assert.equal(incluye(activo({ modulos_pagos: { whatsapp: { baja_en: FIN } } }), "whatsapp"), true); // hasta el próximo cobro
-  assert.deepEqual(funcionesDe(activo({ tipo_plan: "standard" })), { whatsapp: true, ia: true, mapa: true });
+  assert.deepEqual(funcionesDe(activo({ tipo_plan: "premium" })), { whatsapp: true, ia: true, mapa: true });
   assert.equal(incluye({ ...activo({ modulos_pagos: { mapa: {} } }), estado_suscripcion: "vencido" }, "mapa"), false);
 });
 
@@ -82,7 +98,7 @@ test("quitar: cobrado → hasta el próximo cobro; sin cobrar → un mes más; W
   assert.equal(quitarModulo(conIa, "whatsapp").code, "DEPENDE");
   assert.equal(quitarModulo(c, "ia").code, "NO_ACTIVO");
   // Quitado y ya cobrado: el próximo cobro no lo incluye.
-  assert.equal(montoProximoCobro({ ...c, modulos_pagos: quitarModulo(c, "whatsapp").modulos }), 22000 + 6000);
+  assert.equal(montoProximoCobro({ ...c, modulos_pagos: quitarModulo(c, "whatsapp").modulos }), 22000 + 8000);
 });
 
 test("modulosAlCobrar: marca cobrados los sumados antes del cobro y borra los vencidos", () => {
@@ -203,7 +219,7 @@ test("quitar módulo sin cobrar: no cambia el monto (se cobra una vez)", async (
   cuenta = activo({ modulos_pagos: { mapa: { desde: "2029-12-20", cobrado: false, baja_en: null } } });
   const r = await pedir(quitarModuloPago, "mapa");
   assert.equal(r.code, 200);
-  assert.equal(r.body.monto_proximo_cobro, 28000);
+  assert.equal(r.body.monto_proximo_cobro, 30000);
   assert.equal(mpCalls.length, 0);
 });
 
@@ -213,7 +229,7 @@ test("checkout con módulos: monto y referencia los incluyen", async () => {
   await getCheckout({ params: { plan: "basic" }, body: { email: "a@b.test", modulos: ["whatsapp", "mapa"] }, user: { id: 1, cuenta_id: 7 } }, r);
   assert.equal(r.code, 200);
   const post = mpCalls.find((c) => c.method === "POST");
-  assert.equal(post.body.auto_recurring.transaction_amount, 40000);
+  assert.equal(post.body.auto_recurring.transaction_amount, 42000);
   assert.equal(post.body.external_reference, "cuenta:7:plan:basic:mod:mapa.whatsapp");
 });
 
@@ -230,7 +246,7 @@ test("sumar módulo: si otro cambio ganó (versión distinta) vuelve el monto en
   const r = await pedir(sumarModuloPago, "mapa");
   assert.equal(r.code, 409);
   const puts = mpCalls.filter((c) => c.method === "PUT").map((c) => c.body.auto_recurring.transaction_amount);
-  assert.deepEqual(puts, [28000, 22000]);
+  assert.deepEqual(puts, [30000, 22000]);
   const u = ops.find((o) => o.table === "cuentas" && o.op === "update");
   assert.equal(u.payload.modulos_version, 4);
 });

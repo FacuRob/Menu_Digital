@@ -3,12 +3,12 @@ const { negocioIncluye } = require("../utils/planNegocio");
 const MENSAJES = {
   whatsapp: {
     error: "PLAN_SIN_WHATSAPP",
-    message: "WhatsApp viene en los planes Estándar y Premium. En el Básico lo podés sumar como módulo desde Suscripción.",
+    message: "WhatsApp viene en los planes Estándar y Pro. En el Básico lo podés sumar como módulo desde Suscripción.",
   },
   mapa: {
     error: "PLAN_SIN_MAPA",
     message:
-      "El mapa del repartidor viene en los planes Estándar y Premium. En el Básico lo podés sumar como módulo desde Suscripción.",
+      "El mapa del repartidor viene en los planes Estándar y Pro. En el Básico lo podés sumar como módulo desde Suscripción.",
   },
 };
 

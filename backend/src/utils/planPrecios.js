@@ -1,5 +1,8 @@
 // Precios mensuales de los planes del SaaS y de los módulos que se suman,
-// en pesos argentinos. Solo hay cobro mensual.
+// en pesos argentinos. Solo hay cobro mensual. "premium" se muestra como "Pro".
+// Desde el 2026-11-27: Básico 22.000, Estándar 46.000, Pro 72.000; módulos
+// WhatsApp 12.000, IA 22.000, Mapa 8.000 (Básico con todo = 64.000; Estándar +
+// IA = 68.000).
 // Única fuente de verdad del backend: los usa el catálogo del panel, el cobro
 // por Mercado Pago y el MRR de plataforma. La landing tiene su copia en
 // frontend/src/pages/Landing.tsx (mantener alineadas).
@@ -10,7 +13,7 @@ const MONEDA = "ARS";
 const PRECIOS_MENSUALES = {
   free: 0,
   basic: 22000,
-  standard: 44000,
+  standard: 46000,
   premium: 72000,
 };
 
@@ -19,8 +22,8 @@ const PRECIOS_MENSUALES = {
 // estar activo.
 const MODULOS_PAGOS = {
   whatsapp: { nombre: "WhatsApp", precio: 12000 },
-  ia: { nombre: "Asistente con IA", precio: 11000, requiere: "whatsapp" },
-  mapa: { nombre: "Mapa del repartidor", precio: 6000 },
+  ia: { nombre: "Asistente con IA", precio: 22000, requiere: "whatsapp" },
+  mapa: { nombre: "Mapa del repartidor", precio: 8000 },
 };
 
 const preciosPorPlan = () => ({ moneda: MONEDA, mensual: { ...PRECIOS_MENSUALES } });

@@ -15,6 +15,7 @@ import {
   type SuscripcionEstado,
   type PlanCatalogo,
   type CodigoModulo,
+  type TipoPlan,
 } from "../../services/api";
 
 const CODIGOS: CodigoModulo[] = ["whatsapp", "ia", "mapa"];
@@ -43,15 +44,15 @@ const PERKS: Record<string, { incluye?: string; extras: string[] }> = {
   basic: { extras: ["subPerkQr", "subPerkVariantes", "subPerkCustom", "subPerkAnalytics"] },
   standard: {
     incluye: "subPerkAllBasic",
-    extras: ["subPerkStock", "subPerkWhatsapp", "subPerkIA", "subPerkTracking"],
+    extras: ["subPerkStock", "subPerkWhatsapp", "subPerkTracking"],
   },
-  premium: { incluye: "subPerkAllStandard", extras: [] },
+  premium: { incluye: "subPerkAllStandard", extras: ["subPerkIA"] },
 };
 
 // Catálogo de respaldo (mismos precios que backend/src/utils/planPrecios.js).
 const FALLBACK_PLANES: PlanCatalogo[] = [
   { code: "basic", precio_mensual: 22000, limites: { negocios: 1, productos: 50 } },
-  { code: "standard", precio_mensual: 44000, limites: { negocios: 3, productos: 180 } },
+  { code: "standard", precio_mensual: 46000, limites: { negocios: 3, productos: 180 } },
   { code: "premium", precio_mensual: 72000, limites: { negocios: 5, productos: 1000 } },
 ];
 
@@ -74,8 +75,14 @@ export default function Suscripcion() {
   // ?modulo=whatsapp: viene de la pantalla de WhatsApp (o Chats, Pedidos).
   const [params] = useSearchParams();
   const moduloPedido = CODIGOS.find((c) => c === params.get("modulo")) ?? null;
-  // Módulos elegidos para sumar al Básico al pagarlo.
-  const [modsCheckout, setModsCheckout] = useState<CodigoModulo[]>(() => modulosDeUrl(params.get("modulo")));
+  // Plan al que se le eligen módulos en la sección de abajo.
+  const [planMods, setPlanMods] = useState<"basic" | "standard" | null>(null);
+  // Módulos elegidos para sumar a cada plan al pagarlo (Básico: los tres;
+  // Estándar: la IA). Sólo cuentan los que el plan no trae.
+  const [modsPorPlan, setModsPorPlan] = useState<Partial<Record<PlanCatalogo["code"], CodigoModulo[]>>>(() => {
+    const pedidos = modulosDeUrl(params.get("modulo"));
+    return { basic: pedidos, standard: pedidos.filter((c) => c === "ia") };
+  });
 
   const canjear = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,7 +143,8 @@ export default function Suscripcion() {
 
   const planNombre = (code: string) => nombreDelPlan(t, code);
 
-  const irACheckout = async (plan: PlanCatalogo["code"]) => {
+  // `mods`: módulos a sumar (por defecto, los elegidos en la tarjeta del plan).
+  const irACheckout = async (plan: PlanCatalogo["code"], mods?: CodigoModulo[]) => {
     const email = mpEmail.trim();
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError(t("subMpEmailInvalid"));
@@ -146,7 +154,7 @@ export default function Suscripcion() {
     try {
       setError("");
       setRedirecting(plan);
-      const { url } = await suscripcionService.checkout(plan, email || undefined, plan === "basic" ? modsCheckout : []);
+      const { url } = await suscripcionService.checkout(plan, email || undefined, mods ?? elegidosDe(plan));
       window.location.assign(url);
     } catch (e) {
       setError(getApiErrorMessage(e, t("subCheckoutError")));
@@ -188,23 +196,48 @@ export default function Suscripcion() {
   const pagaConMP = !!data && !data.es_plataforma && estado === "activo" && data.monto_proximo_cobro != null;
   const catalogoMods = data?.modulos ?? [];
   const precioDe = (code: string) => (data?.planes ?? FALLBACK_PLANES).find((p) => p.code === code);
-  // Elegir el Básico con módulos al pagar (si ya paga el Básico, se suman en "Lo que pagás por mes").
-  const basicoSumable = catalogoMods.length > 0 && !(data?.tipo_plan === "basic" && pagaConMP);
-  const basico = precioDe("basic");
-  const totalBasico =
-    (basico ? (basico.precio_con_descuento ?? basico.precio_mensual) : 0) +
-    catalogoMods.filter((m) => modsCheckout.includes(m.codigo)).reduce((t_, m) => t_ + m.precio_mensual, 0);
-  // Estándar en la misma base que lo que paga (con el cupón, si lo hay).
+  // Módulos que se le pueden sumar a un plan (los que no trae).
+  const sumablesDe = (plan: PlanCatalogo["code"]) => catalogoMods.filter((m) => !m.incluido_en.includes(plan));
+  const elegidosDe = (plan: PlanCatalogo["code"]) =>
+    (modsPorPlan[plan] ?? []).filter((c) => sumablesDe(plan).some((m) => m.codigo === c));
+  // Precio del plan (con el cupón: descuenta sólo el plan) + los módulos elegidos.
+  const totalDe = (plan: PlanCatalogo["code"]) => {
+    const p = precioDe(plan);
+    const base = p ? (p.precio_con_descuento ?? p.precio_mensual) : 0;
+    return base + catalogoMods.filter((m) => elegidosDe(plan).includes(m.codigo)).reduce((t_, m) => t_ + m.precio_mensual, 0);
+  };
+  // "Estándar y Pro": planes que ya traen el módulo.
+  const planesQueIncluyen = (incluidoEn: TipoPlan[]) =>
+    incluidoEn.filter((c) => c !== "free").map(planNombre).join(t("modAnd"));
+  // Planes a los que se les eligen módulos abajo (si ya paga ese plan, se
+  // suman en "Lo que pagás por mes").
+  const planesConMods = (["basic", "standard"] as const).filter(
+    (c) => sumablesDe(c).length > 0 && !(data?.tipo_plan === c && pagaConMP),
+  );
+  const planSec = planesConMods.includes(planMods as "basic" | "standard") ? planMods : planesConMods[0];
+  const totalSec = planSec ? totalDe(planSec) : 0;
+  // Estándar en la misma base que lo que paga (con el cupón, si lo hay) y con
+  // los mismos módulos que no trae (la IA).
   const std = precioDe("standard");
-  const precioStd = std ? (std.precio_con_descuento ?? std.precio_mensual) : null;
-  const toggleMod = (c: CodigoModulo) =>
-    setModsCheckout((prev) => {
-      if (prev.includes(c)) {
-        // Sin WhatsApp no hay IA.
-        return prev.filter((x) => x !== c && !(c === "whatsapp" && x === "ia"));
-      }
-      return c === "ia" && !prev.includes("whatsapp") ? [...prev, "ia", "whatsapp"] : [...prev, c];
+  const precioStdCon = (mods: CodigoModulo[]) =>
+    std
+      ? (std.precio_con_descuento ?? std.precio_mensual) +
+        sumablesDe("standard").filter((m) => mods.includes(m.codigo)).reduce((t_, m) => t_ + m.precio_mensual, 0)
+      : null;
+  const precioStdBasico = precioStdCon(elegidosDe("basic"));
+  const totalBasico = totalDe("basic");
+  const toggleMod = (plan: PlanCatalogo["code"], c: CodigoModulo) =>
+    setModsPorPlan((todos) => {
+      const prev = todos[plan] ?? [];
+      // La IA pide WhatsApp: si el plan no lo trae, van juntos.
+      const waSumable = sumablesDe(plan).some((m) => m.codigo === "whatsapp");
+      let next: CodigoModulo[];
+      if (prev.includes(c)) next = prev.filter((x) => x !== c && !(c === "whatsapp" && x === "ia"));
+      else next = c === "ia" && waSumable && !prev.includes("whatsapp") ? [...prev, "ia", "whatsapp"] : [...prev, c];
+      return { ...todos, [plan]: next };
     });
+  // Módulos activos de quien ya paga, para comparar con el Estándar.
+  const modsActivos = CODIGOS.filter((c) => data?.modulos_cuenta?.[c] && !data.modulos_cuenta[c]!.baja_en);
 
   return (
     <AdminLayout title={t("navSuscripcion")}>
@@ -449,8 +482,14 @@ export default function Suscripcion() {
             money={money}
             fmtFecha={fmtFecha}
             planNombre={planNombre}
-            precioEstandar={precioStd}
-            onElegirEstandar={() => irACheckout("standard")}
+            precioEstandar={precioStdCon(modsActivos)}
+            // Al pasar al Estándar conserva los módulos que no trae (la IA).
+            onElegirEstandar={() =>
+              irACheckout(
+                "standard",
+                modsActivos.filter((c) => sumablesDe("standard").some((m) => m.codigo === c)),
+              )
+            }
             abrir={moduloPedido}
           />
         )}
@@ -570,13 +609,14 @@ export default function Suscripcion() {
           {(data?.planes ?? FALLBACK_PLANES).map((p) => {
             const esActual = data?.tipo_plan === p.code;
             const destacado = p.code === "standard";
-            // Básico: se le pueden sumar módulos al pagarlo (si ya lo paga, se
-            // suman desde "Lo que pagás por mes").
-            const conMods = p.code === "basic" && !(esActual && pagaConMP) && catalogoMods.length > 0;
-            const sumaMods = conMods
-              ? catalogoMods.filter((m) => modsCheckout.includes(m.codigo)).reduce((t_, m) => t_ + m.precio_mensual, 0)
-              : 0;
-            const totalCard = (p.precio_con_descuento ?? p.precio_mensual) + sumaMods;
+            // Se le pueden sumar al pagarlo los módulos que no trae (si ya lo
+            // paga, se suman desde "Lo que pagás por mes").
+            const sumables = sumablesDe(p.code);
+            const conMods = sumables.length > 0 && !(esActual && pagaConMP);
+            const totalCard = conMods ? totalDe(p.code) : (p.precio_con_descuento ?? p.precio_mensual);
+            const sumaMods = totalCard - (p.precio_con_descuento ?? p.precio_mensual);
+            // Plan con todo lo que se le puede sumar (Básico 64.000, Estándar 68.000).
+            const conTodo = p.precio_mensual + sumables.reduce((t_, m) => t_ + m.precio_mensual, 0);
             const bizFeature =
               p.limites.negocios >= 9999
                 ? t("subUnlimBiz")
@@ -641,6 +681,11 @@ export default function Suscripcion() {
                   </span>
                   <span style={{ fontSize: 12.5, color: textMuted }}>/{t("subPerMonth")}</span>
                 </div>
+                {catalogoMods.length > 0 && (
+                  <div style={{ fontSize: 12, color: textMuted }}>
+                    {sumables.length === 0 ? t("modAllIncluded") : t("modWithAll", { total: money(conTodo) })}
+                  </div>
+                )}
 
                 <ul style={{ listStyle: "none", padding: 0, margin: "14px 0 18px", display: "grid", gap: 8, flex: 1, alignContent: "start" }}>
                   {[
@@ -656,16 +701,16 @@ export default function Suscripcion() {
                   ))}
                 </ul>
 
-                {/* Módulos: en el Básico se suman (abajo); en los otros vienen incluidos. */}
+                {/* Módulos: los que trae el plan y los que se le suman. */}
                 {catalogoMods.length > 0 && (
                   <div style={{ borderTop: `1px solid ${border}`, padding: "12px 0 0", margin: "0 0 16px" }}>
                     <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: textMuted }}>
-                      {t(p.code === "basic" ? "modAddToBasic" : "modIncludedTitle")}
+                      {t(sumables.length === 0 ? "modIncludedTitle" : sumables.length === catalogoMods.length ? "modAddToBasic" : "modMixedTitle")}
                     </div>
                     <ul style={{ listStyle: "none", padding: 0, margin: "8px 0 0", display: "flex", flexWrap: "wrap", gap: 6 }}>
                       {catalogoMods.map((m) => {
                         const incluido = m.incluido_en.includes(p.code);
-                        const elegido = conMods && modsCheckout.includes(m.codigo);
+                        const elegido = conMods && !incluido && elegidosDe(p.code).includes(m.codigo);
                         const chip: React.CSSProperties = {
                           fontSize: 12,
                           fontWeight: 600,
@@ -683,12 +728,12 @@ export default function Suscripcion() {
                         );
                         return (
                           <li key={m.codigo}>
-                            {conMods ? (
+                            {conMods && !incluido ? (
                               <button
                                 type="button"
                                 className="tap"
                                 aria-pressed={elegido}
-                                onClick={() => toggleMod(m.codigo)}
+                                onClick={() => toggleMod(p.code, m.codigo)}
                                 style={{ ...chip, cursor: "pointer", fontFamily: "inherit", lineHeight: "inherit" }}
                               >
                                 {texto}
@@ -719,7 +764,7 @@ export default function Suscripcion() {
                     : redirecting === p.code
                       ? t("subOpening")
                       : sumaMods > 0
-                        ? t("modChooseWithTotal", { total: money(totalCard) })
+                        ? t("modChooseWithTotal", { plan: planNombre(p.code), total: money(totalCard) })
                         : t("subChoose")}
                 </button>
               </div>
@@ -727,19 +772,60 @@ export default function Suscripcion() {
           })}
         </div>
 
-        {/* ── Módulos para sumar al Básico (tarjetas, como en Fudo) ── */}
-        {basicoSumable && (
+        {/* ── Módulos para sumar al plan elegido (tarjetas, como en Fudo) ── */}
+        {planSec && (
           <section aria-labelledby="mods-titulo" style={{ marginTop: 28 }}>
-            <div style={{ margin: "0 2px 14px" }}>
-              <h3 id="mods-titulo" style={{ margin: 0, fontSize: 16, fontWeight: 700, color: textPrimary }}>
-                {t("modSectionTitle")}
-              </h3>
-              <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--fg-2)" }}>{t("modSectionHint")}</p>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: 12, margin: "0 2px 14px" }}>
+              <div>
+                <h3 id="mods-titulo" style={{ margin: 0, fontSize: 16, fontWeight: 700, color: textPrimary }}>
+                  {t("modSectionTitle")}
+                </h3>
+                <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--fg-2)" }}>{t("modSectionHint")}</p>
+              </div>
+              {/* Plan al que se suman: Básico (los tres) o Estándar (la IA). */}
+              {planesConMods.length > 1 && (
+                <div
+                  role="group"
+                  aria-label={t("modPickPlan")}
+                  style={{ display: "inline-flex", padding: 3, borderRadius: 999, background: "var(--surface-2)", border: `1px solid ${border}` }}
+                >
+                  {planesConMods.map((c) => {
+                    const activo = c === planSec;
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        aria-pressed={activo}
+                        onClick={() => setPlanMods(c)}
+                        style={{
+                          minHeight: 38,
+                          padding: "0 16px",
+                          borderRadius: 999,
+                          border: "none",
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          fontSize: 13,
+                          fontWeight: 700,
+                          background: activo ? "var(--accent)" : "transparent",
+                          color: activo ? "var(--on-accent)" : "var(--fg-2)",
+                        }}
+                      >
+                        {planNombre(c)}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))" }}>
               {catalogoMods.map((m) => {
-                const elegido = modsCheckout.includes(m.codigo);
-                const req = m.requiere ? catalogoMods.find((x) => x.codigo === m.requiere) : null;
+                const incluido = m.incluido_en.includes(planSec);
+                const elegido = !incluido && elegidosDe(planSec).includes(m.codigo);
+                // "Necesita WhatsApp" sólo si el plan no lo trae.
+                const req =
+                  m.requiere && !catalogoMods.find((x) => x.codigo === m.requiere)?.incluido_en.includes(planSec)
+                    ? catalogoMods.find((x) => x.codigo === m.requiere)
+                    : null;
                 return (
                   <div
                     key={m.codigo}
@@ -761,28 +847,36 @@ export default function Suscripcion() {
                     </p>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
                       <span style={{ fontSize: 11.5, fontWeight: 600, padding: "3px 10px", borderRadius: 999, background: "var(--ok-bg)", color: "var(--ok)" }}>
-                        {t("modIncludedStdPrem")}
+                        {t("modIncludedIn", { planes: planesQueIncluyen(m.incluido_en) })}
                       </span>
-                      {req && (
+                      {req && !incluido && (
                         <span style={{ fontSize: 11.5, fontWeight: 600, padding: "3px 10px", borderRadius: 999, background: "var(--info-bg)", color: "var(--info)" }}>
                           {t("modNeeds", { modulo: req.nombre })}
                         </span>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      aria-pressed={elegido}
-                      onClick={() => toggleMod(m.codigo)}
-                      style={{ ...(elegido ? S.btnPrimary : S.btnGhost), width: "100%", justifyContent: "center", minHeight: 44 }}
-                    >
-                      {elegido ? t("modPicked") : t("modPick")}
-                    </button>
+                    {incluido ? (
+                      <div
+                        style={{ ...S.btnGhost, width: "100%", justifyContent: "center", minHeight: 44, color: "var(--ok)", cursor: "default", display: "flex", alignItems: "center" }}
+                      >
+                        {t("modIncludedInPlan", { plan: planNombre(planSec) })}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        aria-pressed={elegido}
+                        onClick={() => toggleMod(planSec, m.codigo)}
+                        style={{ ...(elegido ? S.btnPrimary : S.btnGhost), width: "100%", justifyContent: "center", minHeight: 44 }}
+                      >
+                        {elegido ? t("modPicked") : t("modPick", { plan: planNombre(planSec) })}
+                      </button>
+                    )}
                   </div>
                 );
               })}
             </div>
 
-            {/* Resumen: Básico + lo elegido */}
+            {/* Resumen: plan + lo elegido */}
             <div
               role="status"
               aria-live="polite"
@@ -790,22 +884,22 @@ export default function Suscripcion() {
             >
               <div style={{ flex: "1 1 280px" }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: textPrimary }}>
-                  {t("modSummary", { total: money(totalBasico) })}
+                  {t("modSummary", { plan: planNombre(planSec), total: money(totalSec) })}
                 </div>
                 <p style={{ margin: "4px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--fg-2)" }}>{t("modCardWhen")}</p>
-                {precioStd != null && totalBasico > precioStd && (
+                {planSec === "basic" && precioStdBasico != null && totalBasico > precioStdBasico && (
                   <p style={{ margin: "6px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--info)", fontWeight: 600 }}>
-                    {t("modBetterStandardShort", { std: money(precioStd) })}
+                    {t("modBetterStandardShort", { std: money(precioStdBasico) })}
                   </p>
                 )}
               </div>
               <button
                 type="button"
-                onClick={() => irACheckout("basic")}
-                disabled={redirecting === "basic"}
+                onClick={() => irACheckout(planSec)}
+                disabled={redirecting === planSec}
                 style={{ ...S.btnGhost, minHeight: 44 }}
               >
-                {redirecting === "basic" ? t("subOpening") : t("modChooseWithTotal", { total: money(totalBasico) })}
+                {redirecting === planSec ? t("subOpening") : t("modChooseWithTotal", { plan: planNombre(planSec), total: money(totalSec) })}
               </button>
             </div>
           </section>

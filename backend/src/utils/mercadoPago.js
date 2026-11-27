@@ -11,7 +11,7 @@ const crypto = require("crypto");
 const { PRECIOS_MENSUALES, MODULOS_PAGOS } = require("./planPrecios");
 
 const API = "https://api.mercadopago.com";
-const NOMBRES = { basic: "Básico", standard: "Estándar", premium: "Premium" };
+const NOMBRES = { basic: "Básico", standard: "Estándar", premium: "Pro" };
 
 const mpFetch = async (path, { method = "GET", body } = {}) => {
   const resp = await fetch(`${API}${path}`, {

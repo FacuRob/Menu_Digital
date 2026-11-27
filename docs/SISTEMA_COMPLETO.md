@@ -206,7 +206,7 @@ Reglas de jerarquía (controladas en `usuariosController`):
 | **Premium** | $65.000 | 5 | 1.000 | Sí |
 
 - **Sin plan anual.** Pago mensual en ARS con Mercado Pago. Se cancela o cambia cuando quiera.
-- **Prueba gratis de 15 días** (`FREE_TRIAL_DAYS`), sin tarjeta, con todo lo del **Estándar** (`TRIAL_PLAN`).
+- **Prueba gratis de 15 días** (`FREE_TRIAL_DAYS`), sin tarjeta, con todo lo del **Pro** (`TRIAL_PLAN`, por defecto `premium`).
 - Todos los planes incluyen carta con QR, variantes, personalización y analíticas.
 
 ### Reparto de productos entre negocios
@@ -799,7 +799,7 @@ Errores internos: `respondError` devuelve un mensaje corto sin stack. JSON mal f
 | `ALLOWED_ORIGINS`, `ADMIN_URL`, `VITE_MENU_URL` | CORS, links de emails y links públicos |
 | `MESA_QR_SECRET` | Firma de QR de mesa (32+ caracteres, no rotar) |
 | `TOTP_KEY` | Cifrado de secretos 2FA (opcional) |
-| `FREE_TRIAL_DAYS`, `TRIAL_PLAN` | Prueba gratis (15, standard) |
+| `FREE_TRIAL_DAYS`, `TRIAL_PLAN` | Prueba gratis (15, premium = Pro) |
 | `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET` | Mercado Pago |
 | `GOOGLE_CLIENT_ID` | Login con Google |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Imágenes |

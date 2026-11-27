@@ -5,7 +5,7 @@ const { estaVigente } = require("../utils/suscripcion");
 /**
  * Valida el plan de la CUENTA dueña del negocio antes de crear un producto.
  *
- * El plan da un total de productos (Básico 50, Estándar 180, Premium 1000)
+ * El plan da un total de productos (Básico 50, Estándar 180, Pro 1000)
  * que se reparte entre los negocios de la cuenta: Estándar con 2 negocios
  * tiene 90 por negocio; con 3, 60. Bloquea con 403 si:
  *   - la suscripción está cancelada Y ya pasó el mes pagado (cancelada

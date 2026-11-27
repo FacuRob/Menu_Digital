@@ -706,7 +706,7 @@ export default function Pedidos() {
                     <span aria-hidden>{p.tipo_entrega === "envio" ? "📦" : "🛵"}</span> {p.tipo_entrega === "envio" ? t("pedDespachar") : t("pedSend")}
                   </EstadoBtn>
                 )}
-                {/* Mapa del repartidor: por el plan (Estándar, Premium) o el módulo. */}
+                {/* Mapa del repartidor: por el plan (Estándar, Pro) o el módulo. */}
                 {p.tipo_entrega === "delivery" &&
                   conMapa !== false &&
                   ["pendiente", "preparando", "en_camino"].includes(p.estado) && (

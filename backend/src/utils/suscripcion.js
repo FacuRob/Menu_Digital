@@ -14,7 +14,7 @@ const TRIAL_DIAS = Math.max(0, parseInt(process.env.FREE_TRIAL_DAYS, 10) || 15);
 
 // Límites por plan. `productos` es el TOTAL de la cuenta, repartido en partes
 // iguales entre los negocios que tenga (ver cupoPorNegocio): Estándar 180 con
-// 1 negocio, 90 con 2, 60 con 3; Premium 1000, 500, 334/333, 250, 200.
+// 1 negocio, 90 con 2, 60 con 3; Pro 1000, 500, 334/333, 250, 200.
 // `whatsapp` (avisos y chats), `ia` (asistente que responde en WhatsApp) y
 // `mapa` (seguimiento del repartidor): incluidos en el plan. Si no, se pueden
 // sumar como módulos pagos (modulosPagos.js). Deben coincidir con el trigger
@@ -23,16 +23,16 @@ const TRIAL_DIAS = Math.max(0, parseInt(process.env.FREE_TRIAL_DAYS, 10) || 15);
 const LIMITES_POR_PLAN = {
   free: { negocios: 1, productos: 10, whatsapp: false, ia: false, mapa: false },
   basic: { negocios: 1, productos: 50, whatsapp: false, ia: false, mapa: false },
-  standard: { negocios: 3, productos: 180, whatsapp: true, ia: true, mapa: true },
+  standard: { negocios: 3, productos: 180, whatsapp: true, ia: false, mapa: true },
   premium: { negocios: 5, productos: 1000, whatsapp: true, ia: true, mapa: true },
 };
 
 // Plan cuyos límites se aplican durante la prueba gratis (TRIAL_PLAN, por
-// defecto "standard"): la prueba muestra el producto completo, como promete
+// defecto "premium", el Pro): la prueba muestra el producto completo, como promete
 // la landing. Al pagar, rigen los límites del plan comprado.
 const planDeTrial = () => {
-  const p = String(process.env.TRIAL_PLAN || "standard").toLowerCase();
-  return LIMITES_POR_PLAN[p] ? p : "standard";
+  const p = String(process.env.TRIAL_PLAN || "premium").toLowerCase();
+  return LIMITES_POR_PLAN[p] ? p : "premium";
 };
 
 // Plan que rige HOY: en prueba gratis, el plan de prueba; si no, el de la cuenta.
@@ -104,7 +104,7 @@ const modulosVigentes = (cuenta, ahora = Date.now()) => {
 };
 
 // ¿La cuenta puede usar una función paga ("whatsapp", "ia" o "mapa")? Sí si
-// su plan la incluye (Estándar, Premium y la prueba gratis) o si la sumó como
+// su plan la incluye (WhatsApp y mapa en Estándar y Pro, IA sólo en Pro, todo en la prueba gratis) o si la sumó como
 // módulo, con la suscripción vigente. La IA, además, necesita WhatsApp.
 const incluye = (cuenta, codigo) => {
   if (!estaVigente(cuenta)) return false;

@@ -763,7 +763,7 @@ async function responderConIA(chatId) {
     if (chats.iaPausada(chat)) return { ok: false, motivo: "pausada" };
     if (!chats.ventanaAbierta(chat)) return { ok: false, motivo: "ventana_cerrada" };
 
-    // El asistente con IA: por el plan (Estándar, Premium) o el módulo.
+    // El asistente con IA: por el plan (Pro) o el módulo.
     if (!(await negocioIncluye(chat.negocio_id, "ia"))) return { ok: false, motivo: "plan" };
     const cfgIA = await obtenerConfigIA(chat.negocio_id);
     if (!cfgIA.activo) return { ok: false, motivo: "desactivada" };

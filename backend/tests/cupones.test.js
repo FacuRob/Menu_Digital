@@ -63,7 +63,7 @@ const canjear = async (codigo) => {
 const update = (table) => ops.find((o) => o.table === table && o.op === "update");
 
 test("precio con descuento: redondea y sin cupón queda el precio del plan", () => {
-  assert.equal(precioConDescuento("standard", 20), 35200);
+  assert.equal(precioConDescuento("standard", 20), 36800);
   assert.equal(precioConDescuento("basic", 0), 22000);
   assert.equal(normalizarCodigo(" dinex-abc "), "DINEX-ABC");
 });
@@ -115,7 +115,7 @@ test("canjear con suscripción activa: baja el monto en Mercado Pago", async () 
   await canjear("DINEX-ABC");
   const put = mpCalls.find((c) => c.method === "PUT");
   assert.ok(put.url.endsWith("/preapproval/sub1"));
-  assert.equal(put.body.auto_recurring.transaction_amount, 35200);
+  assert.equal(put.body.auto_recurring.transaction_amount, 36800);
 });
 
 test("canjear con precio de fundador y módulos: descuenta sólo el plan", async () => {

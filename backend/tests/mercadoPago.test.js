@@ -56,7 +56,7 @@ beforeEach(() => {
       id: "sub1",
       status: "authorized",
       external_reference: "cuenta:7:plan:standard",
-      auto_recurring: { transaction_amount: 44000 },
+      auto_recurring: { transaction_amount: 46000 },
       next_payment_date: "2030-01-01T00:00:00Z",
     },
   };
@@ -199,13 +199,13 @@ test("cobro de otra suscripción: no toca la cuenta", async () => {
 test("suscripción con el monto del cupón vigente: se activa", async () => {
   cuenta.descuento_pct = 20;
   cuenta.descuento_meses_restantes = 2;
-  subs.sub1.auto_recurring.transaction_amount = 35200;
+  subs.sub1.auto_recurring.transaction_amount = 36800;
   await llamar("sub1");
   assert.equal(updates()[0].payload.estado_suscripcion, "activo");
 });
 
 test("monto con descuento sin cupón en la cuenta: no activa", async () => {
-  subs.sub1.auto_recurring.transaction_amount = 35200;
+  subs.sub1.auto_recurring.transaction_amount = 36800;
   await llamar("sub1");
   assert.equal(updates().length, 0);
 });
@@ -221,14 +221,14 @@ test("cobro con cupón: consume un mes y no toca el monto en MP", async () => {
 
 test("último mes del cupón: vuelve al precio normal en MP", async () => {
   Object.assign(cuenta, { mp_preapproval_id: "sub1", tipo_plan: "standard", descuento_pct: 20, descuento_meses_restantes: 1 });
-  subs.sub1.auto_recurring.transaction_amount = 35200;
+  subs.sub1.auto_recurring.transaction_amount = 36800;
   await cobrar("pay1");
   const [u] = updates();
   assert.equal(u.payload.descuento_meses_restantes, 0);
   assert.equal(u.payload.descuento_pct, 0);
   const put = mpCalls.find((c) => c.method === "PUT");
   assert.ok(put.url.endsWith("/preapproval/sub1"));
-  assert.equal(put.body.auto_recurring.transaction_amount, 44000);
+  assert.equal(put.body.auto_recurring.transaction_amount, 46000);
 });
 
 test("aviso repetido del mismo cobro: no descuenta otro mes", async () => {
@@ -263,13 +263,13 @@ test("cobro aprobado: emite el comprobante y lo manda al cliente con copia al du
     descuento_pct: 25,
     descuento_meses_restantes: 2,
   });
-  cobros.pay1 = { ...cobros.pay1, transaction_amount: 33000, payment: { id: 999, status: "approved" } };
+  cobros.pay1 = { ...cobros.pay1, transaction_amount: 34500, payment: { id: 999, status: "approved" } };
   await cobrar("pay1");
 
   const ins = ops.find((o) => o.table === "comprobantes" && o.op === "insert").payload;
   assert.equal(ins.mp_cobro_id, "pay1");
-  assert.equal(ins.precio_lista, 44000);
-  assert.equal(ins.total, 33000);
+  assert.equal(ins.precio_lista, 46000);
+  assert.equal(ins.total, 34500);
   assert.equal(ins.descuento_pct, 25);
   assert.equal(ins.periodo_hasta, "2030-01-01T00:00:00Z");
 
@@ -384,19 +384,19 @@ test("cobro sin cambios: no pisa un monto distinto puesto a mano en MP", async (
 
 test("alta con cupón de 1 mes: lo consume y vuelve al precio normal en MP", async () => {
   Object.assign(cuenta, { descuento_pct: 90, descuento_meses_restantes: 1 });
-  subs.sub1.auto_recurring.transaction_amount = 4400;
+  subs.sub1.auto_recurring.transaction_amount = 4600;
   await llamar("sub1");
   const [u] = updates();
   assert.equal(u.payload.estado_suscripcion, "activo");
   assert.equal(u.payload.descuento_meses_restantes, 0);
   assert.equal(u.payload.descuento_pct, 0);
   const put = mpCalls.find((c) => c.method === "PUT");
-  assert.equal(put.body.auto_recurring.transaction_amount, 44000);
+  assert.equal(put.body.auto_recurring.transaction_amount, 46000);
 });
 
 test("alta con cupón de 3 meses: consume uno y no toca el monto", async () => {
   Object.assign(cuenta, { descuento_pct: 20, descuento_meses_restantes: 3 });
-  subs.sub1.auto_recurring.transaction_amount = 35200;
+  subs.sub1.auto_recurring.transaction_amount = 36800;
   await llamar("sub1");
   assert.equal(updates()[0].payload.descuento_meses_restantes, 2);
   assert.equal(mpCalls.some((c) => c.method === "PUT"), false);
@@ -412,7 +412,7 @@ test("aviso del primer cobro (al autorizar): no descuenta otro mes de cupón", a
   Object.assign(cuenta, { mp_preapproval_id: "sub1", tipo_plan: "standard", descuento_pct: 20, descuento_meses_restantes: 2 });
   subs.sub1.date_created = "2026-11-26T10:00:00Z";
   cobros.pay1.debit_date = "2026-11-26T10:05:00Z";
-  subs.sub1.auto_recurring.transaction_amount = 35200;
+  subs.sub1.auto_recurring.transaction_amount = 36800;
   await cobrar("pay1");
   assert.equal(updates()[0].payload.descuento_meses_restantes, undefined);
 });
@@ -421,7 +421,7 @@ test("cobro del mes siguiente: sí descuenta un mes de cupón", async () => {
   Object.assign(cuenta, { mp_preapproval_id: "sub1", tipo_plan: "standard", descuento_pct: 20, descuento_meses_restantes: 2 });
   subs.sub1.date_created = "2026-11-26T10:00:00Z";
   cobros.pay1.debit_date = "2026-12-26T10:00:00Z";
-  subs.sub1.auto_recurring.transaction_amount = 35200;
+  subs.sub1.auto_recurring.transaction_amount = 36800;
   await cobrar("pay1");
   assert.equal(updates()[0].payload.descuento_meses_restantes, 1);
 });

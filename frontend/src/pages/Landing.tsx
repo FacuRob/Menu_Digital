@@ -374,9 +374,10 @@ const FUNCIONES: Funcion[] = [
   { titulo: "Tu marca", texto: "Logo, colores, portada y horarios. Tu página se ve como tu negocio.", plan: "Todos los planes" },
   { titulo: "Varios negocios", texto: "Todos tus negocios y sucursales en una cuenta, y tu equipo con permisos por rol.", plan: "Según el plan" },
   { titulo: "Analíticas", texto: "Lo que más se vende, horarios pico, cuánto vendés por día y cómo vienen tus presupuestos y turnos.", plan: "Todos los planes" },
-  { titulo: "Control de stock", texto: "Avisos de stock bajo para no vender lo que no tenés.", plan: "Estándar y Premium" },
-  { titulo: "Avisos y chats con IA", texto: "Avisos automáticos por WhatsApp de cada pedido, presupuesto y turno, chats con tus clientes y un asistente que responde por vos.", plan: "Estándar y Premium" },
-  { titulo: "Repartidor en el mapa", texto: "Tu cliente sigue el delivery en vivo desde el celular, sin instalar nada.", plan: "Estándar y Premium" },
+  { titulo: "Control de stock", texto: "Avisos de stock bajo para no vender lo que no tenés.", plan: "Estándar y Pro" },
+  { titulo: "Avisos y chats por WhatsApp", texto: "Avisos automáticos por WhatsApp de cada pedido, presupuesto y turno y chats con tus clientes desde el panel.", plan: "Estándar y Pro" },
+  { titulo: "Asistente con IA", texto: "Responde por vos en WhatsApp: precios, horarios y pedidos. Si no sabe, te pasa la charla.", plan: "Pro, o como módulo" },
+  { titulo: "Repartidor en el mapa", texto: "Tu cliente sigue el delivery en vivo desde el celular, sin instalar nada.", plan: "Estándar y Pro" },
 ];
 
 function Funciones() {
@@ -474,9 +475,9 @@ function Precios() {
               Planes simples
             </h2>
             <p className="mt-5 max-w-[42rem] text-lg leading-relaxed text-[var(--gris)]">
-              Empezás con {TRIAL_DIAS} días gratis, sin tarjeta y con todo lo del plan Estándar. Después elegís tu plan
+              Empezás con {TRIAL_DIAS} días gratis, sin tarjeta y con todo incluido. Después elegís tu plan
               y lo pagás mes a mes con Mercado Pago, en pesos. Al Básico le podés sumar WhatsApp, el asistente con IA o
-              el mapa del repartidor.
+              el mapa del repartidor, y al Estándar, el asistente con IA.
             </p>
           </div>
           <a href="/precios" className="dx-btn-borde shrink-0 self-start hover:bg-[var(--tinta)] hover:text-white lg:self-auto">
@@ -486,11 +487,11 @@ function Precios() {
 
         <TarjetasPlanes className="mt-14" />
 
-        {/* Módulos que se suman al Básico: tarjetas propias, debajo de los planes. */}
+        {/* Módulos que se suman al plan: tarjetas propias, debajo de los planes. */}
         <div className="mt-16">
-          <h3 className="dx-display text-[clamp(2rem,4vw,3.25rem)]">Sumale módulos al Básico</h3>
+          <h3 className="dx-display text-[clamp(2rem,4vw,3.25rem)]">Sumale módulos a tu plan</h3>
           <p className="mt-4 max-w-[40rem] text-lg leading-relaxed text-[var(--gris)]">
-            Los sumás desde tu panel y se cobran con tu próximo pago. En el Estándar y el Premium ya vienen incluidos.
+            Los sumás desde tu panel y se cobran con tu próximo pago. El Estándar ya trae WhatsApp y el mapa; el Pro, todo.
           </p>
           <TarjetasModulos nivel="h4" className="mt-8" />
         </div>

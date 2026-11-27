@@ -14,7 +14,7 @@ const noSoloLectura = require("../middleware/noSoloLectura");
 // Rutas para el administrador (protegidas por el middleware al montarlas)
 router.get("/", getPedidos);
 router.get("/:id", getPedidoById);
-// Mapa del repartidor: plan Estándar o Premium.
+// Mapa del repartidor: plan Estándar o Pro.
 router.get("/:id/link-reparto", noSoloLectura, requiereMapa, getLinkReparto);
 router.put("/:id/estado", updateEstadoPedido);
 // Transferencias: "Llegó la plata" / "No llegó" (dueño y Admin).

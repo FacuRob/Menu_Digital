@@ -3,15 +3,15 @@ import "@fontsource-variable/archivo/wdth.css";
 import "../components/landing/landing.css";
 import { ADMIN_LOGIN_URL, ADMIN_SIGNUP_URL } from "../lib/links";
 import { IconArrow, IconCheck, LogoMark } from "../components/landing/icons";
-import { MODULOS, PLANES, TRIAL_DIAS, pesos, precioPlan, type CodigoPlan } from "../lib/planes";
+import { MODULOS, PLANES, TRIAL_DIAS, pesos, planDe, precioConTodo, precioPlan, type CodigoPlan } from "../lib/planes";
 import { TarjetasModulos, TarjetasPlanes } from "../components/landing/Planes";
 
-// Página de precios (/precios): planes, módulos que se suman al Básico,
+// Página de precios (/precios): planes, módulos que se suman al plan,
 // comparativa y preguntas. Mismo mundo "Hora pico" que la landing, sin escenas.
 const BRAND = "DinexFlow";
 const CONTENEDOR = "mx-auto w-full max-w-[1400px] px-5 sm:px-8 lg:px-12";
 const DESCRIPCION =
-  "Planes desde $22.000 por mes en pesos, con Mercado Pago. Sumá WhatsApp, IA o el mapa al Básico, o elegí el Estándar con todo.";
+  "Planes desde $22.000 por mes en pesos, con Mercado Pago. Sumá WhatsApp, IA o el mapa a tu plan, o elegí el Pro con todo incluido.";
 
 
 // ── Comparativa ──────────────────────────────────────────────
@@ -57,7 +57,7 @@ const COMPARATIVA: { grupo: string; filas: { label: string; valores: [Celda, Cel
     filas: [
       { label: "Avisos automáticos del pedido", valores: [`Módulo WhatsApp +$ ${precioMod("whatsapp")}`, true, true] },
       { label: "Chats con tus clientes", valores: ["Con el módulo WhatsApp", true, true] },
-      { label: "Asistente con IA", valores: [`Módulo +$ ${precioMod("ia")}, pide WhatsApp`, true, true] },
+      { label: "Asistente con IA", valores: [`Módulo +$ ${precioMod("ia")}, pide WhatsApp`, `Módulo +$ ${precioMod("ia")}`, true] },
     ],
   },
   {
@@ -77,7 +77,15 @@ const INCLUIDO = [
 const FAQS = [
   {
     q: "¿Puedo sumar WhatsApp al plan Básico?",
-    a: `Sí, por $ ${pesos(MODULOS[0].precio)} al mes, desde Suscripción en tu panel. Si además querés el asistente con IA, te conviene el Estándar: trae todo por $ ${pesos(precioPlan("standard"))}.`,
+    a: `Sí, por $ ${pesos(MODULOS[0].precio)} al mes, desde Suscripción en tu panel. Si además querés el mapa del repartidor, te conviene el Estándar: trae los dos por $ ${pesos(precioPlan("standard"))}.`,
+  },
+  {
+    q: "¿El Estándar trae el asistente con IA?",
+    a: `No, se lo sumás por $ ${pesos(MODULOS.find((m) => m.codigo === "ia")!.precio)} al mes (en total $ ${pesos(precioConTodo(planDe("standard")))}). El Pro lo trae incluido, junto con hasta 5 negocios y 1.000 productos, por $ ${pesos(precioPlan("premium"))}.`,
+  },
+  {
+    q: "¿Los cupones de descuento sirven para los módulos?",
+    a: "No. El cupón descuenta el precio del plan (Básico, Estándar o Pro); los módulos que sumes se cobran a su precio.",
   },
   {
     q: "¿Puedo quitar un módulo?",
@@ -85,7 +93,7 @@ const FAQS = [
   },
   {
     q: "¿Qué pasa al terminar la prueba gratis?",
-    a: `Durante ${TRIAL_DIAS} días usás todo lo del Estándar. Después elegís un plan y seguís con todo lo que cargaste. Si no elegís, el panel queda en pausa hasta que pagues; lo que cargaste no se borra.`,
+    a: `Durante ${TRIAL_DIAS} días usás todo, con el asistente con IA incluido. Después elegís un plan y seguís con todo lo que cargaste. Si no elegís, el panel queda en pausa hasta que pagues; lo que cargaste no se borra.`,
   },
   {
     q: "¿Cómo se cobra?",
@@ -146,8 +154,8 @@ export default function Precios() {
   }, []);
 
   const grupos = completa ? COMPARATIVA : COMPARATIVA.slice(0, GRUPOS_VISIBLES);
-  const conTodo = precioPlan("basic") + MODULOS.reduce((t, m) => t + m.precio, 0);
-  const conWaIa = precioPlan("basic") + MODULOS.filter((m) => m.codigo !== "mapa").reduce((t, m) => t + m.precio, 0);
+  const basicoConTodo = precioConTodo(planDe("basic"));
+  const basicoWaMapa = precioPlan("basic") + MODULOS.filter((m) => m.codigo !== "ia").reduce((t, m) => t + m.precio, 0);
 
   return (
     <div className="dx min-h-dvh">
@@ -222,8 +230,10 @@ export default function Precios() {
             <TarjetasPlanes nivel="h2" className="mt-14" />
 
             <p className="mt-6 max-w-[52rem] text-[1.0625rem] leading-relaxed text-[var(--gris)]">
-              ¿Sumás WhatsApp y el asistente al Básico? Serían $ {pesos(conWaIa)} por mes (con el mapa, $ {pesos(conTodo)}).{" "}
-              <strong className="font-semibold text-[var(--tinta)]">El Estándar trae todo eso y hasta 3 negocios por $ {pesos(precioPlan("standard"))}.</strong>
+              ¿Sumás WhatsApp y el mapa al Básico? Serían $ {pesos(basicoWaMapa)} por mes.{" "}
+              <strong className="font-semibold text-[var(--tinta)]">El Estándar los trae, con hasta 3 negocios, por $ {pesos(precioPlan("standard"))}.</strong>{" "}
+              ¿Querés todo, con el asistente con IA? El Básico con todo sale $ {pesos(basicoConTodo)} y el Estándar con IA, $ {pesos(precioConTodo(planDe("standard")))}.{" "}
+              <strong className="font-semibold text-[var(--tinta)]">El Pro trae todo por $ {pesos(precioPlan("premium"))}.</strong>
             </p>
 
             {/* Más de un negocio */}
@@ -231,7 +241,7 @@ export default function Precios() {
               <div>
                 <h2 className="text-2xl font-bold">¿Tenés más de un negocio?</h2>
                 <p className="mt-1.5 max-w-[40rem] text-[var(--gris)]">
-                  Con el Estándar o el Premium manejás todos desde una sola cuenta, cada uno con su página y su QR.
+                  Con el Estándar o el Pro manejás todos desde una sola cuenta, cada uno con su página y su QR.
                 </p>
               </div>
               <a href="#comparar" className="dx-btn-borde shrink-0 hover:bg-[var(--tinta)] hover:text-white">
@@ -248,8 +258,8 @@ export default function Precios() {
               Sumale módulos
             </h2>
             <p className="mt-5 max-w-[40rem] text-lg leading-relaxed text-[var(--gris-claro)]">
-              Al plan Básico le sumás sólo lo que usás, desde tu panel. Lo sumás y lo usás ya; se cobra con tu próximo pago, todos
-              los meses hasta que lo quites. En el Estándar y el Premium ya vienen incluidos.
+              A tu plan le sumás sólo lo que usás, desde tu panel. Lo sumás y lo usás ya; se cobra con tu próximo pago, todos
+              los meses hasta que lo quites. El Estándar ya trae WhatsApp y el mapa; el Pro, todo.
             </p>
             <TarjetasModulos tema="oscuro" className="mt-12" />
           </div>
@@ -282,7 +292,7 @@ export default function Precios() {
             {/* Con foco: así la tabla también se desliza con el teclado. */}
             <div role="region" aria-label="Comparación de planes" tabIndex={0} className="mt-4 overflow-x-auto sm:mt-10">
               <table id="tabla-comparar" className="w-full min-w-[30rem] border-collapse text-left">
-                <caption className="sr-only">Comparación de los planes Básico, Estándar y Premium</caption>
+                <caption className="sr-only">Comparación de los planes Básico, Estándar y Pro</caption>
                 <thead>
                   <tr className="border-b-2 border-[var(--tinta)]">
                     <th scope="col" className="w-[34%] py-4 pr-4 font-semibold text-[var(--gris)]">

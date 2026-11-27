@@ -20,9 +20,9 @@ test("resumen: la cuenta de Tech no suma y el MRR usa el precio con descuento", 
   assert.equal(r.por_plan.premium, 0);
   assert.equal(r.total_negocios, 2);
   assert.equal(r.mrr_por_plan.premium, 0);
-  assert.equal(r.mrr_por_plan.standard, 4400); // 44.000 con 90 %
+  assert.equal(r.mrr_por_plan.standard, 4600); // 46.000 con 90 %
   assert.equal(r.mrr_por_plan.basic, 22000); // descuento ya terminado → precio lleno
-  assert.equal(r.mrr, 26400);
+  assert.equal(r.mrr, 26600);
 });
 
 test("resumen: el MRR suma el precio de fundador y los módulos", () => {

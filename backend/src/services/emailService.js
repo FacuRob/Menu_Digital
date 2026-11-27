@@ -146,7 +146,7 @@ const sendSoporteAviso = ({ to, cuenta, tipo, asunto, texto, url }) =>
   });
 
 // ─── COMPROBANTE DE PAGO (cobro mensual aprobado) ────────────
-const NOMBRE_PLAN = { basic: "Básico", standard: "Estándar", premium: "Premium" };
+const NOMBRE_PLAN = { basic: "Básico", standard: "Estándar", premium: "Pro" };
 const dinero = (n, moneda = "ARS") =>
   new Intl.NumberFormat("es-AR", { style: "currency", currency: moneda, maximumFractionDigits: 0 }).format(n || 0);
 const fecha = (iso) =>

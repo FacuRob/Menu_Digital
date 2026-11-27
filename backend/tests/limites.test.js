@@ -14,9 +14,9 @@ afterEach(() => {
 
 const futuro = () => new Date(Date.now() + 86400000).toISOString();
 
-test("limitesEfectivos: en trial usa los límites de Estándar (no los de Free)", () => {
+test("limitesEfectivos: en trial usa los límites del Pro (no los de Free)", () => {
   const cuenta = { estado_suscripcion: "trial", tipo_plan: "free", limite_negocios: 1, limite_productos: 10 };
-  assert.deepEqual(limitesEfectivos(cuenta), { negocios: 3, productos: 180 });
+  assert.deepEqual(limitesEfectivos(cuenta), { negocios: 5, productos: 1000 });
 });
 
 test("limitesEfectivos: TRIAL_PLAN permite elegir otro plan de prueba", () => {
@@ -25,9 +25,9 @@ test("limitesEfectivos: TRIAL_PLAN permite elegir otro plan de prueba", () => {
   assert.deepEqual(limitesEfectivos({ estado_suscripcion: "trial" }), { negocios: 1, productos: 50 });
 });
 
-test("limitesEfectivos: TRIAL_PLAN inválido cae a standard", () => {
+test("limitesEfectivos: TRIAL_PLAN inválido cae a premium", () => {
   process.env.TRIAL_PLAN = "inventado";
-  assert.equal(planDeTrial(), "standard");
+  assert.equal(planDeTrial(), "premium");
 });
 
 test("limitesEfectivos: planes pagos (productos = total de la cuenta)", () => {
@@ -68,7 +68,7 @@ test("limitesEfectivos: plan desconocido usa lo guardado; sin datos, Free", () =
 });
 
 test("planEfectivo: en trial el de prueba; si no, el de la cuenta", () => {
-  assert.equal(planEfectivo({ estado_suscripcion: "trial", tipo_plan: "free" }), "standard");
+  assert.equal(planEfectivo({ estado_suscripcion: "trial", tipo_plan: "free" }), "premium");
   assert.equal(planEfectivo({ estado_suscripcion: "activo", tipo_plan: "basic" }), "basic");
 });
 

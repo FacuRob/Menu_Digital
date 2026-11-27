@@ -105,9 +105,11 @@ export const NegocioProvider = ({ children }: { children: ReactNode }) => {
       .get()
       .then((p) => {
         if (!vigente) return;
-        const trae = p.plan_efectivo === "standard" || p.plan_efectivo === "premium";
-        const de = (v?: boolean) => (v === true ? true : v === false && !trae ? false : null);
-        setFunciones({ whatsapp: de(p.whatsapp), ia: de(p.ia), mapa: de(p.mapa) });
+        // false sólo si el plan no la trae (Estándar: WhatsApp y mapa; Pro: todo).
+        const trae = (c: "whatsapp" | "ia" | "mapa") =>
+          p.plan_efectivo === "premium" || (p.plan_efectivo === "standard" && c !== "ia");
+        const de = (c: "whatsapp" | "ia" | "mapa") => (p[c] === true ? true : p[c] === false && !trae(c) ? false : null);
+        setFunciones({ whatsapp: de("whatsapp"), ia: de("ia"), mapa: de("mapa") });
       })
       .catch(() => vigente && setFunciones({ whatsapp: null, ia: null, mapa: null }));
     return () => {
