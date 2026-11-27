@@ -32,6 +32,13 @@ test("plano: recorta medidas, descarta formas raras y avisa mesas repetidas", ()
 
   assert.match(normalizarPlano({ pisos: [{ mesas: [{ mesa: 2 }] }, { mesas: [{ mesa: 2 }] }] }).error, /dos veces/);
   assert.match(normalizarPlano({ pisos: [{ mesas: [{ mesa: "A" }] }] }).error, /inválido/);
+
+  // Mesa combinada: sus números cuentan como usados y suben la cantidad.
+  const c = normalizarPlano({ pisos: [{ mesas: [{ mesa: 6, unidas: [7, "12"] }, { mesa: 1 }] }] });
+  assert.deepEqual(c.plano.pisos[0].mesas[0].unidas, ["7", "12"]);
+  assert.equal(c.plano.pisos[0].mesas[1].unidas, undefined);
+  assert.equal(c.mayorMesa, 12);
+  assert.match(normalizarPlano({ pisos: [{ mesas: [{ mesa: 6, unidas: [7] }, { mesa: 7 }] }] }).error, /7 está dos veces/);
   assert.match(normalizarPlano({ pisos: [] }).error, /al menos un piso/);
 });
 

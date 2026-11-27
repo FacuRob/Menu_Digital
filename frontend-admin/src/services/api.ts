@@ -543,7 +543,8 @@ export const clientesService = {
 // ── Mesas (gastronomía): plano del local y mesas ocupadas ──
 // Medidas del plano en metros.
 export type FormaMesa = "redonda" | "cuadrada" | "rectangular";
-export interface MesaPlano { mesa: string; forma: FormaMesa; x: number; y: number; w: number; h: number }
+// unidas: mesa combinada (otras mesas juntadas con esta; sus QR cargan acá).
+export interface MesaPlano { mesa: string; unidas?: string[]; forma: FormaMesa; x: number; y: number; w: number; h: number }
 export interface ZonaPlano { id: string; tipo: "interior" | "exterior"; forma: "rect" | "circulo"; nombre: string; x: number; y: number; w: number; h: number }
 export interface PisoPlano { id: string; nombre: string; ancho: number; alto: number; zonas: ZonaPlano[]; mesas: MesaPlano[] }
 export interface PlanoMesas { pisos: PisoPlano[] }

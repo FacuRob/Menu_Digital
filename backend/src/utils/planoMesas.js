@@ -3,7 +3,8 @@
 //
 //   { pisos: [{ id, nombre, ancho, alto,
 //               zonas: [{ id, tipo: "interior"|"exterior", forma: "rect"|"circulo", nombre, x, y, w, h }],
-//               mesas: [{ mesa: "5", forma: "redonda"|"cuadrada"|"rectangular", x, y, w, h }] }] }
+//               mesas: [{ mesa: "5", unidas?: ["6"], forma: "redonda"|"cuadrada"|"rectangular", x, y, w, h }] }] }
+//   (unidas: mesa combinada; "5" y "6" son una sola mesa en el plano)
 //
 // normalizarPlano limpia lo que manda el panel (recorta, redondea, descarta
 // lo inválido) y devuelve { plano } o { error }.
@@ -57,13 +58,25 @@ const normalizarPlano = (body) => {
       }
       if (usadas.has(n)) return { error: `La mesa ${n} está dos veces en el plano.` };
       usadas.add(n);
+      // Mesa combinada: otras mesas juntadas con esta (sus QR cargan acá).
+      const unidas = [];
+      for (const u of Array.isArray(m?.unidas) ? m.unidas.slice(0, 20) : []) {
+        const k = Number(u);
+        if (!Number.isInteger(k) || k < 1 || k > MAX_MESA_NUM) {
+          return { error: `Número de mesa inválido: usá números del 1 al ${MAX_MESA_NUM}.` };
+        }
+        if (usadas.has(k)) return { error: `La mesa ${k} está dos veces en el plano.` };
+        usadas.add(k);
+        unidas.push(String(k));
+      }
       mesas.push({
         mesa: String(n),
+        ...(unidas.length ? { unidas } : {}),
         forma: FORMAS_MESA.includes(m?.forma) ? m.forma : "cuadrada",
         x: num(m?.x, 0, ancho, 0),
         y: num(m?.y, 0, alto, 0),
-        w: num(m?.w, 0.4, 10, 1),
-        h: num(m?.h, 0.4, 10, 1),
+        w: num(m?.w, 0.4, 20, 1),
+        h: num(m?.h, 0.4, 20, 1),
       });
     }
 

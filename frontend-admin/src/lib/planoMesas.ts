@@ -29,3 +29,46 @@ export const planoInicial = (cantidad: number, nombrePiso: string): PlanoMesas =
   }));
   return { pisos: [{ id: nuevoId("p"), nombre: nombrePiso, ancho, alto, zonas: [], mesas }] };
 };
+
+// ── Mesas combinadas (6+7) ──
+// Todos los números de una mesa del plano (la principal y las unidas).
+export const numerosDe = (m: MesaPlano) => [m.mesa, ...(m.unidas || [])];
+export const nombreMesa = (m: MesaPlano) => numerosDe(m).join("+");
+
+// Dos mesas pegadas: se tocan (o se pisan) y comparten un borde, no sólo una esquina.
+export const sePegan = (a: MesaPlano, b: MesaPlano) => {
+  const gx = Math.max(a.x, b.x) - Math.min(a.x + a.w, b.x + b.w); // < 0: se cruzan en x
+  const gy = Math.max(a.y, b.y) - Math.min(a.y + a.h, b.y + b.h);
+  return gx <= 0.05 && gy <= 0.05 && (gx < -0.2 || gy < -0.2);
+};
+
+const parecidos = (a: number, b: number) => Math.abs(a - b) < 0.15;
+
+// Junta dos mesas en una: ocupa el lugar de las dos.
+export const juntarMesas = (a: MesaPlano, b: MesaPlano): MesaPlano => {
+  const nums = [...new Set([...numerosDe(a), ...numerosDe(b)])].sort((x, y) => Number(x) - Number(y));
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  const w = Math.max(a.x + a.w, b.x + b.w) - x;
+  const h = Math.max(a.y + a.h, b.y + b.h) - y;
+  const forma = parecidos(w, h) ? (a.forma === "redonda" && b.forma === "redonda" ? "redonda" : "cuadrada") : "rectangular";
+  return { mesa: nums[0], unidas: nums.slice(1), forma, x, y, w, h };
+};
+
+// Separa una mesa combinada: reparte su lugar entre sus mesas, a lo largo.
+export const separarMesa = (m: MesaPlano): MesaPlano[] => {
+  const nums = numerosDe(m);
+  const n = nums.length;
+  const horizontal = m.w >= m.h;
+  const largo = horizontal ? m.w : m.h;
+  const ancho = horizontal ? m.h : m.w;
+  const hueco = 0.5;
+  const pieza = Math.max(0.4, Math.round(((largo - hueco * (n - 1)) / n) * 4) / 4);
+  const forma = parecidos(pieza, ancho) ? "cuadrada" : "rectangular";
+  return nums.map((mesa, i) => {
+    const d = i * (pieza + hueco);
+    return horizontal
+      ? { mesa, forma, x: m.x + d, y: m.y, w: pieza, h: m.h }
+      : { mesa, forma, x: m.x, y: m.y + d, w: m.w, h: pieza };
+  });
+};

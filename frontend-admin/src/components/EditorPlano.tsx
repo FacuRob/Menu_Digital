@@ -4,10 +4,11 @@ import { useStyles } from "./sharedStyles";
 import { useLang } from "../lib/i18n";
 import { useDialogos } from "../lib/dialogos";
 import type { FormaMesa, MesaPlano, PisoPlano, PlanoMesas as Plano, ZonaPlano } from "../services/api";
-import { nuevoId } from "../lib/planoMesas";
+import { juntarMesas, nombreMesa, numerosDe, nuevoId, separarMesa, sePegan } from "../lib/planoMesas";
 
 // Editor del plano del local (sólo el dueño): pisos, zonas interior/exterior
 // (rectángulos o círculos) y mesas. Se guarda todo junto al tocar "Guardar".
+// Si se pega una mesa a otra, pregunta si son la misma mesa y las combina (6+7).
 
 const MAX_PISOS = 5;
 
@@ -45,7 +46,7 @@ export default function EditorPlano({ inicial, existe, onGuardar, onEliminar, on
   const [cambios, setCambios] = useState(false);
 
   const piso = plano.pisos[Math.min(pi, plano.pisos.length - 1)];
-  const usadas = new Set(plano.pisos.flatMap((p) => p.mesas.map((m) => Number(m.mesa))));
+  const usadas = new Set(plano.pisos.flatMap((p) => p.mesas.flatMap((m) => numerosDe(m).map(Number))));
   const proxima = () => {
     let n = 1;
     while (usadas.has(n)) n++;
@@ -100,6 +101,37 @@ export default function EditorPlano({ inicial, existe, onGuardar, onEliminar, on
   const cambiarZona = (cambio: Partial<ZonaPlano>) => {
     if (!zonaSel) return;
     setPiso({ ...piso, zonas: piso.zonas.map((z) => (z.id === zonaSel.id ? { ...z, ...cambio } : z)) });
+  };
+
+  // Mesa combinada: dos mesas del piso pasan a ser una (6+7). Los QR de las
+  // dos siguen andando y cargan a la misma mesa.
+  const juntar = (a: MesaPlano, b: MesaPlano) => {
+    const nueva = juntarMesas(a, b);
+    setPlano((p) => ({
+      pisos: p.pisos.map((x) =>
+        x.id !== piso.id ? x : { ...x, mesas: [...x.mesas.filter((m) => m.mesa !== a.mesa && m.mesa !== b.mesa), nueva] },
+      ),
+    }));
+    setCambios(true);
+    setSel({ tipo: "mesa", id: nueva.mesa });
+  };
+  // Al soltar una mesa pegada a otra: ¿son la misma mesa?
+  const alSoltarMesa = async (id: string) => {
+    const yo = piso.mesas.find((m) => m.mesa === id);
+    const otra = yo && piso.mesas.find((m) => m.mesa !== id && sePegan(yo, m));
+    if (!yo || !otra) return;
+    const si = await confirmar({
+      titulo: t("mesJuntarTitulo"),
+      mensaje: t("mesJuntarPregunta", { a: nombreMesa(yo), b: nombreMesa(otra) }),
+      confirmarTexto: t("mesJuntarSi"),
+    });
+    if (si) juntar(yo, otra);
+  };
+  const separar = () => {
+    if (!mesaSel?.unidas?.length) return;
+    const partes = separarMesa(mesaSel);
+    setPiso({ ...piso, mesas: [...piso.mesas.filter((m) => m.mesa !== mesaSel.mesa), ...partes] });
+    setSel({ tipo: "mesa", id: partes[0].mesa });
   };
 
   // Número de mesa: entero, sin repetir en ningún piso.
@@ -230,6 +262,7 @@ export default function EditorPlano({ inicial, existe, onGuardar, onEliminar, on
             onSel={setSel}
             onCambio={setPiso}
             onBorrar={borrarSel}
+            onSoltarMesa={alSoltarMesa}
             ariaLabel={t("mesPlanoDe", { p: piso.nombre })}
           />
           <p style={{ margin: "8px 0 0", fontSize: 12, color: "var(--fg-3)" }}>{t("mesAyudaEditor")}</p>
@@ -239,7 +272,17 @@ export default function EditorPlano({ inicial, existe, onGuardar, onEliminar, on
         <aside style={{ ...s.card, padding: 14, display: "grid", gap: 12, minWidth: 0 }} aria-label={t("mesPropiedades")}>
           {mesaSel ? (
             <>
-              <h3 style={{ margin: 0, fontSize: 15, color: "var(--fg)" }}>{t("mesMesaN", { n: mesaSel.mesa })}</h3>
+              <h3 style={{ margin: 0, fontSize: 15, color: "var(--fg)" }}>{t("mesMesaN", { n: nombreMesa(mesaSel) })}</h3>
+              {mesaSel.unidas?.length ? (
+                <>
+                  <p style={{ margin: 0, fontSize: 13, color: "var(--fg-2)" }}>
+                    {t("mesCombinadaDesc", { n: numerosDe(mesaSel).join(", ") })}
+                  </p>
+                  <button className="tap" style={{ ...s.btnGhost, justifySelf: "start" }} onClick={separar}>
+                    {t("mesSeparar")}
+                  </button>
+                </>
+              ) : (
               <div>
                 <label htmlFor={`${uid}-num`} style={s.label}>{t("mesNumero")}</label>
                 <input
@@ -257,6 +300,28 @@ export default function EditorPlano({ inicial, existe, onGuardar, onEliminar, on
                 />
                 {numError && <p id={`${uid}-numerr`} role="alert" style={{ margin: "6px 0 0", fontSize: 12, color: "var(--err)" }}>{numError}</p>}
               </div>
+              )}
+              {piso.mesas.length > 1 && (
+                <div>
+                  <label htmlFor={`${uid}-juntar`} style={s.label}>{t("mesJuntarCon")}</label>
+                  <select
+                    id={`${uid}-juntar`}
+                    style={s.input}
+                    value=""
+                    onChange={(e) => {
+                      const otra = piso.mesas.find((m) => m.mesa === e.target.value);
+                      if (otra) juntar(mesaSel, otra);
+                    }}
+                  >
+                    <option value="">{t("mesJuntarElegir")}</option>
+                    {piso.mesas
+                      .filter((m) => m.mesa !== mesaSel.mesa)
+                      .map((m) => (
+                        <option key={m.mesa} value={m.mesa}>{t("mesMesaN", { n: nombreMesa(m) })}</option>
+                      ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label htmlFor={`${uid}-forma`} style={s.label}>{t("mesForma")}</label>
                 <select id={`${uid}-forma`} style={s.input} value={mesaSel.forma} onChange={(e) => cambiarMesa({ forma: e.target.value as FormaMesa })}>
@@ -266,8 +331,8 @@ export default function EditorPlano({ inicial, existe, onGuardar, onEliminar, on
                 </select>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                {num(`${uid}-mw`, t("mesAnchoM"), mesaSel.w, (v) => cambiarMesa({ w: Math.max(0.4, Math.min(10, v || 0.4)) }), 0.25, 0.4)}
-                {num(`${uid}-mh`, t("mesLargoM"), mesaSel.h, (v) => cambiarMesa({ h: Math.max(0.4, Math.min(10, v || 0.4)) }), 0.25, 0.4)}
+                {num(`${uid}-mw`, t("mesAnchoM"), mesaSel.w, (v) => cambiarMesa({ w: Math.max(0.4, Math.min(20, v || 0.4)) }), 0.25, 0.4)}
+                {num(`${uid}-mh`, t("mesLargoM"), mesaSel.h, (v) => cambiarMesa({ h: Math.max(0.4, Math.min(20, v || 0.4)) }), 0.25, 0.4)}
               </div>
               <button style={{ ...s.btnDanger, justifySelf: "start", minHeight: 40 }} onClick={borrarSel}>{t("mesQuitarMesa")}</button>
             </>

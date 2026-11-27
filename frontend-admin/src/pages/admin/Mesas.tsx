@@ -5,7 +5,7 @@ import Modal from "../../components/Modal";
 import TicketModal from "../../components/TicketModal";
 import EditorPlano from "../../components/EditorPlano";
 import PlanoMesas from "../../components/PlanoMesas";
-import { COLOR_ESTADO, planoInicial, type EstadoMesa } from "../../lib/planoMesas";
+import { COLOR_ESTADO, numerosDe, planoInicial, type EstadoMesa } from "../../lib/planoMesas";
 import { EmptyState } from "../../components/ui";
 import { useStyles } from "../../components/sharedStyles";
 import { useAuth } from "../../context/AuthContext";
@@ -112,35 +112,58 @@ export default function Mesas() {
   }, [cargar, editando]);
 
   const ocupadas = useMemo(() => new Map((datos?.ocupadas || []).map((o) => [o.mesa, o])), [datos]);
+  const plano = datos?.plano ?? null;
+
+  // Mesas combinadas del plano (6+7): cada número apunta a todos los de su mesa.
+  const grupos = useMemo(() => {
+    const g = new Map<string, string[]>();
+    plano?.pisos.forEach((p) => p.mesas.forEach((m) => numerosDe(m).forEach((n) => g.set(n, numerosDe(m)))));
+    return g;
+  }, [plano]);
+  const numsDe = (m: string) => grupos.get(m) ?? [m];
+  const nombreDe = (m: string) => numsDe(m).join("+");
+  // Lo ocupado de una mesa, sumando sus números si está combinada.
+  const infoDe = (m: string): MesaOcupada | undefined => {
+    const partes = numsDe(m).flatMap((n) => ocupadas.get(n) ?? []);
+    if (partes.length < 2) return partes[0] && { ...partes[0], mesa: nombreDe(m) };
+    return {
+      mesa: nombreDe(m),
+      ocupada_desde: partes.map((o) => o.ocupada_desde).sort()[0],
+      pedidos: partes.flatMap((o) => o.pedidos).sort((a, b) => ((a.created_at ?? "") < (b.created_at ?? "") ? -1 : 1)),
+      en_curso: partes.reduce((a, o) => a + o.en_curso, 0),
+      total: partes.reduce((a, o) => a + o.total, 0),
+    };
+  };
   const estadoDe = (m: string): EstadoMesa => {
-    const o = ocupadas.get(m);
+    const o = infoDe(m);
     if (!o) return "libre";
     return o.pedidos.length ? "pedido" : "ocupada";
   };
   const etiquetaEstado = (e: EstadoMesa) => t(e === "libre" ? "mesLibre" : e === "ocupada" ? "mesOcupada" : "mesConPedido");
   const etiquetaDe = (m: string) => {
-    const o = ocupadas.get(m);
+    const o = infoDe(m);
     const e = estadoDe(m);
-    return [t("mesMesaN", { n: m }), etiquetaEstado(e), o?.pedidos.length ? fmt(o.total) : ""].filter(Boolean).join(", ");
+    return [t("mesMesaN", { n: nombreDe(m) }), etiquetaEstado(e), o?.pedidos.length ? fmt(o.total) : ""].filter(Boolean).join(", ");
   };
   const detalleDe = (m: string) => {
-    const o = ocupadas.get(m);
+    const o = infoDe(m);
     return o?.pedidos.length ? fmt(o.total) : undefined;
   };
 
   // Mesas que existen (1..cantidad, más las del plano y las ocupadas).
-  const plano = datos?.plano ?? null;
   const todas = useMemo(() => {
     const set = new Set<number>();
     for (let i = 1; i <= (datos?.cantidad || 0); i++) set.add(i);
-    plano?.pisos.forEach((p) => p.mesas.forEach((m) => set.add(Number(m.mesa))));
+    plano?.pisos.forEach((p) => p.mesas.forEach((m) => numerosDe(m).forEach((n) => set.add(Number(n)))));
     datos?.ocupadas.forEach((o) => set.add(Number(o.mesa)));
     return [...set].filter((n) => Number.isFinite(n)).sort((a, b) => a - b).map(String);
   }, [datos, plano]);
-  const enPlano = useMemo(() => new Set(plano?.pisos.flatMap((p) => p.mesas.map((m) => m.mesa)) || []), [plano]);
+  const enPlano = useMemo(() => new Set(plano?.pisos.flatMap((p) => p.mesas.flatMap(numerosDe)) || []), [plano]);
   const sinUbicar = todas.filter((m) => !enPlano.has(m));
+  // Una mesa combinada cuenta una vez (por su primer número).
+  const principales = [...new Set(todas.map((m) => numsDe(m)[0]))];
   const cuenta = { libre: 0, ocupada: 0, pedido: 0 } as Record<EstadoMesa, number>;
-  todas.forEach((m) => cuenta[estadoDe(m)]++);
+  principales.forEach((m) => cuenta[estadoDe(m)]++);
 
   const guardarPlano = async (p: Plano | null) => {
     try {
@@ -154,14 +177,15 @@ export default function Mesas() {
   };
 
   const liberar = async (mesa: string, preguntar: boolean) => {
-    const o = ocupadas.get(mesa);
+    const o = infoDe(mesa);
     if (preguntar) {
-      const msg = o?.en_curso ? t("mesLiberarConfirmPedidos", { n: o.en_curso }) : t("mesLiberarConfirm", { n: mesa });
+      const msg = o?.en_curso ? t("mesLiberarConfirmPedidos", { n: o.en_curso }) : t("mesLiberarConfirm", { n: nombreDe(mesa) });
       if (!(await confirmar({ titulo: t("mesLiberar"), mensaje: msg, confirmarTexto: t("mesLiberar") }))) return;
     }
     setLiberando(true);
     try {
-      await mesasService.liberar(mesa);
+      // Combinada: se liberan todos sus números.
+      for (const n of numsDe(mesa)) if (ocupadas.has(n)) await mesasService.liberar(n);
       setAbierta(null);
       await cargar();
     } catch (e) {
@@ -173,7 +197,7 @@ export default function Mesas() {
 
   const titulo = t("navMesas");
   const piso = plano?.pisos[Math.min(pi, plano.pisos.length - 1)];
-  const mesaAbierta = abierta ? ocupadas.get(abierta) : undefined;
+  const mesaAbierta = abierta ? infoDe(abierta) : undefined;
 
   if (editando && datos) {
     return (
@@ -196,7 +220,7 @@ export default function Mesas() {
   const botonMesa = (m: string) => {
     const e = estadoDe(m);
     const c = COLOR_ESTADO[e];
-    const o = ocupadas.get(m);
+    const o = infoDe(m);
     return (
       <li key={m}>
         <button
@@ -218,7 +242,7 @@ export default function Mesas() {
             padding: 8,
           }}
         >
-          <span className="pn-num" style={{ fontSize: 22, fontWeight: 800 }}>{m}</span>
+          <span className="pn-num" style={{ fontSize: 22, fontWeight: 800 }}>{nombreDe(m)}</span>
           <span style={{ fontSize: 12, fontWeight: 600 }}>{o?.pedidos.length ? fmt(o.total) : etiquetaEstado(e)}</span>
         </button>
       </li>
@@ -278,7 +302,7 @@ export default function Mesas() {
               {plano.pisos.length > 1 && (
                 <div role="tablist" aria-label={t("mesPisos")} style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
                   {plano.pisos.map((p, i) => {
-                    const ocup = p.mesas.filter((m) => ocupadas.has(m.mesa)).length;
+                    const ocup = p.mesas.filter((m) => infoDe(m.mesa)).length;
                     return (
                       <button
                         key={p.id}
@@ -315,7 +339,7 @@ export default function Mesas() {
             <section aria-labelledby="mes-ocupadas" style={{ marginBottom: 16 }}>
               <h3 id="mes-ocupadas" style={{ margin: "0 0 8px", fontSize: 14, color: "var(--fg-2)" }}>{t("mesOcupadasAhora")}</h3>
               <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(92px, 1fr))" }}>
-                {[...ocupadas.keys()].sort((a, b) => Number(a) - Number(b)).map(botonMesa)}
+                {[...new Set([...ocupadas.keys()].map((n) => numsDe(n)[0]))].sort((a, b) => Number(a) - Number(b)).map(botonMesa)}
               </ul>
             </section>
           )}
@@ -342,7 +366,7 @@ export default function Mesas() {
       {/* Detalle de una mesa */}
       {abierta && (
         <Modal
-          title={t("mesMesaN", { n: abierta })}
+          title={t("mesMesaN", { n: nombreDe(abierta) })}
           subtitle={
             mesaAbierta
               ? t("mesOcupadaDesde", { h: horaAR(mesaAbierta.ocupada_desde), m: minutosDesde(mesaAbierta.ocupada_desde) })
@@ -410,7 +434,7 @@ export default function Mesas() {
           </div>
           {mesaAbierta && (
             <div style={{ ...s.modalFooter, flexWrap: "wrap" }}>
-              <button className="tap" style={s.btnGhost} disabled={liberando} onClick={() => liberar(mesaAbierta.mesa, true)}>
+              <button className="tap" style={s.btnGhost} disabled={liberando} onClick={() => abierta && liberar(abierta, true)}>
                 {t("mesLiberar")}
               </button>
               {mesaAbierta.pedidos.length > 0 && (
@@ -419,7 +443,7 @@ export default function Mesas() {
                   style={s.btnPrimary}
                   disabled={liberando}
                   onClick={() => {
-                    setTicket({ pedido: pedidoDeMesa(mesaAbierta), mesa: mesaAbierta.mesa });
+                    if (abierta) setTicket({ pedido: pedidoDeMesa(mesaAbierta), mesa: abierta });
                     setAbierta(null);
                   }}
                 >

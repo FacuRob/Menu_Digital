@@ -1,6 +1,6 @@
 import { useId, useRef, type KeyboardEvent, type PointerEvent as RPointerEvent } from "react";
 import type { MesaPlano, PisoPlano, ZonaPlano } from "../services/api";
-import { COLOR_ESTADO, type EstadoMesa } from "../lib/planoMesas";
+import { COLOR_ESTADO, nombreMesa, type EstadoMesa } from "../lib/planoMesas";
 
 // Dibujo de un piso del local en SVG (medidas en metros).
 //   - Vista (editable = false): cada mesa es un botón con su color de estado.
@@ -12,7 +12,6 @@ export type Seleccion = { tipo: "mesa" | "zona"; id: string } | null;
 const PASO = 0.25;
 const snap = (v: number) => Math.round(v / PASO) * PASO;
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
-
 
 interface Props {
   piso: PisoPlano;
@@ -27,6 +26,8 @@ interface Props {
   onSel?: (s: Seleccion) => void;
   onCambio?: (piso: PisoPlano) => void;
   onBorrar?: () => void;
+  // Se soltó una mesa después de arrastrarla (para ver si quedó pegada a otra).
+  onSoltarMesa?: (mesa: string) => void;
   ariaLabel: string;
 }
 
@@ -36,6 +37,7 @@ type Arrastre = {
   x0: number;
   y0: number;
   orig: { x: number; y: number; w: number; h: number };
+  movida: boolean;
 };
 
 export default function PlanoMesas({
@@ -49,6 +51,7 @@ export default function PlanoMesas({
   onSel,
   onCambio,
   onBorrar,
+  onSoltarMesa,
   ariaLabel,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -88,7 +91,7 @@ export default function PlanoMesas({
     if (!it) return;
     onSel?.(s);
     const p = punto(e);
-    arrastre.current = { sel: s, modo, x0: p.x, y0: p.y, orig: { x: it.x, y: it.y, w: it.w, h: it.h } };
+    arrastre.current = { sel: s, modo, x0: p.x, y0: p.y, orig: { x: it.x, y: it.y, w: it.w, h: it.h }, movida: false };
     svgRef.current?.setPointerCapture(e.pointerId);
   };
 
@@ -98,14 +101,17 @@ export default function PlanoMesas({
     const p = punto(e);
     const dx = p.x - a.x0;
     const dy = p.y - a.y0;
+    if (Math.abs(dx) >= PASO / 2 || Math.abs(dy) >= PASO / 2) a.movida = true;
     if (a.modo === "mover") aplicar(a.sel, { ...a.orig, x: snap(a.orig.x + dx), y: snap(a.orig.y + dy) });
     else aplicar(a.sel, { ...a.orig, w: snap(a.orig.w + dx), h: snap(a.orig.h + dy) });
   };
 
   const soltar = (e: RPointerEvent) => {
-    if (!arrastre.current) return;
+    const a = arrastre.current;
+    if (!a) return;
     arrastre.current = null;
     if (svgRef.current?.hasPointerCapture(e.pointerId)) svgRef.current.releasePointerCapture(e.pointerId);
+    if (a.movida && a.modo === "mover" && a.sel.tipo === "mesa") onSoltarMesa?.(a.sel.id);
   };
 
   const teclaEdicion = (e: KeyboardEvent, s: NonNullable<Seleccion>) => {
@@ -194,6 +200,7 @@ export default function PlanoMesas({
     const c = estado ? COLOR_ESTADO[estado] : { fill: "var(--surface-3)", stroke: "var(--fg-3)", text: "var(--fg)" };
     const s = { tipo: "mesa" as const, id: m.mesa };
     const lado = Math.min(m.w, m.h);
+    const nombre = nombreMesa(m);
     const detalle = !editable ? detalleDe?.(m.mesa) : undefined;
     const cx = m.x + m.w / 2;
     const cy = m.y + m.h / 2;
@@ -209,7 +216,7 @@ export default function PlanoMesas({
         className="pl-item"
         role="button"
         tabIndex={0}
-        aria-label={etiquetaDe?.(m.mesa) ?? `Mesa ${m.mesa}`}
+        aria-label={etiquetaDe?.(m.mesa) ?? `Mesa ${nombre}`}
         aria-pressed={editable ? elegida("mesa", m.mesa) : undefined}
         style={{ cursor: editable ? "move" : "pointer" }}
         onPointerDown={(e) => empezar(e, s, "mover")}
@@ -235,12 +242,12 @@ export default function PlanoMesas({
           y={detalle ? cy - lado * 0.04 : cy}
           textAnchor="middle"
           dominantBaseline="central"
-          fontSize={lado * (detalle ? 0.36 : 0.42)}
+          fontSize={Math.min(lado * (detalle ? 0.36 : 0.42), (m.w * 0.85) / (nombre.length * 0.62))}
           fontWeight={800}
           fill={c.text}
           style={{ pointerEvents: "none", userSelect: "none", fontVariantNumeric: "tabular-nums" }}
         >
-          {m.mesa}
+          {nombre}
         </text>
         {detalle && (
           <text
