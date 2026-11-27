@@ -37,6 +37,7 @@ import { useLang, LangSelector, MULTI_IDIOMA } from "../lib/i18n";
 import "@fontsource-variable/archivo/wdth.css";
 import "../components/menu/menu.css";
 import { DEMO_CATEGORIAS, DEMO_CONFIG, DEMO_PRODUCTOS } from "../lib/menuDemo";
+import { leerPedidoLink, sinPedidoLink } from "../lib/pedidoLink";
 
 // ── Horarios ────────────────────────────────────────────────
 const hoyIndex = () => {
@@ -332,6 +333,32 @@ const Menu = ({ general = false, canonica = false }: { general?: boolean; canoni
     const cfg = general ? negocios.find((n) => n.id === negId)?.config : config;
     return cfg?.modulos?.pedidos !== false;
   };
+  // Pedido armado por el asistente de WhatsApp (?pedido=12x2,15x1): se carga
+  // en el carrito una sola vez y se saca de la URL. Lo que pide elegir algo
+  // (opciones, personalización, peso) abre su ventana para que el cliente elija.
+  const [pedidoLink] = useState(() => leerPedidoLink(window.location.search));
+  const pedidoCargado = useRef(false);
+  useEffect(() => {
+    if (pedidoCargado.current || loading || general || demo || !pedidoLink.length || !productos.length) return;
+    pedidoCargado.current = true;
+    window.history.replaceState(window.history.state, "", sinPedidoLink(window.location));
+    if (config?.modulos?.pedidos === false) return;
+    let elegir: Producto | null = null;
+    let agregados = 0;
+    for (const { id, cantidad } of pedidoLink) {
+      const prod = productos.find((p) => p.id === id);
+      if (!prod) continue;
+      if ((prod.variantes && prod.variantes.length > 0) || prod.campos?.length || esPorPeso(prod)) {
+        elegir ??= prod;
+        continue;
+      }
+      cart.add(prod, cantidad);
+      agregados++;
+    }
+    if (elegir) setModalProd(elegir);
+    else if (agregados) setCartOpen(true);
+  }, [loading, general, demo, pedidoLink, productos, config, cart]);
+
   const algunoTomaPedidos = general ? negocios.some((n) => n.config?.modulos?.pedidos !== false) : tomaPedidos();
 
   // Configuración que usa el carrito: la del negocio del pedido.

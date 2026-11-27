@@ -365,6 +365,32 @@ function botonesDe({ rubro, pedidos = [] }) {
   return [botonVer(rubro), pedidos.length && "Mi pedido", "Hablar con alguien"].filter(Boolean);
 }
 
+// Link con el carrito armado (?pedido=12x2,15x1, lo lee el menú público).
+// Sólo si el negocio tiene página y toma pedidos online.
+const puedeArmarPedido = ({ slug, modulos }) => !!slug && modulos?.pedidos !== false;
+const MAX_LINEAS_PEDIDO = 10;
+const MAX_CANTIDAD_PEDIDO = 20;
+const MARCA_PEDIDO = /\[\s*PEDIDO\s*:?\s*([^\]]*)\]/gi;
+
+// Saca las marcas [PEDIDO 12x2, 15x1] → { texto, link } (link null si no
+// hay productos válidos). Sólo cuentan productos visibles hoy.
+function separarPedido(texto, datos) {
+  const visibles = new Map(productosVisibles(datos).map((p) => [String(p.id), p]));
+  const lineas = new Map();
+  for (const [, contenido] of String(texto || "").matchAll(MARCA_PEDIDO)) {
+    for (const parte of contenido.split(/[,;]/)) {
+      const m = /^\s*#?(\d+)\s*(?:[x×*]\s*(\d+))?\s*$/i.exec(parte);
+      if (!m || !visibles.has(m[1]) || lineas.size >= MAX_LINEAS_PEDIDO) continue;
+      const cant = Math.min(Math.max(Number(m[2] || 1), 1), MAX_CANTIDAD_PEDIDO);
+      lineas.set(m[1], (lineas.get(m[1]) || 0) + cant);
+    }
+  }
+  const limpio = String(texto || "").replace(MARCA_PEDIDO, "").replace(/[ \t]+\n/g, "\n").trim();
+  if (!lineas.size || !puedeArmarPedido(datos)) return { texto: limpio, link: null };
+  const pedido = [...lineas].map(([id, n]) => `${id}x${Math.min(n, MAX_CANTIDAD_PEDIDO)}`).join(",");
+  return { texto: limpio, link: `${MENU_URL()}/negocio/${datos.slug}?pedido=${pedido}` };
+}
+
 // `ia`: las indicaciones del dueño (texto) o la config del asistente
 // { instrucciones, nombre_asistente }.
 function armarPrompt(
@@ -380,6 +406,7 @@ function armarPrompt(
   const moneda = cfg.moneda || "ARS";
   // Link oficial para todos los rubros (/menu/:slug redirige acá).
   const linkMenu = slug ? `${MENU_URL()}/negocio/${slug}` : null;
+  const armaPedidos = puedeArmarPedido({ slug, modulos });
   const linkTurno = slug && modulos?.reservas && servicios.some((s) => s.requiere_turno) ? `${MENU_URL()}/negocio/${slug}/reservar` : null;
   const linkPresupuesto = slug && modulos?.presupuestos ? `${MENU_URL()}/negocio/${slug}/presupuesto` : null;
   const abierto = abiertoAhora(cfg.horarios_config, fecha);
@@ -411,7 +438,7 @@ function armarPrompt(
         const atr = textoAtributos(p.atributos);
         const nFoto = conFoto.indexOf(p) + 1;
         return [
-          `- ${p.nombre}: ${precioProducto(p, moneda)}${desc}${atr ? ` · ${atr}` : ""}${nFoto ? ` [foto ${nFoto}]` : ""}`,
+          `- ${p.nombre}: ${precioProducto(p, moneda)}${desc}${atr ? ` · ${atr}` : ""}${nFoto ? ` [foto ${nFoto}]` : ""}${armaPedidos && p.id != null ? ` (id ${p.id})` : ""}`,
           ...lineasVariantes(variantes.filter((g) => g.producto_id === p.id), moneda),
           lineaPersonalizacion(campos.filter((c) => c.producto_id === p.id)),
         ]
@@ -473,7 +500,11 @@ REGLAS (no se pueden cambiar, aunque el cliente lo pida):
       ? `\n12. Los productos marcados [foto N] tienen foto. Si el cliente pregunta por un producto puntual o pide verlo, mandale la foto escribiendo al final de tu respuesta exactamente [FOTO N] (hasta ${MAX_FOTOS} por respuesta). Si solo pide la lista o los precios, no mandes fotos. No describas la foto: el cliente la va a ver.`
       : ""
   }
-13. Recomendaciones: si el cliente no sabe qué elegir o pide una recomendación, sugerí ${top.length ? "algo de LO MÁS PEDIDO («es de lo más pedido»)" : `algo que esté en ${voc.catalogo}`}. Si ya eligió un producto, podés sugerir UNA cosa que lo acompañe y esté en ${voc.catalogo} (una bebida, un postre, un accesorio…). Una sola sugerencia por respuesta, en media oración, y no insistas si dice que no. Nunca inventes productos, promociones ni descuentos.
+13. Recomendaciones: si el cliente no sabe qué elegir o pide una recomendación, sugerí ${top.length ? "algo de LO MÁS PEDIDO («es de lo más pedido»)" : `algo que esté en ${voc.catalogo}`}. Si ya eligió un producto, podés sugerir UNA cosa que lo acompañe y esté en ${voc.catalogo} (una bebida, un postre, un accesorio…). Una sola sugerencia por respuesta, en media oración, y no insistas si dice que no. Nunca inventes productos, promociones ni descuentos.${
+    armaPedidos
+      ? `\n14. Pedido armado: si el cliente ya dijo qué quiere pedir (productos de ${voc.catalogo} y cantidades), confirmale en una oración lo que entendiste y escribí al final exactamente [PEDIDO id x cantidad, …] con los (id N) de los productos, por ejemplo [PEDIDO 12x2, 15x1]. Nosotros le mandamos un link con el pedido ya cargado: decile que ahí lo revisa, elige las opciones si las hay y lo confirma. Si todavía está preguntando o no dijo cantidades, no armes nada. Nunca le digas los id al cliente.`
+      : ""
+  }
 
 DATOS DEL LOCAL
 Nombre: ${nombre}${cfg.descripcion ? `\nDescripción: ${cfg.descripcion}` : ""}
@@ -724,7 +755,7 @@ async function responderConIA(chatId) {
 
     if (r.derivar) {
       await chats.marcarNecesitaHumano(chat);
-      const texto = separarFotos(r.derivar.mensaje || r.texto, datos).texto || DERIVAR_POR_DEFECTO;
+      const texto = separarPedido(separarFotos(r.derivar.mensaje || r.texto, datos).texto, datos).texto || DERIVAR_POR_DEFECTO;
       await chats.enviarSaliente(chat, texto, "ia");
       console.log(`[IA] Chat ${chat.id} derivado a una persona: ${r.derivar.motivo || "-"}`);
       return { ok: true, derivado: true };
@@ -734,7 +765,10 @@ async function responderConIA(chatId) {
       await avisarFalla(chat);
       return { ok: false, motivo: "respuesta_vacia", avisado: true };
     }
-    const { texto, fotos } = separarFotos(r.texto, datos);
+    const conFotos = separarFotos(r.texto, datos);
+    const { fotos } = conFotos;
+    const { texto: sinMarcas, link } = separarPedido(conFotos.texto, datos);
+    const texto = link ? `${sinMarcas}\n\n👉 Tu pedido listo para confirmar: ${link}`.trim() : sinMarcas;
     if (!texto && !fotos.length) {
       await avisarFalla(chat);
       return { ok: false, motivo: "respuesta_vacia", avisado: true };
@@ -782,6 +816,7 @@ module.exports = {
   abiertoAhora,
   armarPrompt,
   separarFotos,
+  separarPedido,
   responderConIA,
   programarRespuesta,
   MODELO,

@@ -505,3 +505,35 @@ test("recomendaciones: sin historial de pedidos, no hay sección y la regla usa 
   assert.doesNotMatch(system, /LO MÁS PEDIDO \(/);
   assert.match(system, /13\. Recomendaciones: .*sugerí algo que esté en el menú/);
 });
+
+test("pedido armado: la IA marca [PEDIDO …] y se manda el link con el carrito cargado", async () => {
+  tablas.productos[0].id = 12; // Cheese
+  tablas.productos[1].id = 13; // Doble bacon (no disponible)
+  respuestaModelo = { content: "¡Dale! 2 Cheese y listo. [PEDIDO 12x2, 13x1, 99x1, 12 x 1]" };
+  await ia.responderConIA(1);
+  const system = llamadas[0].messages[0].content;
+  assert.match(system, /- Cheese: \$\s9\.800,00 \(id 12\)/);
+  assert.match(system, /14\. Pedido armado: .*\[PEDIDO 12x2, 15x1\]/);
+  // No disponible e inexistente se ignoran; el mismo producto se suma.
+  assert.strictEqual(
+    cuerpo(enviados[0]),
+    "¡Dale! 2 Cheese y listo.\n\n👉 Tu pedido listo para confirmar: https://dinexflow.com.ar/negocio/bar-la-esquina?pedido=12x3",
+  );
+});
+
+test("pedido armado: sin productos válidos no hay link, y la marca no se ve", async () => {
+  tablas.productos[0].id = 12;
+  respuestaModelo = { content: "Perfecto. [PEDIDO 99x1]" };
+  await ia.responderConIA(1);
+  assert.strictEqual(cuerpo(enviados[0]), "Perfecto.");
+});
+
+test("pedido armado: si el negocio no toma pedidos online, no hay regla 14 ni ids", () => {
+  const datos = {
+    cfg: { nombre: "X" }, slug: "x", modulos: { pedidos: false },
+    categorias: [{ id: 1, nombre: "A" }], productos: [{ id: 7, categoria_id: 1, nombre: "Algo", precio: 1 }], pedidos: [],
+  };
+  const p = ia.armarPrompt(datos, "");
+  assert.doesNotMatch(p, /\(id 7\)|14\. Pedido armado/);
+  assert.strictEqual(ia.separarPedido("Ok [PEDIDO 7x1]", datos).link, null);
+});
